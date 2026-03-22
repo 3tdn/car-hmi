@@ -1,0 +1,97 @@
+@startuml Sequence - System Startup
+!theme plain
+title System Startup & Graceful Shutdown Sequence
+
+participant "CLI / Main" as cli
+participant "Runner\n(runner.py)" as runner
+participant "Config\n(config.py)" as config
+participant "CAN Simulator\n(simulator.py)" as sim
+participant "CAN Reader\n(reader.py)" as reader
+participant "Signal Pipeline\n(pipeline.py)" as pipe
+participant "Storage\n(database.py)" as db
+participant "FastAPI\n(app.py)" as api
+participant "Monitoring\n(watchdog)" as mon
+
+== Startup Sequence ==
+
+cli -> runner : start(config_path="config/bus.yaml")
+activate runner
+
+runner -> config : load("config/bus.yaml")
+config -> config : validate YAML schema
+runner -> config : load("config/alarms.yaml")
+alt config invalid
+    config --> runner : ConfigValidationError\n(schema mismatch / missing required)
+    runner --> cli : Exit with error message
+else config valid
+    config --> runner : AppConfig object
+end
+
+runner -> db : init_db(sqlite_path)
+db -> db : CREATE TABLE IF NOT EXISTS\nsignal_log, signal_config
+db --> runner : DB ready
+
+runner -> reader : CANReader(bus_config, parser)
+reader -> reader : connect to CAN bus
+reader -> reader : parser.load(dbc_dir, a2l_dir)\nmerge signal definitions
+reader --> runner : Reader ready
+
+opt simulator enabled
+    runner -> sim : CANSimulator(dbc_dir, scenario_path)
+    sim -> sim : load DBC files
+    sim -> sim : ScenarioLoader.load(scenario_path)
+    sim --> runner : Simulator ready
+end
+
+runner -> pipe : SignalPipeline(stages, store, storage)
+pipe -> pipe : add_stage(SmoothingFilter)\nadd_stage(RateLimiter)\nadd_stage(ComputedSignals)\nadd_stage(AlarmChecker)
+pipe --> runner : Pipeline ready
+
+runner -> api : create_app(config)
+api -> api : register routes\nsetup CORS, auth
+api --> runner : App ready
+
+runner -> runner : start all as asyncio tasks
+runner -> mon : start watchdog\n(monitor all processes)
+
+note over api : /health → 200 (liveness)\n/ready → 200 (all components init OK)
+runner --> cli : System running\n(listening on :8000)
+
+note over cli, mon
+  NFR: Cold start → ready ≤ 5 seconds
+  Config validation: fail fast with clear error
+end note
+
+== Graceful Shutdown ==
+
+cli -> runner : SIGTERM / SIGINT received
+activate runner #salmon
+
+runner -> mon : stop watchdog
+runner -> api : shutdown uvicorn\n(close WS connections)
+api -> api : send Close(1001) to all WS clients
+api -> api : await pending responses
+api --> runner : API stopped
+
+runner -> pipe : stop pipeline
+pipe -> pipe : flush() — drain remaining buffer
+pipe -> db : batch INSERT remaining records
+db --> pipe : flushed
+pipe --> runner : Pipeline stopped
+
+runner -> reader : stop reader
+reader -> reader : close CAN bus
+reader --> runner : Reader stopped
+
+opt simulator running
+    runner -> sim : stop simulator
+    sim --> runner : Simulator stopped
+end
+
+runner -> db : close connection
+db --> runner : DB closed
+
+runner --> cli : Shutdown complete
+deactivate runner
+
+@enduml

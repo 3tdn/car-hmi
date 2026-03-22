@@ -1,0 +1,292 @@
+/* ── Reset & base ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --accent:    #1f6feb;
+  --ok:        #3fb950;
+  --warn:      #d29922;
+  --crit:      #da3633;
+  --gauge-bg:  #21262d;
+  --radius:    8px;
+  --font: "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.hmi-header {
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn {
+  background: var(--accent);
+  border: 1px solid rgba(0,0,0,0.12);
+  color: #000;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+}
+.modal {
+  position: fixed; left: 50%; top: 10%; transform: translateX(-50%); width: 720px; max-width: 96%; z-index: 1001;
+  background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: 8px;
+}
+
+.hmi-header h1 { font-size: 18px; font-weight: 600; }
+
+.badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge--connected    { background: var(--ok);   color: #000; }
+.badge--disconnected { background: var(--crit); color: #fff; }
+
+/* ── Main grid ───────────────────────────────────────────────── */
+.hmi-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+  padding: 24px;
+}
+
+.widget-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.widget-group h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.widgets-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* ── Gauge widget ────────────────────────────────────────────── */
+.widget.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.gauge__canvas { display: block; }
+.gauge__label  { font-size: 12px; color: var(--muted); }
+.gauge__value  { font-size: 20px; font-weight: 700; min-width: 60px; text-align: center; }
+
+/* ── Bar widget ──────────────────────────────────────────────── */
+.widget.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.bar__label { font-size: 12px; color: var(--muted); }
+.bar__track {
+  height: 16px;
+  background: var(--gauge-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar__fill  {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.bar__value { font-size: 16px; font-weight: 600; }
+
+/* ── Alarm panel ─────────────────────────────────────────────── */
+.alarm-panel {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.alarm-panel h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+/* ── Signal table (full list) ───────────────────────────────────────────────── */
+.signal-panel {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.signal-table-wrapper {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.signal-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.signal-table th,
+.signal-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.signal-table th {
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.signal-table td {
+  font-size: 13px;
+}
+
+.sparkline {
+  display: block;
+  width: 140px;
+  height: 28px;
+}
+.alarm-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.alarm-list__empty { color: var(--muted); font-style: italic; }
+
+.alarm-item {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.alarm-item--warning  { background: rgba(210,153,34,.15); border-left: 3px solid var(--warn); }
+.alarm-item--critical { background: rgba(218,54,51,.15);  border-left: 3px solid var(--crit); }
+
+.alarm-item__level { font-weight: 700; width: 60px; }
+.alarm-item__msg   { flex: 1; }
+.alarm-item__ack   { cursor: pointer; color: var(--accent); font-size: 12px; }
+
+/* ── Footer ──────────────────────────────────────────────────── */
+.hmi-footer {
+  padding: 6px 24px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+/* ── CarPC System Monitor ────────────────────────────────────── */
+.carpc-monitor {
+  grid-column: 1 / -1;
+}
+
+.carpc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.carpc-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.carpc-card__icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.carpc-card__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.carpc-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.carpc-card__value--small {
+  font-size: 13px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.carpc-card__sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.carpc-bar {
+  height: 6px;
+  background: var(--gauge-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.carpc-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.3s ease;
+  background: var(--accent);
+}
+
+.carpc-bar__fill--warn {
+  background: var(--warn);
+}
+
+.carpc-bar__fill--crit {
+  background: var(--crit);
+}

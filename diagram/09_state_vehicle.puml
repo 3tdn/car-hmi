@@ -1,0 +1,48 @@
+@startuml State Machine - Vehicle State
+!theme plain
+title Vehicle State Detection — State Machine Diagram\n<color:red><b>[PROPOSED — Not Yet Implemented]</b></color>
+
+note as N1
+  **Status: PROPOSED**
+  This state machine is a design proposal.
+  VehicleStateMachine is NOT implemented
+  in the current codebase.
+end note
+
+[*] --> UNKNOWN : System startup
+
+UNKNOWN --> PARKED : VehicleSpeed == 0\nAND EngineRPM == 0
+UNKNOWN --> IGNITION_ON : EngineRPM > 0\nAND VehicleSpeed == 0
+UNKNOWN --> DRIVING : VehicleSpeed > 0\nAND EngineRPM > 0
+
+PARKED --> IGNITION_ON : EngineRPM > idle_threshold
+PARKED --> CHARGING : ChargingStatus == active
+
+IGNITION_ON --> DRIVING : VehicleSpeed > 0
+IGNITION_ON --> PARKED : EngineRPM == 0\n(engine off)
+IGNITION_ON --> CHARGING : ChargingStatus == active\n(plug-in hybrid)
+IGNITION_ON : entry / log "Ignition ON"
+
+DRIVING --> IGNITION_ON : VehicleSpeed == 0\nAND EngineRPM > 0
+DRIVING --> PARKED : VehicleSpeed == 0\nAND EngineRPM == 0\n(auto engine stop)
+DRIVING --> EMERGENCY : ABS_Active OR\nCrashSeverity > 0
+DRIVING : entry / log "Driving"
+DRIVING : do / monitor speed, RPM
+
+CHARGING --> PARKED : ChargingStatus == inactive
+CHARGING : entry / log "Charging started"
+CHARGING : do / monitor SoC, BattVoltage
+
+EMERGENCY --> DRIVING : CrashSeverity == 0\nAND ABS_Active == false
+EMERGENCY --> PARKED : VehicleSpeed == 0\nAND EngineRPM == 0
+EMERGENCY : entry / emit alarm(level=critical)
+
+state DRIVING {
+    [*] --> NORMAL
+    NORMAL --> CRUISE : CruiseControl == ON
+    CRUISE --> NORMAL : CruiseControl == OFF
+    NORMAL --> BRAKING : BrakePressure > threshold
+    BRAKING --> NORMAL : BrakePressure < threshold
+}
+
+@enduml

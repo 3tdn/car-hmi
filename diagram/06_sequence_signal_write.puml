@@ -1,0 +1,72 @@
+@startuml Sequence - Signal Write Flow
+!theme plain
+title Signal Write-back Flow — Dashboard → CAN Bus
+
+actor "User" as user
+participant "Dashboard\n(app.js)" as dash
+participant "FastAPI\n(signals.py)" as api
+participant "Auth\n(auth.py)" as auth
+participant "Pydantic\n(models.py)" as model
+participant "Signal Store\n(signal_store.py)" as store
+participant "CAN Writer\n(writer.py)" as writer
+participant "CAN Bus\n(vcan0)" as bus
+participant "ECU / Simulator" as ecu
+
+== User edits a writable signal ==
+user -> dash : Enter value=45.0 for BrakePressure
+dash -> api : PUT /signals/BrakePressure\n{"value": 45.0}\nHeader: X-API-Key: <key>
+
+== Authentication & Validation ==
+api -> auth : validate_api_key(request)
+alt invalid key
+    auth --> api : 401 Unauthorized
+    api --> dash : {"error":{"code":"UNAUTHORIZED","status":401}}
+else valid key
+    auth --> api : OK
+end
+
+api -> model : SignalWriteRequest(value=45.0)
+model -> model : validate: min <= value <= max
+alt validation failed
+    model --> api : ValidationError
+    api --> dash : 400 Bad Request
+else valid
+    model --> api : OK
+end
+
+== Rate Limit Check ==
+api -> api : check rate limit
+note right of api : Prevents CAN bus spam\nConfigurable per signal
+alt rate limit exceeded
+    api --> dash : 429 Too Many Requests
+end
+
+== Shutdown Check ==
+api -> api : check shutting_down flag
+alt system is shutting down
+    api --> dash : 503 {"error":{"code":"SERVICE_UNAVAILABLE","status":503}}
+    note right of api : Reject writes during\ngraceful shutdown (req 2.8)
+end
+
+== Write to CAN Bus ==
+api -> store : get("BrakePressure")
+store --> api : SignalValue{value=current}
+api -> api : verify signal is writable\n(from signal_config)
+alt signal not writable
+    api --> dash : 400 {"error":{"code":"SIGNAL_NOT_WRITABLE","status":400}}
+end
+
+api -> writer : send_signal("BrakePressure", 45.0)
+writer -> writer : encode(signal, value)\nusing DBC/CANdb
+writer -> bus : bus.send(can.Message(id=0x..., data=...))
+alt bus.send fails (BusError / timeout)
+    writer --> api : CAN Write Error
+    api --> dash : 500 {"error":{"code":"CAN_WRITE_FAILED","status":500}}
+else success
+    bus -> ecu : CAN frame
+    writer --> api : OK
+    api --> dash : 202 {"signal":"BrakePressure","queued_at":"..."}
+    dash -> user : Show success feedback
+end
+
+@enduml

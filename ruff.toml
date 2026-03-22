@@ -1,0 +1,46 @@
+# Ruff configuration for car-hmi
+target-version = "py312"
+line-length = 100
+indent-width = 4
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "ANN", # flake8-annotations (type hints)
+    "S",   # flake8-bandit (security)
+    "RUF", # ruff-specific
+]
+ignore = [
+    "S101",   # use of `assert` (OK in tests)
+    "ANN001", # missing type annotation for function argument (gradual adoption)
+    "ANN201", # missing return type annotation for public function
+    "ANN202", # missing return type annotation for private function
+    "ANN401", # dynamically typed expressions (typing.Any) forbidden
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["ANN", "S", "E501", "SIM105", "RUF059"]
+"src/storage/repository.py" = ["S608", "E702"]  # SQL safe (parameterised), compact clauses
+"src/core/runner.py" = ["E501", "S104", "S110", "SIM105"]
+"src/api/routes/**" = ["E501"]                  # FastAPI decorators/raises are verbose
+"src/api/websocket.py" = ["UP042"]              # str+Enum compat pattern for serialisation
+"src/**/cli.py" = ["ANN"]
+"src/can_io/parser.py" = ["S110"]               # best-effort cantools load
+"src/core/signal_store.py" = ["S110"]           # subscriber errors must not crash store
+"src/core/config.py" = ["S104"]                 # bind 0.0.0.0 is intentional for dev
+"src/can_simulator/scenario_loader.py" = ["E501"]
+
+[lint.isort]
+known-first-party = ["src"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

@@ -1,0 +1,90 @@
+@startuml 19_sequence_subscribe_flow
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Sequence Diagram — Subscribe-based Data Streaming
+
+actor       "Frontend\n(Browser)"  as FE
+participant "FastAPI\nREST"        as REST
+participant "ConnectionManager\n(websocket.py)" as WS
+participant "SignalStore"          as SS
+participant "SystemMetrics\n(runner)"  as SM
+
+== Phase 1: Initial Metadata Fetch (One-Time, Heavy) ==
+
+FE -> REST : GET /signals/available
+REST -> SS : get_snapshot()
+REST -> REST : merge signals.yaml\n+ alarms.yaml
+REST --> FE : 200 SignalMetadataListResponse\n(unit, min, max, widget, alarm\nthresholds, value, status, timestamp)
+
+note right of FE
+  Frontend caches metadata locally.
+  Knows structure of all signals without
+  subsequent heavy requests.
+end note
+
+== Phase 2: Open Subscribe WebSocket ==
+
+FE -> WS : WS /ws/subscribe
+WS --> FE : accept (handshake)
+
+FE -> WS : {"action":"subscribe",\n"channels":["EngineSpeed","BatterySOC",\n"alarms","metrics"],\n"mode":"continuous"}
+WS --> FE : {"type":"subscribe_ack", ...}
+
+note right of WS
+  ConnectionManager giữ state riêng cho
+  mỗi WS connection:
+  - signal_names: {"EngineSpeed","BatterySOC"}
+  - subscribe_alarms: true
+  - subscribe_metrics: true
+end note
+
+== Phase 3: Lightweight Value Streaming ==
+
+SS -> WS : signal update\n("EngineSpeed", 2750.0, 1719800001.5)
+WS -> WS : filter: client subscribed\nto "EngineSpeed"? YES
+WS --> FE : {"type":"signal",\n"signal":"EngineSpeed",\n"value":2750.0,\n"timestamp":1719800001.5}
+
+note right of FE
+  Frontend cập nhật widget dùng
+  cached metadata (unit=rpm, min=0, max=8000)
+  → chỉ nhận value + timestamp (nhẹ)
+end note
+
+SS -> WS : signal update\n("SteeringAngle", -5.0, ...)
+WS -> WS : filter: client subscribed\nto "SteeringAngle"? NO
+WS ->x WS : skip — not sent
+
+== Phase 4: Alarm Push ==
+
+WS --> FE : {"type":"alarm",\n"signal_name":"BatterySOC",\n"level":"warning", ...}
+
+== Phase 5: Metrics Push ==
+
+SM -> WS : broadcast_metrics({...})
+WS --> FE : {"type":"metrics",\n"cpu_percent":23.4,\n"ram_percent":41.0, ...}
+
+== Phase 6: Dynamic Subscribe/Unsubscribe ==
+
+FE -> WS : {"action":"subscribe",\n"channels":["WheelSpeed_FL"],\n"mode":"continuous"}
+WS --> FE : subscribe_ack
+
+FE -> WS : {"action":"unsubscribe",\n"channels":["BatterySOC"]}
+WS --> FE : subscribe_ack
+
+note right of FE
+  Client có thể thay đổi danh sách channel
+  bất kỳ lúc nào → server cập nhật filter
+  → giảm băng thông linh hoạt.
+end note
+
+== Phase 7: One-Shot Mode ==
+
+FE -> WS : {"action":"subscribe",\n"channels":["EngineTemp"],\n"mode":"once"}
+WS --> FE : subscribe_ack
+SS -> WS : signal update ("EngineTemp", 85.3, ...)
+WS --> FE : {"type":"signal","signal":"EngineTemp","value":85.3, ...}
+WS -> WS : auto-unsubscribe\n"EngineTemp" (once mode)
+
+@enduml

@@ -1,0 +1,59 @@
+@startuml Sequence - WebSocket Lifecycle
+!theme plain
+title WebSocket Connection Lifecycle — Subscribe, Stream, Reconnect
+
+actor "Dashboard\n(app.js)" as client
+participant "FastAPI\n(websocket.py)" as ws
+participant "Signal Store\n(signal_store.py)" as store
+participant "Repository\n(repository.py)" as repo
+
+== 1. Connection & Authentication ==
+client -> ws : ws://host/ws/signals?token=<api_key>
+note right of client : Topic-based endpoints:\nws://host/ws/signals\nws://host/ws/alarms\nws://host/ws/all
+ws -> ws : validate token
+alt invalid token
+    ws --> client : Close(4001, "Unauthorized")
+else valid
+    ws --> client : Connection accepted
+end
+
+== 2. Initial Snapshot + Config ==
+ws -> store : get_snapshot()
+store --> ws : {all signals with values}
+ws -> client : {"type":"snapshot",\n "data":{"VehicleSpeed":{"value":84.1,"status":"ok"}, ...}}
+
+ws -> repo : get_all_configs()
+repo --> ws : List[SignalConfig]
+loop for each signal
+    ws -> client : {"type":"signal_config",\n "signal":"VehicleSpeed",\n "unit":"km/h","min":0,"max":655.35, ...}
+end
+
+== 3. Real-time Streaming ==
+loop continuous
+    store -> ws : notify(signal_update)
+    alt client consuming normally
+        ws -> client : {"type":"signal_update",\n "data":{"VehicleSpeed":{"value":85.3,"status":"ok"}}}
+    else client too slow (buffer full)
+        ws -> ws : drop oldest message\nlog warning
+    end
+end
+
+== 4. Alarm Events ==
+store -> ws : notify(alarm)
+ws -> client : {"type":"alarm",\n "signal":"CoolantTemp","level":"warning",\n "value":97.2,"threshold":95}
+
+== 5. Heartbeat ==
+note over ws : Runs concurrently with streaming\n(asyncio task)
+loop every 5 seconds (configurable: ws_heartbeat_interval_sec)
+    ws -> client : {"type":"heartbeat",\n "timestamp":1742000005.0,\n "uptime_sec":1425}
+end
+
+== 6. Disconnection & Reconnect ==
+client ->x ws : Connection lost
+note over client : Detect: no heartbeat for 15s
+client -> client : Reconnect with\nexponential backoff\n(1s → 2s → 4s → ... → 30s max)
+client -> ws : ws://host/ws/signals?token=<api_key>
+ws --> client : Connection accepted
+note over ws : Re-send snapshot + signal_config\n(see step 2)
+
+@enduml

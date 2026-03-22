@@ -1,0 +1,40 @@
+@startuml State Machine - WebSocket Client
+!theme plain
+title WebSocket Client State Machine — Dashboard Side
+
+[*] --> DISCONNECTED
+
+DISCONNECTED --> CONNECTING : user opens dashboard
+DISCONNECTED : entry / show "Disconnected" badge
+
+CONNECTING --> CONNECTED : connection accepted
+CONNECTING --> WAIT_RETRY : connection refused\nor timeout
+CONNECTING : entry / ws = new WebSocket(url + "?token=...")
+
+CONNECTED --> RECEIVING_CONFIG : server sends signal_config
+CONNECTED : entry / show "Connected" badge
+
+RECEIVING_CONFIG --> STREAMING : all configs received\n+ snapshot received
+RECEIVING_CONFIG : do / store signal metadata
+
+STREAMING --> STREAMING : signal_update received\n/ update UI widgets
+STREAMING --> ALARM : alarm message received
+STREAMING --> DISCONNECTED : connection closed\nby server
+STREAMING --> WAIT_RETRY : no heartbeat\nfor 15 seconds
+STREAMING : entry / show "Live" badge
+STREAMING : do / update gauges, charts, table
+
+ALARM --> STREAMING : alarm handled\n/ show alarm bar
+ALARM : entry / show alarm notification\n/ play alert sound
+
+WAIT_RETRY --> CONNECTING : backoff timer expired\n(1s, 2s, 4s, ..., 30s max)
+WAIT_RETRY --> DISCONNECTED : max_retries exceeded
+WAIT_RETRY : entry / increment retry_count\n/ calculate backoff delay
+WAIT_RETRY : do / show "Reconnecting..." badge
+
+note right of WAIT_RETRY
+    Exponential backoff:
+    delay = min(2^retry * 1s, 30s)
+end note
+
+@enduml

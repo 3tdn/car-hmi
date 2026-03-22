@@ -1,0 +1,61 @@
+@startuml Database ER Diagram
+!theme plain
+title CAN-HMI System — Database Schema (ER Diagram)
+
+entity "signal_log" as log {
+    *id : INTEGER <<PK>> <<AUTOINCREMENT>>
+    --
+    *signal_name : TEXT <<NOT NULL>>
+    *value : REAL <<NOT NULL>>
+    unit : TEXT
+    *timestamp : REAL <<NOT NULL>>
+    --
+    <<INDEX>> idx_signal_log_name(signal_name, timestamp)
+}
+
+entity "signal_config" as config {
+    *signal_name : TEXT <<PK>>
+    --
+    unit : TEXT
+    min_value : REAL
+    max_value : REAL
+    group_name : TEXT <<DEFAULT ''>>
+    widget_type : TEXT <<DEFAULT 'gauge'>>
+    writable : BOOLEAN <<DEFAULT 0>>
+    updated_at : TEXT
+}
+
+entity "alarm_log" as alarm {
+    *id : INTEGER <<PK>> <<AUTOINCREMENT>>
+    --
+    *signal_name : TEXT <<NOT NULL>>
+    *level : TEXT <<NOT NULL>>
+    *value : REAL <<NOT NULL>>
+    *threshold : REAL <<NOT NULL>>
+    description : TEXT
+    *triggered_at : TEXT <<NOT NULL>>
+    acknowledged : BOOLEAN <<DEFAULT 0>>
+    resolved_at : TEXT
+    --
+    <<INDEX>> idx_alarm_log_signal(signal_name, triggered_at)
+}
+
+config ||--o{ log : "signal_name\n(FK: signal_name)"
+config ||--o{ alarm : "signal_name\n(FK: signal_name)"
+
+note right of log
+    **Retention policy:**
+    Auto-purge records
+    older than retention_days
+    (configurable, default 30)
+end note
+
+note right of alarm
+    **Usage:**
+    Store alarm history for
+    post-mortem analysis.
+    Alarms can be acknowledged
+    by user via API.
+end note
+
+@enduml

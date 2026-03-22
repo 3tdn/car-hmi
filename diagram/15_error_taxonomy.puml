@@ -1,0 +1,79 @@
+@startuml Error Taxonomy & Recovery
+!theme plain
+title CAN-HMI System — Error Taxonomy & Recovery Strategy
+
+skinparam rectangle {
+    RoundCorner 10
+}
+
+rectangle "Error Sources" as sources #LightGray {
+    rectangle "CAN I/O" as src_can #LightCoral
+    rectangle "Parser" as src_parse #LightCoral
+    rectangle "Storage" as src_store #Wheat
+    rectangle "WebSocket" as src_ws #PaleGreen
+    rectangle "FastAPI" as src_api #LightBlue
+    rectangle "Config" as src_conf #LightGray
+}
+
+rectangle "Error Classification" as errors {
+    rectangle "CRITICAL" as crit #Salmon {
+        card "ERR_CAN_BUS_OFF\nBus-off state" as e1
+        card "ERR_PARSE_DBC\nInvalid DBC/A2L" as e3
+        card "ERR_STORAGE_WRITE\nDB write failure" as e5
+        card "ERR_CONFIG_INVALID\nBad YAML config" as e9
+    }
+    rectangle "WARNING" as warn #Khaki {
+        card "ERR_CAN_TIMEOUT\nNo frame received" as e2
+        card "ERR_DECODE_FRAME\nDLC/ID mismatch" as e4
+        card "ERR_STORAGE_FULL\nDisk limit hit" as e6
+        card "ERR_WS_SLOW_CLIENT\nBuffer overflow" as e7
+        card "ERR_ENCODER_FAIL\nOut-of-range write" as e10
+    }
+    rectangle "INFO" as info #LightGreen {
+        card "ERR_API_RATE_LIMIT\n429 Too Many Req" as e8
+    }
+}
+
+rectangle "Recovery Actions" as recovery #LightCyan {
+    card "Auto-reconnect\n(exp. backoff 1s→30s)" as r_reconnect
+    card "Reject + continue\n(skip bad file/frame)" as r_reject
+    card "Retry + buffer\n(3 retries, in-mem buffer)" as r_retry
+    card "Purge + reduce\n(run retention, shrink batch)" as r_purge
+    card "Drop per-client\n(oldest msgs, disconnect 60s)" as r_drop
+    card "HTTP 429\n+ Retry-After" as r_ratelimit
+    card "Fail fast\n(reject startup, clear error)" as r_failfast
+    card "HTTP 400\n(reject write, log)" as r_badreq
+}
+
+' Source → Error links
+src_can --> e1
+src_can --> e2
+src_parse --> e3
+src_can --> e4
+src_store --> e5
+src_store --> e6
+src_ws --> e7
+src_api --> e8
+src_conf --> e9
+src_can --> e10
+
+' Error → Recovery links
+e1 --> r_reconnect
+e2 --> r_reject
+e3 --> r_reject
+e4 --> r_reject
+e5 --> r_retry
+e6 --> r_purge
+e7 --> r_drop
+e8 --> r_ratelimit
+e9 --> r_failfast
+e10 --> r_badreq
+
+note bottom of recovery
+  **Monitoring:**
+  - Each error type has a Prometheus counter
+  - Exported via /system/health
+  - Supervisor uses counters to decide restart
+end note
+
+@enduml

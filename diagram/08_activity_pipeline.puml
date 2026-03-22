@@ -1,0 +1,83 @@
+@startuml Activity - Signal Processing Pipeline
+!theme plain
+title Signal Processing Pipeline — Activity Diagram
+
+start
+
+:Receive DecodedFrame\nfrom asyncio.Queue;
+
+if (Queue full?\n(size >= max_queue_size)) then (yes)
+    if (queue_policy?) then (drop_oldest)
+        :Drop oldest message;
+        :Log WARNING\n"backpressure: dropped frame";
+    elseif (block) then (block)
+        :Block producer until\nspace available;
+    else (reject)
+        :Reject frame;\n:Return backpressure error;
+        stop
+    endif
+else (no)
+endif
+
+partition "Stage 1: Smoothing Filter" {
+    if (smoothing enabled?) then (yes)
+        :Apply Moving Average\nor EMA (configurable window);
+    else (no)
+        :Pass through;
+    endif
+}
+
+partition "Stage 2: Rate Limiter" {
+    :Check last update timestamp\nfor each signal;
+    if (Δt < 1/max_update_rate_hz?) then (yes — too fast)
+        :Skip this update\n(rate limited);
+        note right: Dropped frame logged\nat DEBUG level
+        stop
+    else (no — within limit)
+        :Allow update;
+    endif
+}
+
+partition "Stage 3: Computed Signals" {
+    if (has computed signal formulas?) then (yes)
+        :Calculate virtual signals\nPower = RPM × Torque / 9549;
+        :Add to signal dict;
+    endif
+}
+
+partition "Stage 4: Alarm Detection" {
+    :Load alarm thresholds\nfrom config/alarms.yaml;
+    if (value >= critical_high\n OR value <= critical_low?) then (yes)
+        :Set status = "critical";
+        :Emit alarm event\n(level=critical);
+    elseif (value >= warning_high\n OR value <= warning_low?) then (yes)
+        :Set status = "warning";
+        :Emit alarm event\n(level=warning);
+    else (within normal range)
+        :Set status = "ok";
+    endif
+}
+
+if (any exception during stages?) then (yes)
+    :Log error (structured JSON);
+    :Drop frame, continue to next;
+    note right: Exception does not\ncrash the pipeline loop
+    stop
+else (no — all stages OK)
+endif
+
+partition "Output" {
+    fork
+        :Update Signal Store\n(in-memory latest values);
+        :Notify WebSocket subscribers;
+    fork again
+        :Buffer to Storage queue;
+        if (batch_size reached\nOR interval elapsed?) then (yes)
+            :Batch INSERT into\nSQLite signal_log;
+        endif
+    end fork
+}
+
+stop
+
+@enduml

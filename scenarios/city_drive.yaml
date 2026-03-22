@@ -1,0 +1,66 @@
+scenario:
+  name: city_drive
+  description: "Simulated urban driving \u2014 stop-and-go traffic, idle, acceleration."
+  duration_sec: 95
+  steps:
+  - at_sec: 0
+    signals:
+      VehicleSpeed: 0.0
+      EngineRPM: 800.0
+      CoolantTemp: 45.0
+      BrakePressure_MC: 0.0
+      BatteryVoltage: 14.2
+      FuelLevel: 75.0
+      TransmissionGear: 0.0
+      AcceleratorPos: 0.0
+  - at_sec: 5
+    signals:
+      VehicleSpeed: 15.0
+      EngineRPM: 1800.0
+      CoolantTemp: 55.0
+      AcceleratorPos: 30.0
+      TransmissionGear: 1.0
+  - at_sec: 15
+    signals:
+      VehicleSpeed: 50.0
+      EngineRPM: 2200.0
+      CoolantTemp: 80.0
+      AcceleratorPos: 25.0
+      TransmissionGear: 3.0
+  - at_sec: 30
+    signals:
+      VehicleSpeed: 5.0
+      EngineRPM: 1000.0
+      BrakePressure_MC: 40.0
+      AcceleratorPos: 0.0
+      TransmissionGear: 1.0
+  - at_sec: 35
+    signals:
+      VehicleSpeed: 0.0
+      EngineRPM: 750.0
+      BrakePressure_MC: 60.0
+      TransmissionGear: 0.0
+  - at_sec: 50
+    signals:
+      VehicleSpeed: 110.0
+      EngineRPM: 3800.0
+      CoolantTemp: 88.0
+      AcceleratorPos: 80.0
+      TransmissionGear: 5.0
+      FuelLevel: 69.0
+  - at_sec: 70
+    signals:
+      VehicleSpeed: 90.0
+      EngineRPM: 3200.0
+      CoolantTemp: 92.0
+      FuelLevel: 67.0
+  - at_sec: 90
+    signals:
+      VehicleSpeed: 0.0
+      EngineRPM: 0.0
+      CoolantTemp: 88.0
+      BrakePressure_MC: 0.0
+      AcceleratorPos: 0.0
+      BatteryVoltage: 12.5
+      TransmissionGear: 0.0
+      FuelLevel: 66.5

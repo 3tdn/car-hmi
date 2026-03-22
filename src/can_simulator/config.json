@@ -1,0 +1,6 @@
+{
+  "mode": "random",
+  "dbc_paths": ["db/can_db/"],
+  "update_hz": 2,
+  "max_delta_percent": 10.0
+}

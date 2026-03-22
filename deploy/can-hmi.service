@@ -1,0 +1,32 @@
+[Unit]
+Description=CAN-HMI Signal Dashboard
+Documentation=https://github.com/thithuongdk/car-hmi
+After=network.target can.target
+
+[Service]
+Type=simple
+User=can-hmi
+Group=can-hmi
+WorkingDirectory=/opt/can-hmi
+ExecStart=/opt/can-hmi/.venv/bin/can-hmi --config /opt/can-hmi/config/bus.yaml
+Restart=on-failure
+RestartSec=5
+WatchdogSec=30
+
+# Environment
+Environment=CAN_HMI_LOG_LEVEL=INFO
+EnvironmentFile=-/opt/can-hmi/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/can-hmi/data
+PrivateTmp=true
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

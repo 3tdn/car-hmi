@@ -1,0 +1,465 @@
+@startuml Class Diagram
+!theme plain
+title CAN-HMI System — Class Diagram (Actual Implementation)
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+' ─── CAN Database Parsing (Strategy Pattern) ───
+package "can_io (parser.py)" as pkg_canio #PaleGreen {
+
+abstract class ICANDatabaseParser <<ABC>> {
+    +{abstract} supported_extensions(): set[str]
+    +{abstract} load_file(path: Path): list[ParsedMessage]
+    +decode(messages, msg_id: int, data: bytes): dict[str, float]
+    +encode(messages, msg_id: int, signals: dict): bytes | None
+}
+
+class DBCParser extends ICANDatabaseParser {
+    +supported_extensions(): {".dbc", ".kcd", ".sym"}
+    +load_file(path: Path): list[ParsedMessage]
+    +decode(messages, msg_id, data): dict[str, float]
+    +encode(messages, msg_id, signals): bytes | None
+}
+
+class CANdbJsonParser extends ICANDatabaseParser {
+    +supported_extensions(): {".json", ".candb"}
+    +load_file(path: Path): list[ParsedMessage]
+}
+
+class _A2LParser extends ICANDatabaseParser {
+    +supported_extensions(): {".a2l"}
+    +load_file(path: Path): list[ParsedMessage]
+    +decode(): {}
+    +encode(): None
+}
+
+class DatabaseLoader {
+    -_format_hint: str
+    -_messages: dict[int, ParsedMessage]
+    -_signals: dict[str, ParsedSignal]
+    -_parsers: dict[str, ICANDatabaseParser]
+    +messages: dict[int, ParsedMessage]
+    +signals: dict[str, ParsedSignal]
+    +add_paths(paths: list[str]): void
+    +decode_frame(msg_id: int, data: bytes): dict[str, float]
+    +encode_signal(name: str, value: float): can.Message | None
+    +encode_message(msg_id: int, signals: dict): can.Message | None
+    +summary(): str
+}
+
+DatabaseLoader "1" o-- "many" ICANDatabaseParser : selects by extension
+}
+
+' ─── Auth (Security 2.11) ───
+package "api.auth" as pkg_auth #LightBlue {
+class APIKeyAuth {
+    -api_key: str
+    +__call__(request: Request): str
+    +validate_ws_token(token: str): bool
+}
+
+note right of APIKeyAuth
+  Validates X-API-Key header (REST)
+  or ?token= query param (WS)
+end note
+}
+
+' ─── Data Models (dataclasses) ───
+class ParsedSignal <<dataclass>> {
+    +name: str
+    +start_bit: int
+    +length: int
+    +is_signed: bool
+    +byte_order: str
+    +factor: float
+    +offset: float
+    +unit: str
+    +minimum: float
+    +maximum: float
+    +description: str
+    +db_source: str
+    +receivers: list[str]
+}
+
+class ParsedMessage <<dataclass>> {
+    +msg_id: int
+    +name: str
+    +dlc: int
+    +senders: list[str]
+    +signals: dict[str, ParsedSignal]
+    +db_source: str
+    +cycle_ms: int | None
+    +description: str
+}
+
+class RawCANFrame <<dataclass>> {
+    +timestamp: float
+    +bus: str
+    +msg_id: int
+    +is_extended: bool
+    +is_fd: bool
+    +data: bytes
+}
+
+class DecodedFrame <<dataclass>> {
+    +raw: RawCANFrame
+    +signals: dict[str, float]
+    +msg_name: str
+}
+
+ParsedMessage "1" *-- "many" ParsedSignal
+DecodedFrame "1" *-- "1" RawCANFrame
+DatabaseLoader "1" o-- "many" ParsedMessage
+
+' ─── CAN I/O ───
+package "can_io" as pkg_io #PaleGreen {
+class CANReader {
+    -_bus: can.BusABC
+    -_db: DatabaseLoader
+    -_queue: asyncio.Queue[DecodedFrame]
+    -_filter_ids: set[int] | None
+    -_bus_factory: Callable | None
+    -_running: bool
+    -_queue_policy: str
+    -_dropped: int
+    -_errors: int
+    +start(): void
+    +stop(): void
+    +get_metrics(): dict
+    +set_queue_policy(policy: str): void
+    +set_queue(queue: asyncio.Queue): void
+    -_decode(msg: can.Message): DecodedFrame
+    -_reconnect(max_retries): void
+}
+
+class CANWriter {
+    -_bus: can.BusABC
+    -_db: DatabaseLoader
+    -_lock: asyncio.Lock
+    +send_signal(name: str, value: float): void
+    +send_message(msg_id: int, signals: dict): void
+}
+
+CANReader --> DatabaseLoader : decode frames
+CANWriter --> DatabaseLoader : encode frames
+}
+
+' ─── Signal Processing (Pipeline Pattern) ───
+package "processor" as pkg_proc #LightCyan {
+abstract class ProcessingStage <<ABC>> {
+    +{abstract} process(signals: dict[str, float]): dict[str, float]
+}
+
+class SmoothingFilter extends ProcessingStage {
+    -_window: int
+    -_method: str
+    -_buffers: dict[str, deque]
+    +process(signals: dict): dict
+}
+
+class RateLimiter extends ProcessingStage {
+    -_min_interval: float
+    -_last_update: dict[str, float]
+    +process(signals: dict): dict
+}
+
+class AlarmChecker extends ProcessingStage {
+    -_configs: dict[str, AlarmConfig]
+    -_state: dict[str, str]
+    -_handlers: list[Callable]
+    +add_alarm_handler(handler: Callable): void
+    +process(signals: dict): dict
+    -_eval_state(cfg: AlarmConfig, value: float): tuple | None
+}
+
+class ComputedSignals extends ProcessingStage {
+    -_formulas: dict[str, Callable]
+    +add_formula(name: str, fn: Callable): void
+    +process(signals: dict): dict
+}
+}
+
+' ─── Data Classes ───
+class Alarm <<dataclass>> {
+    +signal: str
+    +level: str
+    +value: float
+    +threshold: float
+    +timestamp: float
+    +description: str
+}
+
+class AlarmConfig <<dataclass>> {
+    +signal: str
+    +critical_high: float | None
+    +warning_high: float | None
+    +warning_low: float | None
+    +critical_low: float | None
+}
+
+class SignalValue <<dataclass>> {
+    +value: float
+    +status: str
+    +timestamp: float
+    +unit: str
+}
+
+class SignalRecord <<dataclass>> {
+    +timestamp: float
+    +signal_name: str
+    +value: float
+    +unit: str
+}
+
+class AlarmRecord <<dataclass>> {
+    +id: int
+    +signal_name: str
+    +level: str
+    +value: float
+    +threshold: float
+    +description: str
+    +triggered_at: str
+    +acknowledged: bool
+    +resolved_at: str | None
+}
+
+class SignalConfigRecord <<dataclass>> {
+    +signal_name: str
+    +unit: str
+    +min_value: float | None
+    +max_value: float | None
+    +group_name: str
+    +widget_type: str
+    +writable: bool
+    +updated_at: str
+}
+
+class AppConfig <<BaseModel>> {
+    +can: CANConfig
+    +simulator: SimulatorConfig
+    +api: APIConfig
+    +storage: StorageConfig
+    +processor: ProcessorConfig
+    +writer: WriterConfig
+    +shutdown: ShutdownConfig
+    +supervisor: SupervisorConfig
+    +logging: LoggingConfig
+}
+
+class WriterConfig <<BaseModel>> {
+    +rate_limit_per_sec: int
+    +burst: int
+}
+
+class ShutdownConfig <<BaseModel>> {
+    +timeout_sec: int
+}
+
+class SupervisorConfig <<BaseModel>> {
+    +watchdog_interval_sec: int
+}
+
+AlarmChecker ..> Alarm : creates
+AlarmChecker "1" o-- "many" AlarmConfig
+SignalStore "1" o-- "many" SignalValue
+AppRunner --> AppConfig
+
+class SignalPipeline {
+    -_stages: list[ProcessingStage]
+    -_input_queue: asyncio.Queue
+    -_signal_store: SignalStore
+    -_storage: ISignalRepository | None
+    -_buffer: list[SignalRecord]
+    -_batch_size: int
+    -_running: bool
+    +start(): void
+    +stop(): void
+    +flush(): void
+    +add_stage(stage: ProcessingStage): void
+    +set_input_queue(q: asyncio.Queue): void
+}
+
+SignalPipeline "1" o-- "many" ProcessingStage
+SignalPipeline --> ISignalRepository : batch insert
+SignalPipeline --> SignalStore : update latest
+
+' ─── Storage (Repository Pattern) ───
+package "storage" as pkg_storage #Wheat {
+abstract class ISignalRepository <<ABC>> {
+    +{abstract} insert_batch(records: list[SignalRecord]): void
+    +{abstract} get_history(name: str, start: float, end: float, limit: int): list[SignalRecord]
+    +{abstract} insert_alarm(alarm: Alarm): int
+    +{abstract} get_alarms(limit: int, offset: int, active_only: bool): list[AlarmRecord]
+    +{abstract} get_alarm_by_id(alarm_id: int): AlarmRecord | None
+    +{abstract} acknowledge_alarm(alarm_id: int): bool
+    +{abstract} resolve_alarm(alarm_id: int): bool
+    +{abstract} get_signal_config(name: str): SignalConfigRecord | None
+    +{abstract} upsert_signal_config(cfg: SignalConfigRecord): void
+    +{abstract} list_signal_configs(): list[SignalConfigRecord]
+    +{abstract} purge_old(days: int): int
+    +{abstract} close(): void
+}
+
+class SQLiteRepository implements ISignalRepository {
+    -_db_path: str
+    -_conn: aiosqlite.Connection | None
+    +open(): void
+    +close(): void
+    +insert_batch(records): void
+    +get_history(name, start, end, limit): list[SignalRecord]
+    +insert_alarm(alarm): int
+    +get_alarms(limit, offset, active_only): list[AlarmRecord]
+    +get_alarm_by_id(alarm_id): AlarmRecord | None
+    +acknowledge_alarm(alarm_id): bool
+    +resolve_alarm(alarm_id): bool
+    +get_signal_config(name): SignalConfigRecord | None
+    +upsert_signal_config(cfg): void
+    +list_signal_configs(): list[SignalConfigRecord]
+    +purge_old(days): int
+}
+
+class DataExporter {
+    -_repo: ISignalRepository
+    +export_signals_csv(path: str, start: float, end: float): int
+    +export_alarms_json(path: str, start: float, end: float): int
+}
+
+DataExporter --> ISignalRepository
+}
+
+' ─── Core (Observer Pattern) ───
+package "core" as pkg_core #LightGray {
+class SignalStore {
+    -_signals: dict[str, SignalValue]
+    -_subscribers: list[Callable]
+    -_lock: asyncio.Lock
+    +update(name: str, value: float, status: str, unit: str): void
+    +bulk_update(batch: dict[str, dict]): void
+    +get(name: str): SignalValue | None
+    +get_snapshot(): dict[str, SignalValue]
+    +subscribe(callback: Callable): void
+    +unsubscribe(callback: Callable): void
+    -_notify(name: str, sv: SignalValue): void
+}
+
+class ConfigManager {
+    -_base_path: Path
+    +read_config(): dict
+    +write_config(data: dict): void
+    +update_processor_config(patch: dict): dict
+    +validate_config(data: dict): bool
+    +update_config_partial(patch: dict): dict
+    +read_alarms(): dict
+    +write_alarms(data: dict): void
+    +write_default_bus(): void
+    +write_default_alarms(): void
+}
+}
+
+' ─── API (WebSocket) ───
+package "api.websocket" as pkg_ws #LightBlue {
+enum SubscriptionTopic {
+    SIGNALS
+    ALARMS
+    ALL
+}
+
+class ConnectionManager {
+    -_connections: dict[SubscriptionTopic, set[WebSocket]]
+    +connect(ws: WebSocket, topic: SubscriptionTopic): void
+    +disconnect(ws: WebSocket, topic: SubscriptionTopic): void
+    +broadcast_signal(name: str, sv: SignalValue): void
+    +broadcast_alarm(alarm: Alarm): void
+    +handle(ws: WebSocket, topic: SubscriptionTopic): void
+    -_broadcast(topic: SubscriptionTopic, data: dict): void
+}
+
+ConnectionManager "1" o-- "many" SubscriptionTopic
+}
+
+' ─── Application Factory ───
+class AppFactory <<Factory>> {
+    +{static} create_app(config: AppConfig): FastAPI
+}
+
+AppFactory ..> AppConfig : reads
+
+' ─── Application ───
+class AppRunner {
+    -_config: AppConfig
+    -_simulator: CANSimulator | None
+    -_reader: CANReader
+    -_writer: CANWriter
+    -_pipeline: SignalPipeline
+    -_store: SignalStore
+    -_repo: SQLiteRepository
+    -_api: FastAPI | None
+    -_ws_manager: ConnectionManager
+    +start(): void
+    +shutdown(): void
+    -_init_components(): void
+    -_load_alarm_configs(): void
+    -_on_alarm(alarm: Alarm): void
+    -_build_simulator(): CANSimulator | None
+    -_build_api_server(): FastAPI
+    -_watchdog(): void
+    +migrate_rx_queue(new_size: int): void
+}
+
+' ─── CAN Simulator ───
+package "can_simulator" as pkg_sim #LightYellow {
+class CANSimulator {
+    -_bus: can.Bus
+    -_db: DatabaseLoader
+    -_steps: list[ScenarioStep]
+    -_running: bool
+    +start(): void
+    +stop(): void
+    -_run_once(): void
+}
+
+class RandomCANSimulator {
+    -_bus: can.Bus
+    -_db: DatabaseLoader
+    -_max_delta_percent: float
+    -_update_hz: float
+    -_running: bool
+    -_values: dict[str, float]
+    +start(): void
+    +stop(): void
+    -_run_once(): void
+}
+
+class ScenarioLoader {
+    +{static} load(path: str | Path): Scenario
+}
+
+class Scenario <<dataclass>> {
+    +name: str
+    +duration_sec: int
+    +steps: list[ScenarioStep]
+}
+
+class ScenarioStep <<dataclass>> {
+    +at_sec: float
+    +signals: dict[str, float]
+}
+
+CANSimulator --> DatabaseLoader
+RandomCANSimulator --> DatabaseLoader
+CANSimulator --> Scenario
+ScenarioLoader ..> Scenario : creates
+Scenario "1" *-- "many" ScenarioStep
+}
+
+AppRunner --> CANSimulator
+AppRunner --> CANReader
+AppRunner --> CANWriter
+AppRunner --> SignalPipeline
+AppRunner --> SignalStore
+AppRunner --> ConnectionManager
+AppRunner --> SQLiteRepository
+AppRunner --> ConfigManager
+
+@enduml
