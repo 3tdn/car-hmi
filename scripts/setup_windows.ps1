@@ -17,7 +17,7 @@ function Write-Log([string]$m){ Write-Host "[setup] $m" }
 # Find python (python or py)
 $pyCmd = $null
 if (Get-Command $Python -ErrorAction SilentlyContinue) { $pyCmd = $Python }
-elif (Get-Command py -ErrorAction SilentlyContinue) { $pyCmd = "py" }
+elseif (Get-Command py -ErrorAction SilentlyContinue) { $pyCmd = "py" }
 else { Write-Error "Python not found. Install Python >= 3.10 and re-run."; exit 1 }
 
 # Create venv if missing
