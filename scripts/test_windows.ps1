@@ -37,4 +37,26 @@ if ($InstallBefore) {
 
 # Run pytest
 Write-Log "Running tests (pytest)"
-& $venvPy -m pytest tests/ -q --tb=short --cov=src --cov-fail-under=60
+# Ensure reports directory exists for HTML output
+$reports = Join-Path -Path (Get-Location) -ChildPath "reports"
+if (-not (Test-Path -Path $reports)) { New-Item -ItemType Directory -Path $reports | Out-Null }
+
+# Ensure pytest-html is installed in the venv (so --html option is available)
+& $venvPy -m pip show pytest-html > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "Installing pytest-html into virtualenv"
+    & $venvPy -m pip install pytest-html
+}
+
+# Ensure pytest-cov is installed (so we can emit HTML coverage report)
+& $venvPy -m pip show pytest-cov > $null 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "Installing pytest-cov into virtualenv"
+    & $venvPy -m pip install pytest-cov
+}
+
+# Run pytest with coverage and HTML test report (requires pytest-html and pytest-cov)
+& $venvPy -m pytest tests/ -q --tb=short --cov=src --cov-fail-under=60 `
+    --cov-report=html:$reports\coverage_html `
+    --cov-report=term-missing `
+    --html="$reports\report.html" --self-contained-html

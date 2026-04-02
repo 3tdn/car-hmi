@@ -21,6 +21,7 @@ ENV/
 coverage.xml
 htmlcov/
 .tox/
+reports/
 
 # SQLite databases
 *.db
