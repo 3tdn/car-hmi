@@ -88,3 +88,181 @@ async def test_computed_signals_formula():
     result = await cs.process({"rpm": 3000.0})
     assert result["double_rpm"] == pytest.approx(6000.0)
     assert result["rpm"] == pytest.approx(3000.0)  # original preserved
+
+
+@pytest.mark.asyncio
+async def test_computed_signals_exception_safety():
+    """A formula that raises should not crash the stage — bad key is skipped."""
+    from src.processor.computed import ComputedSignals
+
+    def bad_formula(s):
+        raise ValueError("formula error")
+
+    cs = ComputedSignals({"bad": bad_formula, "ok": lambda s: 1.0})
+    result = await cs.process({"rpm": 100.0})
+    # bad key skipped, ok key and original signal still present
+    assert "bad" not in result
+    assert result.get("ok") == pytest.approx(1.0)
+    assert result["rpm"] == pytest.approx(100.0)
+
+
+@pytest.mark.asyncio
+async def test_alarm_checker_warning_high():
+    from src.processor.alarms import AlarmChecker, AlarmConfig
+
+    fired: list = []
+
+    async def handler(a):
+        fired.append(a)
+
+    checker = AlarmChecker([AlarmConfig(signal="temp", warning_high=80.0, critical_high=100.0)])
+    checker.add_alarm_handler(handler)
+    await checker.process({"temp": 85.0})  # above warning, below critical
+    assert len(fired) == 1
+    assert fired[0].level == "warning"
+    assert fired[0].signal == "temp"
+
+
+@pytest.mark.asyncio
+async def test_alarm_checker_warning_low():
+    from src.processor.alarms import AlarmChecker, AlarmConfig
+
+    fired: list = []
+
+    async def handler(a):
+        fired.append(a)
+
+    checker = AlarmChecker([AlarmConfig(signal="temp", warning_low=20.0, critical_low=5.0)])
+    checker.add_alarm_handler(handler)
+    await checker.process({"temp": 12.0})  # between critical_low and warning_low
+    assert len(fired) == 1
+    assert fired[0].level == "warning"
+
+
+@pytest.mark.asyncio
+async def test_alarm_checker_below_critical_low():
+    from src.processor.alarms import AlarmChecker, AlarmConfig
+
+    fired: list = []
+
+    async def handler(a):
+        fired.append(a)
+
+    checker = AlarmChecker([AlarmConfig(signal="temp", critical_low=5.0)])
+    checker.add_alarm_handler(handler)
+    await checker.process({"temp": 2.0})
+    assert len(fired) == 1
+    assert fired[0].level == "critical"
+
+
+@pytest.mark.asyncio
+async def test_alarm_checker_no_alarm_in_range():
+    from src.processor.alarms import AlarmChecker, AlarmConfig
+
+    fired: list = []
+
+    async def handler(a):
+        fired.append(a)
+
+    checker = AlarmChecker([AlarmConfig(signal="temp", warning_low=20.0, warning_high=80.0)])
+    checker.add_alarm_handler(handler)
+    await checker.process({"temp": 50.0})  # within normal range
+    assert len(fired) == 0
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_allows_after_interval():
+    """RateLimiter should allow a signal through once sufficient time has passed."""
+    import asyncio
+    from src.processor.filters import RateLimiter
+
+    lim = RateLimiter(max_hz=100.0)  # 100 Hz → min 10 ms interval
+    r1 = await lim.process({"x": 1.0})
+    assert "x" in r1
+    await asyncio.sleep(0.015)  # wait > 10 ms
+    r2 = await lim.process({"x": 2.0})
+    assert "x" in r2
+
+
+@pytest.mark.asyncio
+async def test_pipeline_unit_stored_in_db(tmp_path):
+    """Units seeded into SignalStore should be persisted to the DB via pipeline."""
+    import asyncio
+    import time
+
+    from src.can_io.reader import DecodedFrame, RawCANFrame
+    from src.core.signal_store import SignalStore
+    from src.processor.pipeline import SignalPipeline
+    from src.storage.database import init_db
+    from src.storage.repository import SQLiteRepository
+
+    conn = await init_db(str(tmp_path / "test.db"))
+    repo = SQLiteRepository(conn)
+    store = SignalStore()
+
+    # Pre-seed unit for EngineRPM
+    await store.update("EngineRPM", 0.0, unit="rpm")
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+    pipeline = SignalPipeline(
+        input_queue=queue,
+        signal_store=store,
+        repository=repo,
+        batch_size=1,
+        batch_interval_sec=60.0,
+    )
+    task = asyncio.create_task(pipeline.start())
+
+    raw = RawCANFrame(
+        timestamp=time.time(), bus="test", msg_id=1, is_extended=False, is_fd=False, data=bytes(8)
+    )
+    frame = DecodedFrame(raw=raw, signals={"EngineRPM": 1000.0})
+    await queue.put(frame)
+    await asyncio.sleep(0.4)
+
+    records = await repo.query_signals(signal_name="EngineRPM")
+    assert len(records) >= 1
+    assert records[0].unit == "rpm"
+
+    pipeline.stop()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_stop_while_idle(tmp_path):
+    """Pipeline.stop() should exit cleanly even when queue is empty."""
+    import asyncio
+
+    from src.core.signal_store import SignalStore
+    from src.processor.pipeline import SignalPipeline
+    from src.storage.database import init_db
+    from src.storage.repository import SQLiteRepository
+
+    conn = await init_db(str(tmp_path / "test.db"))
+    repo = SQLiteRepository(conn)
+    store = SignalStore()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+    pipeline = SignalPipeline(
+        input_queue=queue,
+        signal_store=store,
+        repository=repo,
+        batch_size=100,
+        batch_interval_sec=60.0,
+    )
+    task = asyncio.create_task(pipeline.start())
+    await asyncio.sleep(0.1)  # let pipeline settle in idle loop
+    pipeline.stop()
+    # Should exit within 2 seconds (next 1s timeout fires and running=False exits)
+    try:
+        await asyncio.wait_for(task, timeout=2.5)
+    except asyncio.CancelledError:
+        pass
+    except asyncio.TimeoutError:
+        task.cancel()
+        pytest.fail("Pipeline did not stop within timeout")
+    await conn.close()
