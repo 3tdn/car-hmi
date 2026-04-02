@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,10 +19,30 @@ def read_config(path: str | Path | None = None) -> Dict[str, Any]:
     return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
 
-def write_config(data: Dict[str, Any], path: str | Path | None = None) -> None:
-    p = Path(path) if path else DEFAULT_CONFIG_PATH
-    p.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+_VALID_QUEUE_POLICIES = {"drop_oldest", "block", "reject"}
 
+
+def write_config(data: Dict[str, Any], path: str | Path | None = None) -> None:
+    """Write config atomically via temp-file + os.replace to avoid corruption on crash."""
+    p = Path(path) if path else DEFAULT_CONFIG_PATH
+    content = yaml.safe_dump(data, sort_keys=False).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(p.parent), suffix=".tmp")
+    try:
+        os.write(fd, content)
+        os.close(fd)
+        fd = -1
+        os.replace(tmp, str(p))
+    except Exception:
+        if fd >= 0:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 def update_processor_config(
     max_queue_size: int | None = None, queue_policy: str | None = None, path: str | Path | None = None
@@ -28,9 +50,13 @@ def update_processor_config(
     cfg = read_config(path)
     proc = cfg.setdefault("processor", {})
     if max_queue_size is not None:
+        if int(max_queue_size) < 1:
+            raise ValueError("max_queue_size must be >= 1")
         proc["max_queue_size"] = int(max_queue_size)
     if queue_policy is not None:
-        proc["queue_policy"] = str(queue_policy)
+        if queue_policy not in _VALID_QUEUE_POLICIES:
+            raise ValueError(f"queue_policy must be one of {_VALID_QUEUE_POLICIES}")
+        proc["queue_policy"] = queue_policy
     write_config(cfg, path)
     return cfg
 
