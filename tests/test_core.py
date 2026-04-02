@@ -65,7 +65,7 @@ def test_load_config_custom(tmp_path):
 async def test_signal_store_update_and_get():
     store = SignalStore()
     await store.update("Speed", 80.0, status="ok", timestamp=1000.0)
-    sv = store.get("Speed")
+    sv = await store.get("Speed")
     assert sv is not None
     assert sv.value == pytest.approx(80.0)
     assert sv.status == "ok"
@@ -77,7 +77,7 @@ async def test_signal_store_get_snapshot():
     store = SignalStore()
     await store.update("A", 1.0)
     await store.update("B", 2.0)
-    snap = store.get_snapshot()
+    snap = await store.get_snapshot()
     assert "A" in snap
     assert "B" in snap
     assert snap["A"].value == pytest.approx(1.0)
@@ -112,9 +112,10 @@ async def test_signal_store_unsubscribe():
     assert received == ["A"]
 
 
-def test_signal_store_get_nonexistent():
+@pytest.mark.asyncio
+async def test_signal_store_get_nonexistent():
     store = SignalStore()
-    assert store.get("NoSignal") is None
+    assert await store.get("NoSignal") is None
 
 
 @pytest.mark.asyncio

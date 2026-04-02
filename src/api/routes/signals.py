@@ -22,7 +22,7 @@ ws_router = APIRouter()
 @router.get("", response_model=SignalListResponse, summary="List latest signal values")
 async def list_signals(request: Request):
     store = request.app.state.store
-    snapshot = store.get_snapshot()
+    snapshot = await store.get_snapshot()
     items = [
         SignalValueResponse(
             signal_name=name,
@@ -57,7 +57,7 @@ async def list_available_signals(request: Request):
     from src.core.config_manager import read_alarms
 
     store = request.app.state.store
-    snapshot = store.get_snapshot()
+    snapshot = await store.get_snapshot()
 
     # Load signal configs
     signal_configs: dict = {}
@@ -105,7 +105,7 @@ async def list_available_signals(request: Request):
 )
 async def get_signal(signal_name: str, request: Request):
     store = request.app.state.store
-    sv = store.get(signal_name)
+    sv = await store.get(signal_name)
     if sv is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"

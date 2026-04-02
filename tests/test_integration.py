@@ -99,11 +99,11 @@ async def test_pipeline_processes_frame(tmp_path, db_loader):
     await asyncio.sleep(0.5)
 
     # Check SignalStore
-    rpm = store.get("EngineRPM")
+    rpm = await store.get("EngineRPM")
     assert rpm is not None
     assert rpm.value == pytest.approx(1500.0)
 
-    temp = store.get("CoolantTemp")
+    temp = await store.get("CoolantTemp")
     assert temp is not None
     assert temp.value == pytest.approx(85.0)
 
@@ -200,7 +200,7 @@ async def test_pipeline_with_computed_signals(tmp_path, db_loader):
     await queue.put(frame)
     await asyncio.sleep(0.5)
 
-    doubled = store.get("DoubleRPM")
+    doubled = await store.get("DoubleRPM")
     assert doubled is not None
     assert doubled.value == pytest.approx(6000.0)
 

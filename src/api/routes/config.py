@@ -20,7 +20,7 @@ router = APIRouter()
 async def list_signal_configs(request: Request) -> list[SignalConfigResponse]:
     # TODO: tải từ bảng signal_config (Giai đoạn 4)
     cfg = request.app.state.store
-    snapshot = cfg.get_snapshot()
+    snapshot = await cfg.get_snapshot()
     return [
         SignalConfigResponse(signal_name=name, unit=getattr(sv, "unit", None))
         for name, sv in snapshot.items()
@@ -31,7 +31,7 @@ async def list_signal_configs(request: Request) -> list[SignalConfigResponse]:
     "/signal/{signal_name}", response_model=SignalConfigResponse, summary="Get config for one signal"
 )
 async def get_signal_config(signal_name: str, request: Request):
-    sv = request.app.state.store.get(signal_name)
+    sv = await request.app.state.store.get(signal_name)
     if sv is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"
@@ -41,7 +41,7 @@ async def get_signal_config(signal_name: str, request: Request):
 
 @router.patch("/signal/{signal_name}", response_model=SignalConfigResponse, summary="Update signal config")
 async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest, request: Request):
-    sv = request.app.state.store.get(signal_name)
+    sv = await request.app.state.store.get(signal_name)
     if sv is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"

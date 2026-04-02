@@ -71,11 +71,13 @@ class SignalStore:
         for name, sv in entries:
             await self._notify(name, sv)
 
-    def get(self, name: str) -> SignalValue | None:
-        return self._signals.get(name)
+    async def get(self, name: str) -> SignalValue | None:
+        async with self._lock:
+            return self._signals.get(name)
 
-    def get_snapshot(self) -> dict[str, SignalValue]:
-        return dict(self._signals)
+    async def get_snapshot(self) -> dict[str, SignalValue]:
+        async with self._lock:
+            return dict(self._signals)
 
     def subscribe(self, callback: Callable[[str, SignalValue], Any]) -> None:
         """Đăng ký callback được gọi mỗi khi có cập nhật tín hiệu."""
