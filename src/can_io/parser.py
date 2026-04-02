@@ -164,12 +164,14 @@ def _insert_bits(
     raw_int &= mask
     wide = int.from_bytes(data, "little")
     if not big_endian:
-        wide |= raw_int << start_bit
+        shift = start_bit
     else:
         # Motorola: chuyển vị trí MSB sang LSB
         msb_row, msb_col = divmod(start_bit, 8)
-        lsb = (msb_row * 8) + msb_col - length + 1
-        wide |= raw_int << lsb
+        shift = (msb_row * 8) + msb_col - length + 1
+    # Clear old bits before OR-ing new value
+    wide &= ~(mask << shift)
+    wide |= raw_int << shift
     data[:] = wide.to_bytes(len(data), "little")
 
 
