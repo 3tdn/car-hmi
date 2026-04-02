@@ -49,7 +49,7 @@ class SignalPipeline:
         self._batch_interval = batch_interval_sec
         self._stages: list[ProcessingStage] = []
         self._running = False
-        self._buffer: list[tuple[str, float]] = []  # [(signal_name, value), …]
+        self._buffer: list[tuple[str, float, str | None]] = []  # [(signal_name, value, unit), …]
         self._last_flush = time.monotonic()
 
     def add_stage(self, stage: ProcessingStage) -> None:
@@ -99,8 +99,14 @@ class SignalPipeline:
         # Phát lên SignalStore — bulk update: 1 lock thay vì N lock
         await self._store.bulk_update(signals, timestamp=now)
 
-        # Đệm cho ghi batch vào storage
-        self._buffer.extend(signals.items())
+        # Đệm cho ghi batch vào storage — lấy unit từ store sau bulk_update
+        for name, value in signals.items():
+            try:
+                sv = await self._store.get(name)
+                unit = getattr(sv, "unit", None) if sv is not None else None
+            except Exception:
+                unit = None
+            self._buffer.append((name, value, unit))
 
         # Flush nếu đạt ngưỡng batch
         buffer_full = len(self._buffer) >= self._batch_size
@@ -118,7 +124,7 @@ class SignalPipeline:
         now = time.time()
         from src.storage.repository import SignalRecord
 
-        records = [SignalRecord(name, value, None, now) for name, value in items]
+        records = [SignalRecord(name, value, unit, now) for name, value, unit in items]
         try:
             await self._repo.insert_signals_bulk(records)
         except Exception as exc:

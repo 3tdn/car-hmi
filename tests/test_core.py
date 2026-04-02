@@ -172,3 +172,85 @@ async def test_serve_safe_converts_systemexit():
 
     with pytest.raises(RuntimeError, match="API server exited with code 1"):
         await _serve_safe()
+
+
+# ── SignalStore edge-cases ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_signal_store_unit_preserved_on_update():
+    """Unit set on first update should persist across subsequent updates that omit unit."""
+    store = SignalStore()
+    await store.update("Speed", 60.0, unit="km/h")
+    await store.update("Speed", 70.0)  # no unit kwarg — unit must not be erased
+    sv = await store.get("Speed")
+    assert sv is not None
+    assert sv.unit == "km/h"
+    assert sv.value == pytest.approx(70.0)
+
+
+@pytest.mark.asyncio
+async def test_signal_store_bulk_update_unit_inheritance():
+    """bulk_update without a units dict should preserve units previously stored."""
+    store = SignalStore()
+    await store.update("RPM", 0.0, unit="rpm")
+    await store.update("Temp", 0.0, unit="°C")
+
+    await store.bulk_update({"RPM": 3000.0, "Temp": 90.0}, units=None)
+
+    rpm_sv = await store.get("RPM")
+    temp_sv = await store.get("Temp")
+    assert rpm_sv.unit == "rpm"
+    assert temp_sv.unit == "°C"
+
+
+@pytest.mark.asyncio
+async def test_signal_store_bulk_update_new_units():
+    """bulk_update with explicit units dict should set/override units."""
+    store = SignalStore()
+    await store.bulk_update({"RPM": 1000.0, "Temp": 50.0}, units={"RPM": "rpm", "Temp": "°C"})
+    rpm_sv = await store.get("RPM")
+    temp_sv = await store.get("Temp")
+    assert rpm_sv.unit == "rpm"
+    assert temp_sv.unit == "°C"
+
+
+@pytest.mark.asyncio
+async def test_signal_store_concurrent_get():
+    """Concurrent get + update should not raise and should return consistent values."""
+    import asyncio
+
+    store = SignalStore()
+    await store.update("X", 0.0)
+
+    results: list = []
+
+    async def reader():
+        for _ in range(50):
+            val = await store.get("X")
+            results.append(val.value if val else None)
+            await asyncio.sleep(0)
+
+    async def writer():
+        for i in range(50):
+            await store.update("X", float(i))
+            await asyncio.sleep(0)
+
+    await asyncio.gather(reader(), writer())
+    # All sampled values must be floats (no exception, no None after seeding)
+    assert all(v is not None for v in results)
+
+
+@pytest.mark.asyncio
+async def test_signal_store_get_snapshot_isolated():
+    """get_snapshot returns a copy — mutating it must not affect the store."""
+    store = SignalStore()
+    await store.update("A", 1.0)
+    snap = await store.get_snapshot()
+    # Mutate the snapshot
+    from src.core.signal_store import SignalValue
+    snap["A"] = SignalValue(value=999.0)
+    # Internal store must be unchanged
+    sv = await store.get("A")
+    assert sv is not None
+    assert sv.value == pytest.approx(1.0)
