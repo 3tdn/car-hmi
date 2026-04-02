@@ -91,6 +91,9 @@ class SignalPipeline:
             except Exception as exc:
                 logger.error("Stage %s failed: %s — dropping frame", type(stage).__name__, exc)
                 return
+            if not signals:
+                logger.debug("Stage %s returned empty signals — dropping frame", type(stage).__name__)
+                return
 
         now = time.time()
         # Phát lên SignalStore — bulk update: 1 lock thay vì N lock
