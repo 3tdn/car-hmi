@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import json
 import logging
@@ -29,14 +30,18 @@ class DataExporter:
         records: list[SignalRecord] = await self._repo.query_signals(
             signal_name=signal_name, start=start, end=end, limit=limit
         )
-        out = Path(path)
+        loop = asyncio.get_running_loop()
+        count = await loop.run_in_executor(None, self._write_csv, Path(path), records)
+        logger.info("Exported %d signal records to %s", count, path)
+        return count
+
+    def _write_csv(self, out: Path, records: list[SignalRecord]) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         with out.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["signal_name", "value", "unit", "timestamp"])
             for r in records:
                 writer.writerow([r.signal_name, r.value, r.unit, r.timestamp])
-        logger.info("Exported %d signal records to %s", len(records), out)
         return len(records)
 
     async def export_alarms_json(
@@ -50,7 +55,13 @@ class DataExporter:
         records: list[AlarmRecord] = await self._repo.query_alarms(
             signal_name=signal_name, start=start, end=end, limit=limit
         )
-        out = Path(path)
+        loop = asyncio.get_running_loop()
+        count = await loop.run_in_executor(None, self._write_alarms_json, Path(path), records)
+        logger.info("Exported %d alarm records to %s", count, path)
+        return count
+
+    def _write_alarms_json(self, out: Path, records: list[AlarmRecord]) -> int:
+        
         out.parent.mkdir(parents=True, exist_ok=True)
         data = [
             {
@@ -67,5 +78,4 @@ class DataExporter:
             for r in records
         ]
         out.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        logger.info("Exported %d alarm records to %s", len(records), out)
         return len(records)
