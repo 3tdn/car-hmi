@@ -225,6 +225,9 @@ class AppRunner:
             self._tasks.append(asyncio.create_task(self._watchdog(), name="watchdog"))
         # Push system metrics qua WS cho subscriber
         self._tasks.append(asyncio.create_task(self._metrics_broadcaster(), name="metrics-push"))
+        # Dọn dẹp dữ liệu cũ theo retention_days
+        self._tasks.append(asyncio.create_task(self._retention_cleanup(), name="retention"))
+
 
     def _load_alarm_configs(self) -> list:
         """Tải cấu hình ngưỡng cảnh báo từ config/alarms.yaml."""
@@ -495,6 +498,23 @@ class AppRunner:
                 await self._ws_manager.broadcast_metrics(metrics_to_dict(m))
             except Exception:
                 logger.debug("Failed to broadcast metrics", exc_info=True)
+
+    async def _retention_cleanup(self) -> None:
+        """Xóa bản ghi signal_log cũ hơn retention_days mỗi 1 giờ."""
+        import time as _time_mod
+
+        retention_sec = self.config.storage.retention_days * 86400
+        while not self._shutting_down:
+            await asyncio.sleep(3600)
+            if self._shutting_down:
+                break
+            try:
+                cutoff = _time_mod.time() - retention_sec
+                deleted = await self._repo.delete_old_signals(cutoff)
+                if deleted:
+                    logger.info("Retention cleanup: deleted %d old signal records", deleted)
+            except Exception:
+                logger.exception("Retention cleanup failed")
 
     async def _watchdog(self) -> None:
         """Kiểm tra sức khỏe định kỳ — ghi log trạng thái và có thể khởi động lại các thành phần."""
