@@ -247,7 +247,7 @@
     settingsModal.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal">
-        <h3>General Settings (config/bus.yaml)</h3>
+        <h3>General Settings (config/system.json)</h3>
         <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
         <div style="margin-top:8px;text-align:right;">
           <button id="settings-reset">Reset</button>
@@ -264,7 +264,7 @@
     alarmsModal.innerHTML = `
       <div class="modal-backdrop"></div>
       <div class="modal">
-        <h3>Alarms Config (config/alarms.yaml)</h3>
+        <h3>Alarms Config (config/alarms.json)</h3>
         <textarea id="alarms-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
         <div style="margin-top:8px;text-align:right;">
           <button id="alarms-reset">Reset</button>
@@ -288,7 +288,7 @@
     });
     document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
     document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/bus.yaml')) return;
+      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
       try {
         const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
         if (!resp.ok) throw new Error(resp.statusText);

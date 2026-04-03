@@ -99,7 +99,7 @@ python -m venv .venv
 pip install -e ".[dev]"
 
 # 2. Chạy ứng dụng (simulator bật sẵn)
-can-hmi --config config/bus.yaml
+can-hmi --config config/system.json
 
 # 3. Mở dashboard
 # http://localhost:8000
@@ -129,4 +129,4 @@ pytest
 
 - Tất cả sơ đồ PlantUML nằm trong `diagram/` (C4 Level 1–2, Component, Class, ER, Sequence, Activity, Deployment)
 - Tài liệu yêu cầu đầy đủ: `docs/requirement.md`
-- Cấu hình runtime: `config/bus.yaml`, `config/alarms.yaml`, `config/signals.yaml`
+- Cấu hình runtime: `config/system.json`, `config/alarms.json`, `config/signals.json`

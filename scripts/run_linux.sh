@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Run/Install helper for Linux/macOS
-# Usage: ./scripts/run_linux.sh [config/bus.yaml] [INFO]
+# Usage: ./scripts/run_linux.sh [config/system.json] [INFO]
 set -euo pipefail
 
-CONFIG=${1:-config/bus.yaml}
+CONFIG=${1:-config/system.json}
 LOG_LEVEL=${2:-INFO}
 INSTALL_ONLY=${3:-}
 

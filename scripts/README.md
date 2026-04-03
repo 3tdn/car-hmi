@@ -11,9 +11,9 @@ pip install cantools pyyaml
 ```
 
 Các file chính
- - `dbc_utils.py` — hàm tiện ích chung: phân tích DBC và đọc/ghi YAML.
- - `gen_signals_from_dbc.py` — tạo/gộp `config/signals.yaml` từ DBC.
- - `gen_alarms_from_dbc.py` — tạo/gộp `config/alarms.yaml` từ DBC.
+ - `dbc_utils.py` — hàm tiện ích chung: phân tích DBC và đọc/ghi JSON.
+ - `gen_signals_from_dbc.py` — tạo/gộp `config/signals.json` từ DBC.
+ - `gen_alarms_from_dbc.py` — tạo/gộp `config/alarms.json` từ DBC.
  - `gen_configs_from_dbc.py` — script kết hợp (giữ lại để tiện lợi).
 
 Các ví dụ sử dụng cơ bản
@@ -35,8 +35,8 @@ python scripts/gen_alarms_from_dbc.py -d path/to/dbc_dir
 - Chỉ định đường dẫn đầu ra và cho phép ghi đè:
 
 ```bash
-python scripts/gen_signals_from_dbc.py -d path/to/file.dbc --out config/signals.yaml --overwrite
-python scripts/gen_alarms_from_dbc.py -d path/to/file.dbc --out config/alarms.yaml --overwrite
+python scripts/gen_signals_from_dbc.py -d path/to/file.dbc --out config/signals.json --overwrite
+python scripts/gen_alarms_from_dbc.py -d path/to/file.dbc --out config/alarms.json --overwrite
 ```
 
 Ghi chú
@@ -51,7 +51,7 @@ Ví dụ (Windows PowerShell)
 
 ```powershell
 python .\scripts\gen_signals_from_dbc.py -d .\db\ -v --dry-run
-python .\scripts\gen_alarms_from_dbc.py -d .\db\ --out config\alarms.yaml
+python .\scripts\gen_alarms_from_dbc.py -d .\db\ --out config\alarms.json
 ```
 
 Tùy chọn nâng cao tôi có thể hỗ trợ:

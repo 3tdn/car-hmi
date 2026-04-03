@@ -1,0 +1,56 @@
+{
+  "can": {
+    "interface": "virtual",
+    "channel": "vcan0",
+    "bitrate": 500000,
+    "can_db_files": [],
+    "can_db_dirs": [
+      "db/can_db/"
+    ],
+    "a2l_dirs": [],
+    "can_db_format": "auto"
+  },
+  "simulator": {
+    "enabled": true,
+    "default_cycle_ms": 50
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "api_key": "change-me-in-production",
+    "ws_heartbeat_interval_sec": 5,
+    "cors_origins": [
+      "http://localhost:8000"
+    ]
+  },
+  "storage": {
+    "engine": "sqlite",
+    "sqlite_path": "data/signals.db",
+    "batch_size": 100,
+    "batch_interval_sec": 2.0,
+    "retention_days": 30,
+    "max_disk_mb": 2048
+  },
+  "processor": {
+    "smoothing_window": 5,
+    "max_update_rate_hz": 10.0,
+    "max_queue_size": 10000,
+    "queue_policy": "reject"
+  },
+  "writer": {
+    "rate_limit_per_sec": 10,
+    "burst": 5
+  },
+  "shutdown": {
+    "timeout_sec": 10
+  },
+  "supervisor": {
+    "watchdog_interval_sec": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "logs/can-hmi.log",
+    "max_size_mb": 50,
+    "backup_count": 5
+  }
+}

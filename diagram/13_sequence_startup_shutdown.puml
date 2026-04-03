@@ -14,12 +14,12 @@ participant "Monitoring\n(watchdog)" as mon
 
 == Startup Sequence ==
 
-cli -> runner : start(config_path="config/bus.yaml")
+cli -> runner : start(config_path="config/system.json")
 activate runner
 
-runner -> config : load("config/bus.yaml")
-config -> config : validate YAML schema
-runner -> config : load("config/alarms.yaml")
+runner -> config : load("config/system.json")
+config -> config : validate JSON schema
+runner -> config : load("config/alarms.json")
 alt config invalid
     config --> runner : ConfigValidationError\n(schema mismatch / missing required)
     runner --> cli : Exit with error message

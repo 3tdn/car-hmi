@@ -7,7 +7,7 @@ Usage:
 #>
 
 param(
-    [string]$Config = "config/bus.yaml",
+    [string]$Config = "config/system.json",
     [string]$LogLevel = "INFO"
 )
 

@@ -93,7 +93,7 @@ async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest
 async def get_processor_config() -> ProcessorConfigResponse:
     from src.core.config import load_config
 
-    cfg = load_config("config/bus.yaml")
+    cfg = load_config("config/system.json")
     return ProcessorConfigResponse(max_queue_size=cfg.processor.max_queue_size, queue_policy=cfg.processor.queue_policy)
 
 
@@ -101,7 +101,7 @@ async def get_processor_config() -> ProcessorConfigResponse:
 async def get_general_config():
     from src.core.config import load_config
 
-    cfg = load_config("config/bus.yaml")
+    cfg = load_config("config/system.json")
     return cfg.model_dump()
 
 
@@ -109,11 +109,11 @@ async def get_general_config():
 async def patch_general_config(body: dict, request: Request):
     from src.core.config_manager import update_config_partial
 
-    update_config_partial(body, path="config/bus.yaml")
+    update_config_partial(body, path="config/system.json")
     # try to reload validated config
     from src.core.config import load_config
 
-    cfg = load_config("config/bus.yaml")
+    cfg = load_config("config/system.json")
     return cfg.model_dump()
 
 
@@ -121,7 +121,7 @@ async def patch_general_config(body: dict, request: Request):
 async def reset_general_config(request: Request):
     from src.core.config_manager import write_default_bus
 
-    default = write_default_bus(path="config/bus.yaml")
+    default = write_default_bus(path="config/system.json")
     return {"ok": True, "default": default}
 
 
@@ -133,7 +133,7 @@ async def get_alarms_config():
     return data
 
 
-@router.post("/alarms", summary="Update alarms config (accepts YAML/JSON body)")
+@router.post("/alarms", summary="Update alarms config (JSON body)")
 async def post_alarms_config(body: dict, request: Request):
     from src.core.config_manager import write_alarms
 
@@ -145,7 +145,7 @@ async def post_alarms_config(body: dict, request: Request):
 async def reset_alarms_config(request: Request):
     from src.core.config_manager import write_default_alarms
 
-    written = write_default_alarms(path="config/alarms.yaml")
+    written = write_default_alarms(path="config/alarms.json")
     return {"ok": True, "written": written}
 
 
@@ -154,8 +154,8 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
     from src.core.config_manager import update_processor_config
     from src.core.config import load_config
 
-    # Update on-disk YAML first
-    update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/bus.yaml")
+    # Update on-disk JSON first
+    update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/system.json")
 
     # Try to apply to running components if available
     reader = getattr(request.app.state, "reader", None)
@@ -174,5 +174,5 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
         except Exception:
             pass
 
-    cfg = load_config("config/bus.yaml")
+    cfg = load_config("config/system.json")
     return ProcessorConfigResponse(max_queue_size=cfg.processor.max_queue_size, queue_policy=cfg.processor.queue_policy)

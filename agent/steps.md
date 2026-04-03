@@ -72,7 +72,7 @@ car-hmi/                        ← root
 | 1.6 | `.gitignore` | Loại trừ `__pycache__`, `.venv`, `*.db`, secrets | ✅ Xong | — |
 | 1.7 | `pyproject.toml` | Metadata + dependencies theo `Docs/requirement.md` section 5 | ✅ Xong | — |
 | 1.8 | Cấu trúc `src/` | Tạo skeleton theo cấu trúc trong requirement (can_io, processor, api, ...) | ✅ Xong | — |
-| 1.9 | `config/` | `bus.yaml`, `alarms.yaml`, `signals.yaml` theo spec section 6 | ✅ Xong | — |
+| 1.9 | `config/` | `system.json`, `alarms.json`, `signals.json` theo spec section 6 | ✅ Xong | — |
 | 1.10 | Coding standards | `ruff.toml`, `.editorconfig`, pre-commit hooks | ✅ Xong | — |
 | 1.11 | CI/CD pipeline | `.github/workflows/ci.yml` (lint → test → coverage) | ⬜ Chưa tạo | Phase 6 |
 
@@ -103,13 +103,13 @@ frontend/. Mỗi package có __init__.py. Tạo skeleton file rỗng theo đúng
 đã định nghĩa trong requirement (simulator.py, reader.py, writer.py, pipeline.py, ...).
 ```
 
-#### Bước 1.9 — Tạo `config/` với file YAML mẫu
+#### Bước 1.9 — Tạo `config/` với file JSON mẫu
 ```bash
 # Prompt cho AI Agent:
-Tạo thư mục config/ với 3 file YAML theo requirement.md section 6:
-- bus.yaml: CAN config, simulator, api, storage, processor, writer, shutdown, supervisor, logging
-- alarms.yaml: alarm thresholds cho VehicleSpeed, EngineRPM, CoolantTemp
-- signals.yaml: display config cho các signal trong data/can_db/
+Tạo thư mục config/ với 3 file JSON theo requirement.md section 6:
+- system.json: CAN config, simulator, api, storage, processor, writer, shutdown, supervisor, logging
+- alarms.json: alarm thresholds cho VehicleSpeed, EngineRPM, CoolantTemp
+- signals.json: display config cho các signal trong data/can_db/
 ```
 
 ### Prompt mẫu cho AI Agent — Khởi tạo toàn bộ
@@ -121,7 +121,7 @@ Cần tạo thêm:
 1. .gitignore (Python + SQLite + secrets)  
 2. pyproject.toml với dependencies từ requirement.md section 5
 3. Skeleton src/ theo cấu trúc trong requirement.md section 3
-4. config/bus.yaml, config/alarms.yaml, config/signals.yaml theo section 6
+4. config/system.json, config/alarms.json, config/signals.json theo section 6
 5. ruff.toml với cấu hình linting chuẩn
 6. .editorconfig (indent=4 spaces, UTF-8, LF)
 ```

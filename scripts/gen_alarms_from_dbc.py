@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Tạo/gộp `config/alarms.yaml` từ các file DBC.
+"""Tạo/gộp `config/alarms.json` từ các file DBC.
 
 Cách dùng:
-  python scripts/gen_alarms_from_dbc.py --dbc path/to/file.dbc [--out config/alarms.yaml] [--dry-run] [--overwrite]
+  python scripts/gen_alarms_from_dbc.py --dbc path/to/file.dbc [--out config/alarms.json] [--dry-run] [--overwrite]
 """
 from __future__ import annotations
 
@@ -35,9 +35,9 @@ def merge_into_alarms_config(existing: dict, parsed: dict, overwrite: bool = Fal
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate config/alarms.yaml from DBC files")
+    parser = argparse.ArgumentParser(description="Generate config/alarms.json from DBC files")
     parser.add_argument("--dbc", "-d", required=True, nargs="+", help="DBC file(s) or directories to parse")
-    parser.add_argument("--out", default="config/alarms.yaml", help="Output alarms YAML path")
+    parser.add_argument("--out", default="config/alarms.json", help="Output alarms JSON path")
     parser.add_argument("--dry-run", action="store_true", help="Don't write files; just print summary")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing entries in target YAML")
     parser.add_argument("--verbose", "-v", action="store_true")

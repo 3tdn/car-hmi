@@ -23,9 +23,9 @@ node "CarPC (Embedded Linux)" as carpc {
     database "SQLite\n(data/signals.db)" as sqlite
     artifact "Monitoring\n(Watchdog / Supervisor)\nsystemd WatchdogSec=30" as mon
     folder "Config" as conf {
-        file "bus.yaml"
-        file "alarms.yaml"
-        file "signals.yaml"
+        file "system.json"
+        file "alarms.json"
+        file "signals.json"
     }
     folder "Data" as data {
         folder "can_db/" as candb_dir {

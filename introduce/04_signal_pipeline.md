@@ -113,10 +113,13 @@ Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 giá trị gần nhất)
 Output: 84.74                              (trung bình)
 ```
 
-**Config** (`bus.yaml`):
-```yaml
-processor:
-  smoothing_window: 5   # kích thước cửa sổ trượt
+**Config** (`system.json`):
+```json
+{
+  "processor": {
+    "smoothing_window": 5
+  }
+}
 ```
 
 ---
@@ -132,9 +135,12 @@ frame arrives at T + 60ms → Δt = 60ms > 50ms → PASS
 ```
 
 **Config**:
-```yaml
-processor:
-  max_update_rate_hz: 20   # = 50ms minimum interval
+```json
+{
+  "processor": {
+    "max_update_rate_hz": 20
+  }
+}
 ```
 
 ---
@@ -163,13 +169,15 @@ computed.add_formula("EnginePower", lambda s: s.get("EngineRPM", 0) * s.get("Act
 
 **Mục đích**: Phát hiện tín hiệu vượt ngưỡng và kích hoạt cảnh báo.
 
-**Ngưỡng** (`config/alarms.yaml`):
-```yaml
-alarms:
-  EngineRPM:
-    critical_high: 7500.0
-  BrakePressure:
-    critical_high: 180.0 
+**Ngưỡng** (`config/alarms.json`):
+```json
+{
+  "alarms": {
+    "EngineRPM": { "critical_high": 7500.0 },
+    "BrakePressure": { "critical_high": 180.0 }
+  }
+}
+
 value >= critical_high  →  status = "critical",  level = "critical"
 value >= warning_high   →  status = "warning",   level = "warning"
 value <= critical_low   →  status = "critical",  level = "critical"

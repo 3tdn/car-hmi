@@ -17,7 +17,7 @@
 | 0.2.0 | 2026-03-15 | HMI Team | Add concurrency & reliability section (2.8) |
 | 0.3.0 | 2026-03-19 | HMI Team | Add alarm_log schema, error taxonomy, deployment guidance, NFR disk/reconnect |
 | 0.4.0 | 2026-03-19 | HMI Team | Fix alarm level inconsistency, add /ready + alarm history endpoints, security section, expand testing & frontend |
-| 0.5.0 | 2026-03-19 | HMI Team | Add glossary, fix deps (ruff/pytest-cov/locust), complete bus.yaml config, add deployment files to dir tree, config validation approach |
+| 0.5.0 | 2026-03-19 | HMI Team | Add glossary, fix deps (ruff/pytest-cov/locust), complete system.json config, add deployment files to dir tree, config validation approach |
 | 0.6.0 | 2026-03-19 | HMI Team | Final round: expand AC (11–16), clarify /health vs /ready vs /status, update running section (dev + prod), align roadmap with new sections |
 | 0.7.0 | 2026-03-21 | HMI Team | Sync docs with implemented code: fix API routes (no /api/v1/ prefix), update DB schema, remove unimplemented VehicleStateMachine, add DatabaseLoader/bus_factory/config_manager/RandomCANSimulator, fix alarm config format, update directory structure |
 | 0.8.0 | 2026-03-22 | HMI Team | Add subscribe-based WS protocol (/ws/subscribe), GET /signals/available metadata endpoint, per-signal/channel filtering, metrics push, one-shot mode |
@@ -89,7 +89,7 @@ Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý d�
 | Tốc độ | Configurable cycle time per message (mặc định 10–100 ms) |
 | Interface | `python-can` virtual interface (`virtual`, `socketcan`, `pcan`, `vector`) |
 | Nhiễu | Tùy chọn thêm noise/jitter để mô phỏng thực tế |
-| CLI | `python -m src.can_simulator.cli --config config/bus.yaml --scenario scenarios/city_drive.yaml` |
+| CLI | `python -m src.can_simulator.cli --config config/system.json --scenario scenarios/city_drive.yaml` |
 
 **Scenario file mẫu (`scenarios/city_drive.yaml`):**
 
@@ -352,7 +352,7 @@ Yêu cầu hỗ trợ:
 | Pipeline | 4 stages theo thứ tự: SmoothingFilter → RateLimiter → ComputedSignals → AlarmChecker |
 | Batch storage | Buffer signal records, flush khi đạt `batch_size` hoặc `batch_interval_sec` |
 
-**Alarm threshold config mẫu (`config/alarms.yaml`):**
+**Alarm threshold config mẫu (`config/alarms.json`):**
 
 ```yaml
 alarms:
@@ -389,7 +389,7 @@ Mục tiêu:
 - Lưu trữ cấu hình tín hiệu (min/max, unit, writable) để frontend và backend cùng dùng.
 - Hỗ trợ batch insert và retention để tránh quá tải I/O.
 
-**Cấu hình (đã có trong `config/bus.yaml`):**
+**Cấu hình (đã có trong `config/system.json`):**
 
 ```yaml
 storage:
@@ -483,7 +483,7 @@ CREATE TABLE IF NOT EXISTS signal_config (
 | GET | `/config/processor` | Xem processor config (max_queue_size, queue_policy) |
 | POST | `/config/processor` | Cập nhật processor config (live apply attempt) |
 | GET | `/config/general` | Xem full application config (AppConfig.model_dump()) |
-| PATCH | `/config/general` | Patch application config (partial update, persist bus.yaml) |
+| PATCH | `/config/general` | Patch application config (partial update, persist system.json) |
 | POST | `/config/general/reset` | Reset application config về defaults |
 | GET | `/config/alarms` | Xem alarms config (raw YAML as JSON) |
 | POST | `/config/alarms` | Cập nhật alarms config (overwrite) |
@@ -899,7 +899,7 @@ Type=notify
 User=canhmi
 Group=canhmi
 WorkingDirectory=/opt/can-hmi
-ExecStart=/opt/can-hmi/.venv/bin/python -m src.core.runner --config /opt/can-hmi/config/bus.yaml
+ExecStart=/opt/can-hmi/.venv/bin/python -m src.core.runner --config /opt/can-hmi/config/system.json
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=3
@@ -924,7 +924,7 @@ RUN pip install --no-cache-dir .
 COPY . .
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s CMD curl -f http://localhost:8000/health || exit 1
-CMD ["python", "-m", "src.core.runner", "--config", "config/bus.yaml"]
+CMD ["python", "-m", "src.core.runner", "--config", "config/system.json"]
 ```
 
 ### CAN Bus Setup (Linux)
@@ -944,7 +944,7 @@ sudo ip link set up can0
 
 | Variable | Default | Mô tả |
 |---|---|---|
-| `CANHMI_CONFIG` | `config/bus.yaml` | Path to main config file |
+| `CANHMI_CONFIG` | `config/system.json` | Path to main config file |
 | `CANHMI_LOG_LEVEL` | `INFO` | Override logging level |
 | `CANHMI_API_KEY` | (from config) | Override API key |
 | `CANHMI_DB_PATH` | (from config) | Override SQLite path |
@@ -985,9 +985,9 @@ car-hmi/
 ├── deploy/
 │   └── can-hmi.service         # systemd unit file
 ├── config/
-│   ├── bus.yaml                # CAN bus configuration (main config)
-│   ├── alarms.yaml             # Alarm thresholds (auto-generated from DBC)
-│   └── signals.yaml            # Signal display config (auto-generated from DBC)
+│   ├── system.json             # CAN bus configuration (main config)
+│   ├── alarms.json             # Alarm thresholds (auto-generated from DBC)
+│   └── signals.json            # Signal display config (auto-generated from DBC)
 ├── db/
 │   ├── can_db/                 # DBC files (CAN database)
 │   │   ├── m_dummy.dbc
@@ -1000,8 +1000,8 @@ car-hmi/
 ├── scenarios/
 │   └── city_drive.yaml         # Kịch bản mô phỏng
 ├── scripts/
-│   ├── gen_signals_from_dbc.py # Generate signals.yaml from DBC files
-│   ├── gen_alarms_from_dbc.py  # Generate alarms.yaml from DBC files
+│   ├── gen_signals_from_dbc.py # Generate signals.json from DBC files
+│   ├── gen_alarms_from_dbc.py  # Generate alarms.json from DBC files
 │   ├── gen_configs_from_dbc.py # Generate all configs from DBC
 │   ├── dbc_utils.py            # DBC utility functions
 │   ├── set_processor_config.py # CLI to update processor config
@@ -1205,91 +1205,91 @@ jobs:
 
 ## 6. Cấu hình (Configuration)
 
-### bus.yaml
+### system.json
 
-```yaml
-can:
-  interface: virtual        # virtual | socketcan | pcan | vector | kvaser | serial
-  channel: vcan0
-  bitrate: 500000
-  # Path(s) to CAN database files:
-  # - Can be a single file (candb/dbc) or a directory containing multiple files.
-  can_db_files: []                  # individual files (optional)
-  can_db_dirs:
-    - db/can_db/
-  a2l_dirs:
-    - db/ecu_db/
-  can_db_format: auto           # auto | dbc | a2l (auto-detect from file extension)
-
-simulator:
-  enabled: true
-  default_cycle_ms: 50
-
-api:
-  host: 0.0.0.0
-  port: 8000
-  api_key: "change-me-in-production"
-  ws_heartbeat_interval_sec: 5
-  cors_origins:
-    - "http://localhost:8000"
-
-storage:
-  engine: sqlite              # sqlite | timescaledb | influxdb
-  sqlite_path: data/signals.db
-  batch_size: 100
-  batch_interval_sec: 2.0
-  retention_days: 30
-  max_disk_mb: 2048
-
-processor:
-  smoothing_window: 5
-  max_update_rate_hz: 10.0
-  max_queue_size: 10000
-  queue_policy: reject      # drop_oldest | block | reject
-
-writer:
-  rate_limit_per_sec: 10    # max write requests per second (global)
-  burst: 5                  # allow burst of N writes
-
-shutdown:
-  timeout_sec: 10           # max wait for flush on SIGTERM/SIGINT
-
-supervisor:
-  watchdog_interval_sec: 5  # health-check poll interval
-
-logging:
-  level: INFO                 # DEBUG | INFO | WARNING | ERROR
-  file_path: logs/can-hmi.log
-  max_size_mb: 50
-  backup_count: 5
+```json
+{
+  "can": {
+    "interface": "virtual",
+    "channel": "vcan0",
+    "bitrate": 500000,
+    "can_db_files": [],
+    "can_db_dirs": ["db/can_db/"],
+    "a2l_dirs": ["db/ecu_db/"],
+    "can_db_format": "auto"
+  },
+  "simulator": {
+    "enabled": true,
+    "default_cycle_ms": 50
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "api_key": "change-me-in-production",
+    "ws_heartbeat_interval_sec": 5,
+    "cors_origins": ["http://localhost:8000"]
+  },
+  "storage": {
+    "engine": "sqlite",
+    "sqlite_path": "data/signals.db",
+    "batch_size": 100,
+    "batch_interval_sec": 2.0,
+    "retention_days": 30,
+    "max_disk_mb": 2048
+  },
+  "processor": {
+    "smoothing_window": 5,
+    "max_update_rate_hz": 10.0,
+    "max_queue_size": 10000,
+    "queue_policy": "reject"
+  },
+  "writer": {
+    "rate_limit_per_sec": 10,
+    "burst": 5
+  },
+  "shutdown": { "timeout_sec": 10 },
+  "supervisor": { "watchdog_interval_sec": 5 },
+  "logging": {
+    "level": "INFO",
+    "file_path": "logs/can-hmi.log",
+    "max_size_mb": 50,
+    "backup_count": 5
+  }
+}
 ```
 
-### signals.yaml
+### signals.json
 
-```yaml
-# Signal display config cho Dashboard
-signals:
-  VehicleSpeed:
-    display_name: "Vehicle Speed"
-    group: driving
-    widget: gauge
-    visible_user_mode: true
-  EngineRPM:
-    display_name: "Engine RPM"
-    group: driving
-    widget: gauge
-    visible_user_mode: true
-  CoolantTemp:
-    display_name: "Coolant Temperature"
-    group: engine
-    widget: chart
-    visible_user_mode: false
-  BrakePressure:
-    display_name: "Brake Pressure"
-    group: safety
-    widget: table
-    writable: true
-    visible_user_mode: true
+```json
+{
+  "signals": {
+    "VehicleSpeed": {
+      "display_name": "Vehicle Speed",
+      "group": "driving",
+      "widget": "gauge",
+      "visible_user_mode": true
+    },
+    "EngineRPM": {
+      "display_name": "Engine RPM",
+      "group": "driving",
+      "widget": "gauge",
+      "visible_user_mode": true
+    },
+    "CoolantTemp": {
+      "display_name": "Coolant Temperature",
+      "group": "engine",
+      "widget": "chart",
+      "visible_user_mode": false
+    },
+    "BrakePressure": {
+      "display_name": "Brake Pressure",
+      "group": "safety",
+      "widget": "table",
+      "writable": true,
+      "visible_user_mode": true
+    }
+  }
+}
 ```
 
 ---
@@ -1303,11 +1303,11 @@ signals:
 pip install -e ".[dev]"
 
 # 2. Chạy toàn bộ stack (simulator + reader + processor + API + frontend)
-python -m src.core.runner --config config/bus.yaml
+python -m src.core.runner --config config/system.json
 
 # 3. Hoặc chạy từng phần riêng
 python -m src.can_simulator --dbc-dir db/can_db/ --a2l-dir db/ecu_db/ # Chỉ simulator
-python -m src.api.app --config config/bus.yaml                     # Chỉ API server
+python -m src.api.app --config config/system.json                     # Chỉ API server
 
 # 4. Mở dashboard
 # Truy cập http://localhost:8000 trên trình duyệt

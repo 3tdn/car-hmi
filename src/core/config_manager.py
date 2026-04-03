@@ -1,22 +1,21 @@
-"""Quản lý cấu hình runtime (đọc/ghi config YAML cho processor).
+"""Quản lý cấu hình runtime (đọc/ghi config JSON cho processor).
 
-Đây là helper tối thiểu để cập nhật `processor` trong `config/bus.yaml`.
+Đây là helper tối thiểu để cập nhật `processor` trong `config/system.json`.
 """
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
-import yaml
-
-DEFAULT_CONFIG_PATH = Path("config/bus.yaml")
+DEFAULT_CONFIG_PATH = Path("config/system.json")
 
 
 def read_config(path: str | Path | None = None) -> Dict[str, Any]:
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    return json.loads(p.read_text(encoding="utf-8")) or {}
 
 
 _VALID_QUEUE_POLICIES = {"drop_oldest", "block", "reject"}
@@ -25,7 +24,7 @@ _VALID_QUEUE_POLICIES = {"drop_oldest", "block", "reject"}
 def write_config(data: Dict[str, Any], path: str | Path | None = None) -> None:
     """Write config atomically via temp-file + os.replace to avoid corruption on crash."""
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    content = yaml.safe_dump(data, sort_keys=False).encode("utf-8")
+    content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
     fd, tmp = tempfile.mkstemp(dir=str(p.parent), suffix=".tmp")
     try:
         os.write(fd, content)
@@ -86,15 +85,15 @@ def update_config_partial(update: Dict[str, Any], path: str | Path | None = None
 
 
 def read_alarms(path: str | Path | None = None) -> Dict[str, Any]:
-    p = Path(path) if path else Path("config/alarms.yaml")
+    p = Path(path) if path else Path("config/alarms.json")
     if not p.exists():
         return {}
-    return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    return json.loads(p.read_text(encoding="utf-8")) or {}
 
 
 def write_alarms(data: Dict[str, Any], path: str | Path | None = None) -> None:
-    p = Path(path) if path else Path("config/alarms.yaml")
-    p.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    p = Path(path) if path else Path("config/alarms.json")
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
@@ -108,7 +107,7 @@ def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
     if not can_block.get("can_db_files") and not can_block.get("can_db_dirs"):
         # set a sensible default directory that exists in repo
         can_block["can_db_dirs"] = ["db/can_db/"]
-    p.write_text(yaml.safe_dump(default, sort_keys=False), encoding="utf-8")
+    p.write_text(json.dumps(default, indent=2, ensure_ascii=False), encoding="utf-8")
     return default
 
 
@@ -117,7 +116,7 @@ def write_default_alarms(path: str | Path | None = None) -> Dict[str, Any]:
 
     Returns the written structure.
     """
-    p = Path(path) if path else Path("config/alarms.yaml")
+    p = Path(path) if path else Path("config/alarms.json")
     # Try to populate default alarms for all known signals with null thresholds.
     try:
         from src.can_io.parser import DatabaseLoader
@@ -139,5 +138,5 @@ def write_default_alarms(path: str | Path | None = None) -> Dict[str, Any]:
         }
 
     data = {"alarms": alarms}
-    p.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return data

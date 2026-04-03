@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI helper to update processor settings in config/bus.yaml and optionally POST to running API."""
+"""CLI helper to update processor settings in config/system.json and optionally POST to running API."""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +15,7 @@ from src.core.config_manager import update_processor_config
 
 def main() -> None:
     p = argparse.ArgumentParser(prog="set-processor-config")
-    p.add_argument("--config", "-c", default="config/bus.yaml")
+    p.add_argument("--config", "-c", default="config/system.json")
     p.add_argument("--max-queue-size", type=int, help="Max queue size for processor")
     p.add_argument("--queue-policy", choices=["drop_oldest", "block", "reject"])
     p.add_argument(

@@ -15,7 +15,7 @@ participant "SystemMetrics\n(runner)"  as SM
 
 FE -> REST : GET /signals/available
 REST -> SS : get_snapshot()
-REST -> REST : merge signals.yaml\n+ alarms.yaml
+REST -> REST : merge signals.json\n+ alarms.json
 REST --> FE : 200 SignalMetadataListResponse\n(unit, min, max, widget, alarm\nthresholds, value, status, timestamp)
 
 note right of FE

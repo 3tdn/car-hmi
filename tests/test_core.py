@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
-import yaml
 
 from src.core.config import AppConfig, CANConfig, load_config
 from src.core.signal_store import SignalStore
@@ -12,12 +13,12 @@ from src.core.signal_store import SignalStore
 
 
 def test_load_config_from_file():
-    """Load the project's bus.yaml and validate it produces AppConfig."""
+    """Load the project's system.json and validate it produces AppConfig."""
     from pathlib import Path
 
-    if not Path("config/bus.yaml").exists():
-        pytest.skip("config/bus.yaml not found")
-    cfg = load_config("config/bus.yaml")
+    if not Path("config/system.json").exists():
+        pytest.skip("config/system.json not found")
+    cfg = load_config("config/system.json")
     assert isinstance(cfg, AppConfig)
     assert cfg.can.interface == "virtual"
     assert cfg.api.port == 8000
@@ -31,14 +32,14 @@ def test_can_config_defaults():
 
 def test_load_config_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
-        load_config(str(tmp_path / "nope.yaml"))
+        load_config(str(tmp_path / "nope.json"))
 
 
 def test_load_config_custom(tmp_path):
     """Load a minimal custom config."""
-    cfg_file = tmp_path / "test.yaml"
+    cfg_file = tmp_path / "test.json"
     cfg_file.write_text(
-        yaml.dump(
+        json.dumps(
             {
                 "can": {
                     "interface": "virtual",

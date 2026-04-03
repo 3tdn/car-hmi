@@ -87,7 +87,7 @@ asyncio.Queue
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│  Stage 4        │  AlarmChecker      — So sánh với ngưỡng config/alarms.yaml
+│  Stage 4        │  AlarmChecker      — So sánh với ngưỡng config/alarms.json
 │  Alarm Check    │                      Phát ra Alarm event → lưu DB + push WS
 └────────┬────────┘
          ▼
@@ -224,7 +224,7 @@ java -jar plantuml.jar diagram/*.puml
 
 ## 5. Cấu hình hệ thống
 
-Tất cả runtime config trong `config/bus.yaml`:
+Tất cả runtime config trong `config/system.json`:
 
 ```yaml
 can:
@@ -255,7 +255,7 @@ storage:
   retention_days: 30
 ```
 
-Ngưỡng cảnh báo trong `config/alarms.yaml`:
+Ngưỡng cảnh báo trong `config/alarms.json`:
 ```yaml
 alarms:
   EngineRPM:

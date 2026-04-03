@@ -20,4 +20,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/system/health')" || exit 1
 
 ENTRYPOINT ["can-hmi"]
-CMD ["--config", "config/bus.yaml"]
+CMD ["--config", "config/system.json"]

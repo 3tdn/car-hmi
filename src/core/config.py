@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Literal
 
-import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -88,7 +88,7 @@ class AppConfig(BaseModel):
 
 
 def load_config(path: str | Path) -> AppConfig:
-    """Tải và xác thực AppConfig từ file YAML."""
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    """Tải và xác thực AppConfig từ file JSON."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
     return AppConfig.model_validate(data or {})

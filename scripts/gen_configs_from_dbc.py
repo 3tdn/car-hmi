@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Tạo/gộp `config/signals.yaml` và `config/alarms.yaml` từ các file DBC.
+"""Tạo/gộp `config/signals.json` và `config/alarms.json` từ các file DBC.
 
 Cách dùng:
-  python scripts/gen_configs_from_dbc.py --dbc path/to/file.dbc [--signals-out config/signals.yaml] [--alarms-out config/alarms.yaml] [--dry-run] [--overwrite]
+  python scripts/gen_configs_from_dbc.py --dbc path/to/file.dbc [--signals-out config/signals.json] [--alarms-out config/alarms.json] [--dry-run] [--overwrite]
 
-Script phân tích các DBC bằng `cantools` và thêm các tín hiệu chưa có vào file YAML.
+Script phân tích các DBC bằng `cantools` và thêm các tín hiệu chưa có vào file JSON.
 Các mục hiện có được giữ nguyên trừ khi có `--overwrite`.
 """
 from __future__ import annotations
@@ -115,12 +115,12 @@ def merge_into_alarms_config(existing: dict, parsed: dict, overwrite: bool = Fal
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate config/signals.yaml and config/alarms.yaml from DBC files")
+    parser = argparse.ArgumentParser(description="Generate config/signals.json and config/alarms.json from DBC files")
     parser.add_argument("--dbc", "-d", required=True, nargs="+", help="DBC file(s) or directories to parse")
-    parser.add_argument("--signals-out", default="config/signals.yaml", help="Output signals YAML path")
-    parser.add_argument("--alarms-out", default="config/alarms.yaml", help="Output alarms YAML path")
+    parser.add_argument("--signals-out", default="config/signals.json", help="Output signals JSON path")
+    parser.add_argument("--alarms-out", default="config/alarms.json", help="Output alarms JSON path")
     parser.add_argument("--dry-run", action="store_true", help="Don't write files; just print summary")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing entries in target YAMLs")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing entries in target JSONs")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
 

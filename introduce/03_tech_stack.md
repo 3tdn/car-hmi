@@ -171,7 +171,7 @@ python -m venv .venv
 pip install -e ".[dev]"
 
 # Chạy
-can-hmi --config config/bus.yaml --log-level DEBUG
+can-hmi --config config/system.json --log-level DEBUG
 
 # Test
 pytest --cov=src

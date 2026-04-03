@@ -12,7 +12,7 @@
 | REST | Header `X-API-Key: <key>` |
 | WebSocket | Query param `?token=<key>` |
 
-Nếu `api_key` trong `config/bus.yaml` để trống hoặc là placeholder (`change-me-in-production`) → **auth tắt** (dev mode, không cần gửi key).
+Nếu `api_key` trong `config/system.json` để trống hoặc là placeholder (`change-me-in-production`) → **auth tắt** (dev mode, không cần gửi key).
 
 ---
 

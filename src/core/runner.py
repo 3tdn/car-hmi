@@ -230,16 +230,16 @@ class AppRunner:
 
 
     def _load_alarm_configs(self) -> list:
-        """Tải cấu hình ngưỡng cảnh báo từ config/alarms.yaml."""
-        import yaml
+        """Tải cấu hình ngưỡng cảnh báo từ config/alarms.json."""
+        import json
 
         from src.processor.alarms import AlarmConfig
 
-        alarm_path = Path("config/alarms.yaml")
+        alarm_path = Path("config/alarms.json")
         if not alarm_path.exists():
-            logger.warning("config/alarms.yaml not found — no alarm thresholds loaded")
+            logger.warning("config/alarms.json not found — no alarm thresholds loaded")
             return []
-        raw = yaml.safe_load(alarm_path.read_text(encoding="utf-8"))
+        raw = json.loads(alarm_path.read_text(encoding="utf-8"))
         configs = []
         for signal_name, entry in raw.get("alarms", {}).items():
             configs.append(
@@ -597,8 +597,8 @@ def main() -> None:
     parser.add_argument(
         "--config",
         "-c",
-        default="config/bus.yaml",
-        help="Path to configuration YAML file (default: config/bus.yaml)",
+        default="config/system.json",
+        help="Path to configuration JSON file (default: config/system.json)",
     )
     parser.add_argument(
         "--log-level",

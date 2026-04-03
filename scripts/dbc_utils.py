@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from pathlib import Path
 from typing import Dict, Any
-
-import yaml
 
 try:
     import cantools
@@ -16,16 +15,26 @@ logger = logging.getLogger("dbc_utils")
 
 
 def load_yaml(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    """Backward-compat alias for load_json."""
+    return load_json(path)
 
 
 def write_yaml(path: Path, data: dict) -> None:
+    """Backward-compat alias for write_json."""
+    write_json(path, data)
+
+
+def load_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f) or {}
+
+
+def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=True, default_flow_style=False, allow_unicode=True)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:

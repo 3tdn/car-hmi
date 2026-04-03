@@ -46,7 +46,7 @@ partition "Stage 3: Computed Signals" {
 }
 
 partition "Stage 4: Alarm Detection" {
-    :Load alarm thresholds\nfrom config/alarms.yaml;
+    :Load alarm thresholds\nfrom config/alarms.json;
     if (value >= critical_high\n OR value <= critical_low?) then (yes)
         :Set status = "critical";
         :Emit alarm event\n(level=critical);

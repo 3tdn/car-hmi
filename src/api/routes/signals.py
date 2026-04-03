@@ -52,7 +52,7 @@ async def list_available_signals(request: Request):
     """
     from pathlib import Path
 
-    import yaml
+    import json
 
     from src.core.config_manager import read_alarms
 
@@ -61,9 +61,9 @@ async def list_available_signals(request: Request):
 
     # Load signal configs
     signal_configs: dict = {}
-    signals_path = Path("config/signals.yaml")
+    signals_path = Path("config/signals.json")
     if signals_path.exists():
-        raw = yaml.safe_load(signals_path.read_text(encoding="utf-8")) or {}
+        raw = json.loads(signals_path.read_text(encoding="utf-8")) or {}
         signal_configs = raw.get("signals", {})
 
     # Load alarm configs

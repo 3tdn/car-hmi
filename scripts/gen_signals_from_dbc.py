@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Tạo/gộp `config/signals.yaml` từ các file DBC.
+"""Tạo/gộp `config/signals.json` từ các file DBC.
 
 Cách dùng:
-  python scripts/gen_signals_from_dbc.py --dbc path/to/file.dbc [--out config/signals.yaml] [--dry-run] [--overwrite]
+  python scripts/gen_signals_from_dbc.py --dbc path/to/file.dbc [--out config/signals.json] [--dry-run] [--overwrite]
 """
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ def merge_into_signals_config(existing: dict, parsed: dict, overwrite: bool = Fa
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate config/signals.yaml from DBC files")
+    parser = argparse.ArgumentParser(description="Generate config/signals.json from DBC files")
     parser.add_argument("--dbc", "-d", required=True, nargs="+", help="DBC file(s) or directories to parse")
-    parser.add_argument("--out", default="config/signals.yaml", help="Output signals YAML path")
+    parser.add_argument("--out", default="config/signals.json", help="Output signals JSON path")
     parser.add_argument("--dry-run", action="store_true", help="Don't write files; just print summary")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing entries in target YAML")
     parser.add_argument("--verbose", "-v", action="store_true")

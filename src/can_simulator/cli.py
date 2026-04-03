@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CAN-HMI Simulator")
-    parser.add_argument("--config", default="config/bus.yaml")
+    parser.add_argument("--config", default="config/system.json")
     parser.add_argument("--scenario", default="scenarios/city_drive.yaml")
     args = parser.parse_args()
 
