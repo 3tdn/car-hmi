@@ -411,24 +411,14 @@ class AppRunner {
 package "can_simulator" as pkg_sim #LightYellow {
 class CANSimulator {
     -_bus: can.Bus
-    -_db: DatabaseLoader
-    -_steps: list[ScenarioStep]
+    -_messages: list[_MsgDef]
+    -_cycle_ms: int
+    -_loop: bool
     -_running: bool
     +start(): void
     +stop(): void
-    -_run_once(): void
-}
-
-class RandomCANSimulator {
-    -_bus: can.Bus
-    -_db: DatabaseLoader
-    -_max_delta_percent: float
-    -_update_hz: float
-    -_running: bool
-    -_values: dict[str, float]
-    +start(): void
-    +stop(): void
-    -_run_once(): void
+    -_load_can_json(path: Path): list[_MsgDef]
+    -_tick(loop): void
 }
 
 class ScenarioLoader {
@@ -446,9 +436,6 @@ class ScenarioStep <<dataclass>> {
     +signals: dict[str, float]
 }
 
-CANSimulator --> DatabaseLoader
-RandomCANSimulator --> DatabaseLoader
-CANSimulator --> Scenario
 ScenarioLoader ..> Scenario : creates
 Scenario "1" *-- "many" ScenarioStep
 }

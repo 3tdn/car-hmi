@@ -200,6 +200,7 @@ class AppRunner:
             queue=rx_queue,
             bus_factory=_bus_factory,
             queue_policy=proc_cfg.queue_policy,
+            max_rate_hz=proc_cfg.max_update_rate_hz,
         )
 
         # 6. Trình ghi CAN ─────────────────────────────────────────────────────────
@@ -296,84 +297,20 @@ class AppRunner:
 
     async def _build_simulator(self, db_loader, sim_cfg) -> object | None:
         """Xây dựng CANSimulator nếu cấu hình simulator tồn tại."""
-        from src.can_simulator.scenario_loader import ScenarioLoader
-        from src.can_simulator.simulator import CANSimulator, RandomCANSimulator
+        from src.can_simulator.simulator import CANSimulator
 
-        # Ưu tiên dùng cấu hình riêng của simulator nếu có
-        sim_conf_path = Path("src/can_simulator/config.json")
+        can_json_path = Path(sim_cfg.can_json_path)
+        if not can_json_path.exists():
+            logger.warning("can_json_path '%s' not found — simulator disabled", can_json_path)
+            return None
 
-        # Dùng bus ảo riêng cho simulator để reader có thể nhận frame
-        # (bus ảo python-can gửi giữa các instance khác nhau cùng channel).
         sim_bus = self._bus_factory()
         self._simulator_bus = sim_bus
-
-        if sim_conf_path.exists():
-            try:
-                import json
-
-                conf = json.loads(sim_conf_path.read_text(encoding="utf-8"))
-            except Exception:
-                logger.exception("Failed to read simulator config %s", sim_conf_path)
-                conf = {}
-
-            mode = conf.get("mode", "random")
-            if mode == "random":
-                # Tùy chọn cho phép simulator tải thêm đường dẫn DBC
-                extra = conf.get("dbc_paths") or []
-                if extra:
-                    db_loader.add_paths(extra)
-
-                update_hz = float(conf.get("update_hz", 1.0))
-                max_delta_pct = float(conf.get("max_delta_percent", 10.0))
-                min_val = conf.get("min_value")
-                max_val = conf.get("max_value")
-                cycle_ms = sim_cfg.default_cycle_ms
-
-                return RandomCANSimulator(
-                    bus=sim_bus,
-                    db=db_loader,
-                    default_cycle_ms=cycle_ms,
-                    update_hz=update_hz,
-                    min_value=min_val,
-                    max_value=max_val,
-                    max_delta_percent=max_delta_pct,
-                    loop=True,
-                )
-
-            # fallback sang chế độ scenario nếu được yêu cầu
-            if mode == "scenario":
-                scenario_path = Path("scenarios/city_drive.yaml")
-                if not scenario_path.exists():
-                    logger.info("No scenario file found — simulator will not run")
-                    return None
-                loader = ScenarioLoader()
-                scenario = loader.load(scenario_path)
-                return CANSimulator(
-                    bus=sim_bus,
-                    db=db_loader,
-                    scenario=scenario,
-                    default_cycle_ms=sim_cfg.default_cycle_ms,
-                    loop=True,
-                )
-
-            logger.warning(
-                "Unknown simulator mode '%s' in %s — simulator disabled", mode, sim_conf_path
-            )
-            return None
-
-        # Hành vi mặc định: kiểm tra file scenario
-        scenario_path = Path("scenarios/city_drive.yaml")
-        if not scenario_path.exists():
-            logger.info("No scenario file found — simulator will not run")
-            return None
-        loader = ScenarioLoader()
-        scenario = loader.load(scenario_path)
         return CANSimulator(
             bus=sim_bus,
-            db=db_loader,
-            scenario=scenario,
-            default_cycle_ms=sim_cfg.default_cycle_ms,
-            loop=True,
+            can_json_path=can_json_path,
+            cycle_ms=sim_cfg.default_cycle_ms,
+            repeat=True,
         )
 
     async def _build_api_server(self):

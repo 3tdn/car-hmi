@@ -14,6 +14,9 @@ from src.can_io.parser import DatabaseLoader
 
 logger = logging.getLogger(__name__)
 
+# Tần suất tối thiểu để log cảnh báo drop frames (tránh spam).
+_DROP_WARN_INTERVAL_SEC = 1.0
+
 
 @dataclass
 class RawCANFrame:
@@ -51,6 +54,7 @@ class CANReader:
         bus_factory: Callable[[], can.BusABC] | None = None,
         max_reconnect_retries: int = 5,
         queue_policy: str = "reject",
+        max_rate_hz: float = 0.0,
     ) -> None:
         """
         Tham số:
@@ -60,6 +64,10 @@ class CANReader:
             filter_ids:     Nếu không rỗng, chỉ xử lý khung có những ID này.
             bus_factory:    Callable để mở lại bus khi mất kết nối (tùy chọn).
             max_reconnect_retries: Số lần thử kết nối lại tối đa liên tiếp.
+            max_rate_hz:    Nếu > 0, rate-gate mỗi msg_id — bỏ qua frame nếu
+                            cùng ID vừa được enqueue trong vòng 1/max_rate_hz giây.
+                            Giúp tránh queue full khi simulator gửi nhanh hơn
+                            pipeline tiêu thụ.
         """
         self._bus = bus
         self._db = db
@@ -71,6 +79,13 @@ class CANReader:
         self._running = False
         self._error_count = 0
         self._dropped_count = 0
+        self._rate_limited_count = 0
+        # Per-ID rate gate: min interval in seconds (0 = disabled)
+        self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
+        self._last_enqueue: dict[int, float] = {}
+        # Throttled drop warning state
+        self._drop_warn_count = 0
+        self._drop_warn_last_log = 0.0
 
     async def start(self) -> None:
         """Bắt đầu vòng lặp đọc bất đồng bộ — chạy đến khi ``stop()`` được gọi."""
@@ -91,6 +106,18 @@ class CANReader:
                     continue  # hết thời gian chờ — kiểm tra _running và tiếp tục
                 if self._filter_ids and msg.arbitration_id not in self._filter_ids:
                     continue
+
+                # Per-message-ID rate gate: skip frame if same ID arrived too recently.
+                # This prevents the pipeline queue from filling when the simulator sends
+                # faster than the pipeline can consume (e.g. 20 Hz sim vs 10 Hz rate-limit).
+                if self._min_interval > 0.0:
+                    now_t = time.monotonic()
+                    last_t = self._last_enqueue.get(msg.arbitration_id, 0.0)
+                    if (now_t - last_t) < self._min_interval:
+                        self._rate_limited_count += 1
+                        continue
+                    self._last_enqueue[msg.arbitration_id] = now_t
+
                 frame = self._decode(msg)
                 if not frame.signals:
                     logger.debug(
@@ -102,22 +129,33 @@ class CANReader:
                     if self._policy == "block":
                         await self._queue.put(frame)
                     else:
-                        # reject or drop_oldest handled via non-blocking put
                         self._queue.put_nowait(frame)
                 except asyncio.QueueFull:
-                    # Track dropped frames for metrics
                     self._dropped_count += 1
                     if self._policy == "drop_oldest":
                         try:
-                            # Remove oldest item and try again
                             _ = self._queue.get_nowait()
                             self._queue.put_nowait(frame)
-                            logger.debug("RX queue full — dropped oldest frame and enqueued new (msg_id=%#x)", msg.arbitration_id)
+                            logger.debug("RX queue full — dropped oldest frame (msg_id=%#x)", msg.arbitration_id)
                         except Exception:
-                            logger.warning("RX queue full (msg_id=%#x) — frame dropped after drop_oldest attempt", msg.arbitration_id)
-                    else:
-                        # reject (default) — drop this incoming frame
-                        logger.warning("RX queue full (msg_id=%#x) — frame dropped", msg.arbitration_id)
+                            self._dropped_count += 1
+                    # Throttled warning: log once every _DROP_WARN_INTERVAL_SEC seconds
+                    # with accumulated count instead of printing every dropped frame.
+                    self._drop_warn_count += 1
+                    now_w = time.monotonic()
+                    if (now_w - self._drop_warn_last_log) >= _DROP_WARN_INTERVAL_SEC:
+                        logger.warning(
+                            "RX queue full — %d frame(s) dropped in last %.0fs "
+                            "(last msg_id=%#x, queue=%d/%d, rate_limited=%d total)",
+                            self._drop_warn_count,
+                            now_w - self._drop_warn_last_log if self._drop_warn_last_log else _DROP_WARN_INTERVAL_SEC,
+                            msg.arbitration_id,
+                            self._queue.qsize(),
+                            self._queue.maxsize,
+                            self._rate_limited_count,
+                        )
+                        self._drop_warn_count = 0
+                        self._drop_warn_last_log = now_w
 
             except can.CanError as exc:
                 self._error_count += 1
@@ -180,7 +218,11 @@ class CANReader:
 
     def get_metrics(self) -> dict:
         """Trả về metrics nội bộ của reader (dropped frames, error count)."""
-        return {"dropped_frames": int(self._dropped_count), "error_count": int(self._error_count)}
+        return {
+            "dropped_frames": int(self._dropped_count),
+            "error_count": int(self._error_count),
+            "rate_limited_frames": int(self._rate_limited_count),
+        }
 
     # Runtime helpers
     def set_queue_policy(self, policy: str) -> None:

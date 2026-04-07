@@ -8,9 +8,8 @@ import json
 import can
 import pytest
 
-from src.can_io.parser import DatabaseLoader
 from src.can_simulator.scenario_loader import ScenarioLoader
-from src.can_simulator.simulator import CANSimulator, Scenario, ScenarioStep
+from src.can_simulator.simulator import CANSimulator
 
 # ── ScenarioLoader ────────────────────────────────────────────────────────────
 
@@ -87,50 +86,45 @@ def test_scenario_loader_auto_duration(tmp_path):
 # ── CANSimulator ──────────────────────────────────────────────────────────────
 
 
+# ── CANSimulator ──────────────────────────────────────────────────────────────
+
+
 @pytest.fixture
-def sim_db(tmp_path):
-    db_file = tmp_path / "sim.json"
-    db_file.write_text(
-        json.dumps(
-            {
-                "messages": {
-                    "TestMsg": {
-                        "id": 200,
-                        "dlc": 8,
-                        "signals": {
-                            "Speed": {
-                                "start_bit": 0,
-                                "length": 16,
-                                "factor": 1.0,
-                                "offset": 0,
-                                "unit": "km/h",
-                                "is_signed": False,
-                                "byte_order": "little_endian",
-                            }
-                        },
+def can_json_file(tmp_path):
+    """Minimal can.json fixture for testing CANSimulator."""
+    data = {
+        "messages": {
+            "TestMsg": {
+                "id": 200,
+                "dlc": 8,
+                "signals": {
+                    "Speed": {
+                        "start_bit": 0,
+                        "length": 16,
+                        "factor": 1.0,
+                        "offset": 0,
+                        "unit": "km/h",
+                        "is_signed": False,
+                        "byte_order": "little_endian",
+                        "minimum": 0.0,
+                        "maximum": 200.0,
                     }
-                }
+                },
             }
-        )
-    )
-    loader = DatabaseLoader()
-    loader.add_paths([str(db_file)])
-    return loader
+        }
+    }
+    p = tmp_path / "can.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
 
 
 @pytest.mark.asyncio
-async def test_simulator_sends_frames(sim_db):
-    """Simulator encodes and sends a frame for each dirty message."""
-    bus = can.Bus(interface="virtual", channel="sim_test", receive_own_messages=True)
-    scenario = Scenario(
-        name="quick",
-        duration_sec=1,
-        steps=[ScenarioStep(at_sec=0, signals={"Speed": 42.0})],
-    )
-    sim = CANSimulator(bus=bus, db=sim_db, scenario=scenario, default_cycle_ms=50, loop=False)
+async def test_cansimulator_sends_frames(can_json_file):
+    """CANSimulator encodes and sends one frame per message per cycle."""
+    bus = can.Bus(interface="virtual", channel="sim_test_new", receive_own_messages=True)
+    sim = CANSimulator(bus=bus, can_json_path=can_json_file, cycle_ms=50, repeat=False)
     await sim.start()
 
-    # Read frames that were sent
     msg = bus.recv(timeout=0.5)
     assert msg is not None
     assert msg.arbitration_id == 200
@@ -138,15 +132,21 @@ async def test_simulator_sends_frames(sim_db):
 
 
 @pytest.mark.asyncio
-async def test_simulator_stop():
-    """stop() terminates the simulation loop."""
-    bus = can.Bus(interface="virtual", channel="sim_stop")
-    loader = DatabaseLoader()
-    scenario = Scenario(name="long", duration_sec=999, steps=[])
-    sim = CANSimulator(bus=bus, db=loader, scenario=scenario, default_cycle_ms=50)
+async def test_cansimulator_stop(can_json_file):
+    """stop() terminates the CANSimulator loop."""
+    bus = can.Bus(interface="virtual", channel="sim_stop_new")
+    sim = CANSimulator(bus=bus, can_json_path=can_json_file, cycle_ms=50, repeat=True)
 
     task = asyncio.create_task(sim.start())
     await asyncio.sleep(0.2)
     sim.stop()
     await asyncio.wait_for(task, timeout=3.0)
+    bus.shutdown()
+
+
+def test_cansimulator_missing_json(tmp_path):
+    """CANSimulator raises FileNotFoundError for missing can.json."""
+    bus = can.Bus(interface="virtual", channel="sim_missing")
+    with pytest.raises(FileNotFoundError):
+        CANSimulator(bus=bus, can_json_path=tmp_path / "nonexistent.json")
     bus.shutdown()

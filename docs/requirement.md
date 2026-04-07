@@ -1014,7 +1014,7 @@ car-hmi/
 │   ├── __init__.py
 │   ├── can_simulator/
 │   │   ├── __init__.py
-│   │   ├── simulator.py        # CANSimulator + RandomCANSimulator engines
+│   │   ├── simulator.py        # CANSimulator — reads can.json, generates random signals
 │   │   ├── scenario_loader.py  # Load & play scenario file (YAML/JSON)
 │   │   ├── cli.py              # CLI entry-point
 │   │   └── config.json         # Simulator runtime config (mode, update_hz)
@@ -1084,7 +1084,7 @@ car-hmi/
 ## 4. Luồng dữ liệu (Data Flow)
 
 ```
-[1] CAN Simulator (CANSimulator / RandomCANSimulator)
+[1] CAN Simulator (CANSimulator)
      │
      │  CAN frames (virtual bus)
      ▼

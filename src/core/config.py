@@ -22,6 +22,7 @@ class CANConfig(BaseModel):
 class SimulatorConfig(BaseModel):
     enabled: bool = True
     default_cycle_ms: int = 50
+    can_json_path: str = "config/can.json"
 
 
 class APIConfig(BaseModel):

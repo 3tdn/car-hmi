@@ -37,9 +37,8 @@ reader -> reader : parser.load(dbc_dir, a2l_dir)\nmerge signal definitions
 reader --> runner : Reader ready
 
 opt simulator enabled
-    runner -> sim : CANSimulator(dbc_dir, scenario_path)
-    sim -> sim : load DBC files
-    sim -> sim : ScenarioLoader.load(scenario_path)
+    runner -> sim : CANSimulator(can_json_path, cycle_ms)
+    sim -> sim : load can.json (messages + signals)
     sim --> runner : Simulator ready
 end
 

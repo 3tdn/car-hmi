@@ -12,7 +12,8 @@
   },
   "simulator": {
     "enabled": true,
-    "default_cycle_ms": 50
+    "default_cycle_ms": 10,
+    "can_json_path": "config/can.json"
   },
   "api": {
     "host": "0.0.0.0",

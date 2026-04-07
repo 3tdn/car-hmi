@@ -158,12 +158,11 @@ Authentication: `X-API-Key` header (REST), `?token=` query param (WebSocket). N�
 
 ### 2.6 `src/can_simulator/` — CAN Simulator
 
-Hai chế độ hoạt động, cấu hình qua `src/can_simulator/config.json`:
+Sử dụng `CANSimulator` đọc trực tiếp `can.json`, sinh giá trị ngẫu nhiên trong `[minimum, maximum]`:
 
 | Chế độ | Class | Mô tả |
 |---|---|---|
-| `scenario` | `CANSimulator` | Phát tín hiệu theo kịch bản YAML (tuyến tính theo thời gian) |
-| `random` | `RandomCANSimulator` | Tín hiệu ngẫu nhiên với delta % giới hạn, update_hz configurable |
+| `can_json` | `CANSimulator` | Sinh tín hiệu ngẫu nhiên [min, max] từ can.json theo chu kỳ cố định |
 
 Simulator dùng **virtual bus** riêng, tách biệt với bus reader (python-can virtual cho phép nhiều instance cùng channel).
 
