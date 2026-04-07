@@ -1015,7 +1015,6 @@ car-hmi/
 │   ├── can_simulator/
 │   │   ├── __init__.py
 │   │   ├── simulator.py        # CANSimulator — reads can.json, generates random signals
-│   │   ├── scenario_loader.py  # Load & play scenario file (YAML/JSON)
 │   │   ├── cli.py              # CLI entry-point
 │   │   └── config.json         # Simulator runtime config (mode, update_hz)
 │   ├── can_io/

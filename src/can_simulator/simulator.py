@@ -55,23 +55,6 @@ class _MsgDef:
     signals: list[_SigDef] = field(default_factory=list)
 
 
-@dataclass
-class ScenarioStep:
-    """A single timed step in a scenario (reserved for future scenario playback)."""
-
-    at_sec: float
-    signals: dict[str, float] = field(default_factory=dict)
-
-
-@dataclass
-class Scenario:
-    """A named scenario with duration and ordered steps (reserved for future use)."""
-
-    name: str
-    duration_sec: int
-    steps: list[ScenarioStep] = field(default_factory=list)
-
-
 class CANSimulator:
     """Bộ mô phỏng đọc định nghĩa message/signal trực tiếp từ ``can.json``
     và sinh giá trị ngẫu nhiên đều trong ``[minimum, maximum]`` cho từng tín hiệu.
@@ -81,7 +64,7 @@ class CANSimulator:
 
     Các tín hiệu bị trống ``start_bit`` hoặc thiếu ``minimum``/``maximum`` sẽ lấy giá trị hơp lý:
     - ``start_bit`` là ``null`` sẽ được tự động phân bổ vào vị trí bit trống đầu tiên trong message.
-    - ``minimum`` hoặc ``maximum`` là ``null`` sẽ được tính dựa trên độ dài bit, signedness, factor và offset của tín hiệu.
+    - ``minimum`` hoặc ``maximum`` là ``null`` sẽ được tính dựa trên độ dài bit, signedness, factor và offset.
     """
 
     def __init__(

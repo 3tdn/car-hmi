@@ -35,7 +35,6 @@ ignore = [
 "src/can_io/parser.py" = ["S110"]               # best-effort cantools load
 "src/core/signal_store.py" = ["S110"]           # subscriber errors must not crash store
 "src/core/config.py" = ["S104"]                 # bind 0.0.0.0 is intentional for dev
-"src/can_simulator/scenario_loader.py" = ["E501"]
 
 [lint.isort]
 known-first-party = ["src"]

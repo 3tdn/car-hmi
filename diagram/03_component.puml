@@ -10,7 +10,6 @@ skinparam component {
 
 package "src/can_simulator" as pkg_sim #lightyellow {
     [simulator.py\nECU Simulator Engine] as sim_engine
-    [scenario_loader.py\nScenario YAML Parser] as sim_scenario
     [cli.py\nCLI Entry-point] as sim_cli
 }
 
@@ -59,7 +58,6 @@ package "src/core" as pkg_core #LightGray {
 
 ' Relationships
 sim_cli --> sim_engine
-sim_cli --> sim_scenario
 sim_engine ..> bus_if : "CAN frames\n(virtual bus)"
 bus_if ..> io_reader : "receive frames"
 

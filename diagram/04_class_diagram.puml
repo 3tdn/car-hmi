@@ -421,23 +421,6 @@ class CANSimulator {
     -_tick(loop): void
 }
 
-class ScenarioLoader {
-    +{static} load(path: str | Path): Scenario
-}
-
-class Scenario <<dataclass>> {
-    +name: str
-    +duration_sec: int
-    +steps: list[ScenarioStep]
-}
-
-class ScenarioStep <<dataclass>> {
-    +at_sec: float
-    +signals: dict[str, float]
-}
-
-ScenarioLoader ..> Scenario : creates
-Scenario "1" *-- "many" ScenarioStep
 }
 
 AppRunner --> CANSimulator
