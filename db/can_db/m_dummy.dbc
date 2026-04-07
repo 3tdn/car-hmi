@@ -44,10 +44,10 @@ BU_: ECM TCM ESP IC BCM ADAS SRS HVAC EPB EPS
 
 
 // =============================================================================
-// POWERTRAIN - Động cơ & Truyền động
+// POWERTRAIN - Engine & Drivetrain
 // =============================================================================
 
-// --- ECM: Engine Control Module (Bộ điều khiển động cơ) ---
+// --- ECM: Engine Control Module ---
 BO_ 608 ECM_EngineStatus1: 8 ECM
  SG_ EngineSpeed : 0|16@1+ (0.25,0) [0|16383.75] "rpm" IC,TCM,ESP,ADAS
  SG_ EngineLoad : 16|8@1+ (0.39216,0) [0|100] "%" IC,TCM
@@ -85,7 +85,7 @@ BO_ 620 ECM_Torque: 8 ECM
  SG_ CruiseSetSpeed : 40|8@1+ (1,0) [0|255] "km/h" IC,ADAS
 
 
-// --- TCM: Transmission Control Module (Bộ điều khiển hộp số) ---
+// --- TCM: Transmission Control Module ---
 BO_ 640 TCM_TransStatus: 8 TCM
  SG_ CurrentGear : 0|4@1+ (1,0) [0|9] "" IC,ECM
  SG_ TargetGear : 4|4@1+ (1,0) [0|9] "" IC,ECM
@@ -107,10 +107,10 @@ BO_ 644 TCM_GearboxInfo: 8 TCM
 
 
 // =============================================================================
-// CHASSIS - Khung gầm & Phanh & Lái
+// CHASSIS - Chassis, Brakes & Steering
 // =============================================================================
 
-// --- ESP: Electronic Stability Program (Chương trình ổn định điện tử) ---
+// --- ESP: Electronic Stability Program ---
 BO_ 512 ESP_VehicleDynamics1: 8 ESP
  SG_ VehicleSpeed : 0|16@1+ (0.01,0) [0|655.35] "km/h" IC,ECM,TCM,ADAS,BCM
  SG_ YawRate : 16|16@1+ (0.01,-327.68) [-327.68|327.67] "deg/s" ADAS
@@ -136,7 +136,7 @@ BO_ 520 ESP_BrakeStatus: 8 ESP
  SG_ BrakePadWear_FR : 48|8@1+ (0.39216,0) [0|100] "%" IC
  SG_ BrakeFluidLow : 56|1@1+ (1,0) [0|1] "" IC
 
-// --- EPB: Electronic Parking Brake (Phanh tay điện tử) ---
+// --- EPB: Electronic Parking Brake ---
 BO_ 528 EPB_Status: 4 EPB
  SG_ ParkingBrakeActive : 0|1@1+ (1,0) [0|1] "" IC,ESP,TCM
  SG_ ParkingBrakeRequest : 1|1@1+ (1,0) [0|1] "" IC
@@ -144,7 +144,7 @@ BO_ 528 EPB_Status: 4 EPB
  SG_ HillStartAssist : 3|1@1+ (1,0) [0|1] "" IC
  SG_ EPB_FaultStatus : 8|4@1+ (1,0) [0|15] "" IC
 
-// --- EPS: Electric Power Steering (Trợ lực lái điện) ---
+// --- EPS: Electric Power Steering ---
 BO_ 544 EPS_SteeringStatus: 8 EPS
  SG_ SteeringAngle : 0|16@1+ (0.1,-3200) [-3200|3200] "deg" ESP,ADAS
  SG_ SteeringAngleSpeed : 16|16@1+ (0.5,-16384) [-16384|16383.5] "deg/s" ESP,ADAS
@@ -155,7 +155,7 @@ BO_ 544 EPS_SteeringStatus: 8 EPS
 
 
 // =============================================================================
-// BODY ELECTRONICS - Điện thân xe
+// BODY ELECTRONICS - Body electronics
 // =============================================================================
 
 // --- BCM: Body Control Module (Bộ điều khiển thân xe) ---
@@ -212,7 +212,7 @@ BO_ 680 BCM_PowerManagement: 8 BCM
 
 
 // =============================================================================
-// HVAC - Hệ thống điều hòa không khí
+// HVAC - HVAC climate control
 // =============================================================================
 
 BO_ 720 HVAC_ClimateStatus: 8 HVAC
@@ -233,7 +233,7 @@ BO_ 720 HVAC_ClimateStatus: 8 HVAC
 
 
 // =============================================================================
-// SRS - Hệ thống an toàn bị động (Túi khí & Dây an toàn)
+// SRS - Supplemental Restraint System (airbags & belts)
 // =============================================================================
 
 BO_ 768 SRS_OccupantStatus: 8 SRS
@@ -252,7 +252,7 @@ BO_ 768 SRS_OccupantStatus: 8 SRS
 
 
 // =============================================================================
-// IC - Instrument Cluster (Bảng đồng hồ)
+// IC - Instrument Cluster
 // =============================================================================
 
 BO_ 800 IC_DisplayInfo: 8 IC
@@ -262,7 +262,7 @@ BO_ 800 IC_DisplayInfo: 8 IC
 
 
 // =============================================================================
-// ADAS - Hệ thống hỗ trợ lái nâng cao
+// ADAS - Advanced Driver Assistance Systems
 // =============================================================================
 
 BO_ 848 ADAS_FrontCamera: 8 ADAS
@@ -302,7 +302,7 @@ BO_ 856 ADAS_ParkingAssist: 8 ADAS
 
 
 // =============================================================================
-// TIRE PRESSURE - Áp suất lốp
+// TIRE PRESSURE - Tire pressure
 // =============================================================================
 
 BO_ 896 TPMS_TireStatus: 8 ESP
@@ -317,7 +317,7 @@ BO_ 896 TPMS_TireStatus: 8 ESP
 
 
 // =============================================================================
-// EV / HYBRID - Hệ thống điện (cho dòng EQ / Hybrid)
+// EV / HYBRID - Electric/Hybrid systems
 // =============================================================================
 
 BO_ 960 HV_BatteryStatus: 8 ECM
@@ -341,7 +341,7 @@ BO_ 964 HV_MotorStatus: 8 ECM
 
 
 // =============================================================================
-// ATTRIBUTE DEFINITIONS - Định nghĩa thuộc tính
+// ATTRIBUTE DEFINITIONS
 // =============================================================================
 
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;
@@ -352,7 +352,7 @@ BA_DEF_DEF_ "GenMsgCycleTime" 100;
 BA_DEF_DEF_ "GenMsgSendType" "Cyclic";
 BA_DEF_DEF_ "GenSigStartValue" 0;
 
-// Chu kỳ gửi tin nhắn (ms)
+// Message send cycle time (ms)
 BA_ "GenMsgCycleTime" BO_ 608 10;
 BA_ "GenMsgCycleTime" BO_ 612 100;
 BA_ "GenMsgCycleTime" BO_ 616 1000;
@@ -379,7 +379,7 @@ BA_ "GenMsgCycleTime" BO_ 964 20;
 
 
 // =============================================================================
-// VALUE DESCRIPTIONS - Mô tả giá trị
+// VALUE DESCRIPTIONS
 // =============================================================================
 
 VAL_ 608 MIL_Status 0 "Off" 1 "On";
@@ -401,35 +401,35 @@ VAL_ 964 EVDriveMode 0 "Comfort" 1 "Eco" 2 "EcoPlus" 3 "Sport" 4 "SportPlus" 5 "
 
 
 // =============================================================================
-// SIGNAL COMMENTS - Ghi chú tín hiệu
+// SIGNAL COMMENTS
 // =============================================================================
 
-CM_ BO_ 608 "Trạng thái động cơ chính - chu kỳ 10ms";
-CM_ BO_ 612 "Trạng thái động cơ mở rộng - dầu, nhiệt độ, tiêu hao";
-CM_ BO_ 616 "Thông tin nhiên liệu và AdBlue";
-CM_ BO_ 620 "Thông tin mô-men xoắn và điều khiển hành trình";
-CM_ BO_ 640 "Trạng thái hộp số tự động 9G-TRONIC";
-CM_ BO_ 512 "Động lực học xe - tốc độ, gia tốc, góc lệch";
-CM_ BO_ 516 "Tốc độ 4 bánh xe riêng lẻ";
-CM_ BO_ 520 "Trạng thái phanh - ABS, ESP, TCS";
-CM_ BO_ 544 "Trạng thái hệ thống trợ lực lái điện";
-CM_ BO_ 672 "Trạng thái hệ thống chiếu sáng MULTIBEAM LED";
-CM_ BO_ 676 "Trạng thái cửa, khóa, cửa sổ";
-CM_ BO_ 680 "Quản lý nguồn điện và chế độ lái";
-CM_ BO_ 720 "Hệ thống THERMOTRONIC - điều hòa 2 vùng";
-CM_ BO_ 768 "Hệ thống PRE-SAFE và túi khí";
-CM_ BO_ 800 "Bảng đồng hồ - ODO và Trip";
-CM_ BO_ 848 "Camera trước ADAS - nhận diện làn và biển báo";
-CM_ BO_ 852 "Radar trước - ACC, AEB, điểm mù";
-CM_ BO_ 856 "Cảm biến siêu âm đỗ xe PARKTRONIC";
-CM_ BO_ 896 "Hệ thống giám sát áp suất lốp TPMS";
-CM_ BO_ 960 "Pin cao áp dòng EQ/Hybrid";
-CM_ BO_ 964 "Motor điện dòng EQ/Hybrid";
+CM_ BO_ 608 "Main engine status - 10ms cycle";
+CM_ BO_ 612 "Expanded engine status - oil, temperature, consumption";
+CM_ BO_ 616 "Fuel and AdBlue information";
+CM_ BO_ 620 "Torque and cruise control information";
+CM_ BO_ 640 "Automatic transmission 9G-TRONIC status";
+CM_ BO_ 512 "Vehicle dynamics - speed, acceleration, yaw";
+CM_ BO_ 516 "Individual wheel speeds";
+CM_ BO_ 520 "Brake status - ABS, ESP, TCS";
+CM_ BO_ 544 "Power steering system status";
+CM_ BO_ 672 "MULTIBEAM LED lighting system status";
+CM_ BO_ 676 "Door, lock and window status";
+CM_ BO_ 680 "Power management and drive modes";
+CM_ BO_ 720 "THERMOTRONIC climate control - dual zone";
+CM_ BO_ 768 "PRE-SAFE system and airbags";
+CM_ BO_ 800 "Instrument cluster - ODO and Trip";
+CM_ BO_ 848 "Front camera ADAS - lane & sign detection";
+CM_ BO_ 852 "Front radar - ACC, AEB, blind-spot";
+CM_ BO_ 856 "Parking ultrasonic sensors (PARKTRONIC)";
+CM_ BO_ 896 "Tire Pressure Monitoring System (TPMS)";
+CM_ BO_ 960 "High-voltage battery (EQ/Hybrid)";
+CM_ BO_ 964 "Electric motor status (EQ/Hybrid)";
 
-CM_ SG_ 608 EngineSpeed "Tốc độ động cơ đo từ trục khuỷu";
-CM_ SG_ 512 VehicleSpeed "Tốc độ xe tính từ trung bình 4 bánh";
-CM_ SG_ 512 YawRate "Tốc độ xoay quanh trục đứng";
-CM_ SG_ 544 SteeringAngle "Góc quay vô-lăng, dương = quay phải";
-CM_ SG_ 848 HeadwayDistance "Khoảng cách tới xe phía trước";
-CM_ SG_ 960 HVBattery_SoC "Mức sạc pin cao áp (State of Charge)";
+CM_ SG_ 608 EngineSpeed "Engine speed measured from crankshaft";
+CM_ SG_ 512 VehicleSpeed "Vehicle speed computed from 4-wheel average";
+CM_ SG_ 512 YawRate "Yaw rate";
+CM_ SG_ 544 SteeringAngle "Steering wheel angle, positive = right";
+CM_ SG_ 848 HeadwayDistance "Distance to leading vehicle";
+CM_ SG_ 960 HVBattery_SoC "High-voltage battery State of Charge (SoC)";
 
