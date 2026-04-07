@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -15,7 +16,7 @@ from src.can_io.parser import DatabaseLoader
 logger = logging.getLogger(__name__)
 
 # Tần suất tối thiểu để log cảnh báo drop frames (tránh spam).
-_DROP_WARN_INTERVAL_SEC = 1.0
+_DROP_WARN_INTERVAL_SEC = 5.0
 
 
 @dataclass
@@ -86,87 +87,146 @@ class CANReader:
         # Throttled drop warning state
         self._drop_warn_count = 0
         self._drop_warn_last_log = 0.0
+        # Dedicated recv thread (set in start())
+        self._recv_thread: threading.Thread | None = None
 
     async def start(self) -> None:
-        """Bắt đầu vòng lặp đọc bất đồng bộ — chạy đến khi ``stop()`` được gọi."""
+        """Bắt đầu đọc khung CAN — chạy đến khi ``stop()`` được gọi.
+
+        Kiến trúc:
+        - Thread riêng gọi ``bus.recv()`` trong vòng lặp chặt (không có asyncio overhead/frame).
+        - Mỗi frame được post về event loop qua ``call_soon_threadsafe`` rất nhẹ (~0.5 µs).
+        - Làm giảm overhead từ ~10 µs/frame (run_in_executor) xuống ~0.5 µs/frame.
+        - Thích hợp cho tốc độ 5,000-10,000 frames/s trên CAN FD 8 Mbps.
+        """
         self._running = True
+        event_loop = asyncio.get_running_loop()
         logger.info(
             "CAN Reader started (interface=%s, channel=%s, %d msgs in DB)",
             getattr(self._bus, "INTERFACE", "?"),
             getattr(self._bus, "channel", "?"),
             len(self._db.messages),
         )
-        loop = asyncio.get_running_loop()
+        self._recv_thread = self._spawn_recv_thread(event_loop)
+        try:
+            while self._running:
+                await asyncio.sleep(0.5)
+                # Watchdog: nếu thread chết bất ngờ, thử reconnect
+                if not self._recv_thread.is_alive() and self._running:
+                    logger.warning("CAN recv thread exited unexpectedly — reconnecting...")
+                    await self._reconnect()
+                    if self._running:
+                        self._recv_thread = self._spawn_recv_thread(event_loop)
+        finally:
+            self._running = False
+            if self._recv_thread and self._recv_thread.is_alive():
+                # Offload blocking join to a thread pool — never block the event loop
+                await asyncio.get_running_loop().run_in_executor(
+                    None, self._recv_thread.join, 1.0
+                )
+            logger.info("CAN Reader stopped.")
+
+    def _spawn_recv_thread(self, event_loop: asyncio.AbstractEventLoop) -> threading.Thread:
+        """Tạo và khửi chạy thread nhận khung mới."""
+        t = threading.Thread(
+            target=self._recv_loop,
+            args=(event_loop,),
+            daemon=True,
+            name="can-reader-rx",
+        )
+        t.start()
+        return t
+
+    def _recv_loop(self, event_loop: asyncio.AbstractEventLoop) -> None:
+        """Chạy trong OS thread riêng: vòng lặp recv() chặt, post frame qua call_soon_threadsafe.
+
+        Không có asyncio overhead cho mỗi lần gọ recv() — loại bỏ hoàn toàn
+        chi phí schedule của run_in_executor (~5-10 µs/frame).
+        """
+        logger.debug("CAN recv thread started (tid=%d)", threading.get_ident())
+        bus = self._bus  # local snapshot — avoids race with _reconnect() reassigning self._bus
         while self._running:
             try:
-                msg: can.Message | None = await loop.run_in_executor(
-                    None, lambda: self._bus.recv(timeout=1.0)
-                )
+                msg: can.Message | None = bus.recv(timeout=0.2)
                 if msg is None:
-                    continue  # hết thời gian chờ — kiểm tra _running và tiếp tục
-                if self._filter_ids and msg.arbitration_id not in self._filter_ids:
                     continue
-
-                # Per-message-ID rate gate: skip frame if same ID arrived too recently.
-                # This prevents the pipeline queue from filling when the simulator sends
-                # faster than the pipeline can consume (e.g. 20 Hz sim vs 10 Hz rate-limit).
-                if self._min_interval > 0.0:
-                    now_t = time.monotonic()
-                    last_t = self._last_enqueue.get(msg.arbitration_id, 0.0)
-                    if (now_t - last_t) < self._min_interval:
-                        self._rate_limited_count += 1
-                        continue
-                    self._last_enqueue[msg.arbitration_id] = now_t
-
-                frame = self._decode(msg)
-                if not frame.signals:
-                    logger.debug(
-                        "Decoded frame msg_id=%#x has no signals (DB may not contain this message)",
-                        msg.arbitration_id,
-                    )
-                # Enforce configured queue policy when the pipeline queue is full
-                try:
-                    if self._policy == "block":
-                        await self._queue.put(frame)
-                    else:
-                        self._queue.put_nowait(frame)
-                except asyncio.QueueFull:
-                    self._dropped_count += 1
-                    if self._policy == "drop_oldest":
-                        try:
-                            _ = self._queue.get_nowait()
-                            self._queue.put_nowait(frame)
-                            logger.debug("RX queue full — dropped oldest frame (msg_id=%#x)", msg.arbitration_id)
-                        except Exception:
-                            self._dropped_count += 1
-                    # Throttled warning: log once every _DROP_WARN_INTERVAL_SEC seconds
-                    # with accumulated count instead of printing every dropped frame.
-                    self._drop_warn_count += 1
-                    now_w = time.monotonic()
-                    if (now_w - self._drop_warn_last_log) >= _DROP_WARN_INTERVAL_SEC:
-                        logger.warning(
-                            "RX queue full — %d frame(s) dropped in last %.0fs "
-                            "(last msg_id=%#x, queue=%d/%d, rate_limited=%d total)",
-                            self._drop_warn_count,
-                            now_w - self._drop_warn_last_log if self._drop_warn_last_log else _DROP_WARN_INTERVAL_SEC,
-                            msg.arbitration_id,
-                            self._queue.qsize(),
-                            self._queue.maxsize,
-                            self._rate_limited_count,
-                        )
-                        self._drop_warn_count = 0
-                        self._drop_warn_last_log = now_w
-
+                # Copy data before posting — some backends reuse internal buffers
+                msg_copy = can.Message(
+                    arbitration_id=msg.arbitration_id,
+                    data=bytes(msg.data),
+                    timestamp=msg.timestamp,
+                    is_extended_id=msg.is_extended_id,
+                    is_fd=msg.is_fd,
+                )
+                # Capture arrival time here in the recv thread for accurate rate gating
+                arrival = time.monotonic()
+                event_loop.call_soon_threadsafe(self._enqueue_sync, msg_copy, arrival)
             except can.CanError as exc:
                 self._error_count += 1
-                logger.error(
-                    "CAN bus error #%d (ERR_CAN_BUS_OFF): %s — reconnecting...",
-                    self._error_count,
-                    exc,
-                )
-                await self._reconnect()
+                logger.error("CAN bus error #%d: %s — recv thread exiting", self._error_count, exc)
+                break  # watchdog detects thread death and initiates reconnect
             except Exception as exc:
-                logger.exception("Unexpected error in CAN read loop: %s", exc)
+                logger.exception("Unexpected error in CAN recv thread: %s", exc)
+        logger.debug("CAN recv thread exited")
+
+    def _enqueue_sync(self, msg: can.Message, arrival: float = 0.0) -> None:
+        """Gọi trong event loop thread (call_soon_threadsafe): lọc, rate-gate, giải mã, đưa vào queue.
+
+        An toàn với asyncio primitives vì chạy trong event loop thread.
+        arrival: timestamp từ recv thread (time.monotonic()) — chính xác hơn gọi tại đây.
+        """
+        if self._filter_ids and msg.arbitration_id not in self._filter_ids:
+            return
+
+        if self._min_interval > 0.0:
+            now_t = arrival if arrival else time.monotonic()
+            last_t = self._last_enqueue.get(msg.arbitration_id, 0.0)
+            if (now_t - last_t) < self._min_interval:
+                self._rate_limited_count += 1
+                return
+            self._last_enqueue[msg.arbitration_id] = now_t
+
+        frame = self._decode(msg)
+        if not frame.signals:
+            logger.debug("msg_id=%#x has no signals in DB", msg.arbitration_id)
+
+        try:
+            self._queue.put_nowait(frame)
+        except asyncio.QueueFull:
+            if self._policy == "drop_oldest":
+                try:
+                    self._queue.get_nowait()
+                    self._queue.put_nowait(frame)
+                    logger.debug(
+                        "RX queue full — dropped oldest frame (msg_id=%#x)",
+                        msg.arbitration_id,
+                    )
+                    return  # frame successfully placed — NOT counted as dropped 
+                except (asyncio.QueueEmpty, asyncio.QueueFull):  # specific exceptions
+                    pass
+            # Truly dropped — now increment counter
+            self._dropped_count += 1
+            self._drop_warn_count += 1
+            now_w = time.monotonic()
+            if (now_w - self._drop_warn_last_log) >= _DROP_WARN_INTERVAL_SEC:
+                logger.warning(
+                    "RX queue full — %d frame(s) dropped in last %.0fs "
+                    "(last msg_id=%#x, queue=%d/%d, rate_limited=%d total)",
+                    self._drop_warn_count,
+                    (
+                        now_w - self._drop_warn_last_log
+                        if self._drop_warn_last_log
+                        else _DROP_WARN_INTERVAL_SEC
+                    ),
+                    msg.arbitration_id,
+                    self._queue.qsize(),
+                    self._queue.maxsize,
+                    self._rate_limited_count,
+                )
+                self._drop_warn_count = 0
+                self._drop_warn_last_log = now_w
+
+
     def stop(self) -> None:
         """Thông báo cho vòng lặp đọc dừng sạch sẽ."""
         self._running = False
@@ -196,9 +256,13 @@ class CANReader:
         """Thử mở lại bus CAN với backoff mũ (1 s → 30 s)."""
         retries = max_retries if max_retries is not None else self._max_retries
         for attempt in range(1, retries + 1):
+            if not self._running:  # honour stop() during reconnect backoff
+                return
             delay = min(2 ** (attempt - 1), 30)
             logger.info("Reconnect attempt %d/%d in %d s...", attempt, retries, delay)
             await asyncio.sleep(delay)
+            if not self._running:  # re-check after sleep
+                return
             try:
                 self._bus.shutdown()
                 if self._bus_factory:

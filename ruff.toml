@@ -33,6 +33,7 @@ ignore = [
 "src/api/websocket.py" = ["UP042"]              # str+Enum compat pattern for serialisation
 "src/**/cli.py" = ["ANN"]
 "src/can_io/parser.py" = ["S110"]               # best-effort cantools load
+"src/can_io/reader.py" = ["E501"]               # Vietnamese docstrings exceed 100 chars
 "src/core/signal_store.py" = ["S110"]           # subscriber errors must not crash store
 "src/core/config.py" = ["S104"]                 # bind 0.0.0.0 is intentional for dev
 
