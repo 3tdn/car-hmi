@@ -1,0 +1,9772 @@
+{
+  "signals": [
+    {
+      "name": "EngineSpeed",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "Tá»‘c Ä‘á»™ Ä‘á»™ng cÆ¡ Ä‘o tá»« trá»¥c khuá»·u",
+      "unit": "rpm",
+      "min": 0,
+      "max": 16383.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EngineLoad",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ThrottlePosition",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CoolantTemp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EngineRunning",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "StarterRequest",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "MIL_Status",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ECM_MsgCounter",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ECM_Checksum",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OilPressure",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "kPa",
+      "min": 0,
+      "max": 1020,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OilTemp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "IntakeAirTemp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BoostPressure",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "kPa",
+      "min": 0,
+      "max": 6553.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FuelConsumption",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "L/h",
+      "min": 0,
+      "max": 3276.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EngineRuntime",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "min",
+      "min": 0,
+      "max": 2550,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FuelLevel",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FuelRange",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km",
+      "min": 0,
+      "max": 1023,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "InstFuelConsumption",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "L/100km",
+      "min": 0,
+      "max": 163.83,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AvgFuelConsumption",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "L/100km",
+      "min": 0,
+      "max": 163.83,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FuelLowWarning",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AdBlueLevel",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AdBlueLowWarning",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ActualTorque",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -500,
+      "max": 1547.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RequestedTorque",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -500,
+      "max": 1547.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "MaxTorqueAvailable",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -500,
+      "max": 1547.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TorqueReductionReq",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CruiseControlActive",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CruiseSetSpeed",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CurrentGear",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 9,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TargetGear",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 9,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "GearShifting",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TransMode",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TransTemp",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TorqueConverterSlip",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "rpm",
+      "min": 0,
+      "max": 16383.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TransInputSpeed",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "rpm",
+      "min": 0,
+      "max": 16383.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ParkLockEngaged",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "GearRatio",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 65.535,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OutputShaftSpeed",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "rpm",
+      "min": 0,
+      "max": 16383.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ShiftPaddleLeft",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ShiftPaddleRight",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SportModeActive",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ManualModeActive",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TransFaultActive",
+      "value": 0,
+      "source": [
+        "TCM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "VehicleSpeed",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "Tá»‘c Ä‘á»™ xe tÃ­nh tá»« trung bÃ¬nh 4 bÃ¡nh",
+      "unit": "km/h",
+      "min": 0,
+      "max": 655.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "YawRate",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "Tá»‘c Ä‘á»™ xoay quanh trá»¥c Ä‘á»©ng",
+      "unit": "deg/s",
+      "min": -327.68,
+      "max": 327.67,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LateralAccel",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "g",
+      "min": -32.768,
+      "max": 32.767,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LongitudinalAccel",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "g",
+      "min": -32.768,
+      "max": 32.767,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WheelSpeed_FL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 655.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WheelSpeed_FR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 655.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WheelSpeed_RL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 655.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WheelSpeed_RR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 655.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakePedalPressed",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakePedalPosition",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakePressure_MC",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "bar",
+      "min": 0,
+      "max": 409.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABSActive",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ESPActive",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TCSActive",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakeDiscTemp_FL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": 0,
+      "max": 765,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakeDiscTemp_FR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": 0,
+      "max": 765,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakePadWear_FL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakePadWear_FR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakeFluidLow",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ParkingBrakeActive",
+      "value": 0,
+      "source": [
+        "EPB"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ParkingBrakeRequest",
+      "value": 0,
+      "source": [
+        "EPB"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AutoHoldActive",
+      "value": 0,
+      "source": [
+        "EPB"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HillStartAssist",
+      "value": 0,
+      "source": [
+        "EPB"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EPB_FaultStatus",
+      "value": 0,
+      "source": [
+        "EPB"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SteeringAngle",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "GÃ³c quay vÃ´-lÄƒng, dÆ°Æ¡ng = quay pháº£i",
+      "unit": "deg",
+      "min": -3200,
+      "max": 3200,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SteeringAngleSpeed",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "deg/s",
+      "min": -16384,
+      "max": 16383.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SteeringTorque",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -20.48,
+      "max": 20.47,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LaneKeepAssistTorque",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -20.48,
+      "max": 20.47,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EPSFaultActive",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LaneKeepAssistActive",
+      "value": 0,
+      "source": [
+        "EPS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HeadlightLeft",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HeadlightRight",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HighBeamActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FogLightFront",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FogLightRear",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DaytimeRunLight",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TurnSignalLeft",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TurnSignalRight",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HazardLights",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BrakeLights",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ReverseLights",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AmbientLightLevel",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AmbientLightColor",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AutoHighBeamActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorOpen_FL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorOpen_FR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorOpen_RL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorOpen_RR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TrunkOpen",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HoodOpen",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "FuelCapOpen",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorLocked_FL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorLocked_FR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorLocked_RL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DoorLocked_RR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TrunkLocked",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CentralLockStatus",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "KeyInIgnition",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "KeylessEntryDetect",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WindowPos_FL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WindowPos_FR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WindowPos_RL",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WindowPos_RR",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SunroofPos",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 100,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BatteryVoltage",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "V",
+      "min": 0,
+      "max": 40.95,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BatterySoC",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 127.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BatteryCurrent",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "A",
+      "min": -102.4,
+      "max": 102.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BatteryTemp",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AlternatorVoltage",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "V",
+      "min": 0,
+      "max": 40.95,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "IgnitionStatus",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "StartStopActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EcoModeActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ComfortModeActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SportModeActive_BCM",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SportPlusModeActive",
+      "value": 0,
+      "source": [
+        "BCM"
+      ],
+      "destination": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CabinTemp",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -20,
+      "max": 107.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SetTempDriver",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": 15,
+      "max": 32,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SetTempPassenger",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": 15,
+      "max": 32,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACCompressorOn",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACAutoMode",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BlowerSpeed",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RecirculationMode",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RearDefrostActive",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatHeatDriver",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatHeatPassenger",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatVentDriver",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatVentPassenger",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SteeringWheelHeat",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OutsideTemp",
+      "value": 0,
+      "source": [
+        "HVAC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 87.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatbeltDriver",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatbeltPassenger",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatbeltRL",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatbeltRM",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SeatbeltRR",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "PassengerOccupied",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ChildSeatDetected",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AirbagWarning",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CrashDetected",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "PreSafeActivated",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "DriverWeight",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "kg",
+      "min": 0,
+      "max": 127.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "PassengerWeight",
+      "value": 0,
+      "source": [
+        "SRS"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "kg",
+      "min": 0,
+      "max": 127.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "Odometer",
+      "value": 0,
+      "source": [
+        "IC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km",
+      "min": 0,
+      "max": 1677721.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TripMeter_A",
+      "value": 0,
+      "source": [
+        "IC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km",
+      "min": 0,
+      "max": 104857.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TripMeter_B",
+      "value": 0,
+      "source": [
+        "IC"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km",
+      "min": 0,
+      "max": 104857.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LaneDepartureWarn",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "LanePosition",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": -2.54,
+      "max": 2.56,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HeadwayDistance",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "Khoáº£ng cÃ¡ch tá»›i xe phÃ­a trÆ°á»›c",
+      "unit": "m",
+      "min": 0,
+      "max": 255.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HeadwayTime",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "s",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ForwardCollisionWarn",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "PedestrianDetected",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TrafficSignType",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TrafficSignValue",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RoadType",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "CameraBlocked",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TargetDetected",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TargetDistance",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 255.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TargetRelSpeed",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": -102.4,
+      "max": 102.35,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TargetAngle",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "deg",
+      "min": -25.6,
+      "max": 25.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AdaptiveCruiseActive",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACCSetSpeed",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km/h",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACCFollowDistance",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AEBWarning",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "AEBBrakeRequest",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BlindSpotLeft",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "BlindSpotRight",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_FL",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_FLC",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_FRC",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_FR",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_RL",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_RLC",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_RRC",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "UltrasonicDist_RR",
+      "value": 0,
+      "source": [
+        "ADAS"
+      ],
+      "destination": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "m",
+      "min": 0,
+      "max": 5.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TirePressure_FL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "bar",
+      "min": 0,
+      "max": 3.1875,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TirePressure_FR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "bar",
+      "min": 0,
+      "max": 3.1875,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TirePressure_RL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "bar",
+      "min": 0,
+      "max": 3.1875,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TirePressure_RR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "bar",
+      "min": 0,
+      "max": 3.1875,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TireTemp_FL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TireTemp_FR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TireTemp_RL",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "TireTemp_RR",
+      "value": 0,
+      "source": [
+        "ESP"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_SoC",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "Má»©c sáº¡c pin cao Ã¡p (State of Charge)",
+      "unit": "%",
+      "min": 0,
+      "max": 102.3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_Voltage",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "V",
+      "min": 0,
+      "max": 1023.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_Current",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "A",
+      "min": -512,
+      "max": 511.75,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_Temp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_Power",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "kW",
+      "min": -819.2,
+      "max": 819.1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HVBattery_Health",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "%",
+      "min": 0,
+      "max": 63.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ChargingStatus",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ElecMotorSpeed",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "rpm",
+      "min": -30000,
+      "max": 30000,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ElecMotorTorque",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "Nm",
+      "min": -500,
+      "max": 1547.5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ElecMotorTemp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "InverterTemp",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "degC",
+      "min": -40,
+      "max": 215,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RegenBrakeActive",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "RegenBrakeLevel",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 5,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "EVDriveMode",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ElecRange",
+      "value": 0,
+      "source": [
+        "ECM"
+      ],
+      "destination": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "km",
+      "min": 0,
+      "max": 1023,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "HMI_CrashSeverity",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Crash Severity Selection from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": true,
+      "states": []
+    },
+    {
+      "name": "HMI_CrashImpactTrigger",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Trigger bit that the crash happens right now",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": true,
+      "states": []
+    },
+    {
+      "name": "HMI_SILG_ActivationRequest",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "HMI SILG Activation for Request Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": true,
+      "states": [
+        {
+          "value": 0,
+          "description": "blow in"
+        },
+        {
+          "value": 1,
+          "description": "blow out"
+        },
+        {
+          "value": 2,
+          "description": "nothing"
+        }
+      ]
+    },
+    {
+      "name": "HB_ActivationSync",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Syncs all Activation Levels of HBs",
+      "unit": "bool",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "Actuator_Manual_Seat_Function_enable",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Bit Encoding for manual component request by HMI (like ACR_Retract, ABL_Retract, ISB Overwrite)",
+      "unit": "5 bits for each seat",
+      "min": 0,
+      "max": 31,
+      "RX": true,
+      "TX": true,
+      "states": []
+    },
+    {
+      "name": "HB_DynamicTargetTemp",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Target Temperature calculated from HB Boosting Algorithm",
+      "unit": "",
+      "min": 0,
+      "max": 4294967295,
+      "RX": true,
+      "TX": true,
+      "states": [
+        {
+          "value": 0,
+          "description": "�C"
+        },
+        {
+          "value": 1,
+          "description": "Signalvalues: ï¿½C"
+        }
+      ]
+    },
+    {
+      "name": "HB_ManualTargetTemp",
+      "value": 0,
+      "source": [
+        "CAR_PC"
+      ],
+      "destination": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Target Temprature Requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 4294967295,
+      "RX": true,
+      "TX": true,
+      "states": [
+        {
+          "value": 0,
+          "description": "�C"
+        },
+        {
+          "value": 1,
+          "description": "Signalvalues: ï¿½C"
+        }
+      ]
+    },
+    {
+      "name": "ABL_FL_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ABL Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Offer"
+        },
+        {
+          "value": 1,
+          "description": "Wake Up"
+        },
+        {
+          "value": 2,
+          "description": "Normal"
+        },
+        {
+          "value": 3,
+          "description": "Sleep"
+        },
+        {
+          "value": 4,
+          "description": "Retact"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 1"
+        }
+      ]
+    },
+    {
+      "name": "ABL_FR_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ABL Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Offer"
+        },
+        {
+          "value": 1,
+          "description": "Wake Up"
+        },
+        {
+          "value": 2,
+          "description": "Normal"
+        },
+        {
+          "value": 3,
+          "description": "Sleep"
+        },
+        {
+          "value": 4,
+          "description": "Retact"
+        }
+      ]
+    },
+    {
+      "name": "ABL_R1_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ABL Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Offer"
+        },
+        {
+          "value": 1,
+          "description": "Wake Up"
+        },
+        {
+          "value": 2,
+          "description": "Normal"
+        },
+        {
+          "value": 3,
+          "description": "Sleep"
+        },
+        {
+          "value": 4,
+          "description": "Retact"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 1"
+        }
+      ]
+    },
+    {
+      "name": "ABL_R2_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ABL Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Offer"
+        },
+        {
+          "value": 1,
+          "description": "Wake Up"
+        },
+        {
+          "value": 2,
+          "description": "Normal"
+        },
+        {
+          "value": 3,
+          "description": "Sleep"
+        },
+        {
+          "value": 4,
+          "description": "Retact"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 6,
+          "description": "Haptic 2"
+        }
+      ]
+    },
+    {
+      "name": "ABL_RR1_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ABL Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Offer"
+        },
+        {
+          "value": 1,
+          "description": "Wake Up"
+        },
+        {
+          "value": 2,
+          "description": "Normal"
+        },
+        {
+          "value": 3,
+          "description": "Sleep"
+        },
+        {
+          "value": 4,
+          "description": "Retact"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 6,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 7,
+          "description": "Haptic 3"
+        }
+      ]
+    },
+    {
+      "name": "ACR_FL_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ACR Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 1,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 2,
+          "description": "Haptic 3"
+        },
+        {
+          "value": 3,
+          "description": "Haptic 4"
+        },
+        {
+          "value": 4,
+          "description": "Haptic 5"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 6"
+        },
+        {
+          "value": 6,
+          "description": "Retract 1"
+        },
+        {
+          "value": 7,
+          "description": "Retract 2"
+        },
+        {
+          "value": 8,
+          "description": "Retract 3"
+        },
+        {
+          "value": 9,
+          "description": "Retract 4"
+        },
+        {
+          "value": 10,
+          "description": "Repositioning"
+        },
+        {
+          "value": 11,
+          "description": "Dynamic Belt"
+        },
+        {
+          "value": 12,
+          "description": "Beltslack"
+        },
+        {
+          "value": 13,
+          "description": "Belt Park"
+        }
+      ]
+    },
+    {
+      "name": "ACR_FR_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ACR Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 1,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 2,
+          "description": "Haptic 3"
+        },
+        {
+          "value": 3,
+          "description": "Haptic 4"
+        },
+        {
+          "value": 4,
+          "description": "Haptic 5"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 6"
+        },
+        {
+          "value": 6,
+          "description": "Retract 1"
+        },
+        {
+          "value": 7,
+          "description": "Retract 2"
+        },
+        {
+          "value": 8,
+          "description": "Retract 3"
+        },
+        {
+          "value": 9,
+          "description": "Retract 4"
+        },
+        {
+          "value": 10,
+          "description": "Repositioning"
+        },
+        {
+          "value": 11,
+          "description": "Dynamic Belt"
+        },
+        {
+          "value": 12,
+          "description": "Beltslack"
+        },
+        {
+          "value": 13,
+          "description": "Belt Park"
+        }
+      ]
+    },
+    {
+      "name": "ACR_R1_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ACR Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 1,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 2,
+          "description": "Haptic 3"
+        },
+        {
+          "value": 3,
+          "description": "Haptic 4"
+        },
+        {
+          "value": 4,
+          "description": "Haptic 5"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 6"
+        },
+        {
+          "value": 6,
+          "description": "Retract 1"
+        },
+        {
+          "value": 7,
+          "description": "Retract 2"
+        },
+        {
+          "value": 8,
+          "description": "Retract 3"
+        },
+        {
+          "value": 9,
+          "description": "Retract 4"
+        },
+        {
+          "value": 10,
+          "description": "Repositioning"
+        },
+        {
+          "value": 11,
+          "description": "Dynamic Belt"
+        },
+        {
+          "value": 12,
+          "description": "Beltslack"
+        },
+        {
+          "value": 13,
+          "description": "Belt Park"
+        }
+      ]
+    },
+    {
+      "name": "ACR_R2_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ACR Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 1,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 2,
+          "description": "Haptic 3"
+        },
+        {
+          "value": 3,
+          "description": "Haptic 4"
+        },
+        {
+          "value": 4,
+          "description": "Haptic 5"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 6"
+        },
+        {
+          "value": 6,
+          "description": "Retract 1"
+        },
+        {
+          "value": 7,
+          "description": "Retract 2"
+        },
+        {
+          "value": 8,
+          "description": "Retract 3"
+        },
+        {
+          "value": 9,
+          "description": "Retract 4"
+        },
+        {
+          "value": 10,
+          "description": "Repositioning"
+        },
+        {
+          "value": 11,
+          "description": "Dynamic Belt"
+        },
+        {
+          "value": 12,
+          "description": "Beltslack"
+        },
+        {
+          "value": 13,
+          "description": "Belt Park"
+        }
+      ]
+    },
+    {
+      "name": "ACR_RR1_RetractRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual ACR Retraction request by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Haptic 1"
+        },
+        {
+          "value": 1,
+          "description": "Haptic 2"
+        },
+        {
+          "value": 2,
+          "description": "Haptic 3"
+        },
+        {
+          "value": 3,
+          "description": "Haptic 4"
+        },
+        {
+          "value": 4,
+          "description": "Haptic 5"
+        },
+        {
+          "value": 5,
+          "description": "Haptic 6"
+        },
+        {
+          "value": 6,
+          "description": "Retract 1"
+        },
+        {
+          "value": 7,
+          "description": "Retract 2"
+        },
+        {
+          "value": 8,
+          "description": "Retract 3"
+        },
+        {
+          "value": 9,
+          "description": "Retract 4"
+        },
+        {
+          "value": 10,
+          "description": "Repositioning"
+        },
+        {
+          "value": 11,
+          "description": "Dynamic Belt"
+        },
+        {
+          "value": 12,
+          "description": "Beltslack"
+        },
+        {
+          "value": 13,
+          "description": "Belt Park"
+        }
+      ]
+    },
+    {
+      "name": "ELK_FL_LockingRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Locking Request from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_FR_LockingRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Locking Request from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_R1_LockingRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Locking Request from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_R2_LockingRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Locking Request from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_RR1_LockingRequest",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Manual Locking Request from HMI",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ISB_FL_ColorGreen",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Color Code for ISB with RGB and Intensity requested by HMI",
+      "unit": "Custom RGBA Colorcode --> A will be the intensity",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_ColorBlue",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_ColorRed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_Intensity",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 127,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_Normalization",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_Transitionspeed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_GroupOrModule",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_AdressByte0",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FL_AdressByte1",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_ColorGreen",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Color Code for ISB with RGB and Intensity requested by HMI",
+      "unit": "Custom RGBA Colorcode --> A will be the intensity",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_ColorBlue",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_ColorRed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_Intensity",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 127,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_Normalization",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_Transitionspeed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_GroupOrModule",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_AdressByte0",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_FR_AdressByte1",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_ColorGreen",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Color Code for ISB with RGB and Intensity requested by HMI",
+      "unit": "Custom RGBA Colorcode --> A will be the intensity",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_ColorBlue",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_ColorRed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_Intensity",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 127,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_Normalization",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_Transitionspeed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_GroupOrModule",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_AdressByte0",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R1_AdressByte1",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_ColorGreen",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Color Code for ISB with RGB and Intensity requested by HMI",
+      "unit": "Custom RGBA Colorcode --> A will be the intensity",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_ColorBlue",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_ColorRed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_Intensity",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 127,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_Normalization",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_Transitionspeed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_GroupOrModule",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_AdressByte0",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_R2_AdressByte1",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_ColorGreen",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Color Code for ISB with RGB and Intensity requested by HMI",
+      "unit": "Custom RGBA Colorcode --> A will be the intensity",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_ColorBlue",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_ColorRed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_Intensity",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 127,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_Normalization",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_Transitionspeed",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 15,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_GroupOrModule",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_AdressByte0",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ISB_RR1_AdressByte1",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SMA_VehicleStable",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Calulated Vehicle Stable by SMA",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "OMS_FL_HandsOnWheel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Hands on for Wheel Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Hands on Wheel"
+        },
+        {
+          "value": 1,
+          "description": "Hands not on Wheel"
+        }
+      ]
+    },
+    {
+      "name": "OMS_FL_OccupantClassification",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Occupant for Classification Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "25%"
+        },
+        {
+          "value": 1,
+          "description": "50%"
+        },
+        {
+          "value": 2,
+          "description": "95% Occupant"
+        }
+      ]
+    },
+    {
+      "name": "OMS_FL_OutOfPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Out Of for Position Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FL_OccupantWeight",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Occupant for Weight Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FL_OccupantLength",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Occupant for Lenght Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FL_OccupantGender",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "DMS Torso for Angle Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FR_OccupantClassification",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "OMS Occupant for Classification Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FR_OutOfPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "OMS Out Of for Position Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FR_OccupantWeight",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "OMS Occupant for Weight Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FR_OccupantLength",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "OMS Occupant for Lenght Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "OMS_FR_OccupantGender",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "OMS Torso for Angle Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FL_SeatDirectionX",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL Seat x-for Direction Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FL_SeatDirectionZ",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL Seat z-for Direction Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FL_SeatBackRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL Seat BackRest for Position Actuator",
+      "unit": "Deg",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FL_FootRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL Seat FootRest for Position Actuator",
+      "unit": "Deg",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FL_HeadRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL Seat HeadRest for Position Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FR_SeatDirectionX",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR Seat x-for Direction Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FR_SeatDirectionZ",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR Seat z-for Direction Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FR_SeatBackRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR Seat BackRest for Position Actuator",
+      "unit": "Deg",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FR_FootRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR Seat FootRest for Position Actuator",
+      "unit": "Deg",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "SPS_FR_HeadRestPosition",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR Seat HeadRest for Position Actuator",
+      "unit": "mm",
+      "min": 0,
+      "max": 4095,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FL_S0SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ABL S0 Sensor for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FL_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ABL Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FL_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ABL Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FR_S0SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ABL S0 Sensor for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FR_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ABL Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_FR_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ABL Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R1_S0SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ABL S0 Sensor for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R1_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ABL Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R1_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ABL Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R2_S0SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ABL S0 Sensor for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R2_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ABL Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_R2_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ABL Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_RR1_S0SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ABL S0 Sensor for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_RR1_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ABL Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ABL_RR1_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ABL Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FL_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ACR Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FL_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ACR Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FL_SpoolFasterClutch",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FL ACR Motor for Speed Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FR_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ACR Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FR_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ACR Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_FR_SpoolFasterClutch",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "FR ACR Motor for Speed Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R1_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ACR Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R1_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ACR Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R1_SpoolFasterClutch",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RL1 ACR Motor for Speed Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R2_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ACR Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R2_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ACR Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_R2_SpoolFasterClutch",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "R2 ACR Motor for Speed Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_RR1_ActivationLevelStatus",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ACR Actuator Activation Level for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_RR1_ActivationPhase",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ACR Actuator Execution Phase for Status Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ACR_RR1_SpoolFasterClutch",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "RR1 ACR Motor for Speed Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 255,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FL_WebbingMovement",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Webbing Payout measured by ACR spool rotation",
+      "unit": "0-max mm",
+      "min": 0,
+      "max": 8191,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FL_SpoolAngle",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 16383,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FL_SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FL"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FR_WebbingMovement",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Webbing Payout measured by ACR spool rotation",
+      "unit": "0-max mm",
+      "min": 0,
+      "max": 8191,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FR_SpoolAngle",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 16383,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_FR_SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_FR"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R1_WebbingMovement",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Webbing Payout measured by ACR spool rotation",
+      "unit": "0-max mm",
+      "min": 0,
+      "max": 8191,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R1_SpoolAngle",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 16383,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R1_SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R2_WebbingMovement",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Webbing Payout measured by ACR spool rotation",
+      "unit": "0-max mm",
+      "min": 0,
+      "max": 8191,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R2_SpoolAngle",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 16383,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_R2_SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_R2"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_RR1_WebbingMovement",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Webbing Payout measured by ACR spool rotation",
+      "unit": "0-max mm",
+      "min": 0,
+      "max": 8191,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_RR1_SpoolAngle",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 16383,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "WMS_RR1_SensorStatus",
+      "value": 0,
+      "source": [
+        "PUMA_RR1"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": []
+    },
+    {
+      "name": "ELK_FL_LockingStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "E-Locking Status for FL Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_FR_LockingStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "E-Locking Status for FR Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_R1_LockingStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "E-Locking Status for R1 Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_R2_LockingStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "E-Locking Status for R2 Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "ELK_RR1_LockingStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "E-Locking Status for RR1 Actuator",
+      "unit": "",
+      "min": 0,
+      "max": 3,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Lock"
+        },
+        {
+          "value": 1,
+          "description": "No Lock"
+        }
+      ]
+    },
+    {
+      "name": "BSW_FL_BuckleStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Buckle Switch Status",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "BSW_FR_BuckleStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Buckle Switch Status",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "BSW_R1_BuckleStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Buckle Switch Status",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "BSW_R2_BuckleStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Buckle Switch Status",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "BSW_RR1_BuckleStatus",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Buckle Switch Status",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Buckled"
+        },
+        {
+          "value": 1,
+          "description": "Unbuckled"
+        }
+      ]
+    },
+    {
+      "name": "HB_FL_ActivationLevel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Activation Level for HB requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Level 1"
+        },
+        {
+          "value": 1,
+          "description": "Level 2"
+        },
+        {
+          "value": 2,
+          "description": "Level 3"
+        }
+      ]
+    },
+    {
+      "name": "HB_FR_ActivationLevel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Activation Level for HB requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Level 1"
+        },
+        {
+          "value": 1,
+          "description": "Level 2"
+        },
+        {
+          "value": 2,
+          "description": "Level 3"
+        },
+        {
+          "value": 3,
+          "description": "Level 4"
+        }
+      ]
+    },
+    {
+      "name": "HB_R1_ActivationLevel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Activation Level for HB requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Level 1"
+        },
+        {
+          "value": 1,
+          "description": "Level 2"
+        },
+        {
+          "value": 2,
+          "description": "Level 3"
+        },
+        {
+          "value": 3,
+          "description": "Level 4"
+        },
+        {
+          "value": 4,
+          "description": "Level 5"
+        }
+      ]
+    },
+    {
+      "name": "HB_R2_ActivationLevel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Activation Level for HB requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Level 1"
+        },
+        {
+          "value": 1,
+          "description": "Level 2"
+        },
+        {
+          "value": 2,
+          "description": "Level 3"
+        },
+        {
+          "value": 3,
+          "description": "Level 4"
+        },
+        {
+          "value": 4,
+          "description": "Level 5"
+        },
+        {
+          "value": 5,
+          "description": "Level 6"
+        }
+      ]
+    },
+    {
+      "name": "HB_RR1_ActivationLevel",
+      "value": 0,
+      "source": [
+        "PANTHER"
+      ],
+      "destination": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "timestamp": 0,
+      "description": "Activation Level for HB requested by HMI",
+      "unit": "",
+      "min": 0,
+      "max": 7,
+      "RX": true,
+      "TX": false,
+      "states": [
+        {
+          "value": 0,
+          "description": "Level 1"
+        },
+        {
+          "value": 1,
+          "description": "Level 2"
+        },
+        {
+          "value": 2,
+          "description": "Level 3"
+        },
+        {
+          "value": 3,
+          "description": "Level 4"
+        },
+        {
+          "value": 4,
+          "description": "Level 5"
+        },
+        {
+          "value": 5,
+          "description": "Level 6"
+        },
+        {
+          "value": 6,
+          "description": "Level 7"
+        }
+      ]
+    }
+  ]
+}

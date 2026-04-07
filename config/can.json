@@ -1,0 +1,5360 @@
+{
+  "messages": {
+    "ECM_EngineStatus1": {
+      "id": 608,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "EngineSpeed": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383.75,
+          "unit": "rpm",
+          "comment": "Tá»‘c Ä‘á»™ Ä‘á»™ng cÆ¡ Ä‘o tá»« trá»¥c khuá»·u"
+        },
+        "EngineLoad": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "ThrottlePosition": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "CoolantTemp": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "EngineRunning": {
+          "start_bit": 40,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "StarterRequest": {
+          "start_bit": 41,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "MIL_Status": {
+          "start_bit": 42,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ECM_MsgCounter": {
+          "start_bit": 56,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ECM_Checksum": {
+          "start_bit": 60,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "ECM_EngineStatus2": {
+      "id": 612,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "OilPressure": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 4,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1020,
+          "unit": "kPa",
+          "comment": null
+        },
+        "OilTemp": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "IntakeAirTemp": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "BoostPressure": {
+          "start_bit": 24,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 6553.5,
+          "unit": "kPa",
+          "comment": null
+        },
+        "FuelConsumption": {
+          "start_bit": 40,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.05,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3276.75,
+          "unit": "L/h",
+          "comment": null
+        },
+        "EngineRuntime": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 10,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 2550,
+          "unit": "min",
+          "comment": null
+        }
+      }
+    },
+    "ECM_EngineStatus3": {
+      "id": 616,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "FuelLevel": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "FuelRange": {
+          "start_bit": 8,
+          "length": 10,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1023,
+          "unit": "km",
+          "comment": null
+        },
+        "InstFuelConsumption": {
+          "start_bit": 18,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 163.83,
+          "unit": "L/100km",
+          "comment": null
+        },
+        "AvgFuelConsumption": {
+          "start_bit": 32,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 163.83,
+          "unit": "L/100km",
+          "comment": null
+        },
+        "FuelLowWarning": {
+          "start_bit": 46,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "AdBlueLevel": {
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "AdBlueLowWarning": {
+          "start_bit": 56,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "ECM_Torque": {
+      "id": 620,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "ActualTorque": {
+          "start_bit": null,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -500,
+          "minimum": -500,
+          "maximum": 1547.5,
+          "unit": "Nm",
+          "comment": null
+        },
+        "RequestedTorque": {
+          "start_bit": 12,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -500,
+          "minimum": -500,
+          "maximum": 1547.5,
+          "unit": "Nm",
+          "comment": null
+        },
+        "MaxTorqueAvailable": {
+          "start_bit": 24,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -500,
+          "minimum": -500,
+          "maximum": 1547.5,
+          "unit": "Nm",
+          "comment": null
+        },
+        "TorqueReductionReq": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "CruiseControlActive": {
+          "start_bit": 37,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "CruiseSetSpeed": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": "km/h",
+          "comment": null
+        }
+      }
+    },
+    "TCM_TransStatus": {
+      "id": 640,
+      "size": 8,
+      "senders": [
+        "TCM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "signals": {
+        "CurrentGear": {
+          "start_bit": null,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 9,
+          "unit": null,
+          "comment": null
+        },
+        "TargetGear": {
+          "start_bit": 4,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 9,
+          "unit": null,
+          "comment": null
+        },
+        "GearShifting": {
+          "start_bit": 8,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TransMode": {
+          "start_bit": 9,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        },
+        "TransTemp": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "TorqueConverterSlip": {
+          "start_bit": 24,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383.75,
+          "unit": "rpm",
+          "comment": null
+        },
+        "TransInputSpeed": {
+          "start_bit": 40,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383.75,
+          "unit": "rpm",
+          "comment": null
+        },
+        "ParkLockEngaged": {
+          "start_bit": 56,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "TCM_GearboxInfo": {
+      "id": 644,
+      "size": 8,
+      "senders": [
+        "TCM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS"
+      ],
+      "signals": {
+        "GearRatio": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.001,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 65.535,
+          "unit": null,
+          "comment": null
+        },
+        "OutputShaftSpeed": {
+          "start_bit": 16,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383.75,
+          "unit": "rpm",
+          "comment": null
+        },
+        "ShiftPaddleLeft": {
+          "start_bit": 32,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ShiftPaddleRight": {
+          "start_bit": 33,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SportModeActive": {
+          "start_bit": 34,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ManualModeActive": {
+          "start_bit": 35,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TransFaultActive": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "ESP_VehicleDynamics1": {
+      "id": 512,
+      "size": 8,
+      "senders": [
+        "ESP"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "VehicleSpeed": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 655.35,
+          "unit": "km/h",
+          "comment": "Tá»‘c Ä‘á»™ xe tÃ­nh tá»« trung bÃ¬nh 4 bÃ¡nh"
+        },
+        "YawRate": {
+          "start_bit": 16,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": -327.68,
+          "minimum": -327.68,
+          "maximum": 327.67,
+          "unit": "deg/s",
+          "comment": "Tá»‘c Ä‘á»™ xoay quanh trá»¥c Ä‘á»©ng"
+        },
+        "LateralAccel": {
+          "start_bit": 32,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.001,
+          "offset": -32.768,
+          "minimum": -32.768,
+          "maximum": 32.767,
+          "unit": "g",
+          "comment": null
+        },
+        "LongitudinalAccel": {
+          "start_bit": 48,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.001,
+          "offset": -32.768,
+          "minimum": -32.768,
+          "maximum": 32.767,
+          "unit": "g",
+          "comment": null
+        }
+      }
+    },
+    "ESP_VehicleDynamics2": {
+      "id": 516,
+      "size": 8,
+      "senders": [
+        "ESP"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "WheelSpeed_FL": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 655.35,
+          "unit": "km/h",
+          "comment": null
+        },
+        "WheelSpeed_FR": {
+          "start_bit": 16,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 655.35,
+          "unit": "km/h",
+          "comment": null
+        },
+        "WheelSpeed_RL": {
+          "start_bit": 32,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 655.35,
+          "unit": "km/h",
+          "comment": null
+        },
+        "WheelSpeed_RR": {
+          "start_bit": 48,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 655.35,
+          "unit": "km/h",
+          "comment": null
+        }
+      }
+    },
+    "ESP_BrakeStatus": {
+      "id": 520,
+      "size": 8,
+      "senders": [
+        "ESP"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "BrakePedalPressed": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BrakePedalPosition": {
+          "start_bit": 1,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.7874,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "BrakePressure_MC": {
+          "start_bit": 8,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 409.5,
+          "unit": "bar",
+          "comment": null
+        },
+        "ABSActive": {
+          "start_bit": 20,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ESPActive": {
+          "start_bit": 21,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TCSActive": {
+          "start_bit": 22,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BrakeDiscTemp_FL": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 3,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 765,
+          "unit": "degC",
+          "comment": null
+        },
+        "BrakeDiscTemp_FR": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 3,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 765,
+          "unit": "degC",
+          "comment": null
+        },
+        "BrakePadWear_FL": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "BrakePadWear_FR": {
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "BrakeFluidLow": {
+          "start_bit": 56,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "EPB_Status": {
+      "id": 528,
+      "size": 4,
+      "senders": [
+        "EPB"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "ParkingBrakeActive": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ParkingBrakeRequest": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "AutoHoldActive": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "HillStartAssist": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "EPB_FaultStatus": {
+          "start_bit": 8,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "EPS_SteeringStatus": {
+      "id": 544,
+      "size": 8,
+      "senders": [
+        "EPS"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "SteeringAngle": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": -3200,
+          "minimum": -3200,
+          "maximum": 3200,
+          "unit": "deg",
+          "comment": "GÃ³c quay vÃ´-lÄƒng, dÆ°Æ¡ng = quay pháº£i"
+        },
+        "SteeringAngleSpeed": {
+          "start_bit": 16,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -16384,
+          "minimum": -16384,
+          "maximum": 16383.5,
+          "unit": "deg/s",
+          "comment": null
+        },
+        "SteeringTorque": {
+          "start_bit": 32,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": -20.48,
+          "minimum": -20.48,
+          "maximum": 20.47,
+          "unit": "Nm",
+          "comment": null
+        },
+        "LaneKeepAssistTorque": {
+          "start_bit": 44,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": -20.48,
+          "minimum": -20.48,
+          "maximum": 20.47,
+          "unit": "Nm",
+          "comment": null
+        },
+        "EPSFaultActive": {
+          "start_bit": 56,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "LaneKeepAssistActive": {
+          "start_bit": 57,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "BCM_LightingStatus": {
+      "id": 672,
+      "size": 8,
+      "senders": [
+        "BCM"
+      ],
+      "receivers": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "HeadlightLeft": {
+          "start_bit": null,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "HeadlightRight": {
+          "start_bit": 2,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "HighBeamActive": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "FogLightFront": {
+          "start_bit": 5,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "FogLightRear": {
+          "start_bit": 6,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DaytimeRunLight": {
+          "start_bit": 7,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TurnSignalLeft": {
+          "start_bit": 8,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TurnSignalRight": {
+          "start_bit": 9,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "HazardLights": {
+          "start_bit": 10,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BrakeLights": {
+          "start_bit": 11,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ReverseLights": {
+          "start_bit": 12,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "AmbientLightLevel": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "AmbientLightColor": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "AutoHighBeamActive": {
+          "start_bit": 32,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "BCM_DoorStatus": {
+      "id": 676,
+      "size": 8,
+      "senders": [
+        "BCM"
+      ],
+      "receivers": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "DoorOpen_FL": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorOpen_FR": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorOpen_RL": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorOpen_RR": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TrunkOpen": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "HoodOpen": {
+          "start_bit": 5,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "FuelCapOpen": {
+          "start_bit": 6,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorLocked_FL": {
+          "start_bit": 8,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorLocked_FR": {
+          "start_bit": 9,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorLocked_RL": {
+          "start_bit": 10,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DoorLocked_RR": {
+          "start_bit": 11,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TrunkLocked": {
+          "start_bit": 12,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "CentralLockStatus": {
+          "start_bit": 16,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "KeyInIgnition": {
+          "start_bit": 18,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "KeylessEntryDetect": {
+          "start_bit": 19,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "WindowPos_FL": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "WindowPos_FR": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "WindowPos_RL": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "WindowPos_RR": {
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        },
+        "SunroofPos": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.39216,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 100,
+          "unit": "%",
+          "comment": null
+        }
+      }
+    },
+    "BCM_PowerManagement": {
+      "id": 680,
+      "size": 8,
+      "senders": [
+        "BCM"
+      ],
+      "receivers": [
+        "ADAS",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "BatteryVoltage": {
+          "start_bit": null,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 40.95,
+          "unit": "V",
+          "comment": null
+        },
+        "BatterySoC": {
+          "start_bit": 12,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127.5,
+          "unit": "%",
+          "comment": null
+        },
+        "BatteryCurrent": {
+          "start_bit": 20,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.05,
+          "offset": -102.4,
+          "minimum": -102.4,
+          "maximum": 102.35,
+          "unit": "A",
+          "comment": null
+        },
+        "BatteryTemp": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "AlternatorVoltage": {
+          "start_bit": 40,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.01,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 40.95,
+          "unit": "V",
+          "comment": null
+        },
+        "IgnitionStatus": {
+          "start_bit": 52,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        },
+        "StartStopActive": {
+          "start_bit": 55,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "EcoModeActive": {
+          "start_bit": 56,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ComfortModeActive": {
+          "start_bit": 57,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SportModeActive_BCM": {
+          "start_bit": 58,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SportPlusModeActive": {
+          "start_bit": 59,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "HVAC_ClimateStatus": {
+      "id": 720,
+      "size": 8,
+      "senders": [
+        "HVAC"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "CabinTemp": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -20,
+          "minimum": -20,
+          "maximum": 107.5,
+          "unit": "degC",
+          "comment": null
+        },
+        "SetTempDriver": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 15,
+          "minimum": 15,
+          "maximum": 32,
+          "unit": "degC",
+          "comment": null
+        },
+        "SetTempPassenger": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 15,
+          "minimum": 15,
+          "maximum": 32,
+          "unit": "degC",
+          "comment": null
+        },
+        "ACCompressorOn": {
+          "start_bit": 24,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ACAutoMode": {
+          "start_bit": 25,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BlowerSpeed": {
+          "start_bit": 26,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "RecirculationMode": {
+          "start_bit": 30,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "RearDefrostActive": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SeatHeatDriver": {
+          "start_bit": 32,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "SeatHeatPassenger": {
+          "start_bit": 35,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "SeatVentDriver": {
+          "start_bit": 40,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "SeatVentPassenger": {
+          "start_bit": 43,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "SteeringWheelHeat": {
+          "start_bit": 48,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "OutsideTemp": {
+          "start_bit": 50,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 87.5,
+          "unit": "degC",
+          "comment": null
+        }
+      }
+    },
+    "SRS_OccupantStatus": {
+      "id": 768,
+      "size": 8,
+      "senders": [
+        "SRS"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "TCM"
+      ],
+      "signals": {
+        "SeatbeltDriver": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SeatbeltPassenger": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SeatbeltRL": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SeatbeltRM": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "SeatbeltRR": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "PassengerOccupied": {
+          "start_bit": 5,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ChildSeatDetected": {
+          "start_bit": 6,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "AirbagWarning": {
+          "start_bit": 8,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "CrashDetected": {
+          "start_bit": 9,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "PreSafeActivated": {
+          "start_bit": 11,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "DriverWeight": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127.5,
+          "unit": "kg",
+          "comment": null
+        },
+        "PassengerWeight": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127.5,
+          "unit": "kg",
+          "comment": null
+        }
+      }
+    },
+    "IC_DisplayInfo": {
+      "id": 800,
+      "size": 8,
+      "senders": [
+        "IC"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "Odometer": {
+          "start_bit": null,
+          "length": 24,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1677721.5,
+          "unit": "km",
+          "comment": null
+        },
+        "TripMeter_A": {
+          "start_bit": 24,
+          "length": 20,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 104857.5,
+          "unit": "km",
+          "comment": null
+        },
+        "TripMeter_B": {
+          "start_bit": 44,
+          "length": 20,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 104857.5,
+          "unit": "km",
+          "comment": null
+        }
+      }
+    },
+    "ADAS_FrontCamera": {
+      "id": 848,
+      "size": 8,
+      "senders": [
+        "ADAS"
+      ],
+      "receivers": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "LaneDepartureWarn": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "LanePosition": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": -2.54,
+          "minimum": -2.54,
+          "maximum": 2.56,
+          "unit": "m",
+          "comment": null
+        },
+        "HeadwayDistance": {
+          "start_bit": 9,
+          "length": 9,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255.5,
+          "unit": "m",
+          "comment": "Khoáº£ng cÃ¡ch tá»›i xe phÃ­a trÆ°á»›c"
+        },
+        "HeadwayTime": {
+          "start_bit": 18,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "s",
+          "comment": null
+        },
+        "ForwardCollisionWarn": {
+          "start_bit": 26,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "PedestrianDetected": {
+          "start_bit": 28,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TrafficSignType": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "TrafficSignValue": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": "km/h",
+          "comment": null
+        },
+        "RoadType": {
+          "start_bit": 48,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        },
+        "CameraBlocked": {
+          "start_bit": 51,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "ADAS_RadarFront": {
+      "id": 852,
+      "size": 8,
+      "senders": [
+        "ADAS"
+      ],
+      "receivers": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "TargetDetected": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "TargetDistance": {
+          "start_bit": 1,
+          "length": 10,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255.75,
+          "unit": "m",
+          "comment": null
+        },
+        "TargetRelSpeed": {
+          "start_bit": 11,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.05,
+          "offset": -102.4,
+          "minimum": -102.4,
+          "maximum": 102.35,
+          "unit": "km/h",
+          "comment": null
+        },
+        "TargetAngle": {
+          "start_bit": 23,
+          "length": 9,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": -25.6,
+          "minimum": -25.6,
+          "maximum": 25.5,
+          "unit": "deg",
+          "comment": null
+        },
+        "AdaptiveCruiseActive": {
+          "start_bit": 32,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ACCSetSpeed": {
+          "start_bit": 33,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": "km/h",
+          "comment": null
+        },
+        "ACCFollowDistance": {
+          "start_bit": 41,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        },
+        "AEBWarning": {
+          "start_bit": 44,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": null
+        },
+        "AEBBrakeRequest": {
+          "start_bit": 46,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BlindSpotLeft": {
+          "start_bit": 48,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "BlindSpotRight": {
+          "start_bit": 49,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "ADAS_ParkingAssist": {
+      "id": 856,
+      "size": 8,
+      "senders": [
+        "ADAS"
+      ],
+      "receivers": [
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "UltrasonicDist_FL": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_FLC": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_FRC": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_FR": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_RL": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_RLC": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_RRC": {
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        },
+        "UltrasonicDist_RR": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.02,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5.1,
+          "unit": "m",
+          "comment": null
+        }
+      }
+    },
+    "TPMS_TireStatus": {
+      "id": 896,
+      "size": 8,
+      "senders": [
+        "ESP"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "ECM",
+        "EPB",
+        "EPS",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "TirePressure_FL": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.0125,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3.1875,
+          "unit": "bar",
+          "comment": null
+        },
+        "TirePressure_FR": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.0125,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3.1875,
+          "unit": "bar",
+          "comment": null
+        },
+        "TirePressure_RL": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.0125,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3.1875,
+          "unit": "bar",
+          "comment": null
+        },
+        "TirePressure_RR": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.0125,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3.1875,
+          "unit": "bar",
+          "comment": null
+        },
+        "TireTemp_FL": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "TireTemp_FR": {
+          "start_bit": 40,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "TireTemp_RL": {
+          "start_bit": 48,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "TireTemp_RR": {
+          "start_bit": 56,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        }
+      }
+    },
+    "HV_BatteryStatus": {
+      "id": 960,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "HVBattery_SoC": {
+          "start_bit": null,
+          "length": 10,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 102.3,
+          "unit": "%",
+          "comment": "Má»©c sáº¡c pin cao Ã¡p (State of Charge)"
+        },
+        "HVBattery_Voltage": {
+          "start_bit": 10,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1023.75,
+          "unit": "V",
+          "comment": null
+        },
+        "HVBattery_Current": {
+          "start_bit": 22,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.25,
+          "offset": -512,
+          "minimum": -512,
+          "maximum": 511.75,
+          "unit": "A",
+          "comment": null
+        },
+        "HVBattery_Temp": {
+          "start_bit": 34,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "HVBattery_Power": {
+          "start_bit": 42,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.1,
+          "offset": -819.2,
+          "minimum": -819.2,
+          "maximum": 819.1,
+          "unit": "kW",
+          "comment": null
+        },
+        "HVBattery_Health": {
+          "start_bit": 56,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 63.5,
+          "unit": "%",
+          "comment": null
+        },
+        "ChargingStatus": {
+          "start_bit": 63,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "HV_MotorStatus": {
+      "id": 964,
+      "size": 8,
+      "senders": [
+        "ECM"
+      ],
+      "receivers": [
+        "ADAS",
+        "BCM",
+        "EPB",
+        "EPS",
+        "ESP",
+        "HVAC",
+        "IC",
+        "SRS",
+        "TCM"
+      ],
+      "signals": {
+        "ElecMotorSpeed": {
+          "start_bit": null,
+          "length": 16,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -30000,
+          "minimum": -30000,
+          "maximum": 30000,
+          "unit": "rpm",
+          "comment": null
+        },
+        "ElecMotorTorque": {
+          "start_bit": 16,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 0.5,
+          "offset": -500,
+          "minimum": -500,
+          "maximum": 1547.5,
+          "unit": "Nm",
+          "comment": null
+        },
+        "ElecMotorTemp": {
+          "start_bit": 28,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "InverterTemp": {
+          "start_bit": 36,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": -40,
+          "minimum": -40,
+          "maximum": 215,
+          "unit": "degC",
+          "comment": null
+        },
+        "RegenBrakeActive": {
+          "start_bit": 44,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "RegenBrakeLevel": {
+          "start_bit": 45,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 5,
+          "unit": null,
+          "comment": null
+        },
+        "EVDriveMode": {
+          "start_bit": 48,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        },
+        "ElecRange": {
+          "start_bit": 51,
+          "length": 10,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1023,
+          "unit": "km",
+          "comment": null
+        }
+      }
+    },
+    "INC_HMI_CrashInfo": {
+      "id": 128,
+      "size": 1,
+      "senders": [
+        "CAR_PC"
+      ],
+      "receivers": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "HMI_CrashSeverity": {
+          "start_bit": null,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Crash Severity Selection from HMI"
+        },
+        "HMI_CrashImpactTrigger": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Trigger bit that the crash happens right now"
+        }
+      }
+    },
+    "INC_HMI_SILGRequest": {
+      "id": 129,
+      "size": 1,
+      "senders": [
+        "CAR_PC"
+      ],
+      "receivers": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "HMI_SILG_ActivationRequest": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "HMI SILG Activation for Request Actuator;;Signalvalues: blow in, blow out, nothing"
+        }
+      }
+    },
+    "SBS_HB_GenericCmd": {
+      "id": 131,
+      "size": 1,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "HB_ActivationSync": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Syncs all Activation Levels of HBs;;Signalvalues: bool"
+        }
+      }
+    },
+    "INC_Generic_MnlCpnActivation": {
+      "id": 132,
+      "size": 1,
+      "senders": [
+        "CAR_PC"
+      ],
+      "receivers": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "Actuator_Manual_Seat_Function_enable": {
+          "start_bit": null,
+          "length": 5,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 31,
+          "unit": null,
+          "comment": "Bit Encoding for manual component request by HMI (like ACR_Retract, ABL_Retract, ISB Overwrite);;Signalvalues: 5 bits for each seat"
+        }
+      }
+    },
+    "SBS_HB_TargetTemp": {
+      "id": 133,
+      "size": 8,
+      "senders": [
+        "CAR_PC"
+      ],
+      "receivers": [
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "HB_DynamicTargetTemp": {
+          "start_bit": null,
+          "length": 32,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4294967295,
+          "unit": null,
+          "comment": "Target Temperature calculated from HB Boosting Algorithm;;Signalvalues: �C;;Signalvalues: ï¿½C"
+        },
+        "HB_ManualTargetTemp": {
+          "start_bit": 32,
+          "length": 32,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4294967295,
+          "unit": null,
+          "comment": "Manual Target Temprature Requested by HMI;;Signalvalues: �C;;Signalvalues: ï¿½C"
+        }
+      }
+    },
+    "SBS_ABL_Activation": {
+      "id": 144,
+      "size": 5,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_FL_RetractRequest": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ABL Retraction request by HMI;;Signalvalues: Offer, Wake Up, Normal, Sleep, Retact, Haptic 1-1"
+        },
+        "ABL_FR_RetractRequest": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ABL Retraction request by HMI;;Signalvalues: Offer, Wake Up, Normal, Sleep, Retact, Haptic 1-0"
+        },
+        "ABL_R1_RetractRequest": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ABL Retraction request by HMI;;Signalvalues: Offer, Wake Up, Normal, Sleep, Retact, Haptic 1-1"
+        },
+        "ABL_R2_RetractRequest": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ABL Retraction request by HMI;;Signalvalues: Offer, Wake Up, Normal, Sleep, Retact, Haptic 1-2"
+        },
+        "ABL_RR1_RetractRequest": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ABL Retraction request by HMI;;Signalvalues: Offer, Wake Up, Normal, Sleep, Retact, Haptic 1-3"
+        }
+      }
+    },
+    "SBS_ACR_Activation": {
+      "id": 145,
+      "size": 5,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_FL_RetractRequest": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ACR Retraction request by HMI;;Signalvalues: Haptic 1-6, Retract 1-4, Repositioning, Dynamic Belt, Beltslack, Belt Park"
+        },
+        "ACR_FR_RetractRequest": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ACR Retraction request by HMI;;Signalvalues: Haptic 1-6, Retract 1-4, Repositioning, Dynamic Belt, Beltslack, Belt Park"
+        },
+        "ACR_R1_RetractRequest": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ACR Retraction request by HMI;;Signalvalues: Haptic 1-6, Retract 1-4, Repositioning, Dynamic Belt, Beltslack, Belt Park"
+        },
+        "ACR_R2_RetractRequest": {
+          "start_bit": 24,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ACR Retraction request by HMI;;Signalvalues: Haptic 1-6, Retract 1-4, Repositioning, Dynamic Belt, Beltslack, Belt Park"
+        },
+        "ACR_RR1_RetractRequest": {
+          "start_bit": 32,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Manual ACR Retraction request by HMI;;Signalvalues: Haptic 1-6, Retract 1-4, Repositioning, Dynamic Belt, Beltslack, Belt Park"
+        }
+      }
+    },
+    "SBS_ELK_Activation": {
+      "id": 146,
+      "size": 1,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ELK_FL_LockingRequest": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Manual Locking Request from HMI;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_FR_LockingRequest": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Manual Locking Request from HMI;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_R1_LockingRequest": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Manual Locking Request from HMI;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_R2_LockingRequest": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Manual Locking Request from HMI;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_RR1_LockingRequest": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Manual Locking Request from HMI;;Signalvalues: Lock, No Lock"
+        }
+      }
+    },
+    "SBS_ISB_FL_Request": {
+      "id": 160,
+      "size": 7,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ISB_FL_ColorGreen": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Color Code for ISB with RGB and Intensity requested by HMI;;Signalvalues: Custom RGBA Colorcode --> A will be the intensity"
+        },
+        "ISB_FL_ColorBlue": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_ColorRed": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_Intensity": {
+          "start_bit": 24,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_Normalization": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_Transitionspeed": {
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_GroupOrModule": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_AdressByte0": {
+          "start_bit": 37,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FL_AdressByte1": {
+          "start_bit": 45,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_ISB_FR_Request": {
+      "id": 161,
+      "size": 7,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ISB_FR_ColorGreen": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Color Code for ISB with RGB and Intensity requested by HMI;;Signalvalues: Custom RGBA Colorcode --> A will be the intensity"
+        },
+        "ISB_FR_ColorBlue": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_ColorRed": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_Intensity": {
+          "start_bit": 24,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_Normalization": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_Transitionspeed": {
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_GroupOrModule": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_AdressByte0": {
+          "start_bit": 37,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_FR_AdressByte1": {
+          "start_bit": 45,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_ISB_R1_Request": {
+      "id": 162,
+      "size": 7,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ISB_R1_ColorGreen": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Color Code for ISB with RGB and Intensity requested by HMI;;Signalvalues: Custom RGBA Colorcode --> A will be the intensity"
+        },
+        "ISB_R1_ColorBlue": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_ColorRed": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_Intensity": {
+          "start_bit": 24,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_Normalization": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_Transitionspeed": {
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_GroupOrModule": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_AdressByte0": {
+          "start_bit": 37,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R1_AdressByte1": {
+          "start_bit": 45,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_ISB_R2_Request": {
+      "id": 163,
+      "size": 7,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ISB_R2_ColorGreen": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Color Code for ISB with RGB and Intensity requested by HMI;;Signalvalues: Custom RGBA Colorcode --> A will be the intensity"
+        },
+        "ISB_R2_ColorBlue": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_ColorRed": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_Intensity": {
+          "start_bit": 24,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_Normalization": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_Transitionspeed": {
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_GroupOrModule": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_AdressByte0": {
+          "start_bit": 37,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_R2_AdressByte1": {
+          "start_bit": 45,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_ISB_RR1_Request": {
+      "id": 164,
+      "size": 7,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ISB_RR1_ColorGreen": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "Color Code for ISB with RGB and Intensity requested by HMI;;Signalvalues: Custom RGBA Colorcode --> A will be the intensity"
+        },
+        "ISB_RR1_ColorBlue": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_ColorRed": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_Intensity": {
+          "start_bit": 24,
+          "length": 7,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 127,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_Normalization": {
+          "start_bit": 31,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_Transitionspeed": {
+          "start_bit": 32,
+          "length": 4,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 15,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_GroupOrModule": {
+          "start_bit": 36,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_AdressByte0": {
+          "start_bit": 37,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        },
+        "ISB_RR1_AdressByte1": {
+          "start_bit": 45,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "MON_SMA_VehicleState": {
+      "id": 176,
+      "size": 1,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "SMA_VehicleStable": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Calulated Vehicle Stable by SMA;;Signalvalues: Buckled, Unbuckled"
+        }
+      }
+    },
+    "MON_OMS_FL_Status": {
+      "id": 179,
+      "size": 5,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "OMS_FL_HandsOnWheel": {
+          "start_bit": null,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "DMS Hands on for Wheel Actuator;;Signalvalues: Hands on Wheel, Hands not on Wheel"
+        },
+        "OMS_FL_OccupantClassification": {
+          "start_bit": 2,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "DMS Occupant for Classification Actuator;;Signalvalues: 25%, 50%, 95% Occupant"
+        },
+        "OMS_FL_OutOfPosition": {
+          "start_bit": 5,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "DMS Out Of for Position Actuator"
+        },
+        "OMS_FL_OccupantWeight": {
+          "start_bit": 17,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "DMS Occupant for Weight Actuator"
+        },
+        "OMS_FL_OccupantLength": {
+          "start_bit": 25,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "DMS Occupant for Lenght Actuator"
+        },
+        "OMS_FL_OccupantGender": {
+          "start_bit": 33,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "DMS Torso for Angle Actuator"
+        }
+      }
+    },
+    "MON_OMS_FR_Status": {
+      "id": 180,
+      "size": 5,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "OMS_FR_OccupantClassification": {
+          "start_bit": null,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "OMS Occupant for Classification Actuator"
+        },
+        "OMS_FR_OutOfPosition": {
+          "start_bit": 3,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "OMS Out Of for Position Actuator"
+        },
+        "OMS_FR_OccupantWeight": {
+          "start_bit": 15,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "OMS Occupant for Weight Actuator"
+        },
+        "OMS_FR_OccupantLength": {
+          "start_bit": 23,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "OMS Occupant for Lenght Actuator"
+        },
+        "OMS_FR_OccupantGender": {
+          "start_bit": 31,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "OMS Torso for Angle Actuator"
+        }
+      }
+    },
+    "STS_SPS_FL_SeatPosition": {
+      "id": 181,
+      "size": 8,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "SPS_FL_SeatDirectionX": {
+          "start_bit": null,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FL Seat x-for Direction Actuator;;Signalvalues: mm"
+        },
+        "SPS_FL_SeatDirectionZ": {
+          "start_bit": 12,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FL Seat z-for Direction Actuator;;Signalvalues: mm"
+        },
+        "SPS_FL_SeatBackRestPosition": {
+          "start_bit": 24,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FL Seat BackRest for Position Actuator;;Signalvalues: Deg"
+        },
+        "SPS_FL_FootRestPosition": {
+          "start_bit": 36,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FL Seat FootRest for Position Actuator;;Signalvalues: Deg"
+        },
+        "SPS_FL_HeadRestPosition": {
+          "start_bit": 48,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FL Seat HeadRest for Position Actuator;;Signalvalues: mm"
+        }
+      }
+    },
+    "STS_SPS_FR_SeatPosition": {
+      "id": 182,
+      "size": 8,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "SPS_FR_SeatDirectionX": {
+          "start_bit": null,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FR Seat x-for Direction Actuator;;Signalvalues: mm"
+        },
+        "SPS_FR_SeatDirectionZ": {
+          "start_bit": 12,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FR Seat z-for Direction Actuator;;Signalvalues: mm"
+        },
+        "SPS_FR_SeatBackRestPosition": {
+          "start_bit": 24,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FR Seat BackRest for Position Actuator;;Signalvalues: Deg"
+        },
+        "SPS_FR_FootRestPosition": {
+          "start_bit": 36,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FR Seat FootRest for Position Actuator;;Signalvalues: Deg"
+        },
+        "SPS_FR_HeadRestPosition": {
+          "start_bit": 48,
+          "length": 12,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 4095,
+          "unit": null,
+          "comment": "FR Seat HeadRest for Position Actuator;;Signalvalues: mm"
+        }
+      }
+    },
+    "SBS_ABL_FL_Response": {
+      "id": 384,
+      "size": 3,
+      "senders": [
+        "PUMA_FL"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_FL_S0SensorStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "FL ABL S0 Sensor for Status Actuator"
+        },
+        "ABL_FL_ActivationLevelStatus": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FL ABL Actuator Activation Level for Status Actuator"
+        },
+        "ABL_FL_ActivationPhase": {
+          "start_bit": 9,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FL ABL Actuator Execution Phase for Status Actuator"
+        }
+      }
+    },
+    "SBS_ABL_FR_Response": {
+      "id": 385,
+      "size": 3,
+      "senders": [
+        "PUMA_FR"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_FR_S0SensorStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "FR ABL S0 Sensor for Status Actuator"
+        },
+        "ABL_FR_ActivationLevelStatus": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FR ABL Actuator Activation Level for Status Actuator"
+        },
+        "ABL_FR_ActivationPhase": {
+          "start_bit": 9,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FR ABL Actuator Execution Phase for Status Actuator"
+        }
+      }
+    },
+    "SBS_ABL_R1_Response": {
+      "id": 386,
+      "size": 3,
+      "senders": [
+        "PUMA_R1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_R1_S0SensorStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "RL1 ABL S0 Sensor for Status Actuator"
+        },
+        "ABL_R1_ActivationLevelStatus": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RL1 ABL Actuator Activation Level for Status Actuator"
+        },
+        "ABL_R1_ActivationPhase": {
+          "start_bit": 9,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RL1 ABL Actuator Execution Phase for Status Actuator"
+        }
+      }
+    },
+    "SBS_ABL_R2_Response": {
+      "id": 387,
+      "size": 3,
+      "senders": [
+        "PUMA_R2"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_R2_S0SensorStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "R2 ABL S0 Sensor for Status Actuator"
+        },
+        "ABL_R2_ActivationLevelStatus": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "R2 ABL Actuator Activation Level for Status Actuator"
+        },
+        "ABL_R2_ActivationPhase": {
+          "start_bit": 9,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "R2 ABL Actuator Execution Phase for Status Actuator"
+        }
+      }
+    },
+    "SBS_ABL_RR1_Response": {
+      "id": 388,
+      "size": 3,
+      "senders": [
+        "PUMA_RR1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ABL_RR1_S0SensorStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "RR1 ABL S0 Sensor for Status Actuator"
+        },
+        "ABL_RR1_ActivationLevelStatus": {
+          "start_bit": 1,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RR1 ABL Actuator Activation Level for Status Actuator"
+        },
+        "ABL_RR1_ActivationPhase": {
+          "start_bit": 9,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RR1 ABL Actuator Execution Phase for Status Actuator"
+        }
+      }
+    },
+    "SBS_ACR_FL_Response": {
+      "id": 392,
+      "size": 3,
+      "senders": [
+        "PUMA_FL"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_FL_ActivationLevelStatus": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FL ACR Actuator Activation Level for Status Actuator"
+        },
+        "ACR_FL_ActivationPhase": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FL ACR Actuator Execution Phase for Status Actuator"
+        },
+        "ACR_FL_SpoolFasterClutch": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FL ACR Motor for Speed Actuator"
+        }
+      }
+    },
+    "SBS_ACR_FR_Response": {
+      "id": 393,
+      "size": 3,
+      "senders": [
+        "PUMA_FR"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_FR_ActivationLevelStatus": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FR ACR Actuator Activation Level for Status Actuator"
+        },
+        "ACR_FR_ActivationPhase": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FR ACR Actuator Execution Phase for Status Actuator"
+        },
+        "ACR_FR_SpoolFasterClutch": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "FR ACR Motor for Speed Actuator"
+        }
+      }
+    },
+    "SBS_ACR_R1_Response": {
+      "id": 394,
+      "size": 3,
+      "senders": [
+        "PUMA_R1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_R1_ActivationLevelStatus": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RL1 ACR Actuator Activation Level for Status Actuator"
+        },
+        "ACR_R1_ActivationPhase": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RL1 ACR Actuator Execution Phase for Status Actuator"
+        },
+        "ACR_R1_SpoolFasterClutch": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RL1 ACR Motor for Speed Actuator"
+        }
+      }
+    },
+    "SBS_ACR_R2_Response": {
+      "id": 395,
+      "size": 3,
+      "senders": [
+        "PUMA_R2"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_R2_ActivationLevelStatus": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "R2 ACR Actuator Activation Level for Status Actuator"
+        },
+        "ACR_R2_ActivationPhase": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "R2 ACR Actuator Execution Phase for Status Actuator"
+        },
+        "ACR_R2_SpoolFasterClutch": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "R2 ACR Motor for Speed Actuator"
+        }
+      }
+    },
+    "SBS_ACR_RR1_Response": {
+      "id": 396,
+      "size": 3,
+      "senders": [
+        "PUMA_RR1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ACR_RR1_ActivationLevelStatus": {
+          "start_bit": null,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RR1 ACR Actuator Activation Level for Status Actuator"
+        },
+        "ACR_RR1_ActivationPhase": {
+          "start_bit": 8,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RR1 ACR Actuator Execution Phase for Status Actuator"
+        },
+        "ACR_RR1_SpoolFasterClutch": {
+          "start_bit": 16,
+          "length": 8,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 255,
+          "unit": null,
+          "comment": "RR1 ACR Motor for Speed Actuator"
+        }
+      }
+    },
+    "SBS_WMS_FL_Response": {
+      "id": 400,
+      "size": 4,
+      "senders": [
+        "PUMA_FL"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "WMS_FL_WebbingMovement": {
+          "start_bit": null,
+          "length": 13,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 8191,
+          "unit": null,
+          "comment": "Webbing Payout measured by ACR spool rotation;;Signalvalues: 0-max mm"
+        },
+        "WMS_FL_SpoolAngle": {
+          "start_bit": 13,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383,
+          "unit": null,
+          "comment": null
+        },
+        "WMS_FL_SensorStatus": {
+          "start_bit": 27,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_WMS_FR_Response": {
+      "id": 401,
+      "size": 4,
+      "senders": [
+        "PUMA_FR"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "WMS_FR_WebbingMovement": {
+          "start_bit": null,
+          "length": 13,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 8191,
+          "unit": null,
+          "comment": "Webbing Payout measured by ACR spool rotation;;Signalvalues: 0-max mm"
+        },
+        "WMS_FR_SpoolAngle": {
+          "start_bit": 13,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383,
+          "unit": null,
+          "comment": null
+        },
+        "WMS_FR_SensorStatus": {
+          "start_bit": 27,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_WMS_R1_Response": {
+      "id": 402,
+      "size": 4,
+      "senders": [
+        "PUMA_R1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "WMS_R1_WebbingMovement": {
+          "start_bit": null,
+          "length": 13,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 8191,
+          "unit": null,
+          "comment": "Webbing Payout measured by ACR spool rotation;;Signalvalues: 0-max mm"
+        },
+        "WMS_R1_SpoolAngle": {
+          "start_bit": 13,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383,
+          "unit": null,
+          "comment": null
+        },
+        "WMS_R1_SensorStatus": {
+          "start_bit": 27,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_WMS_R2_Response": {
+      "id": 403,
+      "size": 4,
+      "senders": [
+        "PUMA_R2"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "WMS_R2_WebbingMovement": {
+          "start_bit": null,
+          "length": 13,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 8191,
+          "unit": null,
+          "comment": "Webbing Payout measured by ACR spool rotation;;Signalvalues: 0-max mm"
+        },
+        "WMS_R2_SpoolAngle": {
+          "start_bit": 13,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383,
+          "unit": null,
+          "comment": null
+        },
+        "WMS_R2_SensorStatus": {
+          "start_bit": 27,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_WMS_RR1_Response": {
+      "id": 404,
+      "size": 4,
+      "senders": [
+        "PUMA_RR1"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PANTHER",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "WMS_RR1_WebbingMovement": {
+          "start_bit": null,
+          "length": 13,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 8191,
+          "unit": null,
+          "comment": "Webbing Payout measured by ACR spool rotation;;Signalvalues: 0-max mm"
+        },
+        "WMS_RR1_SpoolAngle": {
+          "start_bit": 13,
+          "length": 14,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 16383,
+          "unit": null,
+          "comment": null
+        },
+        "WMS_RR1_SensorStatus": {
+          "start_bit": 27,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": null
+        }
+      }
+    },
+    "SBS_ELK_Status": {
+      "id": 408,
+      "size": 2,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "ELK_FL_LockingStatus": {
+          "start_bit": null,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "E-Locking Status for FL Actuator;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_FR_LockingStatus": {
+          "start_bit": 2,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "E-Locking Status for FR Actuator;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_R1_LockingStatus": {
+          "start_bit": 4,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "E-Locking Status for R1 Actuator;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_R2_LockingStatus": {
+          "start_bit": 6,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "E-Locking Status for R2 Actuator;;Signalvalues: Lock, No Lock"
+        },
+        "ELK_RR1_LockingStatus": {
+          "start_bit": 8,
+          "length": 2,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 3,
+          "unit": null,
+          "comment": "E-Locking Status for RR1 Actuator;;Signalvalues: Lock, No Lock"
+        }
+      }
+    },
+    "SBS_BSW_Status": {
+      "id": 409,
+      "size": 1,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "BSW_FL_BuckleStatus": {
+          "start_bit": null,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Buckle Switch Status;;Signalvalues: Buckled, Unbuckled"
+        },
+        "BSW_FR_BuckleStatus": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Buckle Switch Status;;Signalvalues: Buckled, Unbuckled"
+        },
+        "BSW_R1_BuckleStatus": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Buckle Switch Status;;Signalvalues: Buckled, Unbuckled"
+        },
+        "BSW_R2_BuckleStatus": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Buckle Switch Status;;Signalvalues: Buckled, Unbuckled"
+        },
+        "BSW_RR1_BuckleStatus": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "comment": "Buckle Switch Status;;Signalvalues: Buckled, Unbuckled"
+        }
+      }
+    },
+    "SBS_HB_Status": {
+      "id": 410,
+      "size": 2,
+      "senders": [
+        "PANTHER"
+      ],
+      "receivers": [
+        "CAR_PC",
+        "EL_ECU",
+        "PUMA_FL",
+        "PUMA_FR",
+        "PUMA_R1",
+        "PUMA_R2",
+        "PUMA_RR1",
+        "SIMI",
+        "Vector__XXX"
+      ],
+      "signals": {
+        "HB_FL_ActivationLevel": {
+          "start_bit": null,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Activation Level for HB requested by HMI;;Signalvalues: Level 1-3"
+        },
+        "HB_FR_ActivationLevel": {
+          "start_bit": 3,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Activation Level for HB requested by HMI;;Signalvalues: Level 1-4"
+        },
+        "HB_R1_ActivationLevel": {
+          "start_bit": 6,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Activation Level for HB requested by HMI;;Signalvalues: Level 1-5"
+        },
+        "HB_R2_ActivationLevel": {
+          "start_bit": 9,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Activation Level for HB requested by HMI;;Signalvalues: Level 1-6"
+        },
+        "HB_RR1_ActivationLevel": {
+          "start_bit": 12,
+          "length": 3,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 7,
+          "unit": null,
+          "comment": "Activation Level for HB requested by HMI;;Signalvalues: Level 1-7"
+        }
+      }
+    }
+  }
+}

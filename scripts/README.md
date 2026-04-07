@@ -15,6 +15,7 @@ Các file chính
  - `gen_signals_from_dbc.py` — tạo/gộp `config/signals.json` từ DBC.
  - `gen_alarms_from_dbc.py` — tạo/gộp `config/alarms.json` từ DBC.
  - `gen_configs_from_dbc.py` — script kết hợp (giữ lại để tiện lợi).
+ - `gen_can_json.py` — aggregate DBC messages/signals into `config/can.json`.
 
 Các ví dụ sử dụng cơ bản
 
