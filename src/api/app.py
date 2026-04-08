@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def create_app(
     signal_store,  # SignalStore
     repository,  # ISignalRepository
-    can_reader=None,  # CANReader | None
+    can_readers=None,  # list[CANReader] | None
     api_key: str = "",
     cors_origins: list[str] | None = None,
 ) -> FastAPI:
@@ -42,7 +42,7 @@ def create_app(
     # Trạng thái chia sẻ — truy cập qua request.app.state
     app.state.store = signal_store
     app.state.repo = repository
-    app.state.reader = can_reader
+    app.state.readers = can_readers or []
     app.state.start_time = time.time()
     app.state.ws_manager = ConnectionManager()
 

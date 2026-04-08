@@ -113,8 +113,18 @@ class CANWriter {
     +send_message(msg_id: int, signals: dict): void
 }
 
+class CANWriterRouter {
+    -_signal_to_writer: dict[str, CANWriter]
+    -_msgid_to_writer: dict[int, CANWriter]
+    -_writers: list[CANWriter]
+    +register(db: DatabaseLoader, writer: CANWriter): void
+    +send_signal(name: str, value: float): void
+    +send_message(msg_id: int, signals: dict): void
+}
+
 CANReader --> DatabaseLoader : decode frames
 CANWriter --> DatabaseLoader : encode frames
+CANWriterRouter "1" o-- "many" CANWriter
 }
 
 ' ─── Signal Processing (Pipeline Pattern) ───
@@ -208,7 +218,7 @@ class SignalConfigRecord <<dataclass>> {
 }
 
 class AppConfig <<BaseModel>> {
-    +can: CANConfig
+    +can: list[CANConfig]
     +simulator: SimulatorConfig
     +api: APIConfig
     +storage: StorageConfig
@@ -361,11 +371,14 @@ AppFactory ..> AppConfig : reads
 class AppRunner {
     -_config: AppConfig
     -_simulator: CANSimulator | None
-    -_reader: CANReader
-    -_writer: CANWriter
+    -_readers: list[CANReader]
+    -_writers: list[CANWriter]
+    -_writer_router: CANWriterRouter
     -_pipeline: SignalPipeline
     -_store: SignalStore
     -_repo: SQLiteRepository
+    -_db_loaders: list[DatabaseLoader]
+    -_buses: list[can.BusABC]
     -_api: FastAPI | None
     -_ws_manager: ConnectionManager
     +start(): void
@@ -398,6 +411,7 @@ class CANSimulator {
 AppRunner --> CANSimulator
 AppRunner --> CANReader
 AppRunner --> CANWriter
+AppRunner --> CANWriterRouter
 AppRunner --> SignalPipeline
 AppRunner --> SignalStore
 AppRunner --> ConnectionManager

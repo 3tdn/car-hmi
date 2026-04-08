@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 class CANConfig(BaseModel):
     interface: str = "virtual"
     channel: str = "vcan0"
-    bitrate: int = 500_000
+    bitrate: int = 500000
     can_json_path: str = "config/can.json"
 
 
@@ -67,7 +67,7 @@ class LoggingConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
-    can: CANConfig = Field(default_factory=CANConfig)
+    can: list[CANConfig] = Field(default_factory=lambda: [CANConfig()])
     simulator: SimulatorConfig = Field(default_factory=SimulatorConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
@@ -79,9 +79,18 @@ class AppConfig(BaseModel):
 
     @field_validator("can")
     @classmethod
-    def validate_can(cls, v: CANConfig) -> CANConfig:
-        if not v.can_json_path:
-            raise ValueError("can_json_path must be set")
+    def validate_can(cls, v: list[CANConfig]) -> list[CANConfig]:
+        if not v:
+            raise ValueError("At least one CAN channel must be configured")
+        for i, ch in enumerate(v):
+            if not ch.can_json_path:
+                raise ValueError(f"can[{i}].can_json_path must be set")
+        channels = [ch.channel for ch in v]
+        if len(channels) != len(set(channels)):
+            raise ValueError("Duplicate CAN channel names detected")
+        paths = [ch.can_json_path for ch in v]
+        if len(paths) != len(set(paths)):
+            raise ValueError("Duplicate can_json_path detected across channels")
         return v
 
 

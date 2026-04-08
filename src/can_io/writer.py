@@ -84,3 +84,56 @@ class CANWriter:
                 msg_id,
                 list(signals.keys()),
             )
+
+
+class CANWriterRouter:
+    """Định tuyến yêu cầu ghi tín hiệu đến đúng CANWriter theo kênh.
+
+    Xây dựng bảng ánh xạ O(1): signal_name → CANWriter, msg_id → CANWriter
+    để tránh tìm kiếm tuyến tính khi ghi.
+    """
+
+    def __init__(self) -> None:
+        self._signal_to_writer: dict[str, CANWriter] = {}
+        self._msgid_to_writer: dict[int, CANWriter] = {}
+        self._writers: list[CANWriter] = []
+
+    def register(self, db: DatabaseLoader, writer: CANWriter) -> None:
+        """Đăng ký một CANWriter cùng DatabaseLoader tương ứng."""
+        self._writers.append(writer)
+        for sig_name in db.signals:
+            if sig_name in self._signal_to_writer:
+                logger.debug(
+                    "CANWriterRouter: signal '%s' already registered "
+                    "on another channel — keeping first registration",
+                    sig_name,
+                )
+                continue
+            self._signal_to_writer[sig_name] = writer
+        for msg_id in db.messages:
+            if msg_id in self._msgid_to_writer:
+                logger.debug(
+                    "CANWriterRouter: msg_id %#x already registered "
+                    "on another channel — keeping first registration",
+                    msg_id,
+                )
+                continue
+            self._msgid_to_writer[msg_id] = writer
+
+    async def send_signal(self, name: str, value: float) -> None:
+        """Định tuyến và gửi tín hiệu qua đúng kênh CAN."""
+        writer = self._signal_to_writer.get(name)
+        if writer is None:
+            raise ValueError(
+                f"Signal '{name}' not found in any CAN channel — cannot encode"
+            )
+        await writer.send_signal(name, value)
+
+    async def send_message(self, msg_id: int, signals: dict[str, float]) -> None:
+        """Định tuyến và gửi thông điệp qua đúng kênh CAN."""
+        writer = self._msgid_to_writer.get(msg_id)
+        if writer is None:
+            raise ValueError(
+                f"Message ID {msg_id:#x} not found in any CAN channel — cannot encode"
+            )
+        await writer.send_message(msg_id, signals)

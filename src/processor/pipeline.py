@@ -59,29 +59,42 @@ class SignalPipeline:
         self._running = True
         logger.info("Signal pipeline started (%d stages)", len(self._stages))
         while self._running:
+            # --- 1. Receive next frame with timeout ---
+            # Avoid asyncio.wait_for() — Python 3.10 has a known bug where
+            # CancelledError is converted to TimeoutError and can escape the
+            # except clause.  Using asyncio.wait() with FIRST_COMPLETED
+            # sidesteps the issue entirely.
+            frame = None
             try:
-                # Wait for a frame with timeout; handle timeout and cancellation
-                try:
-                    frame = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-                except TimeoutError:
-                    # Hết thời gian rảnh — flush nếu đã đến kỳ flush, nhưng không spam log
+                get_coro = self._queue.get()
+                get_task = asyncio.ensure_future(get_coro)
+                done, _ = await asyncio.wait({get_task}, timeout=1.0)
+                if done:
+                    frame = get_task.result()
+                else:
+                    get_task.cancel()
+                    # Suppress CancelledError from the cancelled task
+                    try:
+                        await get_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    # Idle — flush buffer if interval elapsed
                     if time.monotonic() - self._last_flush >= self._batch_interval:
                         try:
                             await self._flush_buffer()
-                        except Exception as exc:
-                            logger.exception("Error flushing buffer during idle timeout: %s", exc)
+                        except Exception as fe:
+                            logger.exception("Error flushing buffer during idle: %s", fe)
                     continue
-                except asyncio.CancelledError:
-                    # Task bị hủy (sắt có lẽ khi tắt hệ thống) — thoát im lặng
-                    logger.debug("Signal pipeline task cancelled, shutting down")
-                    break
+            except asyncio.CancelledError:
+                # Task is being shut down — exit cleanly
+                logger.debug("Signal pipeline task cancelled, shutting down")
+                return
 
-                # Đường xử lý bình thường
+            # --- 2. Process frame ---
+            try:
                 await self._process_frame(frame)
             except Exception as exc:
-                # Lỗi xử lý không mong đợi — ghi log và tiếp tục
                 logger.exception("Pipeline error (dropping frame): %s", exc)
-                continue
 
     async def _process_frame(self, frame) -> None:
         signals: dict[str, float] = dict(frame.signals)

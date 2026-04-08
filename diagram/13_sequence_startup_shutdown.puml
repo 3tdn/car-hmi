@@ -31,10 +31,12 @@ runner -> db : init_db(sqlite_path)
 db -> db : CREATE TABLE IF NOT EXISTS\nsignal_log, signal_config
 db --> runner : DB ready
 
-runner -> reader : CANReader(bus_config, parser)
-reader -> reader : connect to CAN bus
-reader -> reader : parser.load(can_json_path)\nload signal definitions from can.json
-reader --> runner : Reader ready
+loop for each CAN channel in config.can
+    runner -> reader : CANReader(bus_config, parser) [channel_i]
+    reader -> reader : connect to CAN bus (channel_i)
+    reader -> reader : parser.load(can_json_path)\nload signal definitions from can.json
+    reader --> runner : Reader #i ready
+end
 
 opt simulator enabled
     runner -> sim : CANSimulator(can_json_path, cycle_ms)
@@ -78,9 +80,11 @@ pipe -> db : batch INSERT remaining records
 db --> pipe : flushed
 pipe --> runner : Pipeline stopped
 
-runner -> reader : stop reader
-reader -> reader : close CAN bus
-reader --> runner : Reader stopped
+loop for each CAN channel
+    runner -> reader : stop reader #i
+    reader -> reader : close CAN bus #i
+    reader --> runner : Reader #i stopped
+end
 
 opt simulator running
     runner -> sim : stop simulator

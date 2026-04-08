@@ -158,13 +158,14 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
     update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/system.json")
 
     # Try to apply to running components if available
-    reader = getattr(request.app.state, "reader", None)
+    readers = getattr(request.app.state, "readers", None)
     pipeline = getattr(request.app.state, "pipeline", None)
-    if reader and body.queue_policy is not None:
-        try:
-            reader.set_queue_policy(body.queue_policy)
-        except Exception:
-            pass
+    if readers and body.queue_policy is not None:
+        for reader in readers:
+            try:
+                reader.set_queue_policy(body.queue_policy)
+            except Exception:
+                pass
     # Attempt a best-effort migration of the runtime RX queue via the runner
     runner = getattr(request.app.state, "runner", None)
     if runner and body.max_queue_size is not None:

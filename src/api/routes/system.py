@@ -15,8 +15,11 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse, summary="Liveness probe")
 async def health(request: Request) -> HealthResponse:
     uptime = time.time() - request.app.state.start_time
-    reader = getattr(request.app.state, "reader", None)
-    bus_ok = bool(reader and getattr(reader, "_bus", None) is not None)
+    readers = getattr(request.app.state, "readers", None)
+    bus_ok = bool(
+        readers
+        and any(getattr(r, "_bus", None) is not None for r in readers)
+    )
     db_ok = bool(request.app.state.repo)
     overall = "ok" if (bus_ok and db_ok) else "degraded"
     return HealthResponse(
@@ -31,8 +34,11 @@ async def health(request: Request) -> HealthResponse:
     "/ready", response_model=ReadinessResponse, summary="Readiness probe (for container/systemd)"
 )
 async def ready(request: Request) -> ReadinessResponse:
-    reader = getattr(request.app.state, "reader", None)
-    bus_ok = bool(reader and getattr(reader, "_bus", None) is not None)
+    readers = getattr(request.app.state, "readers", None)
+    bus_ok = bool(
+        readers
+        and any(getattr(r, "_bus", None) is not None for r in readers)
+    )
     db_ok = bool(request.app.state.repo)
     details = {"bus": bus_ok, "db": db_ok}
     return ReadinessResponse(ready=all(details.values()), details=details)

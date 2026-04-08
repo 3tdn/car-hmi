@@ -38,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
     paths = [Path(p) for p in args.dbc]
+    logger.info("paths: %s", paths)
     parsed = parse_dbc_messages(paths)
     logger.info("Parsed %d messages", len(parsed.get("messages", {})))
 

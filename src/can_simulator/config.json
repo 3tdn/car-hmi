@@ -1,5 +1,5 @@
 {
   "mode": "can_json",
-  "update_hz": 2,
+  "update_hz": 100,
   "max_delta_percent": 10.0
 }

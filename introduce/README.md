@@ -39,8 +39,9 @@ Hệ thống được thiết kế để chạy **không cần phần cứng th�
 ┌─────────────────────────────────────────────────────────────┐
 │                       CarPC (Embedded)                      │
 │                                                             │
-│  [CAN Bus / Simulator] ──► [CAN Reader]                    │
-│                                  │ asyncio.Queue            │
+│  [CAN Bus ch0] ──► [CANReader #0] ─┐                       │
+│  [CAN Bus ch1] ──► [CANReader #1] ─┤  shared asyncio.Queue │
+│  [Simulator]   ──► [CANReader #N] ─┘                       │
 │                                  ▼                          │
 │                          [Signal Pipeline]                   │
 │                    Smooth → RateLimit → Computed → Alarm    │

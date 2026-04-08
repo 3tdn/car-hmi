@@ -8,6 +8,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Any
 
+# const CARPC_NAME = "CARPC"  # used to identify signals transmitted by this system in DBC parsing; can be customized as needed
+CARPC_NAME = "CARPC"
+
 try:
     import cantools
 except Exception:  # pragma: no cover - runtime dependency
@@ -74,6 +77,54 @@ def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:
                     }
     return signals
 
+def parse_states_from_comment(comment: str) -> list[dict[str, Any]]:
+    """Parse signal states from a comment string.
+
+    Expects formats like:
+    - "Signalvalues: 0: Off, 1: On"
+    - "Signalvalues: level 1-10 x" (expands to level 1 x, level 2 x, ..., level 10 x)
+    - "Signalvalues: Off; On; Error" (semicolon separated)
+    """
+    states: list[dict[str, Any]] = []
+    if not comment or "Signalvalues:" not in comment:
+        return states
+
+    states_str = comment.split("Signalvalues:", 1)[1].strip()
+    parts = re.split(r'[;,]', states_str)
+    idx = 0
+    for part in parts:
+        part = part.strip()
+        if ':' in part:
+            val_str, desc = part.split(':', 1)
+            val_str = val_str.strip()
+            desc = desc.strip()
+            try:
+                val = int(val_str)
+            except ValueError:
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = val_str  # keep as string if not int or float
+            states.append({"value": val, "description": desc})
+        elif "-" in part:
+            m = re.match(r'(.*?)(\d+)-(\d+)(.*)', part)
+            if m:
+                prefix, start, end, suffix = m.groups()
+                start, end = map(int, (start, end))
+                if start <= end:
+                    for i in range(start, end + 1):
+                        states.append({"value": idx, "description": f"{prefix}{i}{suffix}"})
+                        idx += 1
+                else:
+                    states.append({"value": idx, "description": part})
+                    idx += 1
+            else:
+                states.append({"value": idx, "description": part})
+                idx += 1
+        else:
+            states.append({"value": idx, "description": part})
+            idx += 1
+    return states
 
 def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
     """Trả về cấu trúc chi tiết của messages và signals từ các file DBC.
@@ -155,55 +206,7 @@ def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
                     msg_name = msg.name or f"{msg.frame_id:#x}"
                 except Exception:
                     msg_name = getattr(msg, "name", str(getattr(msg, "frame_id", "unknown")))
-                signals: dict[str, dict] = {}
-                for sig in getattr(msg, "signals", []):
-                    # combine parsed cantools comment with any CM_ SG_ comments found in file
-                    cm_comments = list(comments_by_signal.get(sig.name, []))
-                    parsed_comment = getattr(sig, "comment", None)
-                    # Deduplicate consecutive CM_ entries already done above; now dedupe overall preserving order
-                    deduped_cm: list[str] = []
-                    seen_cm: set[str] = set()
-                    for c in cm_comments:
-                        if not c:
-                            continue
-                        if c in seen_cm:
-                            continue
-                        seen_cm.add(c)
-                        deduped_cm.append(c)
 
-                    # Decision logic per user: if only one comment exists, prefer cantools parsed comment;
-                    # if multiple comments exist, merge (CM_ comments + cantools if unique).
-                    if parsed_comment and len(deduped_cm) == 0:
-                        comment_val = parsed_comment
-                    elif parsed_comment and len(deduped_cm) == 1:
-                        # prefer cantools when a single CM_ comment exists
-                        comment_val = parsed_comment
-                    else:
-                        # multiple CM_ comments or no parsed_comment: merge CM_ comments and include parsed if unique
-                        merged: list[str] = list(deduped_cm)
-                        if parsed_comment and parsed_comment not in seen_cm:
-                            merged.append(parsed_comment)
-                        # final dedupe to ensure uniqueness and preserve order
-                        final: list[str] = []
-                        seen_final: set[str] = set()
-                        for c in merged:
-                            if not c or c in seen_final:
-                                continue
-                            seen_final.add(c)
-                            final.append(c)
-                        comment_val = ";;".join(final) if final else None
-                    signals[sig.name] = {
-                        "start_bit": getattr(sig, "start", None) or getattr(sig, "start_bit", None),
-                        "length": getattr(sig, "length", None),
-                        "byte_order": getattr(sig, "byte_order", None),
-                        "is_signed": getattr(sig, "is_signed", None),
-                        "factor": getattr(sig, "scale", getattr(sig, "factor", None)),
-                        "offset": getattr(sig, "offset", None),
-                        "minimum": getattr(sig, "minimum", None),
-                        "maximum": getattr(sig, "maximum", None),
-                        "unit": getattr(sig, "unit", None),
-                        "comment": comment_val,
-                    }
                 # determine senders: prefer BO_TX_BU_ parsed list by message id, else cantools attributes
                 senders: list[str] = []
                 mid = getattr(msg, "frame_id", None)
@@ -229,6 +232,43 @@ def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
                         receivers = sorted([n for n in all_nodes if n not in senders])
                     except Exception:
                         receivers = []
+
+                # signals: extract info and combine cantools attributes with parsed CM_ SG_ comments for description and states
+                signals: dict[str, dict] = {}
+                for sig in getattr(msg, "signals", []):
+                    # combine parsed cantools comment with any CM_ SG_ comments found in file
+                    cm_comments = list(comments_by_signal.get(sig.name, []))
+                    parsed_comment = getattr(sig, "comment", None)
+                    states_val: list[dict[str, Any]] = []
+                    description_val: str = ""
+                    if len(cm_comments) == 1:
+                        description_val = parsed_comment
+                    else:
+                        for c in cm_comments:
+                            if c and ("Signalvalues:" in c):
+                                states_val = parse_states_from_comment(c)
+                            else:
+                                description_val = (description_val + ";" + c) if description_val else c
+                    unit_val = getattr(sig, "unit", None)
+                    if unit_val is None and len(states_val) == 1:
+                        unit_val = states_val[0].get("description")
+                        states_val = []  # if we used the only state description as unit, clear states to avoid confusion
+                    tx_val = CARPC_NAME in senders
+                    signals[sig.name] = {
+                        "start_bit": getattr(sig, "start", None) or getattr(sig, "start_bit", None),
+                        "length": getattr(sig, "length", None),
+                        "byte_order": getattr(sig, "byte_order", None),
+                        "is_signed": getattr(sig, "is_signed", None),
+                        "factor": getattr(sig, "scale", getattr(sig, "factor", None)),
+                        "offset": getattr(sig, "offset", None),
+                        "minimum": getattr(sig, "minimum", None),
+                        "maximum": getattr(sig, "maximum", None),
+                        "unit": unit_val,
+                        "description": description_val,
+                        "states": states_val,
+                        "RX": True,
+                        "TX": tx_val
+                    }
 
                 result["messages"][msg_name] = {
                     "id": getattr(msg, "frame_id", None),
