@@ -61,11 +61,20 @@
 
 ### Ví dụ thực tế
 
-**DBC file** (`db/can_db/m_dummy.dbc`):
-```dbc
-BO_ 256 VCU_Status: 8 VCU
- SG_ VehicleSpeed : 0|16@1+ (0.01,0) [0|655.35] "km/h" Dashboard
- SG_ EngineRPM    : 16|16@1+ (0.125,0) [0|8191.875] "rpm" Dashboard
+**can.json** (`config/can.json`):
+```json
+{
+  "messages": {
+    "VCU_Status": {
+      "id": 256,
+      "dlc": 8,
+      "signals": {
+        "VehicleSpeed": {"start_bit": 0, "size": 16, "factor": 0.01, "offset": 0, "unit": "km/h"},
+        "EngineRPM": {"start_bit": 16, "size": 16, "factor": 0.125, "offset": 0, "unit": "rpm"}
+      }
+    }
+  }
+}
 ```
 
 **CAN frame nhận được**:
@@ -82,20 +91,21 @@ Data:       [0x1A, 0x15, 0xC8, 0x13, ...]
 }
 ```
 
-### DatabaseLoader — Strategy Pattern
+### DatabaseLoader — Load can.json
 
 ```
-add_paths(["db/can_db/"])
+load("config/can.json")
        │
        ▼
-Scan files → chọn parser theo extension:
-  .dbc  → DBCParser (cantools)
-  .json → CANdbJsonParser
-  .a2l  → _A2LParser (read-only)
+Parse JSON → build message/signal dicts:
+  Built-in bit extraction / insertion
+  Auto start_bit allocation (if null)
+  Auto min/max calculation
        │
        ▼
 _messages: dict[int, ParsedMessage]   ← lookup by msg_id
 _signals:  dict[str, ParsedSignal]    ← lookup by name
+_signal_to_msg: dict[str, int]        ← reverse index
 ```
 
 ---
@@ -292,7 +302,7 @@ can-hmi                    (CLI entry point: src/core/runner.py:main())
     ▼
 AppRunner.start()
     ├── _setup_logging()
-    ├── DatabaseLoader.add_paths()     ← scan db/ thư mục
+    ├── DatabaseLoader.load()            ← load config/can.json
     ├── SignalStore.bulk_update()      ← seed tất cả signal names + units
     ├── init_db() / SQLiteRepository  ← create tables nếu chưa có
     ├── create_bus()                  ← mở CAN interface

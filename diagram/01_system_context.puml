@@ -14,7 +14,7 @@ rectangle "CAN-HMI System\n(CarPC)" as system #LightBlue {
 }
 
 rectangle "DMS/OMS Camera" as camera #LightGreen
-rectangle "CAN Database Files\n(DBC / A2L / CANdb JSON)" as candb #Wheat
+rectangle "CAN Database\n(config/can.json)" as candb #Wheat
 
 user -down-> system : "View real-time signals,\nedit writable parameters\n(HTTP / WebSocket)"
 system -down-> user : "Signal data, alarms,\nvideo stream"
@@ -32,7 +32,7 @@ end note
 
 note right of system
   **Responsibilities:**
-  - Read / decode CAN signals (DBC, A2L, CANdb JSON)
+  - Read / decode CAN signals (can.json)
   - Process, filter, alarm detection
   - Store time-series data (SQLite)
   - Serve REST API + WebSocket

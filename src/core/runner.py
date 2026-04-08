@@ -128,10 +128,8 @@ class AppRunner:
         sim_cfg = self.config.simulator
 
         # 1. CAN DB ─────────────────────────────────────────────────────────────
-        db_loader = DatabaseLoader(format_hint=can_cfg.can_db_format)
-        db_loader.add_paths(can_cfg.can_db_files)
-        db_loader.add_paths(can_cfg.can_db_dirs)
-        db_loader.add_paths(can_cfg.a2l_dirs)
+        db_loader = DatabaseLoader()
+        db_loader.load(can_cfg.can_json_path)
         logger.info(db_loader.summary())
 
         # Khởi tạo SignalStore với tất cả tín hiệu đã biết (giá trị ban đầu + đơn vị)

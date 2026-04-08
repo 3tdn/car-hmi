@@ -5,50 +5,22 @@ title CAN-HMI System — Class Diagram (Actual Implementation)
 skinparam classAttributeIconSize 0
 skinparam packageStyle rectangle
 
-' ─── CAN Database Parsing (Strategy Pattern) ───
+' ─── CAN Database Parsing (can.json only) ───
 package "can_io (parser.py)" as pkg_canio #PaleGreen {
 
-abstract class ICANDatabaseParser <<ABC>> {
-    +{abstract} supported_extensions(): set[str]
-    +{abstract} load_file(path: Path): list[ParsedMessage]
-    +decode(messages, msg_id: int, data: bytes): dict[str, float]
-    +encode(messages, msg_id: int, signals: dict): bytes | None
-}
-
-class DBCParser extends ICANDatabaseParser {
-    +supported_extensions(): {".dbc", ".kcd", ".sym"}
-    +load_file(path: Path): list[ParsedMessage]
-    +decode(messages, msg_id, data): dict[str, float]
-    +encode(messages, msg_id, signals): bytes | None
-}
-
-class CANdbJsonParser extends ICANDatabaseParser {
-    +supported_extensions(): {".json", ".candb"}
-    +load_file(path: Path): list[ParsedMessage]
-}
-
-class _A2LParser extends ICANDatabaseParser {
-    +supported_extensions(): {".a2l"}
-    +load_file(path: Path): list[ParsedMessage]
-    +decode(): {}
-    +encode(): None
-}
-
 class DatabaseLoader {
-    -_format_hint: str
     -_messages: dict[int, ParsedMessage]
     -_signals: dict[str, ParsedSignal]
-    -_parsers: dict[str, ICANDatabaseParser]
+    -_signal_to_msg: dict[str, int]
     +messages: dict[int, ParsedMessage]
     +signals: dict[str, ParsedSignal]
-    +add_paths(paths: list[str]): void
+    +load(path: str): void
     +decode_frame(msg_id: int, data: bytes): dict[str, float]
     +encode_signal(name: str, value: float): can.Message | None
     +encode_message(msg_id: int, signals: dict): can.Message | None
     +summary(): str
 }
 
-DatabaseLoader "1" o-- "many" ICANDatabaseParser : selects by extension
 }
 
 ' ─── Auth (Security 2.11) ───

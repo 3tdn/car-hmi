@@ -28,12 +28,7 @@ node "CarPC (Embedded Linux)" as carpc {
         file "signals.json"
     }
     folder "Data" as data {
-        folder "can_db/" as candb_dir {
-            file "*.dbc"
-        }
-        folder "ecu_db/" as ecudb_dir {
-            file "*.a2l"
-        }
+        file "config/can.json"
     }
     folder "frontend/" as fedir {
         file "index.html"
@@ -57,8 +52,8 @@ canio --> sqlite : query config
 proc --> sqlite : batch insert
 api --> sqlite : query history
 conf --> pyruntime : load on startup
-data --> canio : DBC/A2L parsing
-data --> sim : DBC/A2L parsing
+data --> canio : can.json parsing
+data --> sim : can.json parsing
 sim -- canio : "CAN frames\n(internal vcan0, dev mode)"
 fedir --> api : serve static files
 mon --> pyruntime : process supervision

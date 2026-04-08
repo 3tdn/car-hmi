@@ -13,10 +13,7 @@ class CANConfig(BaseModel):
     interface: str = "virtual"
     channel: str = "vcan0"
     bitrate: int = 500_000
-    can_db_files: list[str] = Field(default_factory=list)
-    can_db_dirs: list[str] = Field(default_factory=list)
-    a2l_dirs: list[str] = Field(default_factory=list)
-    can_db_format: Literal["auto", "dbc", "a2l"] = "auto"
+    can_json_path: str = "config/can.json"
 
 
 class SimulatorConfig(BaseModel):
@@ -83,8 +80,8 @@ class AppConfig(BaseModel):
     @field_validator("can")
     @classmethod
     def validate_can(cls, v: CANConfig) -> CANConfig:
-        if not v.can_db_files and not v.can_db_dirs:
-            raise ValueError("At least one of can_db_files or can_db_dirs must be set")
+        if not v.can_json_path:
+            raise ValueError("can_json_path must be set")
         return v
 
 

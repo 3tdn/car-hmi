@@ -13,10 +13,10 @@ rectangle "Vehicle Side" as vehicle #lightyellow {
     rectangle "DMS/OMS Camera\n[GStreamer RTSP]" as cam #wheat
 }
 
-database "CAN Database Files\n[DBC / A2L / CANdb JSON]\nSignal definitions" as candb #Wheat
+database "CAN Database\n[config/can.json]\nSignal definitions" as candb #Wheat
 
 rectangle "CarPC (Onboard Compute)" as carpc #LightBlue {
-    rectangle "CAN I/O\n[python-can + cantools]\nAsync reader + writer" as canio #PaleGreen
+    rectangle "CAN I/O\n[python-can]\nAsync reader + writer" as canio #PaleGreen
     rectangle "Signal Processor\n[Pipeline pattern]\nSmoothing, alarm, computed" as proc #PaleGreen
     rectangle "Signal Store\n[In-memory dict]\nLatest values cache" as store #PaleGreen
     rectangle "Storage\n[aiosqlite / SQLite]\nTime-series + config" as db #Wheat

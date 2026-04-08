@@ -33,7 +33,7 @@ db --> runner : DB ready
 
 runner -> reader : CANReader(bus_config, parser)
 reader -> reader : connect to CAN bus
-reader -> reader : parser.load(dbc_dir, a2l_dir)\nmerge signal definitions
+reader -> reader : parser.load(can_json_path)\nload signal definitions from can.json
 reader --> runner : Reader ready
 
 opt simulator enabled

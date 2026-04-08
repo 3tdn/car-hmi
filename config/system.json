@@ -3,12 +3,7 @@
     "interface": "virtual",
     "channel": "vcan0",
     "bitrate": 500000,
-    "can_db_files": [],
-    "can_db_dirs": [
-      "db/can_db/"
-    ],
-    "a2l_dirs": [],
-    "can_db_format": "auto"
+    "can_json_path": "config/can.json"
   },
   "simulator": {
     "enabled": true,

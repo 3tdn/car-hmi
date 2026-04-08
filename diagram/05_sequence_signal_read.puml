@@ -15,7 +15,7 @@ actor "Dashboard\n(Browser)" as dash
 == Startup ==
 reader -> bus : connect(interface, channel, bitrate)
 activate reader
-reader -> reader : DatabaseLoader.add_paths(dbc_paths)
+reader -> reader : DatabaseLoader.load(can_json_path)
 note right of reader : Apply CAN ID filter\nfrom config\nQueue policy: block/reject/drop_oldest
 
 == Continuous Read Loop ==
@@ -24,8 +24,7 @@ loop every CAN frame
     bus -> reader : bus.recv() via run_in_executor
     reader -> reader : DatabaseLoader.decode_frame(msg_id, data)
     note right of reader
-        Supports DBC / A2L / CANdb JSON
-        (Strategy pattern selects parser)
+        Loads can.json (config/can.json)
     end note
     reader -> q : put(DecodedFrame)
 end

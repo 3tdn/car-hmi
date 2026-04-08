@@ -13,7 +13,7 @@
 │  ┌─────────────────┐     CAN frames     ┌───────────────────────────────────┐ │
 │  │  CAN Simulator  │◄──────────────────►│          CAN I/O                  │ │
 │  │  (dev mode)     │   virtual bus      │  bus_factory + reader + writer     │ │
-│  │  python-can     │                    │  python-can + cantools (DBC/A2L)   │ │
+│  │  python-can     │                    │  python-can + can.json parser      │ │
 │  └─────────────────┘                    └──────────────┬────────────────────┘ │
 │                                                        │ asyncio.Queue        │
 │  ┌─────────────────┐                    ┌──────────────▼────────────────────┐ │
@@ -49,14 +49,14 @@
 | File | Trách nhiệm |
 |---|---|
 | `bus_factory.py` | Tạo instance `can.BusABC` theo config (socketcan, virtual, pcan, vector…) |
-| `parser.py` | Load và parse file DBC / A2L / CANdb JSON thành `ParsedMessage` / `ParsedSignal`. Sử dụng **Strategy Pattern** — chọn parser phù hợp theo extension |
+| `parser.py` | Load và parse `config/can.json` thành `ParsedMessage` / `ParsedSignal`. Decode/encode CAN frame bằng bit manipulation tự viết |
 | `reader.py` | `CANReader`: async producer, đọc frame từ bus → giải mã → đưa vào `asyncio.Queue`. Hỗ trợ reconnect tự động và backpressure |
 | `writer.py` | `CANWriter`: encode signal value → CAN frame → gửi lên bus |
 
-**DatabaseLoader** là lớp trung tâm aggregate các parser:
+**DatabaseLoader** là lớp trung tâm load can.json:
 ```python
-db_loader = DatabaseLoader(format_hint="dbc")
-db_loader.add_paths(["db/can_db/"])   # scan tất cả .dbc/.a2l/.json
+db_loader = DatabaseLoader()
+db_loader.load("config/can.json")   # load toàn bộ message/signal
 frame = db_loader.decode_frame(msg_id, raw_bytes)  # → dict[str, float]
 msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 ```
@@ -173,7 +173,7 @@ Simulator dùng **virtual bus** riêng, tách biệt với bus reader (python-ca
 `AppRunner` là trung tâm điều phối khởi động toàn hệ thống theo thứ tự:
 
 1. Setup logging (rotating file + console)
-2. Load CAN database (DBC / A2L / JSON)
+2. Load CAN database (can.json)
 3. Seed SignalStore với initial values từ DB
 4. Khởi tạo SQLite storage
 5. Tạo CAN Bus instance
@@ -194,7 +194,7 @@ Simulator dùng **virtual bus** riêng, tách biệt với bus reader (python-ca
 | **Observer / Pub-Sub** | `SignalStore.subscribe()` — push tới WS clients |
 | **Repository** | `ISignalRepository` / `SQLiteRepository` — tách storage logic |
 | **Factory** | `create_app()` — FastAPI application factory; `create_bus()` — CAN bus factory |
-| **Strategy** | `ICANDatabaseParser` / `DBCParser` / `CANdbJsonParser` / `_A2LParser` |
+| **Strategy** | `DatabaseLoader` — loads can.json, built-in bit-level decode/encode |
 
 ---
 
@@ -230,8 +230,7 @@ can:
   interface: virtual          # socketcan / pcan / vector / virtual
   channel: vcan0
   bitrate: 500000
-  can_db_dirs: ["db/can_db/"]
-  a2l_dirs: ["db/ecu_db/"]
+  can_json_path: "config/can.json"
 
 simulator:
   enabled: true

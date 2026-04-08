@@ -27,7 +27,7 @@ def virtual_bus_pair():
 
 @pytest.fixture
 def json_db(tmp_path):
-    """Create a simple CANdb JSON for testing."""
+    """Create a simple can.json for testing."""
     import json
 
     db_file = tmp_path / "test.json"
@@ -37,7 +37,7 @@ def json_db(tmp_path):
                 "messages": {
                     "TestMsg": {
                         "id": 100,
-                        "dlc": 8,
+                        "size": 8,
                         "signals": {
                             "Speed": {
                                 "start_bit": 0,
@@ -47,6 +47,8 @@ def json_db(tmp_path):
                                 "unit": "km/h",
                                 "is_signed": False,
                                 "byte_order": "little_endian",
+                                "minimum": 0,
+                                "maximum": 655.35,
                             },
                             "Temp": {
                                 "start_bit": 16,
@@ -56,6 +58,8 @@ def json_db(tmp_path):
                                 "unit": "degC",
                                 "is_signed": False,
                                 "byte_order": "little_endian",
+                                "minimum": -40,
+                                "maximum": 215,
                             },
                         },
                     }
@@ -64,7 +68,7 @@ def json_db(tmp_path):
         )
     )
     loader = DatabaseLoader()
-    loader.add_paths([str(db_file)])
+    loader.load(str(db_file))
     return loader
 
 

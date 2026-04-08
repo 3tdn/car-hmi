@@ -122,8 +122,7 @@ def write_default_alarms(path: str | Path | None = None) -> Dict[str, Any]:
         from src.can_io.parser import DatabaseLoader
 
         loader = DatabaseLoader()
-        # common repo locations for DB files
-        loader.add_paths(["db/can_db/", "db/ecu_db/"])
+        loader.load("config/can.json")
         signals = list(loader.signals.keys())
     except Exception:
         signals = []

@@ -34,7 +34,7 @@ Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý d�
 - **Observer / Pub-Sub** — WebSocket broadcast tới nhiều client, signal store notify
 - **Repository** — Storage abstraction (SQLite adapter, có thể swap sang TimescaleDB/InfluxDB)
 - **Factory** — FastAPI application factory (`create_app()`)
-- **Strategy** — CAN database parser (DBC / A2L / CANdb JSON) chọn runtime theo config
+- **Strategy** — CAN database parser (can.json) load signal definitions at startup
 
 ### Frontend Modes (Dev / User)
 
@@ -84,41 +84,14 @@ Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý d�
 |---|---|
 | Mục đích | Phát CAN frame theo CANdb / candb để phát triển/test mà không cần phần cứng |
 | Giao thức | CAN 2.0B, hỗ trợ mở rộng CAN FD (tùy chọn) |
-| CANdb | Load file hoặc thư mục chứa nhiều file `.candb` / `.dbc` để encode signal → CAN frame |
+| CANdb | Load file `config/can.json` chứa message/signal definitions để encode signal → CAN frame |
 | Kịch bản | Hỗ trợ scenario file (JSON/YAML) định nghĩa chuỗi tín hiệu theo thời gian |
 | Tốc độ | Configurable cycle time per message (mặc định 10–100 ms) |
 | Interface | `python-can` virtual interface (`virtual`, `socketcan`, `pcan`, `vector`) |
 | Nhiễu | Tùy chọn thêm noise/jitter để mô phỏng thực tế |
 | CLI | `python -m src.can_simulator.cli --config config/system.json --scenario scenarios/city_drive.yaml` |
 
-**Scenario file mẫu (`scenarios/city_drive.yaml`):**
-
-```yaml
-scenario:
-  name: city_drive
-  duration_sec: 120
-  steps:
-    - at_sec: 0
-      signals:
-        VehicleSpeed: 0
-        EngineRPM: 800
-    - at_sec: 5
-      signals:
-        VehicleSpeed: 30
-        EngineRPM: 1500
-    - at_sec: 30
-      signals:
-        VehicleSpeed: 60
-        EngineRPM: 2200
-        CoolantTemp: 92
-    - at_sec: 60
-      signals:
-        VehicleSpeed: 0
-        EngineRPM: 800
-        BrakePressure: 45
-```
-
-> Simulator và processor cần hỗ trợ nhận **đường dẫn tới thư mục** chứa file DBC/A2L/CANdb (nhiều file). Hệ thống sẽ scan và load tất cả file hợp lệ trong các thư mục `db/can_db/`, `db/ecu_db/` để xây dựng dữ liệu message/signal.
+> Simulator và processor load signal definitions từ **`config/can.json`**. File này chứa toàn bộ message/signal metadata cần thiết cho decode/encode.
 
 #### CANdb (candb) format
 
@@ -145,72 +118,21 @@ Ví dụ đơn giản (JSON):
 }
 ```
 
-#### Mẫu DBC (subset)
-
-```dbc
-VERSION "Example DBC"
-
-NS_ :
-    NS_DESC_
-    CM_
-    BU_
-
-BS_:
-
-BU_: ECM TCM BCM
-
-BO_ 100 ECU_Status: 8 ECM
- SG_ EngineRPM : 0|16@1+ (0.125,0) [0|8000] "rpm" BCM
- SG_ VehicleSpeed : 16|16@1+ (0.01,0) [0|260] "km/h" BCM
- CM_ BO_ 100 "ECU Status message (RPM + speed)";
-
-CM_ SG_ EngineRPM "Engine speed in RPM";
-CM_ SG_ VehicleSpeed "Vehicle speed in km/h";
-```
-
-#### Mẫu A2L (subset)
-
-```a2l
-/begin PROJECT ExampleProject ""
-  /begin HEADER ""
-    VERSION "1.0"
-    PROJECT_NO P000
-  /end HEADER
-
-  /begin MODULE ECM "Engine Control Module"
-    /begin MOD_PAR ""
-      SYSTEM_CONSTANT "CPU_TYPE" "TriCore"
-    /end MOD_PAR
-
-    /begin COMPU_METHOD CM_RPM ""
-      RAT_FUNC "%7.2" "rpm"
-      COEFFS 0 1 0 0 0 0.25
-    /end COMPU_METHOD
-
-    /begin MEASUREMENT
-      N_EngineRPM "Engine speed"
-      "Engine speed (rpm)"
-      UWORD CM_RPM 0 0 0 8000
-      ECU_ADDRESS 0x1000
-    /end MEASUREMENT
-  /end MODULE
-/end PROJECT
-```
+> **Lưu ý:** Các format DBC và A2L đã được loại bỏ. Hệ thống chỉ sử dụng **`config/can.json`** làm nguồn duy nhất cho message/signal definitions.
 
 Yêu cầu hỗ trợ:
-- Load từ **1 file** hoặc **thư mục chứa nhiều file** (`.candb`, `.dbc`, `.a2l`).
-- Auto-detect `candb` / `dbc` / `a2l` dựa trên extension hoặc config `can_db_format`.
-- Parser hợp nhất (merge) definitions từ nhiều file khi cần.
+- Load từ **1 file JSON** (`config/can.json`).
 - Parser trả về cấu trúc message/signal chung để dùng chung cho decoder/encoder.
+- Hỗ trợ `start_bit: null` (auto-allocation) và auto min/max calculation.
 
-**Tín hiệu mẫu cần mô phỏng (tất cả tín hiệu trong `db/can_db/*`):**
+**Tín hiệu mẫu cần mô phỏng (tất cả tín hiệu trong `config/can.json`):**
 
 | Tín hiệu mẫu | Message (ID) | Unit | Range | Cycle |
 |---|---|---|---|---|
 | HMI_CrashSeverity | INC_HMI_CrashInfo (128) |  | 0–7 | TBD |
 | HMI_CrashImpactTrigger | INC_HMI_CrashInfo (128) |  | 0–1 | TBD |
 
-> **Lưu ý:** Danh sách đầy đủ tín hiệu được định nghĩa trong các file `db/can_db/*.dbc` và `db/ecu_db/*.a2l`. Hệ thống sẽ tự động load toàn bộ signal từ các file này khi khởi động.
+> **Lưu ý:** Danh sách đầy đủ tín hiệu được định nghĩa trong `config/can.json`. Hệ thống tự động load toàn bộ signal từ file này khi khởi động.
 
 ---
 
@@ -220,10 +142,10 @@ Yêu cầu hỗ trợ:
 
 | Hạng mục | Yêu cầu |
 |---|---|
-| Thư viện | `python-can` + `cantools` (DBC) / `candb` (CANdb JSON) |
+| Thư viện | `python-can` (CAN I/O) — parser tự viết từ `can.json` |
 | Bus factory | `bus_factory.py` — Factory tạo CAN bus instance (hỗ trợ virtual, socketcan, pcan, vector, kvaser, serial) |
-| Parser | `parser.py` — `DatabaseLoader` quản lý nhiều parser: `DBCParser` (.dbc/.kcd/.sym), `CANdbJsonParser` (.json/.candb), `_A2LParser` (.a2l). Tự động chọn parser theo file extension |
-| Decode | Tự động decode frame → signal dựa trên DBC, A2L hoặc CANdb JSON (nhiều file/dir) |
+| Parser | `parser.py` — `DatabaseLoader` load `config/can.json`, decode/encode CAN frame bằng bit manipulation tự viết |
+| Decode | Tự động decode frame → signal dựa trên can.json (bit extraction + factor/offset) |
 | Encode + Send | Nhận lệnh thay đổi signal → encode → gửi CAN frame |
 | Async | Chạy non-blocking (`asyncio`) để không block main loop |
 | Filter | Hỗ trợ CAN ID filter (chỉ nhận message quan tâm) |
@@ -236,7 +158,7 @@ Yêu cầu hỗ trợ:
 **Cấu trúc decoded signal (sau khi decode frame):**
 
 Định dạng chuẩn gồm 4 phần chính:
-1) **Message config** — metadata từ config/DBC/CANdb
+1) **Message config** — metadata từ config/can.json
 2) **Raw message** — frame nhận được từ CAN bus
 3) **Signal configs** — định nghĩa bit layout, factor/offset từ DBC/CANdb
 4) **Decoded signal values** — giá trị thực sau khi decode (`raw × factor + offset`)
@@ -997,8 +919,6 @@ car-hmi/
 ├── diagram/                    # Architecture & sequence diagrams (PlantUML)
 │   ├── README.md
 │   └── *.puml                  # 15 PlantUML diagram files
-├── scenarios/
-│   └── city_drive.yaml         # Kịch bản mô phỏng
 ├── scripts/
 │   ├── gen_signals_from_dbc.py # Generate signals.json from DBC files
 │   ├── gen_alarms_from_dbc.py  # Generate alarms.json from DBC files
@@ -1129,7 +1049,6 @@ car-hmi/
 ```
 # Core
 python-can>=4.4          # CAN bus interface
-cantools>=39.0           # DBC parse, encode/decode
 fastapi>=0.115           # Web framework
 uvicorn[standard]>=0.30  # ASGI server
 websockets>=12.0         # WebSocket support

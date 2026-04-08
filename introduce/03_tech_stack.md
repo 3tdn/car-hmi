@@ -21,7 +21,6 @@
 | Thư viện | Phiên bản | Mục đích |
 |---|---|---|
 | `python-can` | ≥ 4.4 | Abstraction layer cho CAN interface (socketcan, virtual, PCAN, Vector) |
-| `cantools` | ≥ 39.0 | Parse file DBC → decode/encode CAN frame thành signal values |
 
 ### Web Framework
 
@@ -120,11 +119,11 @@ Có thể swap sang **TimescaleDB** / **InfluxDB** bằng cách implement `ISign
 
 ## 8. CAN Database Format Support
 
-| Format | Extension | Parser | Ghi chú |
+| Format | File | Parser | Ghi chú |
 |---|---|---|---|
-| **DBC** | `.dbc`, `.kcd`, `.sym` | `DBCParser` (cantools) | Tiêu chuẩn ngành |
-| **CANdb JSON** | `.json`, `.candb` | `CANdbJsonParser` | Custom JSON format |
-| **A2L** (ASAM MCD-2MC) | `.a2l` | `_A2LParser` | ECU calibration data (read-only, no encode) |
+| **CAN JSON** | `config/can.json` | `DatabaseLoader` (built-in bit manipulation) | Định dạng duy nhất được hỗ trợ |
+
+> **Lưu ý:** Các format DBC, KCD, SYM, A2L đã được loại bỏ. `cantools` không còn là dependency.
 
 ---
 

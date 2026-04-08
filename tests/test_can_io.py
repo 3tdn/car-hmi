@@ -52,6 +52,7 @@ async def test_reconnect_success_first_attempt():
         bus_factory=bus_factory_mock,
         max_reconnect_retries=3,
     )
+    reader._running = True
 
     # Mock stop so we can verify it's not called
     reader.stop = Mock()
@@ -99,6 +100,7 @@ async def test_reconnect_exponential_backoff():
         bus_factory=bus_factory_mock,
         max_reconnect_retries=5,
     )
+    reader._running = True
 
     reader.stop = Mock()
 
@@ -146,6 +148,7 @@ async def test_reconnect_no_bus_factory():
         bus_factory=None,
         max_reconnect_retries=3,
     )
+    reader._running = True
 
     reader.stop = Mock()
 
@@ -193,6 +196,7 @@ async def test_reconnect_exhaust_retries():
         bus_factory=bus_factory_mock,
         max_reconnect_retries=3,
     )
+    reader._running = True
 
     reader.stop = Mock()
 

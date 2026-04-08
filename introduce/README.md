@@ -10,7 +10,7 @@
 **CAN-HMI** là một phần mềm backend + frontend chạy trên **CarPC** (máy tính nhúng trên xe), có nhiệm vụ:
 
 - **Đọc** tín hiệu thời gian thực từ các ECU xe qua **CAN Bus** (giao thức CAN 2.0B)
-- **Giải mã** frame CAN thành các giá trị tín hiệu vật lý theo file DBC (v.d. `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
+- **Giải mã** frame CAN thành các giá trị tín hiệu vật lý theo `config/can.json` (v.d. `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
 - **Xử lý**: làm mượt tín hiệu, giới hạn tốc độ cập nhật, tính toán tín hiệu phái sinh, phát cảnh báo khi vượt ngưỡng
 - **Lưu trữ** chuỗi thời gian vào SQLite, hỗ trợ truy vấn lịch sử
 - **Phục vụ** REST API + WebSocket (FastAPI) để frontend web hiển thị dashboard real-time
@@ -68,7 +68,7 @@ Hệ thống được thiết kế để chạy **không cần phần cứng th�
 
 | Module | Thư mục | Mô tả |
 |---|---|---|
-| **CAN I/O** | `src/can_io/` | Đọc/ghi CAN frame, giải mã DBC/A2L/JSON |
+| **CAN I/O** | `src/can_io/` | Đọc/ghi CAN frame, giải mã từ can.json |
 | **Signal Processor** | `src/processor/` | Pipeline xử lý tín hiệu (4 stage) |
 | **Signal Store** | `src/core/signal_store.py` | Cache in-memory, Observer pattern |
 | **Storage** | `src/storage/` | SQLite repository, export CSV/JSON |
@@ -115,7 +115,7 @@ pytest
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
 | 1 | Foundation (config, project structure, all files) | ✅ DONE |
-| 2 | CAN Reader (python-can + cantools, async producer) | ✅ DONE |
+| 2 | CAN Reader (python-can, async producer, can.json parser) | ✅ DONE |
 | 3 | Signal Processor (pipeline, filters, alarms, computed) | ✅ DONE |
 | 4 | FastAPI full implementation (REST + WebSocket) | ✅ DONE |
 | 5 | CLI / Runner (orchestrate full stack) | ✅ DONE |

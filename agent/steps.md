@@ -89,7 +89,7 @@ Tạo file .gitignore cho dự án Python car-hmi. Bao gồm: __pycache__, .venv
 ```bash
 # Prompt cho AI Agent:
 Tạo pyproject.toml cho dự án car-hmi Python 3.12. Dependencies theo requirement.md 
-section 5: python-can>=4.4, cantools>=39.0, fastapi>=0.115, uvicorn[standard]>=0.30,
+section 5: python-can>=4.4, fastapi>=0.115, uvicorn[standard]>=0.30,
 aiosqlite>=0.20, pydantic>=2.9, pyyaml>=6.0. Dev deps: pytest>=8.0, ruff>=0.5, 
 pytest-asyncio>=0.24, httpx>=0.27, pytest-cov>=5.0, locust>=2.29.
 ```
@@ -213,7 +213,7 @@ Viết mã nguồn theo thiết kế, đảm bảo chất lượng code và tuâ
 ### Prompt mẫu cho AI Agent
 ```
 Implement module src/can_io/reader.py theo class diagram và sequence diagram. 
-Sử dụng python-can + cantools, async reader với asyncio.Queue, 
+Sử dụng python-can, async reader với asyncio.Queue, can.json parser, 
 hỗ trợ reconnect khi bus lỗi.
 ```
 

@@ -27,7 +27,7 @@ def test_load_config_from_file():
 def test_can_config_defaults():
     cfg = CANConfig(interface="virtual", channel="vcan0")
     assert cfg.bitrate == 500_000
-    assert cfg.can_db_format == "auto"
+    assert cfg.can_json_path == "config/can.json"
 
 
 def test_load_config_missing_file(tmp_path):
@@ -45,9 +45,7 @@ def test_load_config_custom(tmp_path):
                     "interface": "virtual",
                     "channel": "test_ch",
                     "bitrate": 250000,
-                    "can_db_files": [],
-                    "can_db_dirs": ["db/can_db"],
-                    "a2l_dirs": [],
+                    "can_json_path": "config/can.json",
                 },
                 "api": {"host": "127.0.0.1", "port": 9000},
                 "storage": {"sqlite_path": str(tmp_path / "test.db")},

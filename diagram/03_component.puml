@@ -15,7 +15,7 @@ package "src/can_simulator" as pkg_sim #lightyellow {
 
 package "src/can_io" as pkg_io #PaleGreen {
     [bus_factory.py\nBus Instance Factory] as io_factory
-    [parser.py\nDBC/A2L/JSON Parser] as io_parser
+    [parser.py\nCAN JSON Parser] as io_parser
     [reader.py\nAsync CAN Reader + Decode] as io_reader
     [writer.py\nEncode + Send CAN Frame] as io_writer
 }

@@ -62,7 +62,7 @@ def json_db_file(tmp_path):
 @pytest.fixture
 def db_loader(json_db_file):
     loader = DatabaseLoader()
-    loader.add_paths([str(json_db_file)])
+    loader.load(str(json_db_file))
     return loader
 
 
@@ -220,7 +220,7 @@ async def test_e2e_writer_to_reader(json_db_file):
     bus_rx = can.Bus(interface="virtual", channel="e2e_test", receive_own_messages=False)
 
     loader = DatabaseLoader()
-    loader.add_paths([str(json_db_file)])
+    loader.load(str(json_db_file))
 
     writer = CANWriter(bus=bus_tx, db=loader)
     queue: asyncio.Queue[DecodedFrame] = asyncio.Queue(maxsize=10)

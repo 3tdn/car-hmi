@@ -18,7 +18,7 @@ rectangle "Error Sources" as sources #LightGray {
 rectangle "Error Classification" as errors {
     rectangle "CRITICAL" as crit #Salmon {
         card "ERR_CAN_BUS_OFF\nBus-off state" as e1
-        card "ERR_PARSE_DBC\nInvalid DBC/A2L" as e3
+        card "ERR_PARSE_CAN_JSON\nInvalid can.json" as e3
         card "ERR_STORAGE_WRITE\nDB write failure" as e5
         card "ERR_CONFIG_INVALID\nBad YAML config" as e9
     }

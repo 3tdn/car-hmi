@@ -4,7 +4,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 ## Features
 
-- **CAN I/O** — Read and write CAN frames via `python-can`; decode/encode signals using DBC/JSON CAN databases
+- **CAN I/O** — Read and write CAN frames via `python-can`; decode/encode signals using `config/can.json` CAN database
 - **Signal Processing** — Smoothing, rate limiting, computed signals, alarm thresholds
 - **REST + WebSocket API** — FastAPI-based API for live signal streaming, alarm history, and CAN write commands
 - **Storage** — Async SQLite persistence with configurable batch inserts and retention
@@ -87,8 +87,8 @@ car-hmi/
 │   ├── alarms.json         # Alarm thresholds per signal (dict format)
 │   └── signals.json        # Signal display configuration
 ├── db/
-│   ├── can_db/             # DBC files (CAN database definitions)
-│   └── ecu_db/             # A2L files (ECU descriptions)
+│   ├── can_db/             # (legacy) DBC files — no longer used by parser
+│   └── ecu_db/             # (legacy) A2L files — no longer used by parser
 ├── src/
 │   ├── api/                # FastAPI app, routes, WebSocket, auth
 │   │   └── routes/         # signals, alarms, config, system routes
@@ -114,7 +114,7 @@ All runtime behaviour is controlled via `config/system.json`. Key sections:
 
 | Section       | Description                                          |
 |---------------|------------------------------------------------------|
-| `can`         | Interface, channel, bitrate, CAN DB paths            |
+| `can`         | Interface, channel, bitrate, `can_json_path`          |
 | `simulator`   | Enable/disable, scenario file, default cycle time    |
 | `processor`   | Smoothing window, rate limiter, queue policy          |
 | `api`         | Host, port, API key, CORS origins, WS heartbeat      |
@@ -190,7 +190,7 @@ The web dashboard now includes `Settings` and `Alarms` buttons in the header. Us
 
 Notes:
 - The modal editors send JSON to the backend endpoints under `/config/*`. The backend will persist changes to disk and attempt a live apply where supported.
- - Always backup `config/system.json` if you have customized critical paths (DBC dirs, DB locations) before resetting.
+ - Always backup `config/system.json` if you have customized critical paths (can_json_path, DB locations) before resetting.
 
 ## Frontend Modes
 

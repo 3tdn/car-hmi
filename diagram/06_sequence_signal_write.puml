@@ -57,7 +57,7 @@ alt signal not writable
 end
 
 api -> writer : send_signal("BrakePressure", 45.0)
-writer -> writer : encode(signal, value)\nusing DBC/CANdb
+writer -> writer : encode(signal, value)\nusing can.json definitions
 writer -> bus : bus.send(can.Message(id=0x..., data=...))
 alt bus.send fails (BusError / timeout)
     writer --> api : CAN Write Error
