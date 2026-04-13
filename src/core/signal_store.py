@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -92,5 +95,5 @@ class SignalStore:
                 result = cb(name, value)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception:
-                pass  # lỗi của subscriber không được làm crash store
+            except Exception as exc:
+                logger.warning("Subscriber callback error for signal '%s': %s", name, exc)

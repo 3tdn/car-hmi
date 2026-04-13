@@ -464,7 +464,8 @@ class AppRunner:
         """Broadcast system metrics qua WS tới subscriber đã đăng ký channel 'metrics'."""
         from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
-        interval = 3  # seconds — consistent with frontend polling interval
+        # metrics interval configurable via API config; default 3s -> allow float
+        interval = float(getattr(self.config.api, "ws_metrics_interval_sec", 3.0))
         while not self._shutting_down:
             await asyncio.sleep(interval)
             if self._ws_manager is None:

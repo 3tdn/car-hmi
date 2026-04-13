@@ -90,51 +90,53 @@ class ConnectionManager:
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
 
-        sub = self._get_sub(ws)
-        if sub is None:
-            return
+        async with self._lock:
+            sub = self._get_sub(ws)
+            if sub is None:
+                return
 
-        # Apply rate limit if provided
+            # Apply rate limit if provided
+            try:
+                if rate_ms is not None:
+                    # coerce to float seconds, clamp to >= 0
+                    sub.min_interval_s = max(0.0, float(rate_ms) / 1000.0)
+            except Exception:
+                pass
+
+            for ch in channels:
+                ch_lower = ch.lower()
+                if action == "subscribe":
+                    if ch_lower == "alarms":
+                        sub.subscribe_alarms = True
+                    elif ch_lower == "metrics":
+                        sub.subscribe_metrics = True
+                    elif ch == "*":
+                        sub.signal_names.add("*")
+                    else:
+                        sub.signal_names.add(ch)  # signal name — case-sensitive
+
+                    if mode == "once":
+                        sub.once_channels.add(ch)
+                elif action == "unsubscribe":
+                    if ch_lower == "alarms":
+                        sub.subscribe_alarms = False
+                    elif ch_lower == "metrics":
+                        sub.subscribe_metrics = False
+                    elif ch == "*":
+                        sub.signal_names.discard("*")
+                    else:
+                        sub.signal_names.discard(ch)
+
+        # Ack (outside lock to avoid holding lock during I/O)
+        ack_payload = json.dumps({
+            "type": "subscribe_ack",
+            "action": action,
+            "channels": channels,
+            "mode": mode,
+            "rate_ms": rate_ms,
+        })
         try:
-            if rate_ms is not None:
-                # coerce to float seconds, clamp to >= 0
-                sub.min_interval_s = max(0.0, float(rate_ms) / 1000.0)
-        except Exception:
-            pass
-
-        for ch in channels:
-            ch_lower = ch.lower()
-            if action == "subscribe":
-                if ch_lower == "alarms":
-                    sub.subscribe_alarms = True
-                elif ch_lower == "metrics":
-                    sub.subscribe_metrics = True
-                elif ch == "*":
-                    sub.signal_names.add("*")
-                else:
-                    sub.signal_names.add(ch)  # signal name — case-sensitive
-
-                if mode == "once":
-                    sub.once_channels.add(ch)
-            elif action == "unsubscribe":
-                if ch_lower == "alarms":
-                    sub.subscribe_alarms = False
-                elif ch_lower == "metrics":
-                    sub.subscribe_metrics = False
-                elif ch == "*":
-                    sub.signal_names.discard("*")
-                else:
-                    sub.signal_names.discard(ch)
-
-        # Ack
-        try:
-            await ws.send_text(json.dumps({
-                "type": "subscribe_ack",
-                "action": action,
-                "channels": channels,
-                "mode": mode,
-                "rate_ms": rate_ms,
-            }))
+            await ws.send_text(ack_payload)
         except Exception:
             pass
 

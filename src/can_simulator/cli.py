@@ -27,7 +27,7 @@ def main() -> None:
         bus=bus,
         can_json_path=cfg.simulator.can_json_path,
         cycle_ms=cfg.simulator.default_cycle_ms,
-        loop=True,
+        repeat=True,
     )
     asyncio.run(sim.start())
 

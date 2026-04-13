@@ -15,14 +15,15 @@
   ],
   "simulator": {
     "enabled": true,
-    "default_cycle_ms": 5000,
+    "default_cycle_ms": 10,
     "can_json_path": "config/can.json"
   },
   "api": {
     "host": "0.0.0.0",
     "port": 8000,
     "api_key": "change-me-in-production",
-    "ws_heartbeat_interval_sec": 5,
+    "ws_heartbeat_interval_sec": 0.5,
+    "ws_metrics_interval_sec": 0.3,
     "cors_origins": [
       "http://localhost:8000"
     ]

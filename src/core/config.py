@@ -26,7 +26,8 @@ class APIConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
     api_key: str = "change-me-in-production"
-    ws_heartbeat_interval_sec: int = 5
+    ws_heartbeat_interval_sec: float = 5.0
+    ws_metrics_interval_sec: float = 3.0
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
 
 

@@ -15,29 +15,25 @@ async def test_smoothing_filter_ema():
     assert result1["speed"] == 10.0
 
     result2 = await f.process({"speed": 20.0})
-    # buf is [10, 20], length is 2. alpha = 2/3.
-    # ema = 2/3 * 20 + 1/3 * 10 = 13.33 + 3.33 = 16.666
-    assert result2["speed"] == pytest.approx(16.666666666666664)
+    # window=5, alpha = 2/(5+1) = 1/3 (constant).
+    # ema = 1/3 * 20 + 2/3 * 10 = 13.333
+    assert result2["speed"] == pytest.approx(13.333333333333334)
 
     result3 = await f.process({"speed": 30.0})
-    # buf is [10, 20, 30], length is 3. alpha = 2/4 = 0.5.
-    # ema = 0.5 * 30 + 0.5 * 16.666 = 15 + 8.333 = 23.333
-    assert result3["speed"] == pytest.approx(23.333333333333332)
+    # ema = 1/3 * 30 + 2/3 * 13.333 = 10 + 8.889 = 18.889
+    assert result3["speed"] == pytest.approx(18.88888888888889)
 
     result4 = await f.process({"speed": 40.0})
-    # buf is [10, 20, 30, 40], length is 4. alpha = 2/5 = 0.4.
-    # ema = 0.4 * 40 + 0.6 * 23.333 = 16 + 14 = 30.0
-    assert result4["speed"] == pytest.approx(30.0)
+    # ema = 1/3 * 40 + 2/3 * 18.889 = 13.333 + 12.593 = 25.926
+    assert result4["speed"] == pytest.approx(25.925925925925927)
 
     result5 = await f.process({"speed": 50.0})
-    # buf is [10, 20, 30, 40, 50], length is 5. alpha = 2/6 = 1/3.
-    # ema = 1/3 * 50 + 2/3 * 30 = 16.666 + 20 = 36.666
-    assert result5["speed"] == pytest.approx(36.66666666666667)
+    # ema = 1/3 * 50 + 2/3 * 25.926 = 16.667 + 17.284 = 33.951
+    assert result5["speed"] == pytest.approx(33.95061728395062)
 
     result6 = await f.process({"speed": 60.0})
-    # buf maxes out at 5. length is 5. alpha = 2/6 = 1/3.
-    # ema = 1/3 * 60 + 2/3 * 36.666 = 20 + 24.444 = 44.444
-    assert result6["speed"] == pytest.approx(44.44444444444445)
+    # alpha = 1/3 (constant). ema = 1/3 * 60 + 2/3 * 33.951 = 20 + 22.634 = 42.634
+    assert result6["speed"] == pytest.approx(42.63374485596708)
 
 
 @pytest.mark.asyncio

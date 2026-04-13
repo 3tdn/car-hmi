@@ -117,6 +117,7 @@ _signal_to_msg: dict[str, int]        ← reverse index
 **Mục đích**: Làm mượt nhiễu tín hiệu analog (cảm biến, ADC).
 
 **Thuật toán**: Sliding window (Moving Average) hoặc EMA (Exponential Moving Average).
+EMA sử dụng alpha cố định = 2/(window+1), đảm bảo tính nhất quán bất kể vị trí trong chuỗi.
 
 ```
 Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 giá trị gần nhất)
@@ -234,7 +235,7 @@ Signal updates → Buffer list[SignalRecord]
                       │
                       ▼
               SQLite batch INSERT
-              (1 transaction nhiều rows)
+              (1 transaction: BEGIN/COMMIT/ROLLBACK)
 ```
 
 **Config**:

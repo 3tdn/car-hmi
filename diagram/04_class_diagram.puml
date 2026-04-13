@@ -348,14 +348,27 @@ enum SubscriptionTopic {
 }
 
 class ConnectionManager {
-    -_connections: dict[SubscriptionTopic, set[WebSocket]]
-    +connect(ws: WebSocket, topic: SubscriptionTopic): void
-    +disconnect(ws: WebSocket, topic: SubscriptionTopic): void
-    +broadcast_signal(name: str, sv: SignalValue): void
-    +broadcast_alarm(alarm: Alarm): void
-    +handle(ws: WebSocket, topic: SubscriptionTopic): void
-    -_broadcast(topic: SubscriptionTopic, data: dict): void
+    -_connections: dict[WebSocket, set[SubscriptionTopic]]
+    -_subscriptions: dict[WebSocket, _ClientSubscription]
+    -_lock: asyncio.Lock
+    +connect(ws: WebSocket, topics: set): void
+    +disconnect(ws: WebSocket): void
+    +connect_subscribe(ws: WebSocket): void
+    +process_subscribe_command(ws: WebSocket, data: dict): void
+    +broadcast_signal(name: str, value: float, ts: float): void
+    +broadcast_alarm(alarm: dict): void
+    +broadcast_metrics(metrics: dict): void
+    +handle(ws: WebSocket, topics: set): void
+    +handle_subscribe(ws: WebSocket): void
+    -_broadcast(text: str, topic: SubscriptionTopic): void
+    -_broadcast_to_subscribers(text: str, ...): void
 }
+
+note right of ConnectionManager
+  process_subscribe_command() now
+  acquires _lock before mutating
+  subscription state (race-condition fix)
+end note
 
 ConnectionManager "1" o-- "many" SubscriptionTopic
 }
@@ -398,12 +411,12 @@ class CANSimulator {
     -_bus: can.Bus
     -_messages: list[_MsgDef]
     -_cycle_ms: int
-    -_loop: bool
+    -_repeat: bool
     -_running: bool
     +start(): void
     +stop(): void
     -_load_can_json(path: Path): list[_MsgDef]
-    -_tick(loop): void
+    -_tick(event_loop): void
 }
 
 }

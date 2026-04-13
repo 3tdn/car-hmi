@@ -24,7 +24,7 @@ class SmoothingFilter(ProcessingStage):
             buf.append(value)
             if self._method == "ema":
                 if len(buf) >= 2:
-                    alpha = 2.0 / (len(buf) + 1)
+                    alpha = 2.0 / (self._window + 1)
                     if name in self._ema_state:
                         smoothed = alpha * value + (1 - alpha) * self._ema_state[name]
                     else:
