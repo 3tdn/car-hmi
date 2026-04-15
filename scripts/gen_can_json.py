@@ -14,17 +14,13 @@ from dbc_utils import load_json, write_json, parse_dbc_messages
 
 logger = logging.getLogger("gen_can_json")
 
-
-def merge_messages(existing: dict, parsed: dict, overwrite: bool = False) -> dict:
+def merge_messages(existing: dict, parsed: dict) -> dict:
     cfg = existing.copy()
     messages = cfg.get("messages") or {}
     for name, info in parsed.get("messages", {}).items():
-        if name in messages and not overwrite:
-            continue
         messages[name] = info
     cfg["messages"] = messages
     return cfg
-
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Generate config/can.json from DBC files")
@@ -43,8 +39,14 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Parsed %d messages", len(parsed.get("messages", {})))
 
     out_path = Path(args.out)
-    existing = load_json(out_path)
-    new_cfg = merge_messages(existing, parsed, overwrite=args.overwrite)
+    if (args.overwrite):
+        new_cfg = parsed
+    else:
+        try:
+            existing = load_json(out_path)
+            new_cfg = merge_messages(existing, parsed)
+        except FileNotFoundError:
+            new_cfg = parsed
 
     if args.dry_run:
         added = set(new_cfg.get("messages", {}).keys()) - set(existing.get("messages", {}).keys())
@@ -57,6 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Wrote %s", out_path)
     return 0
 
+if False:
+    main(["-d", ".\\db\\can_db\\p_v2.dbc", "--out", "config/can2.json", "--overwrite"])
+    exit(0)
 
 if __name__ == "__main__":
     raise SystemExit(main())
