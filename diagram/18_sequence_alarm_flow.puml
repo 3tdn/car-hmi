@@ -1,0 +1,32 @@
+@startuml
+title Sequence — Alarm Detection & Notification
+actor Vehicle
+participant "CAN Bus" as CANBus
+participant "CANReader" as CANReader
+participant "SignalPipeline" as Pipeline
+participant "AlarmChecker" as AlarmChecker
+participant "Repository" as Repo
+participant "WebSocket Manager" as WS
+participant Frontend
+
+== Alarm detection path ==
+Vehicle -> CANBus: send CAN frame
+CANBus -> CANReader: deliver frame
+CANReader -> Pipeline: decode -> signals
+Pipeline -> AlarmChecker: evaluate thresholds
+alt alarm triggered
+  AlarmChecker -> Repo: insert_alarm(alarm_record)
+  Repo -> Repo: persist alarm
+  AlarmChecker -> WS: broadcast_alarm(alarm_payload)
+  WS -> Frontend: push alarm notification
+else no alarm
+  note right: continue normal processing
+end
+
+== Acknowledge flow ==
+Frontend -> API: POST /alarms/{id}/acknowledge
+API -> Repo: set acknowledged=true
+API -> WS: broadcast alarm_update (acknowledged)
+WS -> Frontend: push alarm update
+
+@enduml

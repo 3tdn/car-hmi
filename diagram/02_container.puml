@@ -1,0 +1,49 @@
+@startuml Container Diagram
+!theme plain
+title CAN-HMI System — Container Diagram (C4 Level 2)
+
+skinparam rectangle {
+    RoundCorner 15
+}
+
+actor "Driver / Engineer" as user
+
+rectangle "Vehicle Side" as vehicle #lightyellow {
+    rectangle "CAN Simulator\n[Python: python-can]" as sim #wheat
+    rectangle "DMS/OMS Camera\n[GStreamer RTSP]" as cam #wheat
+}
+
+database "CAN Database\n[config/can.json]\nSignal definitions" as candb #Wheat
+
+rectangle "CarPC (Onboard Compute)" as carpc #LightBlue {
+    rectangle "CAN I/O\n[python-can]\nAsync reader + writer" as canio #PaleGreen
+    rectangle "Signal Processor\n[Pipeline pattern]\nSmoothing, alarm, computed" as proc #PaleGreen
+    rectangle "Signal Store\n[In-memory dict]\nLatest values cache" as store #PaleGreen
+    rectangle "Storage\n[aiosqlite / SQLite]\nTime-series + config" as db #Wheat
+    rectangle "FastAPI Backend\n[FastAPI + uvicorn]\nREST + WebSocket + GStreamer" as api #PaleGreen
+    rectangle "Monitoring\n[Watchdog / Supervisor]\nmDNS, /health, /ready, logging" as mon #LightGray
+}
+
+rectangle "Frontend" as fe #LightPink {
+    rectangle "Web Dashboard\n[HTML + CSS + JS]\nGauge, chart, table, alarm\n(Mode: Dev / User - client-side whitelist)" as dash #MistyRose
+}
+
+sim <-right-> canio : "CAN frames\n(virtual bus, dev mode only)"
+cam -right-> api : "RTP/RTSP\n(GStreamer ingest → WS relay)"
+canio -down-> proc : "asyncio.Queue\n(decoded signals)"
+proc -right-> store : "publish updates\n(Observer pattern)"
+proc -down-> db : "batch insert\n(signal_log)"
+store --> api : "latest values\n(snapshot)"
+db --> api : "history query\n(SQL)"
+api -right-> dash : "REST + WebSocket + Video\n(JSON / binary stream)"
+dash -left-> api : "PUT signals, PUT config,\nPOST export\n(write-back)"
+api -up-> canio : "encode + send\n(CAN Writer)"
+mon -right-> canio : "watchdog\nrestart on crash"
+mon -right-> proc : "monitor"
+mon -right-> api : "health"
+mon -right-> db : "monitor storage"
+user -down-> dash : "Browser\nHTTP/WS"
+candb -right-> canio : "load at startup\n(message/signal defs)"
+candb -right-> sim : "encode frames\n(signal→CAN)"
+
+@enduml

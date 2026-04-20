@@ -1,0 +1,63 @@
+{
+  "can": [
+    {
+      "interface": "virtual",
+      "channel": "vcan0",
+      "bitrate": 500000,
+      "can_json_path": "config/can0.json",
+      "can_db_files": ["db/candb/p_v2.dbc"]
+    },
+    {
+      "interface": "virtual",
+      "channel": "vcan1",
+      "bitrate": 500000,
+      "can_json_path": "config/can1.json",
+      "can_db_files": ["db/candb/m_dummy.dbc"]
+    }
+  ],
+  "simulator": {
+    "enabled": true,
+    "default_cycle_ms": 10,
+    "can_json_path": "config/can.json"
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "api_key": "change-me-in-production",
+    "ws_heartbeat_interval_sec": 0.5,
+    "ws_metrics_interval_sec": 0.3,
+    "cors_origins": [
+      "http://localhost:8000"
+    ]
+  },
+  "storage": {
+    "engine": "sqlite",
+    "sqlite_path": "data/signals.db",
+    "batch_size": 100,
+    "batch_interval_sec": 2.0,
+    "retention_days": 30,
+    "max_disk_mb": 2048
+  },
+  "processor": {
+    "smoothing_window": 5,
+    "max_update_rate_hz": 5000.0,
+    "max_queue_size": 1000000,
+    "queue_policy": "reject"
+  },
+  "writer": {
+    "rate_limit_per_sec": 10,
+    "burst": 5
+  },
+  "shutdown": {
+    "timeout_sec": 10
+  },
+  "supervisor": {
+    "watchdog_interval_sec": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "logs/can-hmi.log",
+    "max_size_mb": 50,
+    "backup_count": 5
+  }
+}

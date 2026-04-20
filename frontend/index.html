@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAN-HMI Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="hmi-header">
+    <h1>CAN-HMI Live Dashboard</h1>
+    <div style="display:flex; gap:8px; margin-left:12px;">
+      <button id="btn-settings" class="btn">Settings</button>
+      <button id="btn-alarms" class="btn">Alarms</button>
+      <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+        <span style="font-size:0.9rem;color:var(--muted);">Mode</span>
+        <select id="mode-select" aria-label="Frontend mode">
+          <option value="dev">Dev (All signals)</option>
+          <option value="user">User (Restricted)</option>
+        </select>
+      </label>
+    </div>
+    <span id="connection-badge" class="badge badge--disconnected">Disconnected</span>
+  </header>
+
+  <main class="hmi-grid">
+    <!-- Gauges row -->
+    <section class="widget-group" id="group-powertrain">
+      <h2>Powertrain</h2>
+      <div class="widgets-row">
+        <div class="widget gauge" id="widget-VehicleSpeed"
+             data-signal="VehicleSpeed" data-unit="km/h" data-min="0" data-max="260">
+          <canvas class="gauge__canvas" width="160" height="160"></canvas>
+          <span class="gauge__label">Speed</span>
+          <span class="gauge__value">—</span>
+        </div>
+        <div class="widget gauge" id="widget-EngineRPM"
+             data-signal="EngineRPM" data-unit="rpm" data-min="0" data-max="8000">
+          <canvas class="gauge__canvas" width="160" height="160"></canvas>
+          <span class="gauge__label">RPM</span>
+          <span class="gauge__value">—</span>
+        </div>
+        <div class="widget gauge" id="widget-CoolantTemp"
+             data-signal="CoolantTemp" data-unit="°C" data-min="-20" data-max="130">
+          <canvas class="gauge__canvas" width="160" height="160"></canvas>
+          <span class="gauge__label">Coolant °C</span>
+          <span class="gauge__value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bars row -->
+    <section class="widget-group" id="group-brakes-battery">
+      <h2>Brakes &amp; Battery</h2>
+      <div class="widgets-row">
+        <div class="widget bar" id="widget-BrakePressure"
+             data-signal="BrakePressure" data-unit="bar" data-min="0" data-max="200">
+          <span class="bar__label">Brake Pressure</span>
+          <div class="bar__track"><div class="bar__fill"></div></div>
+          <span class="bar__value">—</span>
+        </div>
+        <div class="widget bar" id="widget-BatteryVoltage"
+             data-signal="BatteryVoltage" data-unit="V" data-min="9" data-max="16">
+          <span class="bar__label">Battery Voltage</span>
+          <div class="bar__track"><div class="bar__fill"></div></div>
+          <span class="bar__value">—</span>
+        </div>
+        <div class="widget bar" id="widget-FuelLevel"
+             data-signal="FuelLevel" data-unit="%" data-min="0" data-max="100">
+          <span class="bar__label">Fuel Level</span>
+          <div class="bar__track"><div class="bar__fill"></div></div>
+          <span class="bar__value">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fast-changing signals panel removed (no layout) -->
+
+    <!-- CarPC System Monitor -->
+    <section class="widget-group carpc-monitor" id="group-carpc-monitor">
+      <h2>CarPC System Monitor</h2>
+      <div class="carpc-grid">
+        <!-- CPU -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F4BB;</span>
+          <span class="carpc-card__label">CPU (system)</span>
+          <span class="carpc-card__value" id="carpc-cpu-percent">—</span>
+          <canvas class="carpc-sparkline" id="carpc-cpu-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-cpu-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-cpu-detail"></span>
+        </div>
+        <!-- Process CPU -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x2699;</span>
+          <span class="carpc-card__label">CPU (process)</span>
+          <span class="carpc-card__value" id="carpc-proc-cpu">—</span>
+          <canvas class="carpc-sparkline" id="carpc-proc-cpu-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-proc-cpu-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-proc-detail"></span>
+        </div>
+        <!-- RAM -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F4BE;</span>
+          <span class="carpc-card__label">RAM (system)</span>
+          <span class="carpc-card__value" id="carpc-ram-percent">—</span>
+          <canvas class="carpc-sparkline" id="carpc-ram-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-ram-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-ram-detail"></span>
+        </div>
+        <!-- Process Memory -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F9E0;</span>
+          <span class="carpc-card__label">Memory (process)</span>
+          <span class="carpc-card__value" id="carpc-proc-mem">—</span>
+          <canvas class="carpc-sparkline" id="carpc-proc-mem-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-proc-mem-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-proc-mem-detail"></span>
+        </div>
+        <!-- Disk -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F4C0;</span>
+          <span class="carpc-card__label">Disk</span>
+          <span class="carpc-card__value" id="carpc-disk-percent">—</span>
+          <canvas class="carpc-sparkline" id="carpc-disk-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-disk-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-disk-detail"></span>
+        </div>
+        <!-- Swap -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F504;</span>
+          <span class="carpc-card__label">Swap</span>
+          <span class="carpc-card__value" id="carpc-swap-percent">—</span>
+          <canvas class="carpc-sparkline" id="carpc-swap-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-swap-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-swap-detail"></span>
+        </div>
+        <!-- Queue -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F4E5;</span>
+          <span class="carpc-card__label">Signal Queue</span>
+          <span class="carpc-card__value" id="carpc-queue-percent">—</span>
+          <canvas class="carpc-sparkline" id="carpc-queue-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-queue-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-queue-detail"></span>
+        </div>
+        <!-- Heap / GC -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F9F9;</span>
+          <span class="carpc-card__label">Heap / GC</span>
+          <span class="carpc-card__value" id="carpc-heap">—</span>
+          <canvas class="carpc-sparkline" id="carpc-heap-spark" width="120" height="28"></canvas>
+          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-heap-bar"></div></div>
+          <span class="carpc-card__sub" id="carpc-gc-detail"></span>
+        </div>
+        <!-- Network -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F310;</span>
+          <span class="carpc-card__label">Network I/O</span>
+          <span class="carpc-card__value" id="carpc-net">—</span>
+          <canvas class="carpc-sparkline" id="carpc-net-spark" width="120" height="28"></canvas>
+          <span class="carpc-card__sub" id="carpc-net-detail"></span>
+        </div>
+        <!-- Async Tasks -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x26A1;</span>
+          <span class="carpc-card__label">Async Tasks</span>
+          <span class="carpc-card__value" id="carpc-tasks">—</span>
+          <canvas class="carpc-sparkline" id="carpc-tasks-spark" width="120" height="28"></canvas>
+          <span class="carpc-card__sub" id="carpc-tasks-detail"></span>
+        </div>
+        <!-- Uptime -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x23F1;</span>
+          <span class="carpc-card__label">Uptime</span>
+          <span class="carpc-card__value" id="carpc-uptime">—</span>
+          <canvas class="carpc-sparkline" id="carpc-uptime-spark" width="120" height="28"></canvas>
+          <span class="carpc-card__sub" id="carpc-uptime-detail"></span>
+        </div>
+        <!-- Platform -->
+        <div class="carpc-card">
+          <span class="carpc-card__icon">&#x1F5A5;</span>
+          <span class="carpc-card__label">Platform</span>
+          <span class="carpc-card__value carpc-card__value--small" id="carpc-platform">—</span>
+          <canvas class="carpc-sparkline" id="carpc-platform-spark" width="120" height="28"></canvas>
+          <span class="carpc-card__sub" id="carpc-platform-detail"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Alarm panel -->
+    <section class="alarm-panel" id="alarm-panel">
+      <h2>Active Alarms</h2>
+      <ul class="alarm-list" id="alarm-list">
+        <li class="alarm-list__empty">No active alarms</li>
+      </ul>
+    </section>
+
+    <!-- Full signal list (real-time) -->
+    <section class="signal-panel" id="signal-panel">
+      <h2>All Signals</h2>
+      <div class="signal-table-wrapper">
+        <table class="signal-table" id="signal-table">
+          <thead>
+            <tr>
+              <th>Signal</th>
+              <th>Value</th>
+              <th>History</th>
+            </tr>
+          </thead>
+          <tbody id="signal-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="hmi-footer">
+    <span id="status-text">Connecting…</span>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/widgets.js"></script>
+  <script>
+    // Initialize frontend mode early so app.js can read it at boot.
+    (function(){
+      const select = document.getElementById('mode-select');
+      try {
+        const stored = localStorage.getItem('frontend_mode') || 'dev';
+        window.FRONTEND_MODE = stored;
+        if (select) select.value = stored;
+        if (select) select.addEventListener('change', (e) => {
+          const v = e.target.value;
+          localStorage.setItem('frontend_mode', v);
+          // Reload to re-bootstrap with new mode
+          location.reload();
+        });
+      } catch (e) {
+        window.FRONTEND_MODE = window.FRONTEND_MODE || 'dev';
+      }
+    })();
+  </script>
+  <script src="js/app.js"></script>
+  <script>
+    // Modal containers for settings and alarms
+    const settingsModal = document.createElement('div');
+    settingsModal.id = 'settings-modal';
+    settingsModal.style.display = 'none';
+    settingsModal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal">
+        <h3>General Settings (config/system.json)</h3>
+        <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
+        <div style="margin-top:8px;text-align:right;">
+          <button id="settings-reset">Reset</button>
+          <button id="settings-cancel">Cancel</button>
+          <button id="settings-save">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(settingsModal);
+
+    const alarmsModal = document.createElement('div');
+    alarmsModal.id = 'alarms-modal';
+    alarmsModal.style.display = 'none';
+    alarmsModal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal">
+        <h3>Alarms Config (config/alarms.json)</h3>
+        <textarea id="alarms-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
+        <div style="margin-top:8px;text-align:right;">
+          <button id="alarms-reset">Reset</button>
+          <button id="alarms-cancel">Cancel</button>
+          <button id="alarms-save">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(alarmsModal);
+
+    // Wire buttons
+    document.getElementById('btn-settings').addEventListener('click', async () => {
+      const editor = document.getElementById('settings-editor');
+      editor.value = '';
+      try {
+        const resp = await fetch(`${API_BASE}/config/general`);
+        const json = await resp.json();
+        editor.value = JSON.stringify(json, null, 2);
+      } catch (e) { editor.value = 'Failed to load config: '+e; }
+      settingsModal.style.display = 'block';
+    });
+    document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
+    document.getElementById('settings-reset').addEventListener('click', async () => {
+      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
+      try {
+        const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
+        if (!resp.ok) throw new Error(resp.statusText);
+        const json = await resp.json();
+        document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
+        alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
+      } catch (e) { alert('Reset failed: '+e); }
+    });
+    document.getElementById('settings-save').addEventListener('click', async () => {
+      const editor = document.getElementById('settings-editor');
+      try {
+        const body = JSON.parse(editor.value);
+        const resp = await fetch(`${API_BASE}/config/general`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+        if (!resp.ok) throw new Error(resp.statusText);
+        settingsModal.style.display = 'none';
+        alert('Config updated (on-disk). API attempted live apply where possible.');
+      } catch (e) { alert('Save failed: '+e); }
+    });
+
+    document.getElementById('btn-alarms').addEventListener('click', async () => {
+      const editor = document.getElementById('alarms-editor');
+      editor.value = '';
+      try {
+        const resp = await fetch(`${API_BASE}/config/alarms`);
+        const json = await resp.json();
+        editor.value = JSON.stringify(json, null, 2);
+      } catch (e) { editor.value = 'Failed to load alarms: '+e; }
+      alarmsModal.style.display = 'block';
+    });
+    document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
+    document.getElementById('alarms-reset').addEventListener('click', async () => {
+      if (!confirm('Reset alarms về mặc định (rỗng)?')) return;
+      try {
+        const resp = await fetch(`${API_BASE}/config/alarms/reset`, { method: 'POST' });
+        if (!resp.ok) throw new Error(resp.statusText);
+        const json = await resp.json();
+        document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
+        alert('Alarms đã được reset.');
+      } catch (e) { alert('Reset failed: '+e); }
+    });
+    document.getElementById('alarms-save').addEventListener('click', async () => {
+      const editor = document.getElementById('alarms-editor');
+      try {
+        const body = JSON.parse(editor.value);
+        const resp = await fetch(`${API_BASE}/config/alarms`, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+        if (!resp.ok) throw new Error(resp.statusText);
+        alarmsModal.style.display = 'none';
+        alert('Alarms config updated.');
+      } catch (e) { alert('Save failed: '+e); }
+    });
+  </script>
+</body>
+</html>

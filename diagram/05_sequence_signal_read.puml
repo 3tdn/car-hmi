@@ -1,0 +1,66 @@
+@startuml Sequence - Signal Read Flow
+!theme plain
+title Signal Read Flow — CAN Bus → Dashboard
+
+actor "Vehicle ECU\n(Simulator)" as ecu
+participant "CAN Bus\n(vcan0)" as bus
+participant "CAN Reader\n(reader.py)" as reader
+queue "asyncio.Queue" as q
+participant "Signal Processor\n(pipeline.py)" as proc
+participant "Signal Store\n(signal_store.py)" as store
+database "SQLite\n(signal_log)" as db
+participant "WebSocket\n(websocket.py)" as ws
+actor "Dashboard\n(Browser)" as dash
+
+== Startup ==
+reader -> bus : connect(interface, channel, bitrate)
+activate reader
+reader -> reader : DatabaseLoader.load(can_json_path)
+note right of reader : Apply CAN ID filter\nfrom config\nQueue policy: block/reject/drop_oldest
+
+== Continuous Read Loop ==
+loop every CAN frame
+    ecu -> bus : CAN frame (ID=0x191, data=0x0C1E...)
+    bus -> reader : bus.recv() via run_in_executor
+    reader -> reader : DatabaseLoader.decode_frame(msg_id, data)
+    note right of reader
+        Loads can.json (config/can.json)
+    end note
+    reader -> q : put(DecodedFrame)
+end
+
+== Signal Processing ==
+loop consume from queue
+    q -> proc : get(DecodedFrame)
+    proc -> proc : 1. SmoothingFilter.process()
+    proc -> proc : 2. RateLimiter.process()
+    proc -> proc : 3. ComputedSignals.process()
+    proc -> proc : 4. AlarmChecker.process()
+    
+    proc -> store : update(signal_name, value, status)
+    activate store
+    store -> ws : notify subscribers
+    deactivate store
+    
+    proc -> db : buffer.append(record)
+    alt batch_size reached OR interval elapsed
+        proc -> db : INSERT INTO signal_log\n(batch insert)
+    end
+
+    alt alarm triggered (value exceeds threshold)
+        proc -> db : INSERT INTO alarm_log\n(signal, level, value, threshold)
+        proc -> store : emit alarm event
+        store -> ws : notify alarm subscribers
+        ws -> dash : {"type":"alarm",\n "signal":"CoolantTemp","level":"warning"}
+    end
+end
+
+== WebSocket Push ==
+ws -> dash : {"type":"signal_update",\n "data":{"VehicleSpeed":{"value":85.3,"status":"ok"}}}
+
+note over ecu, dash
+  NFR: End-to-end latency CAN → WebSocket ≤ 100 ms (P95)
+  Throughput ≥ 1000 signals/s sustained
+end note
+
+@enduml

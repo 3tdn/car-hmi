@@ -1,0 +1,435 @@
+VERSION "Mercedes-Benz Common Signals v1.0"
+
+// -----------------------------------------------------------------------------
+// DBC File Structure (Mercedes-Benz Common Signals)
+//
+// - VERSION: file version/name.
+// - NS_: naming section (defines which keyword lists are enabled).
+// - BS_: bit timing section (often empty in many exports).
+// - BU_: node (ECU) list.
+// - BO_: message definition (ID, name, DLC, sender node).
+// - SG_: signal definition within a message (start bit, length, byte order,
+//         factor, offset, min/max, unit, receivers).
+// - CM_: comments (for messages/signals/nodes).
+// - VAL_: value descriptions (enumerations for signal values).
+// - BA_: attribute values / metadata.
+//
+// Add comments using CM_ lines, e.g.:
+//    CM_ BO_ 608 "Engine status message";
+// -----------------------------------------------------------------------------
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+
+BS_:
+
+BU_: ECM TCM ESP IC BCM ADAS SRS HVAC EPB EPS
+
+
+// =============================================================================
+// POWERTRAIN - Engine & Drivetrain
+// =============================================================================
+
+// --- ECM: Engine Control Module ---
+BO_ 608 ECM_EngineStatus1: 8 ECM
+ SG_ EngineSpeed : 0|16@1+ (0.25,0) [0|16383.75] "rpm" IC,TCM,ESP,ADAS
+ SG_ EngineLoad : 16|8@1+ (0.39216,0) [0|100] "%" IC,TCM
+ SG_ ThrottlePosition : 24|8@1+ (0.39216,0) [0|100] "%" IC,TCM
+ SG_ CoolantTemp : 32|8@1+ (1,-40) [-40|215] "degC" IC,HVAC
+ SG_ EngineRunning : 40|1@1+ (1,0) [0|1] "" IC,BCM,ESP
+ SG_ StarterRequest : 41|1@1+ (1,0) [0|1] "" BCM
+ SG_ MIL_Status : 42|1@1+ (1,0) [0|1] "" IC
+ SG_ ECM_MsgCounter : 56|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ ECM_Checksum : 60|4@1+ (1,0) [0|15] "" Vector__XXX
+
+BO_ 612 ECM_EngineStatus2: 8 ECM
+ SG_ OilPressure : 0|8@1+ (4,0) [0|1020] "kPa" IC
+ SG_ OilTemp : 8|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ IntakeAirTemp : 16|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ BoostPressure : 24|16@1+ (0.1,0) [0|6553.5] "kPa" IC
+ SG_ FuelConsumption : 40|16@1+ (0.05,0) [0|3276.75] "L/h" IC
+ SG_ EngineRuntime : 56|8@1+ (10,0) [0|2550] "min" IC
+
+BO_ 616 ECM_EngineStatus3: 8 ECM
+ SG_ FuelLevel : 0|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ FuelRange : 8|10@1+ (1,0) [0|1023] "km" IC
+ SG_ InstFuelConsumption : 18|14@1+ (0.01,0) [0|163.83] "L/100km" IC
+ SG_ AvgFuelConsumption : 32|14@1+ (0.01,0) [0|163.83] "L/100km" IC
+ SG_ FuelLowWarning : 46|1@1+ (1,0) [0|1] "" IC,BCM
+ SG_ AdBlueLevel : 48|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ AdBlueLowWarning : 56|1@1+ (1,0) [0|1] "" IC
+
+BO_ 620 ECM_Torque: 8 ECM
+ SG_ ActualTorque : 0|12@1+ (0.5,-500) [-500|1547.5] "Nm" TCM,ESP
+ SG_ RequestedTorque : 12|12@1+ (0.5,-500) [-500|1547.5] "Nm" TCM,ESP
+ SG_ MaxTorqueAvailable : 24|12@1+ (0.5,-500) [-500|1547.5] "Nm" TCM,ESP
+ SG_ TorqueReductionReq : 36|1@1+ (1,0) [0|1] "" ESP
+ SG_ CruiseControlActive : 37|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ CruiseSetSpeed : 40|8@1+ (1,0) [0|255] "km/h" IC,ADAS
+
+
+// --- TCM: Transmission Control Module ---
+BO_ 640 TCM_TransStatus: 8 TCM
+ SG_ CurrentGear : 0|4@1+ (1,0) [0|9] "" IC,ECM
+ SG_ TargetGear : 4|4@1+ (1,0) [0|9] "" IC,ECM
+ SG_ GearShifting : 8|1@1+ (1,0) [0|1] "" IC
+ SG_ TransMode : 9|3@1+ (1,0) [0|7] "" IC
+ SG_ TransTemp : 16|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ TorqueConverterSlip : 24|16@1+ (0.25,0) [0|16383.75] "rpm" ECM
+ SG_ TransInputSpeed : 40|16@1+ (0.25,0) [0|16383.75] "rpm" ECM
+ SG_ ParkLockEngaged : 56|1@1+ (1,0) [0|1] "" IC,BCM
+
+BO_ 644 TCM_GearboxInfo: 8 TCM
+ SG_ GearRatio : 0|16@1+ (0.001,0) [0|65.535] "" ECM
+ SG_ OutputShaftSpeed : 16|16@1+ (0.25,0) [0|16383.75] "rpm" ESP
+ SG_ ShiftPaddleLeft : 32|1@1+ (1,0) [0|1] "" IC
+ SG_ ShiftPaddleRight : 33|1@1+ (1,0) [0|1] "" IC
+ SG_ SportModeActive : 34|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ ManualModeActive : 35|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ TransFaultActive : 36|1@1+ (1,0) [0|1] "" IC
+
+
+// =============================================================================
+// CHASSIS - Chassis, Brakes & Steering
+// =============================================================================
+
+// --- ESP: Electronic Stability Program ---
+BO_ 512 ESP_VehicleDynamics1: 8 ESP
+ SG_ VehicleSpeed : 0|16@1+ (0.01,0) [0|655.35] "km/h" IC,ECM,TCM,ADAS,BCM
+ SG_ YawRate : 16|16@1+ (0.01,-327.68) [-327.68|327.67] "deg/s" ADAS
+ SG_ LateralAccel : 32|16@1+ (0.001,-32.768) [-32.768|32.767] "g" ADAS,IC
+ SG_ LongitudinalAccel : 48|16@1+ (0.001,-32.768) [-32.768|32.767] "g" ADAS,IC
+
+BO_ 516 ESP_VehicleDynamics2: 8 ESP
+ SG_ WheelSpeed_FL : 0|16@1+ (0.01,0) [0|655.35] "km/h" ADAS
+ SG_ WheelSpeed_FR : 16|16@1+ (0.01,0) [0|655.35] "km/h" ADAS
+ SG_ WheelSpeed_RL : 32|16@1+ (0.01,0) [0|655.35] "km/h" ADAS
+ SG_ WheelSpeed_RR : 48|16@1+ (0.01,0) [0|655.35] "km/h" ADAS
+
+BO_ 520 ESP_BrakeStatus: 8 ESP
+ SG_ BrakePedalPressed : 0|1@1+ (1,0) [0|1] "" IC,ECM,ADAS
+ SG_ BrakePedalPosition : 1|7@1+ (0.7874,0) [0|100] "%" ECM,ADAS
+ SG_ BrakePressure_MC : 8|12@1+ (0.1,0) [0|409.5] "bar" IC
+ SG_ ABSActive : 20|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ ESPActive : 21|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ TCSActive : 22|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ BrakeDiscTemp_FL : 24|8@1+ (3,0) [0|765] "degC" IC
+ SG_ BrakeDiscTemp_FR : 32|8@1+ (3,0) [0|765] "degC" IC
+ SG_ BrakePadWear_FL : 40|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ BrakePadWear_FR : 48|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ BrakeFluidLow : 56|1@1+ (1,0) [0|1] "" IC
+
+// --- EPB: Electronic Parking Brake ---
+BO_ 528 EPB_Status: 4 EPB
+ SG_ ParkingBrakeActive : 0|1@1+ (1,0) [0|1] "" IC,ESP,TCM
+ SG_ ParkingBrakeRequest : 1|1@1+ (1,0) [0|1] "" IC
+ SG_ AutoHoldActive : 2|1@1+ (1,0) [0|1] "" IC
+ SG_ HillStartAssist : 3|1@1+ (1,0) [0|1] "" IC
+ SG_ EPB_FaultStatus : 8|4@1+ (1,0) [0|15] "" IC
+
+// --- EPS: Electric Power Steering ---
+BO_ 544 EPS_SteeringStatus: 8 EPS
+ SG_ SteeringAngle : 0|16@1+ (0.1,-3200) [-3200|3200] "deg" ESP,ADAS
+ SG_ SteeringAngleSpeed : 16|16@1+ (0.5,-16384) [-16384|16383.5] "deg/s" ESP,ADAS
+ SG_ SteeringTorque : 32|12@1+ (0.01,-20.48) [-20.48|20.47] "Nm" ADAS
+ SG_ LaneKeepAssistTorque : 44|12@1+ (0.01,-20.48) [-20.48|20.47] "Nm" IC
+ SG_ EPSFaultActive : 56|1@1+ (1,0) [0|1] "" IC
+ SG_ LaneKeepAssistActive : 57|1@1+ (1,0) [0|1] "" IC,ADAS
+
+
+// =============================================================================
+// BODY ELECTRONICS - Body electronics
+// =============================================================================
+
+// --- BCM: Body Control Module (Bộ điều khiển thân xe) ---
+BO_ 672 BCM_LightingStatus: 8 BCM
+ SG_ HeadlightLeft : 0|2@1+ (1,0) [0|3] "" IC
+ SG_ HeadlightRight : 2|2@1+ (1,0) [0|3] "" IC
+ SG_ HighBeamActive : 4|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ FogLightFront : 5|1@1+ (1,0) [0|1] "" IC
+ SG_ FogLightRear : 6|1@1+ (1,0) [0|1] "" IC
+ SG_ DaytimeRunLight : 7|1@1+ (1,0) [0|1] "" IC
+ SG_ TurnSignalLeft : 8|1@1+ (1,0) [0|1] "" IC
+ SG_ TurnSignalRight : 9|1@1+ (1,0) [0|1] "" IC
+ SG_ HazardLights : 10|1@1+ (1,0) [0|1] "" IC
+ SG_ BrakeLights : 11|1@1+ (1,0) [0|1] "" IC
+ SG_ ReverseLights : 12|1@1+ (1,0) [0|1] "" IC
+ SG_ AmbientLightLevel : 16|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ AmbientLightColor : 24|8@1+ (1,0) [0|255] "" IC
+ SG_ AutoHighBeamActive : 32|1@1+ (1,0) [0|1] "" IC,ADAS
+
+BO_ 676 BCM_DoorStatus: 8 BCM
+ SG_ DoorOpen_FL : 0|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorOpen_FR : 1|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorOpen_RL : 2|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorOpen_RR : 3|1@1+ (1,0) [0|1] "" IC
+ SG_ TrunkOpen : 4|1@1+ (1,0) [0|1] "" IC
+ SG_ HoodOpen : 5|1@1+ (1,0) [0|1] "" IC
+ SG_ FuelCapOpen : 6|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorLocked_FL : 8|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorLocked_FR : 9|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorLocked_RL : 10|1@1+ (1,0) [0|1] "" IC
+ SG_ DoorLocked_RR : 11|1@1+ (1,0) [0|1] "" IC
+ SG_ TrunkLocked : 12|1@1+ (1,0) [0|1] "" IC
+ SG_ CentralLockStatus : 16|2@1+ (1,0) [0|3] "" IC
+ SG_ KeyInIgnition : 18|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ KeylessEntryDetect : 19|1@1+ (1,0) [0|1] "" IC
+ SG_ WindowPos_FL : 24|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ WindowPos_FR : 32|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ WindowPos_RL : 40|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ WindowPos_RR : 48|8@1+ (0.39216,0) [0|100] "%" IC
+ SG_ SunroofPos : 56|8@1+ (0.39216,0) [0|100] "%" IC
+
+BO_ 680 BCM_PowerManagement: 8 BCM
+ SG_ BatteryVoltage : 0|12@1+ (0.01,0) [0|40.95] "V" IC,ECM
+ SG_ BatterySoC : 12|8@1+ (0.5,0) [0|127.5] "%" IC
+ SG_ BatteryCurrent : 20|12@1+ (0.05,-102.4) [-102.4|102.35] "A" IC
+ SG_ BatteryTemp : 32|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ AlternatorVoltage : 40|12@1+ (0.01,0) [0|40.95] "V" IC
+ SG_ IgnitionStatus : 52|3@1+ (1,0) [0|7] "" IC,ECM,TCM,ESP
+ SG_ StartStopActive : 55|1@1+ (1,0) [0|1] "" IC
+ SG_ EcoModeActive : 56|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ ComfortModeActive : 57|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ SportModeActive_BCM : 58|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ SportPlusModeActive : 59|1@1+ (1,0) [0|1] "" IC,ECM
+
+
+// =============================================================================
+// HVAC - HVAC climate control
+// =============================================================================
+
+BO_ 720 HVAC_ClimateStatus: 8 HVAC
+ SG_ CabinTemp : 0|8@1+ (0.5,-20) [-20|107.5] "degC" IC
+ SG_ SetTempDriver : 8|8@1+ (0.5,15) [15|32] "degC" IC
+ SG_ SetTempPassenger : 16|8@1+ (0.5,15) [15|32] "degC" IC
+ SG_ ACCompressorOn : 24|1@1+ (1,0) [0|1] "" IC,ECM
+ SG_ ACAutoMode : 25|1@1+ (1,0) [0|1] "" IC
+ SG_ BlowerSpeed : 26|4@1+ (1,0) [0|15] "" IC
+ SG_ RecirculationMode : 30|1@1+ (1,0) [0|1] "" IC
+ SG_ RearDefrostActive : 31|1@1+ (1,0) [0|1] "" IC
+ SG_ SeatHeatDriver : 32|3@1+ (1,0) [0|3] "" IC
+ SG_ SeatHeatPassenger : 35|3@1+ (1,0) [0|3] "" IC
+ SG_ SeatVentDriver : 40|3@1+ (1,0) [0|3] "" IC
+ SG_ SeatVentPassenger : 43|3@1+ (1,0) [0|3] "" IC
+ SG_ SteeringWheelHeat : 48|2@1+ (1,0) [0|3] "" IC
+ SG_ OutsideTemp : 50|8@1+ (0.5,-40) [-40|87.5] "degC" IC,ADAS
+
+
+// =============================================================================
+// SRS - Supplemental Restraint System (airbags & belts)
+// =============================================================================
+
+BO_ 768 SRS_OccupantStatus: 8 SRS
+ SG_ SeatbeltDriver : 0|1@1+ (1,0) [0|1] "" IC
+ SG_ SeatbeltPassenger : 1|1@1+ (1,0) [0|1] "" IC
+ SG_ SeatbeltRL : 2|1@1+ (1,0) [0|1] "" IC
+ SG_ SeatbeltRM : 3|1@1+ (1,0) [0|1] "" IC
+ SG_ SeatbeltRR : 4|1@1+ (1,0) [0|1] "" IC
+ SG_ PassengerOccupied : 5|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ ChildSeatDetected : 6|1@1+ (1,0) [0|1] "" IC
+ SG_ AirbagWarning : 8|1@1+ (1,0) [0|1] "" IC
+ SG_ CrashDetected : 9|2@1+ (1,0) [0|3] "" IC,BCM
+ SG_ PreSafeActivated : 11|1@1+ (1,0) [0|1] "" IC,ADAS
+ SG_ DriverWeight : 16|8@1+ (0.5,0) [0|127.5] "kg" SRS
+ SG_ PassengerWeight : 24|8@1+ (0.5,0) [0|127.5] "kg" SRS
+
+
+// =============================================================================
+// IC - Instrument Cluster
+// =============================================================================
+
+BO_ 800 IC_DisplayInfo: 8 IC
+ SG_ Odometer : 0|24@1+ (0.1,0) [0|1677721.5] "km" BCM,ECM
+ SG_ TripMeter_A : 24|20@1+ (0.1,0) [0|104857.5] "km" Vector__XXX
+ SG_ TripMeter_B : 44|20@1+ (0.1,0) [0|104857.5] "km" Vector__XXX
+
+
+// =============================================================================
+// ADAS - Advanced Driver Assistance Systems
+// =============================================================================
+
+BO_ 848 ADAS_FrontCamera: 8 ADAS
+ SG_ LaneDepartureWarn : 0|1@1+ (1,0) [0|1] "" IC
+ SG_ LanePosition : 1|8@1+ (0.02,-2.54) [-2.54|2.56] "m" IC,EPS
+ SG_ HeadwayDistance : 9|9@1+ (0.5,0) [0|255.5] "m" IC
+ SG_ HeadwayTime : 18|8@1+ (0.02,0) [0|5.1] "s" IC
+ SG_ ForwardCollisionWarn : 26|2@1+ (1,0) [0|3] "" IC,ESP
+ SG_ PedestrianDetected : 28|1@1+ (1,0) [0|1] "" IC,ESP
+ SG_ TrafficSignType : 32|8@1+ (1,0) [0|255] "" IC
+ SG_ TrafficSignValue : 40|8@1+ (1,0) [0|255] "km/h" IC
+ SG_ RoadType : 48|3@1+ (1,0) [0|7] "" IC
+ SG_ CameraBlocked : 51|1@1+ (1,0) [0|1] "" IC
+
+BO_ 852 ADAS_RadarFront: 8 ADAS
+ SG_ TargetDetected : 0|1@1+ (1,0) [0|1] "" IC,ESP
+ SG_ TargetDistance : 1|10@1+ (0.25,0) [0|255.75] "m" IC,ESP
+ SG_ TargetRelSpeed : 11|12@1+ (0.05,-102.4) [-102.4|102.35] "km/h" IC,ESP
+ SG_ TargetAngle : 23|9@1+ (0.1,-25.6) [-25.6|25.5] "deg" ESP
+ SG_ AdaptiveCruiseActive : 32|1@1+ (1,0) [0|1] "" IC
+ SG_ ACCSetSpeed : 33|8@1+ (1,0) [0|255] "km/h" IC
+ SG_ ACCFollowDistance : 41|3@1+ (1,0) [0|7] "" IC
+ SG_ AEBWarning : 44|2@1+ (1,0) [0|3] "" IC,ESP
+ SG_ AEBBrakeRequest : 46|1@1+ (1,0) [0|1] "" ESP
+ SG_ BlindSpotLeft : 48|1@1+ (1,0) [0|1] "" IC
+ SG_ BlindSpotRight : 49|1@1+ (1,0) [0|1] "" IC
+
+BO_ 856 ADAS_ParkingAssist: 8 ADAS
+ SG_ UltrasonicDist_FL : 0|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_FLC : 8|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_FRC : 16|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_FR : 24|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_RL : 32|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_RLC : 40|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_RRC : 48|8@1+ (0.02,0) [0|5.1] "m" IC
+ SG_ UltrasonicDist_RR : 56|8@1+ (0.02,0) [0|5.1] "m" IC
+
+
+// =============================================================================
+// TIRE PRESSURE - Tire pressure
+// =============================================================================
+
+BO_ 896 TPMS_TireStatus: 8 ESP
+ SG_ TirePressure_FL : 0|8@1+ (0.0125,0) [0|3.1875] "bar" IC
+ SG_ TirePressure_FR : 8|8@1+ (0.0125,0) [0|3.1875] "bar" IC
+ SG_ TirePressure_RL : 16|8@1+ (0.0125,0) [0|3.1875] "bar" IC
+ SG_ TirePressure_RR : 24|8@1+ (0.0125,0) [0|3.1875] "bar" IC
+ SG_ TireTemp_FL : 32|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ TireTemp_FR : 40|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ TireTemp_RL : 48|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ TireTemp_RR : 56|8@1+ (1,-40) [-40|215] "degC" IC
+
+
+// =============================================================================
+// EV / HYBRID - Electric/Hybrid systems
+// =============================================================================
+
+BO_ 960 HV_BatteryStatus: 8 ECM
+ SG_ HVBattery_SoC : 0|10@1+ (0.1,0) [0|102.3] "%" IC
+ SG_ HVBattery_Voltage : 10|12@1+ (0.25,0) [0|1023.75] "V" IC
+ SG_ HVBattery_Current : 22|12@1+ (0.25,-512) [-512|511.75] "A" IC
+ SG_ HVBattery_Temp : 34|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ HVBattery_Power : 42|14@1+ (0.1,-819.2) [-819.2|819.1] "kW" IC
+ SG_ HVBattery_Health : 56|7@1+ (0.5,0) [0|63.5] "%" IC
+ SG_ ChargingStatus : 63|1@1+ (1,0) [0|1] "" IC,BCM
+
+BO_ 964 HV_MotorStatus: 8 ECM
+ SG_ ElecMotorSpeed : 0|16@1+ (1,-30000) [-30000|30000] "rpm" IC
+ SG_ ElecMotorTorque : 16|12@1+ (0.5,-500) [-500|1547.5] "Nm" IC
+ SG_ ElecMotorTemp : 28|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ InverterTemp : 36|8@1+ (1,-40) [-40|215] "degC" IC
+ SG_ RegenBrakeActive : 44|1@1+ (1,0) [0|1] "" IC,ESP
+ SG_ RegenBrakeLevel : 45|3@1+ (1,0) [0|5] "" IC
+ SG_ EVDriveMode : 48|3@1+ (1,0) [0|7] "" IC
+ SG_ ElecRange : 51|10@1+ (1,0) [0|1023] "km" IC
+
+
+// =============================================================================
+// ATTRIBUTE DEFINITIONS
+// =============================================================================
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;
+BA_DEF_ BO_ "GenMsgSendType" STRING;
+BA_DEF_ SG_ "GenSigStartValue" INT 0 65535;
+
+BA_DEF_DEF_ "GenMsgCycleTime" 100;
+BA_DEF_DEF_ "GenMsgSendType" "Cyclic";
+BA_DEF_DEF_ "GenSigStartValue" 0;
+
+// Message send cycle time (ms)
+BA_ "GenMsgCycleTime" BO_ 608 10;
+BA_ "GenMsgCycleTime" BO_ 612 100;
+BA_ "GenMsgCycleTime" BO_ 616 1000;
+BA_ "GenMsgCycleTime" BO_ 620 10;
+BA_ "GenMsgCycleTime" BO_ 640 20;
+BA_ "GenMsgCycleTime" BO_ 644 100;
+BA_ "GenMsgCycleTime" BO_ 512 10;
+BA_ "GenMsgCycleTime" BO_ 516 10;
+BA_ "GenMsgCycleTime" BO_ 520 20;
+BA_ "GenMsgCycleTime" BO_ 528 100;
+BA_ "GenMsgCycleTime" BO_ 544 10;
+BA_ "GenMsgCycleTime" BO_ 672 200;
+BA_ "GenMsgCycleTime" BO_ 676 200;
+BA_ "GenMsgCycleTime" BO_ 680 1000;
+BA_ "GenMsgCycleTime" BO_ 720 1000;
+BA_ "GenMsgCycleTime" BO_ 768 200;
+BA_ "GenMsgCycleTime" BO_ 800 1000;
+BA_ "GenMsgCycleTime" BO_ 848 50;
+BA_ "GenMsgCycleTime" BO_ 852 50;
+BA_ "GenMsgCycleTime" BO_ 856 100;
+BA_ "GenMsgCycleTime" BO_ 896 1000;
+BA_ "GenMsgCycleTime" BO_ 960 100;
+BA_ "GenMsgCycleTime" BO_ 964 20;
+
+
+// =============================================================================
+// VALUE DESCRIPTIONS
+// =============================================================================
+
+VAL_ 608 MIL_Status 0 "Off" 1 "On";
+VAL_ 608 EngineRunning 0 "Stopped" 1 "Running";
+VAL_ 640 TransMode 0 "P" 1 "R" 2 "N" 3 "D" 4 "S" 5 "M" 6 "L";
+VAL_ 640 CurrentGear 0 "P" 1 "1st" 2 "2nd" 3 "3rd" 4 "4th" 5 "5th" 6 "6th" 7 "7th" 8 "8th" 9 "9th";
+VAL_ 680 IgnitionStatus 0 "Off" 1 "Acc" 2 "On" 3 "Start" 4 "Running";
+VAL_ 672 HeadlightLeft 0 "Off" 1 "Parking" 2 "Low" 3 "High";
+VAL_ 672 HeadlightRight 0 "Off" 1 "Parking" 2 "Low" 3 "High";
+VAL_ 676 CentralLockStatus 0 "Unknown" 1 "Unlocked" 2 "Locked" 3 "ChildLock";
+VAL_ 768 CrashDetected 0 "None" 1 "Minor" 2 "Moderate" 3 "Severe";
+VAL_ 720 SeatHeatDriver 0 "Off" 1 "Low" 2 "Medium" 3 "High";
+VAL_ 720 SeatHeatPassenger 0 "Off" 1 "Low" 2 "Medium" 3 "High";
+VAL_ 848 ForwardCollisionWarn 0 "None" 1 "Alert" 2 "Danger" 3 "Emergency";
+VAL_ 848 RoadType 0 "Unknown" 1 "Highway" 2 "Urban" 3 "Rural" 4 "Parking";
+VAL_ 852 AEBWarning 0 "None" 1 "InformW" 2 "AcuteW" 3 "Braking";
+VAL_ 852 ACCFollowDistance 1 "VeryClose" 2 "Close" 3 "Medium" 4 "Far" 5 "VeryFar";
+VAL_ 964 EVDriveMode 0 "Comfort" 1 "Eco" 2 "EcoPlus" 3 "Sport" 4 "SportPlus" 5 "Individual";
+
+
+// =============================================================================
+// SIGNAL COMMENTS
+// =============================================================================
+
+CM_ BO_ 608 "Main engine status - 10ms cycle";
+CM_ BO_ 612 "Expanded engine status - oil, temperature, consumption";
+CM_ BO_ 616 "Fuel and AdBlue information";
+CM_ BO_ 620 "Torque and cruise control information";
+CM_ BO_ 640 "Automatic transmission 9G-TRONIC status";
+CM_ BO_ 512 "Vehicle dynamics - speed, acceleration, yaw";
+CM_ BO_ 516 "Individual wheel speeds";
+CM_ BO_ 520 "Brake status - ABS, ESP, TCS";
+CM_ BO_ 544 "Power steering system status";
+CM_ BO_ 672 "MULTIBEAM LED lighting system status";
+CM_ BO_ 676 "Door, lock and window status";
+CM_ BO_ 680 "Power management and drive modes";
+CM_ BO_ 720 "THERMOTRONIC climate control - dual zone";
+CM_ BO_ 768 "PRE-SAFE system and airbags";
+CM_ BO_ 800 "Instrument cluster - ODO and Trip";
+CM_ BO_ 848 "Front camera ADAS - lane & sign detection";
+CM_ BO_ 852 "Front radar - ACC, AEB, blind-spot";
+CM_ BO_ 856 "Parking ultrasonic sensors (PARKTRONIC)";
+CM_ BO_ 896 "Tire Pressure Monitoring System (TPMS)";
+CM_ BO_ 960 "High-voltage battery (EQ/Hybrid)";
+CM_ BO_ 964 "Electric motor status (EQ/Hybrid)";
+
+CM_ SG_ 608 EngineSpeed "Engine speed measured from crankshaft";
+CM_ SG_ 512 VehicleSpeed "Vehicle speed computed from 4-wheel average";
+CM_ SG_ 512 YawRate "Yaw rate";
+CM_ SG_ 544 SteeringAngle "Steering wheel angle, positive = right";
+CM_ SG_ 848 HeadwayDistance "Distance to leading vehicle";
+CM_ SG_ 960 HVBattery_SoC "High-voltage battery State of Charge (SoC)";
+

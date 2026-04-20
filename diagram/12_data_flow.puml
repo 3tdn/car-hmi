@@ -1,0 +1,48 @@
+@startuml Data Flow Diagram
+!theme plain
+title CAN-HMI System — Data Flow Overview
+
+left to right direction
+
+rectangle "External" {
+    agent "Vehicle ECU\n/ Simulator" as ecu
+    agent "User\n(Browser)" as user
+}
+
+rectangle "CAN-HMI System" {
+    usecase "CAN Read\n& Decode" as read
+    usecase "Signal\nProcessing" as proc
+    usecase "Alarm\nDetection" as alarm
+    usecase "Signal Store\n(In-memory)" as memstore
+    usecase "Storage\n(SQLite)" as store
+    usecase "REST API" as rest
+    usecase "WebSocket\nBroadcast" as wsbc
+    usecase "CAN Write\n& Encode" as write
+    usecase "Export\n(CSV/JSON)" as export
+}
+
+ecu --> read : "CAN frames\n(raw bytes)"
+read --> proc : "decoded signals\n(Dict[str, float])"
+note on link
+  asyncio.Queue
+  max_queue_size=10000
+  backpressure: drop oldest
+  + log warning
+end note
+proc --> alarm : "signal values"
+proc --> memstore : "update latest\n(in-memory)"
+proc --> store : "batch insert\n(time-series)"
+memstore --> wsbc : "real-time\nsignal updates"
+memstore --> rest : "snapshot\n(latest values)"
+alarm --> wsbc : "alarm events"
+alarm --> store : "INSERT alarm_log\n(alarm history)"
+store --> rest : "history data\n(SQL query)"
+store --> export : "query data"
+export --> user : "CSV / JSON\n(download)"
+wsbc --> user : "JSON stream\n(WebSocket)"
+rest --> user : "JSON response\n(HTTP)"
+user --> rest : "GET / PUT / POST\n(signals, config, export,\nalarm ACK)"
+rest --> write : "encode command"
+write --> ecu : "CAN frame\n(write-back)"
+
+@enduml

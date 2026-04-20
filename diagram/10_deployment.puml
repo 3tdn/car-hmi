@@ -1,0 +1,73 @@
+@startuml Deployment Diagram
+!theme plain
+title CAN-HMI System — Deployment Diagram
+
+node "Vehicle / Test Bench" as vehicle {
+    artifact "Real ECU\n(CAN 2.0B / CAN FD)" as real_ecu
+    artifact "DMS/OMS Camera\n(GStreamer source)" as cam
+}
+
+note bottom of vehicle
+  In dev mode, ECU Simulator
+  runs on CarPC (python-can virtual)
+end note
+
+node "CarPC (Embedded Linux)" as carpc {
+    node "Python Runtime 3.11+" as pyruntime {
+        artifact "CAN Simulator\n(simulator.py, dev mode)" as sim
+        artifact "CAN I/O\n(reader.py / writer.py)" as canio
+        artifact "Signal Processor\n(pipeline.py)" as proc
+        artifact "FastAPI + Uvicorn\n(port 8000)" as api
+        artifact "GStreamer Pipeline\n(video ingest)" as gst
+    }
+    database "SQLite\n(data/signals.db)" as sqlite
+    artifact "Monitoring\n(Watchdog / Supervisor)\nsystemd WatchdogSec=30" as mon
+    folder "Config" as conf {
+        file "system.json"
+        file "alarms.json"
+        file "signals.json"
+    }
+    folder "Data" as data {
+        file "config/can.json"
+    }
+    folder "frontend/" as fedir {
+        file "index.html"
+        file "css/style.css"
+        file "js/app.js"
+    }
+}
+
+node "Client Device\n(Browser)" as client {
+    artifact "Web Dashboard\n(HTML/CSS/JS)" as dash
+}
+
+cloud "LAN / Ethernet" as net
+
+real_ecu -- canio : CAN Bus\n(vcan0 / socketcan\n500 kbps, opt CAN FD)
+cam -- gst : Ethernet\n(RTP/RTSP)
+carpc -- net : Ethernet\n(HTTP/WS port 8000)
+net -- client : HTTP / WebSocket
+
+canio --> sqlite : query config
+proc --> sqlite : batch insert
+api --> sqlite : query history
+conf --> pyruntime : load on startup
+data --> canio : can.json parsing
+data --> sim : can.json parsing
+sim -- canio : "CAN frames\n(internal vcan0, dev mode)"
+fedir --> api : serve static files
+mon --> pyruntime : process supervision
+
+note right of carpc
+    **Target HW:**
+    - ARM/x86 SoC
+    - 512 MB+ RAM
+    - CAN interface (SPI/USB)
+    - Ethernet for camera + client
+    **Deployment options:**
+    - systemd service (can-hmi.service)
+    - Docker container (HEALTHCHECK /health)
+    - Env vars: CANHMI_CONFIG, CANHMI_API_KEY
+end note
+
+@enduml

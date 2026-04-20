@@ -1,0 +1,25 @@
+@startuml
+title Sequence — Signal Read Flow
+actor Vehicle
+participant "CAN Bus" as CANBus
+participant "CANReader" as CANReader
+participant "SignalPipeline" as Pipeline
+participant "SignalStore" as Store
+participant "Repository" as Repo
+participant "WebSocket Manager" as WS
+participant Frontend
+
+== Frame travels from vehicle to frontend ==
+Vehicle -> CANBus: send CAN frame
+CANBus -> CANReader: deliver frame
+note right: python-can frame received
+CANReader -> Pipeline: decode frame -> produce signals
+Pipeline -> Store: update(signal_name, value)
+activate Store
+Store -> WS: notify subscribers (signal update)
+deactivate Store
+Pipeline -> Repo: buffer and batch-insert(signal records)
+Repo -> Repo: persist to DB (async)
+WS -> Frontend: broadcast {type: "signal", signal, value, timestamp}
+
+@enduml

@@ -1,0 +1,110 @@
+@startuml Component Diagram
+!theme plain
+title CAN-HMI System — Component Diagram (CarPC Internal)
+
+skinparam component {
+    BackgroundColor PaleGreen
+    BorderColor DarkGreen
+    ArrowColor DarkBlue
+}
+
+package "src/can_simulator" as pkg_sim #lightyellow {
+    [simulator.py\nECU Simulator Engine] as sim_engine
+    [cli.py\nCLI Entry-point] as sim_cli
+}
+
+package "src/can_io" as pkg_io #PaleGreen {
+    [bus_factory.py\nBus Instance Factory] as io_factory
+    [parser.py\nCAN JSON Parser] as io_parser
+    [reader.py\nAsync CAN Reader + Decode] as io_reader
+    [writer.py\nEncode + Send CAN Frame] as io_writer
+}
+
+package "src/processor" as pkg_proc #PaleGreen {
+    [pipeline.py\nSignal Processing Pipeline] as proc_pipe
+    [filters.py\nSmoothing / Rate-limit] as proc_filter
+    [alarms.py\nAlarm Detection] as proc_alarm
+    [computed.py\nVirtual Signals] as proc_comp
+}
+
+package "src/storage" as pkg_store #Wheat {
+    [database.py\nDB Connection + Schema Init] as store_db
+    [repository.py\nCRUD Operations] as store_repo
+    [exporter.py\nCSV / JSON Export] as store_export
+}
+
+package "src/api" as pkg_api #LightBlue {
+    [app.py\nFastAPI Factory] as api_app
+    [websocket.py\nWebSocket Handlers] as api_ws
+    [models.py\nPydantic Models] as api_models
+    [auth.py\nAPI Key / JWT] as api_auth
+    package "routes/" {
+        [signals.py] as r_signals
+        [alarms.py] as r_alarms
+        [config.py] as r_config
+        [system.py] as r_system
+    }
+}
+
+package "src/core" as pkg_core #LightGray {
+    [config.py\nPydantic Config Models] as core_config
+    [config_manager.py\nRuntime Config CRUD] as core_cfgmgr
+    [signal_store.py\nIn-memory State] as core_store
+    [runner.py\nOrchestrator] as core_runner
+}
+
+' CAN Bus interface (declared before usage)
+() "CAN Bus\n(vcan0)" as bus_if
+
+' Relationships
+sim_cli --> sim_engine
+sim_engine ..> bus_if : "CAN frames\n(virtual bus)"
+bus_if ..> io_reader : "receive frames"
+
+io_reader --> io_parser : "decode"
+io_reader --> io_factory : "create bus"
+io_writer --> io_factory : "create bus"
+io_reader --> proc_pipe : "asyncio.Queue"
+proc_pipe *-- proc_filter : "stage 1-2"
+proc_pipe *-- proc_alarm : "stage 4"
+proc_pipe *-- proc_comp : "stage 3"
+proc_pipe --> core_store : "update latest"
+proc_alarm ..> core_store : "alarm events"
+proc_pipe --> store_repo : "batch insert"
+
+io_writer ..> bus_if : "send CAN frame"
+
+api_app --> api_ws
+api_app --> api_auth
+api_app --> api_models : "validation"
+api_app --> r_signals
+api_app --> r_alarms
+api_app --> r_config
+api_app --> r_system
+r_signals --> api_models : "Pydantic validate"
+r_signals --> core_store : "read snapshot"
+r_signals --> store_repo : "read history"
+r_signals --> io_writer : "write-back"
+api_ws --> core_store : "broadcast"
+r_alarms --> core_store : "read active alarms"
+r_alarms --> store_repo : "alarm history + ACK"
+r_config --> store_repo : "read/update config"
+r_config --> core_store : "read live values"
+
+core_runner --> sim_engine : "start"
+core_runner --> io_reader : "start"
+core_runner --> io_writer : "init"
+core_runner --> core_store : "init store"
+core_runner --> proc_pipe : "start"
+r_system --> core_store : "bus status, queue lengths"
+r_system --> proc_pipe : "error counters, pipeline metrics"
+
+core_runner --> api_app : "start"
+core_runner --> core_config : "load"
+core_runner --> core_cfgmgr : "runtime CRUD"
+
+store_repo --> store_db
+store_export --> store_repo
+r_signals ..> store_export : "CSV/JSON export"
+
+@enduml

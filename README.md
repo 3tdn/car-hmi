@@ -4,7 +4,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 ## Features
 
-- **CAN I/O** — Read and write CAN frames via `python-can`; decode/encode signals using DBC/JSON CAN databases
+- **CAN I/O** — Read and write CAN frames via `python-can`; decode/encode signals using `config/can.json` CAN database
 - **Signal Processing** — Smoothing, rate limiting, computed signals, alarm thresholds
 - **REST + WebSocket API** — FastAPI-based API for live signal streaming, alarm history, and CAN write commands
 - **Storage** — Async SQLite persistence with configurable batch inserts and retention
@@ -33,10 +33,10 @@ pip install -e ".[dev]"
 # Run tests
 pytest
 
-# Start the application (uses config/bus.yaml by default)
+# Start the application (uses config/system.json by default)
 can-hmi
 # or with a custom config:
-can-hmi --config config/bus.yaml --log-level DEBUG
+can-hmi --config config/system.json --log-level DEBUG
 ```
 
 ## Helper scripts (run & test)
@@ -55,7 +55,7 @@ Usage examples:
 
 PowerShell (run app):
 ```powershell
-.\scripts\run_windows.ps1 -Config config/bus.yaml -LogLevel INFO
+.\scripts\run_windows.ps1 -Config config/system.json -LogLevel INFO
 ```
 
 PowerShell (run tests, install before running):
@@ -66,7 +66,7 @@ PowerShell (run tests, install before running):
 Bash (make scripts executable once and run):
 ```bash
 chmod +x scripts/*.sh
-./scripts/run_linux.sh config/bus.yaml INFO
+./scripts/run_linux.sh config/system.json INFO
 ./scripts/test_linux.sh
 ```
 
@@ -82,13 +82,13 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ```
 car-hmi/
-├── config/                 # YAML configuration files
-│   ├── bus.yaml            # CAN bus, API, storage, simulator settings
-│   ├── alarms.yaml         # Alarm thresholds per signal (dict format)
-│   └── signals.yaml        # Signal display configuration
+├── config/                 # JSON configuration files
+│   ├── system.json         # CAN bus, API, storage, simulator settings
+│   ├── alarms.json         # Alarm thresholds per signal (dict format)
+│   └── signals.json        # Signal display configuration
 ├── db/
-│   ├── can_db/             # DBC files (CAN database definitions)
-│   └── ecu_db/             # A2L files (ECU descriptions)
+│   ├── can_db/             # (legacy) DBC files — no longer used by parser
+│   └── ecu_db/             # (legacy) A2L files — no longer used by parser
 ├── src/
 │   ├── api/                # FastAPI app, routes, WebSocket, auth
 │   │   └── routes/         # signals, alarms, config, system routes
@@ -110,11 +110,11 @@ car-hmi/
 
 ## Configuration
 
-All runtime behaviour is controlled via `config/bus.yaml`. Key sections:
+All runtime behaviour is controlled via `config/system.json`. Key sections:
 
 | Section       | Description                                          |
 |---------------|------------------------------------------------------|
-| `can`         | Interface, channel, bitrate, CAN DB paths            |
+| `can`         | Interface, channel, bitrate, `can_json_path`          |
 | `simulator`   | Enable/disable, scenario file, default cycle time    |
 | `processor`   | Smoothing window, rate limiter, queue policy          |
 | `api`         | Host, port, API key, CORS origins, WS heartbeat      |
@@ -154,7 +154,7 @@ All runtime behaviour is controlled via `config/bus.yaml`. Key sections:
 
 You can update runtime configuration on-disk and attempt a live apply.
 
-- Edit `config/bus.yaml` manually, or use the included CLI:
+ - Edit `config/system.json` manually, or use the included CLI:
 
 ```bash
 python scripts/set_processor_config.py --max-queue-size 1000000 --queue-policy drop_oldest
@@ -184,13 +184,13 @@ Be cautious increasing the queue to very large values — large queues consume R
 
 The web dashboard now includes `Settings` and `Alarms` buttons in the header. Use them to:
 
-- View and edit the full `config/bus.yaml` (JSON editor in modal).
-- Reset the application config to defaults (Reset button in modal).
-- View and edit `config/alarms.yaml` and reset alarms to an empty default.
+ - View and edit the full `config/system.json` (JSON editor in modal).
+ - Reset the application config to defaults (Reset button in modal).
+ - View and edit `config/alarms.json` and reset alarms to an empty default.
 
 Notes:
 - The modal editors send JSON to the backend endpoints under `/config/*`. The backend will persist changes to disk and attempt a live apply where supported.
-- Always backup `config/bus.yaml` if you have customized critical paths (DBC dirs, DB locations) before resetting.
+ - Always backup `config/system.json` if you have customized critical paths (can_json_path, DB locations) before resetting.
 
 ## Frontend Modes
 

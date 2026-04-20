@@ -1,0 +1,42 @@
+@startuml System Context Diagram
+!theme plain
+title CAN-HMI System — System Context (C4 Level 1)
+
+skinparam actorStyle awesome
+skinparam rectangle {
+    RoundCorner 15
+}
+
+actor "Driver / Engineer" as user
+actor "Vehicle ECU\n(Real / Simulator)" as ecu
+
+rectangle "CAN-HMI System\n(CarPC)" as system #LightBlue {
+}
+
+rectangle "DMS/OMS Camera" as camera #LightGreen
+rectangle "CAN Database\n(config/can.json)" as candb #Wheat
+
+user -down-> system : "View real-time signals,\nedit writable parameters\n(HTTP / WebSocket)"
+system -down-> user : "Signal data, alarms,\nvideo stream"
+
+ecu -right-> system : "CAN 2.0B frames\n(500 kbps)"
+system -right-> ecu : "CAN write-back\n(encoded frames)"
+
+camera -up-> system : "Video stream\n(RTP/RTSP over Ethernet)"
+candb -up-> system : "Signal definitions\n(message/signal metadata)"
+
+note left of candb
+  Static data, loaded once
+  at system startup
+end note
+
+note right of system
+  **Responsibilities:**
+  - Read / decode CAN signals (can.json)
+  - Process, filter, alarm detection
+  - Store time-series data (SQLite)
+  - Serve REST API + WebSocket
+  - Stream DMS/OMS video
+end note
+
+@enduml
