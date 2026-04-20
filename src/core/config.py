@@ -12,8 +12,12 @@ from pydantic import BaseModel, Field, field_validator
 class CANConfig(BaseModel):
     interface: str = "virtual"
     channel: str = "vcan0"
-    bitrate: int = 500000
+    bitrate: int = 500_000
     can_json_path: str = "config/can.json"
+    can_db_files: list[str] = Field(default_factory=list)
+    can_db_dirs: list[str] = Field(default_factory=list)
+    a2l_dirs: list[str] = Field(default_factory=list)
+    can_db_format: Literal["auto", "dbc", "a2l"] = "auto"
 
 
 class SimulatorConfig(BaseModel):
@@ -68,7 +72,8 @@ class LoggingConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
-    can: list[CANConfig] = Field(default_factory=lambda: [CANConfig()])
+    # Support multiple CAN channels configured as a list of CANConfig entries
+    can: list[CANConfig] = Field(default_factory=list)
     simulator: SimulatorConfig = Field(default_factory=SimulatorConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
@@ -82,16 +87,11 @@ class AppConfig(BaseModel):
     @classmethod
     def validate_can(cls, v: list[CANConfig]) -> list[CANConfig]:
         if not v:
-            raise ValueError("At least one CAN channel must be configured")
-        for i, ch in enumerate(v):
-            if not ch.can_json_path:
-                raise ValueError(f"can[{i}].can_json_path must be set")
-        channels = [ch.channel for ch in v]
-        if len(channels) != len(set(channels)):
-            raise ValueError("Duplicate CAN channel names detected")
-        paths = [ch.can_json_path for ch in v]
-        if len(paths) != len(set(paths)):
-            raise ValueError("Duplicate can_json_path detected across channels")
+            raise ValueError("At least one CAN channel must be configured in 'can'")
+        # Ensure each channel provides DB files or dirs
+        for idx, entry in enumerate(v):
+            if not entry.can_db_files and not entry.can_db_dirs:
+                raise ValueError(f"CAN channel at index {idx} must set can_db_files or can_db_dirs")
         return v
 
 

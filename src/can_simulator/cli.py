@@ -22,7 +22,9 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     cfg = load_config(args.config)
 
-    bus = can.Bus(interface=cfg.can.interface, channel=cfg.can.channel)
+    # `cfg.can` may be a list of channel configs; use the first one for simulator
+    can_cfg = cfg.can[0] if isinstance(cfg.can, list) and cfg.can else cfg.can
+    bus = can.Bus(interface=can_cfg.interface, channel=can_cfg.channel)
     sim = CANSimulator(
         bus=bus,
         can_json_path=cfg.simulator.can_json_path,

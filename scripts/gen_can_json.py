@@ -2,7 +2,15 @@
 """Generate `config/can.json` aggregating messages and signals from DBC files.
 
 Usage:
-  python scripts/gen_can_json.py -d db/ --out config/can.json [--dry-run] [--overwrite]
+  # Single directory (scans all *.dbc recursively)
+  python scripts/gen_can_json.py -d db/ --out config/can.json
+
+  # Multiple explicit DBC files
+  python scripts/gen_can_json.py -d db/candb/filedbc1.dbc db/candb/filedbc2.dbc --out config/can.json
+
+  # Extra options
+  python scripts/gen_can_json.py -d db/ --out config/can.json --dry-run
+  python scripts/gen_can_json.py -d db/ --out config/can.json --overwrite
 """
 from __future__ import annotations
 
@@ -16,9 +24,15 @@ logger = logging.getLogger("gen_can_json")
 
 def merge_messages(existing: dict, parsed: dict) -> dict:
     cfg = existing.copy()
-    messages = cfg.get("messages") or {}
+    messages = {k: dict(v) for k, v in (cfg.get("messages") or {}).items()}
     for name, info in parsed.get("messages", {}).items():
-        messages[name] = info
+        if name in messages:
+            # Deep-merge signals from same message name across DBC files
+            merged_signals = dict(messages[name].get("signals") or {})
+            merged_signals.update(info.get("signals") or {})
+            messages[name] = {**info, "signals": merged_signals}
+        else:
+            messages[name] = info
     cfg["messages"] = messages
     return cfg
 
@@ -33,13 +47,14 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
-    paths = [Path(p) for p in args.dbc]
+    paths = [Path(d) for d in args.dbc]
     logger.info("paths: %s", paths)
     parsed = parse_dbc_messages(paths)
     logger.info("Parsed %d messages", len(parsed.get("messages", {})))
 
     out_path = Path(args.out)
-    if (args.overwrite):
+    existing: dict = {}
+    if args.overwrite:
         new_cfg = parsed
     else:
         try:
