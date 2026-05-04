@@ -74,6 +74,7 @@ class AppRunner:
         self._fastapi_server = None
         self._ws_manager = None
         self._start_time: float = 0.0
+        self._uvicorn_server = None
 
     async def start(self) -> None:
         """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
@@ -387,11 +388,15 @@ class AppRunner:
             access_log=False,
         )
         server = uvicorn.Server(server_config)
+        self._uvicorn_server = server
 
         async def _serve_safe() -> None:
             """Bọ server.serve vào try/except để chuyển SystemExit thành ngoại lệ thông thường."""
             try:
                 await server.serve()
+            except asyncio.CancelledError:
+                # Expected when shutdown() cancels the api task — suppress noisy traceback.
+                pass
             except OSError as exc:
                 logger.error(
                     "API server failed to bind on %s:%d — %s (port already in use?)",
@@ -546,6 +551,20 @@ class AppRunner:
                 await asyncio.wait_for(self._pipeline.flush(), timeout=5.0)
             except (TimeoutError, asyncio.TimeoutError):
                 logger.warning("Pipeline flush timed out")
+
+        # Signal uvicorn to stop gracefully *before* cancelling its task so
+        # the lifespan context manager has a chance to exit cleanly.
+        if self._uvicorn_server is not None:
+            self._uvicorn_server.handle_exit(sig=signal.SIGTERM, frame=None)
+            # Wait for the API task to return on its own (uvicorn drains the
+            # lifespan queue and exits serve()). Only then cancel remaining
+            # tasks — this prevents the CancelledError traceback from Starlette.
+            api_tasks = [t for t in self._tasks if t.get_name() == "api"]
+            if api_tasks:
+                try:
+                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                    pass
 
         for task in self._tasks:
             task.cancel()
