@@ -72,23 +72,14 @@ if ! pyenv versions --bare | grep -qx "$PYTHON_VERSION"; then
         log "Installing build dependencies via apt-get (requires sudo — you may need to enter password)"
         
         # Update package index
-        sudo apt-get update -q
+        sudo apt-get update || true
         
         # Cài build tools và libraries (libc headers, SSL, zlib, readline, sqlite, etc.)
-        # || true: bỏ qua lỗi nếu một số package không tìm thấy
-        sudo apt-get install -y -q \
-            build-essential \     # gcc, make, libc-dev, etc.
-            libssl-dev \          # OpenSSL headers (cần cho module ssl)
-            zlib1g-dev \          # Compression library
-            libbz2-dev \          # Bzip2 library
-            libreadline-dev \     # Readline (command line editing)
-            libsqlite3-dev \      # SQLite headers
-            libffi-dev \          # Foreign Function Interface
-            liblzma-dev \         # LZMA compression
-            libncursesw5-dev \    # Terminal UI library (curses)
-            xz-utils \            # XZ compression tools
-            tk-dev \              # Tkinter GUI library
-            curl wget || true     # Download tools
+        # -y: auto-yes, --no-install-recommends: skip recommendations, || true: bỏ qua lỗi
+        sudo apt-get install -y --no-install-recommends \
+            build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+            libsqlite3-dev libffi-dev liblzma-dev libncursesw5-dev xz-utils \
+            tk-dev curl wget 2>&1 | grep -E "(Setting up|Processing|Unpacking|^E:)" || true
         
         log "Build dependencies installed"
     fi
