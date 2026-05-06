@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # ── Model tín hiệu ─────────────────────────────────────────────────────────
@@ -192,4 +194,4 @@ class ProcessorConfigResponse(BaseModel):
 
 class UpdateProcessorConfigRequest(BaseModel):
     max_queue_size: int | None = None
-    queue_policy: str | None = None
+    queue_policy: Literal["drop_oldest", "reject"] | None = None

@@ -48,7 +48,7 @@ class ProcessorConfig(BaseModel):
     smoothing_window: int = 5
     max_update_rate_hz: float = 10.0
     max_queue_size: int = 10_000
-    queue_policy: Literal["drop_oldest", "block", "reject"] = "reject"
+    queue_policy: Literal["drop_oldest", "reject"] = "reject"
 
 
 class WriterConfig(BaseModel):
@@ -73,7 +73,7 @@ class LoggingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     # Support multiple CAN channels configured as a list of CANConfig entries
-    can: list[CANConfig] = Field(default_factory=list)
+    can: list[CANConfig] = Field(default_factory=lambda: [CANConfig()])
     simulator: SimulatorConfig = Field(default_factory=SimulatorConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
@@ -88,10 +88,12 @@ class AppConfig(BaseModel):
     def validate_can(cls, v: list[CANConfig]) -> list[CANConfig]:
         if not v:
             raise ValueError("At least one CAN channel must be configured in 'can'")
-        # Ensure each channel provides DB files or dirs
-        for idx, entry in enumerate(v):
-            if not entry.can_db_files and not entry.can_db_dirs:
-                raise ValueError(f"CAN channel at index {idx} must set can_db_files or can_db_dirs")
+        # Check for duplicate channel names
+        seen: set[str] = set()
+        for entry in v:
+            if entry.channel in seen:
+                raise ValueError(f"Duplicate CAN channel name: '{entry.channel}'")
+            seen.add(entry.channel)
         return v
 
 

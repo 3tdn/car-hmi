@@ -172,30 +172,46 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
 
 
 @ws_router.websocket("/signals")
-async def ws_signals(websocket: WebSocket):
+async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.SIGNALS})
 
 
 @ws_router.websocket("/alarms")
-async def ws_alarms(websocket: WebSocket):
+async def ws_alarms(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALARMS})
 
 
 @ws_router.websocket("/all")
-async def ws_all(websocket: WebSocket):
+async def ws_all(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALL})
 
 
 @ws_router.websocket("/subscribe")
-async def ws_subscribe(websocket: WebSocket):
+async def ws_subscribe(websocket: WebSocket, api_key: str | None = Query(None)):
     """Endpoint mới: client gửi JSON subscribe/unsubscribe để chọn kênh nhận dữ liệu.
 
     Message format từ client:
         {"action": "subscribe", "channels": ["EngineSpeed", "alarms", "metrics"], "mode": "continuous"}
         {"action": "unsubscribe", "channels": ["EngineSpeed"]}
     """
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle_subscribe(websocket)
