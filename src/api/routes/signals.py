@@ -50,21 +50,30 @@ async def list_available_signals(request: Request):
     Client gọi 1 lần khi khởi động để lấy cấu trúc, sau đó chỉ subscribe
     value + timestamp nhẹ qua WebSocket.
     """
+    import json
     from pathlib import Path
 
-    import json
-
-    from src.core.config_manager import read_alarms
+    from src.core.config_manager import read_alarms, read_config
 
     store = request.app.state.store
     snapshot = await store.get_snapshot()
 
-    # Load signal configs
-    signal_configs: dict = {}
-    signals_path = Path("config/signals.json")
-    if signals_path.exists():
-        raw = json.loads(signals_path.read_text(encoding="utf-8")) or {}
-        signal_configs = raw.get("signals", {})
+    # Load signal configs from all can_json_path files listed in system.json
+    signal_configs: dict[str, dict] = {}
+    sys_cfg = read_config()
+    for ch in sys_cfg.get("can", []):
+        can_json_path = Path(ch.get("can_json_path", ""))
+        if not can_json_path.exists():
+            continue
+        ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
+        for msg_data in ch_raw.get("messages", {}).values():
+            for sig_name, sig_data in msg_data.get("signals", {}).items():
+                signal_configs.setdefault(sig_name, {
+                    "min_value": sig_data.get("minimum"),
+                    "max_value": sig_data.get("maximum"),
+                    "unit": sig_data.get("unit") or None,
+                    "writable": bool(sig_data.get("TX", False)),
+                })
 
     # Load alarm configs
     alarm_raw = read_alarms()
@@ -82,12 +91,12 @@ async def list_available_signals(request: Request):
         items.append(
             SignalMetadata(
                 signal_name=name,
-                unit=getattr(sv, "unit", None) if sv else None,
+                unit=sig_cfg.get("unit") or (getattr(sv, "unit", None) if sv else None),
                 min_value=sig_cfg.get("min_value"),
                 max_value=sig_cfg.get("max_value"),
                 writable=sig_cfg.get("writable", False),
-                group_name=sig_cfg.get("group"),
-                widget_type=sig_cfg.get("widget"),
+                group_name=None,
+                widget_type=None,
                 alarm_warning_high=alm_cfg.get("warning_high"),
                 alarm_warning_low=alm_cfg.get("warning_low"),
                 alarm_critical_high=alm_cfg.get("critical_high"),
@@ -163,30 +172,46 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
 
 
 @ws_router.websocket("/signals")
-async def ws_signals(websocket: WebSocket):
+async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.SIGNALS})
 
 
 @ws_router.websocket("/alarms")
-async def ws_alarms(websocket: WebSocket):
+async def ws_alarms(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALARMS})
 
 
 @ws_router.websocket("/all")
-async def ws_all(websocket: WebSocket):
+async def ws_all(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALL})
 
 
 @ws_router.websocket("/subscribe")
-async def ws_subscribe(websocket: WebSocket):
+async def ws_subscribe(websocket: WebSocket, api_key: str | None = Query(None)):
     """Endpoint mới: client gửi JSON subscribe/unsubscribe để chọn kênh nhận dữ liệu.
 
     Message format từ client:
         {"action": "subscribe", "channels": ["EngineSpeed", "alarms", "metrics"], "mode": "continuous"}
         {"action": "unsubscribe", "channels": ["EngineSpeed"]}
     """
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle_subscribe(websocket)

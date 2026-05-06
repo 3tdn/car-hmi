@@ -16,6 +16,12 @@ class APIKeyAuth:
     def __init__(self, api_key: str) -> None:
         self._key = api_key
 
+    def verify(self, key: str | None) -> bool:
+        """Kiểm tra API key — trả về True nếu auth thành công hoặc auth bị tắt."""
+        if not self._key:
+            return True
+        return bool(key) and secrets.compare_digest(key, self._key)
+
     async def __call__(self, key: str | None = Security(_API_KEY_HEADER)) -> None:
         if not self._key:
             return  # auth tắt (khóa rỗng được cấu hình)

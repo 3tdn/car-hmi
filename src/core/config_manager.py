@@ -18,7 +18,7 @@ def read_config(path: str | Path | None = None) -> Dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8")) or {}
 
 
-_VALID_QUEUE_POLICIES = {"drop_oldest", "block", "reject"}
+_VALID_QUEUE_POLICIES = {"drop_oldest", "reject"}
 
 
 def write_config(data: Dict[str, Any], path: str | Path | None = None) -> None:
@@ -97,17 +97,17 @@ def write_alarms(data: Dict[str, Any], path: str | Path | None = None) -> None:
 
 
 def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
-    """Write the default AppConfig to disk and return the default dict."""
-    from src.core.config import AppConfig
+    """Write a minimal default AppConfig to disk and return the dict.
+
+    Includes one virtual CAN channel so the written config passes validation on load.
+    """
+    from src.core.config import AppConfig, CANConfig
 
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    default = AppConfig().model_dump()
-    # Ensure minimal CAN DB paths exist so pydantic validation (load_config) passes
-    can_block = default.setdefault("can", {})
-    if not can_block.get("can_db_files") and not can_block.get("can_db_dirs"):
-        # set a sensible default directory that exists in repo
-        can_block["can_db_dirs"] = ["db/can_db/"]
-    p.write_text(json.dumps(default, indent=2, ensure_ascii=False), encoding="utf-8")
+    default_can = CANConfig(can_db_dirs=["db/can_db/"])
+    cfg = AppConfig(can=[default_can])
+    default = cfg.model_dump()
+    write_config(default, p)
     return default
 
 
