@@ -4,7 +4,6 @@ title CAN-HMI System — Deployment Diagram
 
 node "Vehicle / Test Bench" as vehicle {
     artifact "Real ECU\n(CAN 2.0B / CAN FD)" as real_ecu
-    artifact "DMS/OMS Camera\n(GStreamer source)" as cam
 }
 
 note bottom of vehicle
@@ -13,22 +12,23 @@ note bottom of vehicle
 end note
 
 node "CarPC (Embedded Linux)" as carpc {
-    node "Python Runtime 3.11+" as pyruntime {
+    node "Python Runtime 3.12+" as pyruntime {
         artifact "CAN Simulator\n(simulator.py, dev mode)" as sim
-        artifact "CAN I/O\n(reader.py / writer.py)" as canio
+        artifact "CAN I/O ch0\n(reader.py / writer.py, vcan0)" as canio0
+        artifact "CAN I/O ch1\n(reader.py / writer.py, vcan1)" as canio1
         artifact "Signal Processor\n(pipeline.py)" as proc
         artifact "FastAPI + Uvicorn\n(port 8000)" as api
-        artifact "GStreamer Pipeline\n(video ingest)" as gst
     }
     database "SQLite\n(data/signals.db)" as sqlite
-    artifact "Monitoring\n(Watchdog / Supervisor)\nsystemd WatchdogSec=30" as mon
+    artifact "Watchdog / Supervisor\n(runner.py + systemd WatchdogSec=30)" as mon
     folder "Config" as conf {
         file "system.json"
         file "alarms.json"
         file "signals.json"
     }
     folder "Data" as data {
-        file "config/can.json"
+        file "config/can0.json"
+        file "config/can1.json"
     }
     folder "frontend/" as fedir {
         file "index.html"
@@ -43,18 +43,19 @@ node "Client Device\n(Browser)" as client {
 
 cloud "LAN / Ethernet" as net
 
-real_ecu -- canio : CAN Bus\n(vcan0 / socketcan\n500 kbps, opt CAN FD)
-cam -- gst : Ethernet\n(RTP/RTSP)
+real_ecu -- canio0 : CAN Bus\n(vcan0 / socketcan\n500 kbps)
+real_ecu -- canio1 : CAN Bus\n(vcan1 / socketcan\n500 kbps)
 carpc -- net : Ethernet\n(HTTP/WS port 8000)
 net -- client : HTTP / WebSocket
 
-canio --> sqlite : query config
+canio0 --> sqlite : query config
+canio1 --> sqlite : query config
 proc --> sqlite : batch insert
 api --> sqlite : query history
 conf --> pyruntime : load on startup
-data --> canio : can.json parsing
-data --> sim : can.json parsing
-sim -- canio : "CAN frames\n(internal vcan0, dev mode)"
+data --> canio0 : can0.json parsing
+data --> canio1 : can1.json parsing
+sim -- canio0 : "CAN frames\n(internal vcan0, dev mode)"
 fedir --> api : serve static files
 mon --> pyruntime : process supervision
 
@@ -62,12 +63,12 @@ note right of carpc
     **Target HW:**
     - ARM/x86 SoC
     - 512 MB+ RAM
-    - CAN interface (SPI/USB)
-    - Ethernet for camera + client
-    **Deployment options:**
-    - systemd service (can-hmi.service)
-    - Docker container (HEALTHCHECK /health)
-    - Env vars: CANHMI_CONFIG, CANHMI_API_KEY
+    - 2x CAN interface (SPI/USB/PCIe)
+    - Ethernet for client
+    **Deployment:**
+    - systemd service via scripts/deploy_linux.sh
+    - Unit file: deploy/can-hmi.service
+    - Env vars: CAN_HMI_LOG_LEVEL, .env file
 end note
 
 @enduml

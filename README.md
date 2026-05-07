@@ -4,22 +4,26 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 ## Features
 
-- **CAN I/O** — Read and write CAN frames via `python-can`; decode/encode signals using `config/can.json` CAN database
-- **Signal Processing** — Smoothing, rate limiting, computed signals, alarm thresholds
-- **REST + WebSocket API** — FastAPI-based API for live signal streaming, alarm history, and CAN write commands
-- **Storage** — Async SQLite persistence with configurable batch inserts and retention
-- **Simulator** — Built-in CAN simulator with YAML/JSON scenario definitions for development without hardware
+- **Multi-channel CAN I/O** — Read and write CAN frames via `python-can` across multiple independent bus channels; decode/encode signals using per-channel `can_json_path` databases
+- **Signal Processing** — Smoothing (moving average), rate limiting, computed signals, alarm thresholds with `info / warning / critical` levels
+- **REST + WebSocket API** — FastAPI-based API for live signal streaming, full signal metadata, alarm history, CAN write commands, and system metrics
+- **Per-signal WebSocket subscription** — Clients subscribe to specific signal names, `alarms`, or `metrics` channels via a structured JSON protocol on `/ws/subscribe`
+- **Storage** — Async SQLite persistence with configurable batch inserts, retention policy, and data export to CSV / JSON
+- **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
+- **Simulator** — Built-in CAN simulator for development without hardware; driven by the `can.json` signal definitions
+- **API Key Auth** — Optional `X-API-Key` header authentication; disabled automatically when key is set to placeholder values
 
 ## Requirements
 
 - Python ≥ 3.10
 - (Optional) SocketCAN interface or compatible CAN adapter for real hardware
+- Key dependencies: `python-can`, `fastapi`, `uvicorn[standard]`, `pydantic`, `aiosqlite`, `numpy`, `psutil`, `pyyaml`
 
 ## Quick Start
 
 ```bash
 # Clone
-git clone git@github.com:thithuongdk/car-hmi.git
+git clone git@github.com:3tdn/car-hmi.git
 cd car-hmi
 
 # Create virtual environment
@@ -83,25 +87,28 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 car-hmi/
 ├── config/                 # JSON configuration files
-│   ├── system.json         # CAN bus, API, storage, simulator settings
-│   ├── alarms.json         # Alarm thresholds per signal (dict format)
-│   └── signals.json        # Signal display configuration
+│   ├── system.json         # CAN channels, API, storage, simulator, processor settings
+│   ├── can.json            # Combined CAN signal database (all channels)
+│   ├── can0.json           # Per-channel CAN signal database for channel 0
+│   ├── can1.json           # Per-channel CAN signal database for channel 1
+│   └── alarms.json         # Alarm thresholds per signal (info/warning/critical)
 ├── db/
-│   ├── can_db/             # (legacy) DBC files — no longer used by parser
-│   └── ecu_db/             # (legacy) A2L files — no longer used by parser
+│   ├── can_db/             # DBC files (p_v2.dbc, m_dummy.dbc, p_dummy.dbc)
+│   └── ecu_db/             # A2L files (m_dummy.a2l)
 ├── src/
 │   ├── api/                # FastAPI app, routes, WebSocket, auth
 │   │   └── routes/         # signals, alarms, config, system routes
 │   ├── can_io/             # bus_factory, parser, reader, writer
-│   ├── can_simulator/      # Scenario + random CAN simulators
-│   ├── core/               # config, config_manager, runner, signal_store
-│   ├── processor/          # Pipeline stages: filters, alarms, computed
-│   └── storage/            # SQLite repository, database init, exporter
+│   ├── can_simulator/      # Built-in CAN simulator (scenario + random)
+│   ├── core/               # config, config_manager, runner, signal_store, system_metrics
+│   ├── processor/          # Pipeline stages: filters, alarms, computed, pipeline
+│   └── storage/            # SQLite repository, database init, exporter (CSV/JSON)
 ├── tests/                  # pytest test suite
 ├── frontend/               # Static HTML/CSS/JS dashboard
-├── scripts/                # Helper scripts (run, test, config tools)
+├── scripts/                # Helper scripts (run, test, config tools, DBC utilities)
 ├── diagram/                # PlantUML architecture diagrams
-├── scenarios/              # YAML scenario files for simulator
+├── docs/                   # Requirements documentation
+├── introduce/              # Architecture and API reference guides
 ├── deploy/                 # systemd service file
 ├── pyproject.toml
 ├── ruff.toml
@@ -112,43 +119,70 @@ car-hmi/
 
 All runtime behaviour is controlled via `config/system.json`. Key sections:
 
-| Section       | Description                                          |
-|---------------|------------------------------------------------------|
-| `can`         | Interface, channel, bitrate, `can_json_path`          |
-| `simulator`   | Enable/disable, scenario file, default cycle time    |
-| `processor`   | Smoothing window, rate limiter, queue policy          |
-| `api`         | Host, port, API key, CORS origins, WS heartbeat      |
-| `storage`     | SQLite path, batch size, retention days               |
-| `alarms`      | (separate file) per-signal threshold definitions      |
+| Section       | Description                                                                      |
+|---------------|----------------------------------------------------------------------------------|
+| `can`         | **Array** of bus channels — each with `interface`, `channel`, `bitrate`, `can_json_path`, `can_db_files` |
+| `simulator`   | Enable/disable, `default_cycle_ms`, `can_json_path` for the built-in simulator   |
+| `processor`   | `smoothing_window`, `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
+| `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_heartbeat_interval_sec`, `ws_metrics_interval_sec` |
+| `storage`     | `engine` (`sqlite`), `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
+| `writer`      | `rate_limit_per_sec`, `burst` for CAN write commands                             |
+| `shutdown`    | `timeout_sec` for graceful shutdown                                              |
+| `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
+| `logging`     | `level`, `file_path`, `max_size_mb`, `backup_count` for rotating file log        |
+
+Alarm thresholds are defined separately in `config/alarms.json` (per-signal `warning_high`, `warning_low`, `critical_high`, `critical_low`).
 
 ## API Endpoints
 
-| Method | Path                          | Description                                |
-|--------|-------------------------------|--------------------------------------------|
-| GET    | `/signals`                    | List all current signal values             |
-| GET    | `/signals/{name}`             | Get a specific signal                      |
-| GET    | `/signals/{name}/history`     | Signal history (time-series)               |
-| PUT    | `/signals/{name}`             | Write a signal value to CAN bus (202)      |
-| GET    | `/alarms`                     | List recent alarms                         |
-| GET    | `/alarms/{id}`                | Get a specific alarm                       |
-| POST   | `/alarms/{id}/acknowledge`    | Acknowledge an alarm                       |
-| POST   | `/alarms/{id}/resolve`        | Resolve an alarm                           |
-| GET    | `/config`                     | List signal display configs                |
-| GET    | `/config/signal/{name}`       | Read a signal config                       |
-| PATCH  | `/config/signal/{name}`       | Update a signal config                     |
-| GET    | `/config/processor`           | Read processor runtime config              |
-| POST   | `/config/processor`           | Update processor config (live apply)       |
-| GET    | `/config/general`             | Read full application config (JSON)        |
-| PATCH  | `/config/general`             | Patch application config (partial)         |
-| POST   | `/config/general/reset`       | Reset application config to defaults       |
-| GET    | `/config/alarms`              | Read alarms config file (JSON)             |
-| POST   | `/config/alarms`              | Update alarms config (overwrite)           |
-| POST   | `/config/alarms/reset`        | Reset alarms config to default (empty)     |
-| GET    | `/system/health`              | Health check (liveness)                    |
-| GET    | `/system/ready`               | Readiness check                            |
-| WS     | `/ws/signals`                 | Live signal stream via WebSocket           |
-| WS     | `/ws/alarms`                  | Live alarm events via WebSocket            |
-| WS     | `/ws/all`                     | All events (signals + alarms) via WS       |
+| Method | Path                          | Description                                            |
+|--------|-------------------------------|--------------------------------------------------------|
+| GET    | `/signals`                    | List all current signal values                         |
+| GET    | `/signals/available`          | List all signals with full metadata and alarm thresholds |
+| GET    | `/signals/{name}`             | Get latest value for a specific signal                 |
+| GET    | `/signals/{name}/history`     | Signal history (time-series) from DB                   |
+| PUT    | `/signals/{name}`             | Write a signal value to CAN bus (202)                  |
+| GET    | `/alarms`                     | List alarm history (filterable by signal, level, acknowledged, time range) |
+| GET    | `/alarms/{id}`                | Get a specific alarm                                   |
+| POST   | `/alarms/{id}/acknowledge`    | Acknowledge an alarm                                   |
+| POST   | `/alarms/{id}/resolve`        | Resolve an alarm                                       |
+| GET    | `/config`                     | List signal display configs                            |
+| GET    | `/config/signal/{name}`       | Read a signal config                                   |
+| PATCH  | `/config/signal/{name}`       | Update a signal config                                 |
+| GET    | `/config/processor`           | Read processor runtime config                          |
+| POST   | `/config/processor`           | Update processor config (live apply)                   |
+| GET    | `/config/general`             | Read full application config (JSON)                    |
+| PATCH  | `/config/general`             | Patch application config (partial)                     |
+| POST   | `/config/general/reset`       | Reset application config to defaults                   |
+| GET    | `/config/alarms`              | Read alarms config file (JSON)                         |
+| POST   | `/config/alarms`              | Update alarms config (overwrite)                       |
+| POST   | `/config/alarms/reset`        | Reset alarms config to default (empty)                 |
+| GET    | `/system/health`              | Liveness probe (bus + DB status, uptime)               |
+| GET    | `/system/ready`               | Readiness probe (for container/systemd)                |
+| GET    | `/system/metrics`             | System resource metrics (CPU, RAM, disk, queue, process) |
+| WS     | `/ws/signals`                 | Live signal stream (all signals)                       |
+| WS     | `/ws/alarms`                  | Live alarm events                                      |
+| WS     | `/ws/all`                     | All events (signals + alarms)                          |
+| WS     | `/ws/subscribe`               | Per-signal subscription via JSON commands              |
+
+> **Authentication**: All REST and WebSocket endpoints accept an optional `X-API-Key` header (or `?api_key=` query param for WebSocket). Auth is disabled when `api_key` is set to a placeholder value (`change-me-in-production`, etc.).
+
+### WebSocket subscribe protocol (`/ws/subscribe`)
+
+The `/ws/subscribe` endpoint uses a structured JSON command to select channels:
+
+```json
+// Subscribe to specific signals, alarms, and metrics
+{"action": "subscribe", "channels": ["EngineSpeed", "CoolantTemp", "alarms", "metrics"], "mode": "continuous"}
+
+// Subscribe to all signals
+{"action": "subscribe", "channels": ["*"], "mode": "continuous"}
+
+// Unsubscribe from a channel
+{"action": "unsubscribe", "channels": ["EngineSpeed"]}
+```
+
+Special channel names: `alarms` (alarm events), `metrics` (system resource snapshots), `*` (all signals).
 
 ## Runtime configuration & CLI
 
@@ -182,15 +216,15 @@ Be cautious increasing the queue to very large values — large queues consume R
 
 ## Frontend: Settings & Alarms UI
 
-The web dashboard now includes `Settings` and `Alarms` buttons in the header. Use them to:
+The web dashboard includes `Settings` and `Alarms` buttons in the header. Use them to:
 
  - View and edit the full `config/system.json` (JSON editor in modal).
  - Reset the application config to defaults (Reset button in modal).
  - View and edit `config/alarms.json` and reset alarms to an empty default.
 
 Notes:
-- The modal editors send JSON to the backend endpoints under `/config/*`. The backend will persist changes to disk and attempt a live apply where supported.
- - Always backup `config/system.json` if you have customized critical paths (can_json_path, DB locations) before resetting.
+- The modal editors send JSON to the backend endpoints under `/config/*`. The backend persists changes to disk and attempts a live apply where supported.
+- Always backup `config/system.json` if you have customized critical paths (`can_json_path`, `sqlite_path`) before resetting.
 
 ## Frontend Modes
 
@@ -203,34 +237,33 @@ Notes:
 
 Usage: select mode from the header `Mode` dropdown. In `User` mode the signal table and live updates are limited to the approved signals to reduce information overload and improve safety/privacy.
 
-## Docker
-
-```bash
-# Build and run
-docker compose up --build
-
-# Or build image only
-docker build -t can-hmi .
-
-# Run with custom config
-docker run -p 8000:8000 -v ./config:/app/config:ro can-hmi
-```
-
-The container exposes port 8000 and includes a health check against `/system/health`.
-
 ## Deployment (Linux)
 
-A systemd service file is provided at `deploy/can-hmi.service`:
+A systemd service template is provided at `deploy/can-hmi.service`. The template uses `@@PROJECT_DIR@@` and `@@SERVICE_USER@@` placeholders — filled in automatically by the deploy script.
 
 ```bash
-# Install
-sudo cp deploy/can-hmi.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now can-hmi
+# Install, enable, and start the service (run from any directory)
+bash scripts/deploy_linux.sh
 
-# Logs
+# Check service status
+bash scripts/deploy_linux.sh --status
+
+# View live logs
 sudo journalctl -u can-hmi -f
+
+# Stop the service
+sudo systemctl stop can-hmi
+
+# Remove the service
+bash scripts/deploy_linux.sh --uninstall
 ```
+
+The script:
+1. Resolves `PROJECT_DIR` from its own location (no hardcoded paths)
+2. Validates that `.venv/bin/can-hmi` and `config/system.json` exist
+3. Renders the service template and installs it to `/etc/systemd/system/`
+4. Enables and starts (or restarts) the service
+5. Prints status and useful commands on success
 
 ## Testing
 

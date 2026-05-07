@@ -10,8 +10,6 @@ if (Queue full?\n(size >= max_queue_size)) then (yes)
     if (queue_policy?) then (drop_oldest)
         :Drop oldest message;
         :Log WARNING\n"backpressure: dropped frame";
-    elseif (block) then (block)
-        :Block producer until\nspace available;
     else (reject)
         :Reject frame;\n:Return backpressure error;
         stop

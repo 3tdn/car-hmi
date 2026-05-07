@@ -53,6 +53,16 @@ api -> api : register routes\nsetup CORS, auth
 api --> runner : App ready
 
 runner -> runner : start all as asyncio tasks
+note right of runner
+  Tasks launched:
+  - pipeline (process signal queue)
+  - can-reader-vcan0, can-reader-vcan1
+  - simulator (dev mode)
+  - api (uvicorn server)
+  - watchdog (health monitor)
+  - metrics-push (psutil metrics -> WS broadcast)
+  - retention (old data cleanup)
+end note
 runner -> mon : start watchdog\n(monitor all processes)
 
 note over api : /health → 200 (liveness)\n/ready → 200 (all components init OK)

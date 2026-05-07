@@ -41,8 +41,9 @@
   "processor": {
     "smoothing_window": 5,
     "max_update_rate_hz": 5000.0,
-    "max_queue_size": 1000000,
-    "queue_policy": "reject"
+    "max_queue_size": 10000,
+    "queue_policy": "drop_oldest",
+    "batch_drain_size": 200
   },
   "writer": {
     "rate_limit_per_sec": 10,

@@ -192,6 +192,7 @@ class AppRunner:
             queue_policy=proc_cfg.queue_policy,
             batch_size=store_cfg.batch_size,
             batch_interval_sec=store_cfg.batch_interval_sec,
+            batch_drain_size=proc_cfg.batch_drain_size,
         )
         self._pipeline.add_stage(SmoothingFilter(window=proc_cfg.smoothing_window))
         self._pipeline.add_stage(RateLimiter(max_hz=proc_cfg.max_update_rate_hz))

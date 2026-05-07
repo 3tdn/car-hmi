@@ -27,8 +27,8 @@ class DatabaseLoader {
 package "api.auth" as pkg_auth #LightBlue {
 class APIKeyAuth {
     -api_key: str
-    +__call__(request: Request): str
-    +validate_ws_token(token: str): bool
+    +verify(key: str | None): bool
+    +__call__(key: str | None): None
 }
 
 note right of APIKeyAuth

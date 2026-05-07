@@ -22,7 +22,7 @@ entity "signal_config" as config {
     group_name : TEXT <<DEFAULT ''>>
     widget_type : TEXT <<DEFAULT 'gauge'>>
     writable : BOOLEAN <<DEFAULT 0>>
-    updated_at : TEXT
+    updated_at : REAL
 }
 
 entity "alarm_log" as alarm {
@@ -33,9 +33,9 @@ entity "alarm_log" as alarm {
     *value : REAL <<NOT NULL>>
     *threshold : REAL <<NOT NULL>>
     description : TEXT
-    *triggered_at : TEXT <<NOT NULL>>
+    *triggered_at : REAL <<NOT NULL>>
     acknowledged : BOOLEAN <<DEFAULT 0>>
-    resolved_at : TEXT
+    resolved_at : REAL
     --
     <<INDEX>> idx_alarm_log_signal(signal_name, triggered_at)
 }
