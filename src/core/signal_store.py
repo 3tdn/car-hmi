@@ -78,6 +78,15 @@ class SignalStore:
         async with self._lock:
             return self._signals.get(name)
 
+    def get_unit(self, name: str) -> str | None:
+        """Đọc đồng bộ unit của tín hiệu — an toàn trong CPython nhờ GIL.
+
+        Dùng cho hot-path pipeline để tránh acquire asyncio.Lock() per-signal.
+        Unit được khởi tạo lúc seed và không thay đổi trong runtime.
+        """
+        sv = self._signals.get(name)
+        return sv.unit if sv is not None else None
+
     async def get_snapshot(self) -> dict[str, SignalValue]:
         async with self._lock:
             return dict(self._signals)
