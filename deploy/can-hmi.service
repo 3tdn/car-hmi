@@ -10,7 +10,7 @@ WorkingDirectory=@@PROJECT_DIR@@
 ExecStart=@@PROJECT_DIR@@/.venv/bin/can-hmi --config @@PROJECT_DIR@@/config/system.json
 Restart=on-failure
 RestartSec=5
-WatchdogSec=30
+# WatchdogSec=30
 
 # Environment
 Environment=CAN_HMI_LOG_LEVEL=INFO
