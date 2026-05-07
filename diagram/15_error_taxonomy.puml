@@ -71,9 +71,10 @@ e10 --> r_badreq
 
 note bottom of recovery
   **Monitoring:**
-  - Each error type has a Prometheus counter
-  - Exported via /system/health
-  - Supervisor uses counters to decide restart
+  - System metrics available via GET /system/metrics
+  - CPU, RAM, disk, queue, process stats via psutil
+  - /health for liveness, /ready for readiness probes
+  - Supervisor watchdog triggers restart on repeated failures
 end note
 
 @enduml

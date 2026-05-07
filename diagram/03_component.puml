@@ -37,7 +37,7 @@ package "src/api" as pkg_api #LightBlue {
     [app.py\nFastAPI Factory] as api_app
     [websocket.py\nWebSocket Handlers] as api_ws
     [models.py\nPydantic Models] as api_models
-    [auth.py\nAPI Key / JWT] as api_auth
+    [auth.py\nAPI Key Auth (X-API-Key)] as api_auth
     package "routes/" {
         [signals.py] as r_signals
         [alarms.py] as r_alarms
@@ -51,6 +51,7 @@ package "src/core" as pkg_core #LightGray {
     [config_manager.py\nRuntime Config CRUD] as core_cfgmgr
     [signal_store.py\nIn-memory State] as core_store
     [runner.py\nOrchestrator] as core_runner
+    [system_metrics.py\npsutil Metrics Collector] as core_metrics
 }
 
 ' CAN Bus interface (declared before usage)
@@ -96,8 +97,9 @@ core_runner --> io_reader : "start"
 core_runner --> io_writer : "init"
 core_runner --> core_store : "init store"
 core_runner --> proc_pipe : "start"
-r_system --> core_store : "bus status, queue lengths"
-r_system --> proc_pipe : "error counters, pipeline metrics"
+r_system --> core_store : "bus status, queue"
+r_system --> core_metrics : "CPU/RAM/disk/queue"
+r_system --> proc_pipe : "error counters"
 
 core_runner --> api_app : "start"
 core_runner --> core_config : "load"

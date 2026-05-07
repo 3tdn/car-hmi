@@ -3,21 +3,21 @@ title Sequence — Signal Write (Write-back) Flow
 actor User
 participant Frontend
 participant "FastAPI (signals)" as API
-participant "CANWriter" as Writer
+participant "CANWriterRouter" as Writer
 participant "CAN Bus" as CANBus
 participant ECU
-participant Repo
 
 == User requests a signal write in UI ==
 User -> Frontend: enter value & click Send
 Frontend -> API: PUT /signals/{signal_name} (value)
 API -> API: validate request (auth + writable + range)
 alt valid
-  API -> Writer: encode signal -> send frame
+  API -> Writer: send_signal(signal_name, value)
+  note right of Writer : CANWriterRouter routes to the
+  correct CANWriter by signal name
   Writer -> CANBus: transmit CAN frame
   CANBus -> ECU: receive frame
-  API -> Repo: insert write audit record
-  API -> Frontend: 202 Accepted (queued)
+  API -> Frontend: 200 OK
 else invalid
   API -> Frontend: 4xx error
 end

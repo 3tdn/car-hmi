@@ -5,55 +5,67 @@ title WebSocket Connection Lifecycle — Subscribe, Stream, Reconnect
 actor "Dashboard\n(app.js)" as client
 participant "FastAPI\n(websocket.py)" as ws
 participant "Signal Store\n(signal_store.py)" as store
-participant "Repository\n(repository.py)" as repo
 
 == 1. Connection & Authentication ==
-client -> ws : ws://host/ws/signals?token=<api_key>
-note right of client : Topic-based endpoints:\nws://host/ws/signals\nws://host/ws/alarms\nws://host/ws/all
-ws -> ws : validate token
-alt invalid token
-    ws --> client : Close(4001, "Unauthorized")
+client -> ws : ws://host/ws/signals?api_key=<key>
+note right of client
+  Legacy topic-based endpoints:
+  ws://host/ws/signals
+  ws://host/ws/alarms
+  ws://host/ws/all
+  New per-signal endpoint:
+  ws://host/ws/subscribe
+end note
+ws -> ws : auth.verify(api_key)
+alt invalid key
+    ws --> client : Close(4401, "Unauthorized")
 else valid
     ws --> client : Connection accepted
 end
 
-== 2. Initial Snapshot + Config ==
+== 2. Initial Snapshot (topic-based /ws/signals) ==
 ws -> store : get_snapshot()
 store --> ws : {all signals with values}
-ws -> client : {"type":"snapshot",\n "data":{"VehicleSpeed":{"value":84.1,"status":"ok"}, ...}}
-
-ws -> repo : get_all_configs()
-repo --> ws : List[SignalConfig]
-loop for each signal
-    ws -> client : {"type":"signal_config",\n "signal":"VehicleSpeed",\n "unit":"km/h","min":0,"max":655.35, ...}
-end
+ws -> client : {"type":"signal", "signal":"VehicleSpeed", "value":84.1, ...}
+note right of ws : One message per signal in snapshot
 
 == 3. Real-time Streaming ==
 loop continuous
     store -> ws : notify(signal_update)
-    alt client consuming normally
-        ws -> client : {"type":"signal_update",\n "data":{"VehicleSpeed":{"value":85.3,"status":"ok"}}}
-    else client too slow (buffer full)
-        ws -> ws : drop oldest message\nlog warning
-    end
+    ws -> client : {"type":"signal",\n "signal":"VehicleSpeed", "value":85.3, "timestamp":...}
 end
 
 == 4. Alarm Events ==
-store -> ws : notify(alarm)
-ws -> client : {"type":"alarm",\n "signal":"CoolantTemp","level":"warning",\n "value":97.2,"threshold":95}
+ws <- ws : broadcast_alarm(alarm_payload)
+ws -> client : {"type":"alarm",\n "signal_name":"CoolantTemp","level":"warning",\n "value":97.2,"threshold":95}
 
-== 5. Heartbeat ==
-note over ws : Runs concurrently with streaming\n(asyncio task)
-loop every 5 seconds (configurable: ws_heartbeat_interval_sec)
-    ws -> client : {"type":"heartbeat",\n "timestamp":1742000005.0,\n "uptime_sec":1425}
+== 5. System Metrics Push ==
+ws <- ws : broadcast_metrics(metrics_dict)
+ws -> client : {"type":"metrics",\n "cpu_percent":23.4,"ram_percent":41.0,...}
+
+== 6. Heartbeat ==
+note over ws : Runs concurrently (asyncio task)
+loop every ws_heartbeat_interval_sec (e.g. 0.5s)
+    ws -> client : {"type":"heartbeat",\n "timestamp":..., "uptime_sec":...}
 end
 
-== 6. Disconnection & Reconnect ==
-client ->x ws : Connection lost
-note over client : Detect: no heartbeat for 15s
-client -> client : Reconnect with\nexponential backoff\n(1s → 2s → 4s → ... → 30s max)
-client -> ws : ws://host/ws/signals?token=<api_key>
+== 7. Per-Signal Subscribe (/ws/subscribe) ==
+note over client : Alternative: use /ws/subscribe for
+selective signal streaming
+client -> ws : ws://host/ws/subscribe
 ws --> client : Connection accepted
-note over ws : Re-send snapshot + signal_config\n(see step 2)
+client -> ws : {"action":"subscribe",\n "channels":["EngineSpeed","alarms","metrics"],\n "mode":"continuous"}
+ws -> ws : acquire _lock, mutate _ClientSubscription
+ws --> client : {"type":"subscribe_ack"}
+store -> ws : signal update ("EngineSpeed", 2750.0)
+ws -> ws : filter: client subscribed? YES
+ws --> client : {"type":"signal","signal":"EngineSpeed","value":2750.0,...}
+
+== 8. Disconnection & Reconnect ==
+client ->x ws : Connection lost
+note over client : Detect: no heartbeat
+client -> client : Reconnect with\nexponential backoff\n(1s → 2s → 4s → ... → 30s max)
+client -> ws : ws://host/ws/signals?api_key=<key>
+ws --> client : Connection accepted
 
 @enduml
