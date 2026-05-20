@@ -185,16 +185,82 @@ function sanitizeId(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function createSignalRow(signalName, unit) {
+function createSignalRow(signalName, unit, writable = false, states = null) {
   const row = document.createElement("tr");
   row.id = `signal-row-${sanitizeId(signalName)}`;
+
+  let writeCell;
+  if (!writable) {
+    writeCell = `<td class="signal-write signal-write--ro">—</td>`;
+  } else if (states && states.length > 0) {
+    // Enum signal: render a <select> with named states
+    const options = states
+      .map((s) => `<option value="${s.value}">${s.value} — ${s.description}</option>`)
+      .join("");
+    writeCell = `<td class="signal-write">
+        <select class="write-select" aria-label="Write value for ${signalName}">
+          ${options}
+        </select>
+        <button class="write-btn btn" data-signal="${signalName}">Set</button>
+       </td>`;
+  } else {
+    // Continuous numeric signal: render a number input
+    writeCell = `<td class="signal-write">
+        <input class="write-input" type="number" step="any"
+               aria-label="Write value for ${signalName}" />
+        <button class="write-btn btn" data-signal="${signalName}">Set</button>
+       </td>`;
+  }
+
   row.innerHTML = `
     <td class="signal-name">${signalName}</td>
     <td class="signal-value">— ${unit || ""}</td>
     <td class="signal-history"><canvas class="sparkline" width="140" height="28"></canvas></td>
+    ${writeCell}
   `;
+  if (writable) {
+    const btn = row.querySelector(".write-btn");
+    btn.addEventListener("click", () => handleWriteSignal(signalName, row));
+    const inp = row.querySelector(".write-input, .write-select");
+    if (inp && inp.tagName === "INPUT") {
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleWriteSignal(signalName, row);
+      });
+    }
+  }
   signalTableBody.appendChild(row);
   return row;
+}
+
+async function handleWriteSignal(signalName, row) {
+  const inp = row.querySelector(".write-input");
+  const sel = row.querySelector(".write-select");
+  const btn = row.querySelector(".write-btn");
+  const raw = sel ? sel.value : (inp ? inp.value.trim() : "");
+  if (raw === "") return;
+  const value = parseFloat(raw);
+  if (isNaN(value)) {
+    if (inp) inp.classList.add("write-input--error");
+    return;
+  }
+  if (inp) inp.classList.remove("write-input--error");
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    await writeSignal(signalName, value);
+    btn.textContent = "✓";
+    btn.classList.add("write-btn--ok");
+  } catch (e) {
+    console.error("writeSignal failed:", e);
+    btn.textContent = "✗";
+    btn.classList.add("write-btn--err");
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "Set";
+      btn.classList.remove("write-btn--ok", "write-btn--err");
+    }, 1500);
+  }
 }
 
 function markFastSignal(/* signalName, unit */) {
@@ -205,7 +271,7 @@ function unmarkFastSignal(/* signalName */) {
   // no-op: fast-changing signals layout removed
 }
 
-function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit = "") {
+function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit = "", writable = false, states = null) {
   if (unit) signalUnits.set(signalName, unit);
 
   const nowTs = timestamp;
@@ -226,7 +292,7 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
 
   let row = document.getElementById(`signal-row-${sanitizeId(signalName)}`);
   if (!row) {
-    row = createSignalRow(signalName, unit);
+    row = createSignalRow(signalName, unit, writable, states);
   }
   const valueEl = row.querySelector(".signal-value");
   if (valueEl) {
@@ -255,7 +321,7 @@ async function loadSnapshot() {
       if (unit) signalUnits.set(meta.signal_name, unit);
       if (meta.value != null && isSignalAllowed(meta.signal_name)) {
         updateWidget(meta.signal_name, meta.value);
-        updateSignalRow(meta.signal_name, meta.value, meta.timestamp || 0, unit);
+        updateSignalRow(meta.signal_name, meta.value, meta.timestamp || 0, unit, !!meta.writable, meta.states || null);
       }
     });
     console.info(`Loaded metadata for ${items.length} signals`);
@@ -357,16 +423,35 @@ function connectLegacy() {
 }
 
 function handleMessage(msg) {
+  // Demo-compatible batch frame: {timestamp: "ISO8601", signals: [{name, value}]}
+  if (Array.isArray(msg.signals) && !msg.type) {
+    const ts = msg.timestamp ? new Date(msg.timestamp).getTime() / 1000 : Date.now() / 1000;
+    msg.signals.forEach(({ name, value }) => {
+      if (!isSignalAllowed(name)) return;
+      const meta = signalMetadataCache.get(name);
+      updateWidget(name, value);
+      updateSignalRow(name, value, ts, signalUnits.get(name) || "", !!(meta && meta.writable), (meta && meta.states) || null);
+    });
+    return;
+  }
+  // Legacy single-signal frame
   if (msg.type === "signal") {
     if (!isSignalAllowed(msg.signal)) return;
+    const meta = signalMetadataCache.get(msg.signal);
     updateWidget(msg.signal, msg.value);
-    updateSignalRow(msg.signal, msg.value, msg.timestamp, signalUnits.get(msg.signal) || "");
+    updateSignalRow(msg.signal, msg.value, msg.timestamp, signalUnits.get(msg.signal) || "", !!(meta && meta.writable), (meta && meta.states) || null);
   } else if (msg.type === "alarm") {
     renderAlarm(msg);
   } else if (msg.type === "metrics") {
     renderMetrics(msg);
+  } else if (msg.type === "subscribed") {
+    // Demo-compatible ack: {type: "subscribed", signals: [...], count: N}
+    console.debug("Subscribed:", msg.signals, "count:", msg.count);
   } else if (msg.type === "subscribe_ack") {
+    // Legacy ack format — kept for backward compat
     console.debug("Subscribe ack:", msg);
+  } else if (msg.type === "pong") {
+    // keepalive response — no action needed
   }
 }
 

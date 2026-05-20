@@ -1997,7 +1997,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2012,7 +2081,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2027,7 +2165,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2042,7 +2249,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2057,7 +2333,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         }

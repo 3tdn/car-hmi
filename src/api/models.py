@@ -31,6 +31,19 @@ class WriteSignalRequest(BaseModel):
     value: float = Field(..., description="Giá trị cần ghi lên CAN bus")
 
 
+class BatchSignalWriteItem(BaseModel):
+    """Một signal trong batch write request."""
+
+    signal_name: str = Field(..., description="Tên tín hiệu")
+    value: float = Field(..., description="Giá trị cần ghi")
+
+
+class BatchSignalWrite(BaseModel):
+    """Yêu cầu ghi nhiều tín hiệu CAN cùng lúc — POST /signals/batch_update."""
+
+    signals: list[BatchSignalWriteItem] = Field(..., description="Danh sách signal cần ghi")
+
+
 # ── Model metadata tín hiệu (available signals) ───────────────────────────
 
 
@@ -42,6 +55,7 @@ class SignalMetadata(BaseModel):
     min_value: float | None = Field(None, description="Giá trị tối thiểu hợp lệ")
     max_value: float | None = Field(None, description="Giá trị tối đa hợp lệ")
     writable: bool = Field(False, description="Tín hiệu có thể ghi từ API hay không")
+    states: list[dict] | None = Field(None, description="Danh sách enum states [{value, description}], None nếu là số liên tục")
     group_name: str | None = Field(None, description="Nhóm chức năng (ví dụ: engine, body)")
     widget_type: str | None = Field(None, description="Loại widget hiển thị trên frontend")
     # Alarm thresholds
@@ -66,21 +80,23 @@ class SignalMetadataListResponse(BaseModel):
 
 
 class SubscribeRequest(BaseModel):
-    """Client → Server qua WS: subscribe/unsubscribe channels."""
+    """Client → Server qua WS: subscribe/unsubscribe.
 
-    action: str = Field(
-        ...,
-        pattern="^(subscribe|unsubscribe)$",
-        description="Hành động: 'subscribe' để đăng ký hoặc 'unsubscribe' để huỷ đăng ký",
-    )
-    channels: list[str] = Field(
-        ...,
-        description="Danh sách kênh: tên tín hiệu, 'alarms', 'metrics', hoặc '*' cho tất cả tín hiệu",
-    )
+    Demo format (ưu tiên):
+        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "unsubscribe", "signals": ["SignalName"]}
+        {"type": "ping"}
+    Legacy format (backward compat):
+        {"action": "subscribe", "channels": ["SignalName"], "mode": "continuous"}
+    """
+
+    type: str | None = Field(None, description="Demo format: 'subscribe' | 'unsubscribe' | 'ping'")
+    signals: list[str] | str | None = Field(None, description="Demo: danh sách tên signal hoặc '*'")
+    action: str | None = Field(None, description="Legacy: 'subscribe' | 'unsubscribe'")
+    channels: list[str] | None = Field(None, description="Legacy: danh sách kênh")
     mode: str = Field(
         "continuous",
-        pattern="^(continuous|once)$",
-        description="continuous = stream liên tục, once = gửi giá trị hiện tại rồi dừng",
+        description="continuous = stream liên tục, once = gửi giá trị rồi dừng",
     )
 
 
@@ -210,6 +226,61 @@ class SystemMetricsResponse(BaseModel):
     uptime_seconds: float = Field(..., description="Thời gian ứng dụng đã chạy (giây)")
     python_version: str = Field(..., description="Phiên bản Python đang sử dụng")
     platform: str = Field(..., description="Thông tin hệ điều hành / nền tảng")
+
+
+# ── Profile models ──────────────────────────────────────────────────────────
+
+
+class ProfileCreate(BaseModel):
+    """Yêu cầu tạo profile mới — POST /api/profile."""
+
+    name: str = Field(..., description="Tên profile (duy nhất)")
+    signals: list[str] = Field(default_factory=list, description="Danh sách tên signal trong profile")
+    description: str | None = Field(None, description="Mô tả ngắn về profile")
+
+
+class ProfileUpdate(BaseModel):
+    """Yêu cầu cập nhật profile (optimistic lock) — PUT /api/profile."""
+
+    name: str = Field(..., description="Tên profile cần cập nhật")
+    signals: list[str] = Field(..., description="Danh sách tên signal mới")
+    description: str | None = Field(None, description="Mô tả ngắn")
+    section_id: str = Field(
+        ...,
+        description="section_id hiện tại (lấy từ GET /api/profile). Dùng để tránh ghi đè đồng thời — 409 nếu mismatch.",
+    )
+
+
+class ProfileResponse(BaseModel):
+    """Thông tin một profile."""
+
+    name: str = Field(..., description="Tên profile")
+    signals: list[str] = Field(..., description="Danh sách tên signal")
+    description: str | None = Field(None, description="Mô tả")
+    section_id: str = Field(..., description="Hash dùng cho optimistic locking")
+
+
+class ProfilesResponse(BaseModel):
+    """Danh sách tất cả profiles."""
+
+    profiles: list[ProfileResponse]
+    total: int
+    active: str | None = Field(None, description="Tên profile đang active")
+
+
+# ── System info model ────────────────────────────────────────────────────────
+
+
+class SystemInfoResponse(BaseModel):
+    """Thông tin tổng quan dự án và trạng thái hệ thống — GET /api/info."""
+
+    name: str = Field(..., description="Tên ứng dụng")
+    version: str = Field(..., description="Phiên bản API")
+    description: str = Field(..., description="Mô tả")
+    uptime_seconds: float = Field(..., description="Thời gian đã chạy (giây)")
+    bus_connected: bool = Field(..., description="CAN bus có kết nối không")
+    db_connected: bool = Field(..., description="Database có kết nối không")
+    signal_count: int = Field(..., description="Số tín hiệu đang có trong store")
 
 
 # Processor config models (runtime API)
