@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 # const CARPC_NAME = "CARPC"  # used to identify signals transmitted by this system in DBC parsing; can be customized as needed
-CARPC_NAME = "CARPC"
+CARPC_NAME = "CAR_PC"
 
 try:
     import cantools

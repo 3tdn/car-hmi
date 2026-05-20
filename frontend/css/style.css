@@ -157,7 +157,7 @@ body {
 }
 
 .signal-table-wrapper {
-  max-height: 260px;
+  max-height: 700px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -191,6 +191,47 @@ body {
   width: 140px;
   height: 28px;
 }
+
+/* ── Write cell ────────────────────────────────────────────── */
+.signal-write {
+  white-space: nowrap;
+}
+.signal-write--ro {
+  color: var(--muted);
+  font-size: 12px;
+}
+.write-input {
+  width: 80px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--fg);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.write-select {
+  max-width: 180px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--fg);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.write-input--error {
+  border-color: var(--crit);
+  outline: none;
+}
+.write-btn {
+  padding: 3px 8px;
+  font-size: 12px;
+  min-width: 36px;
+  transition: background 0.2s;
+}
+.write-btn--ok  { background: var(--accent); color: #fff; }
+.write-btn--err { background: var(--crit);   color: #fff; }
 .alarm-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .alarm-list__empty { color: var(--muted); font-style: italic; }
 

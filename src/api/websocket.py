@@ -83,9 +83,22 @@ class ConnectionManager:
         return self._subscriptions.get(ws)
 
     async def process_subscribe_command(self, ws: WebSocket, data: dict) -> None:
-        """Xử lý lệnh subscribe/unsubscribe từ client."""
-        action = data.get("action", "subscribe")
-        channels = data.get("channels", [])
+        """Xử lý lệnh subscribe/unsubscribe từ client.
+
+        Chấp nhận cả 2 định dạng:
+        - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
+        - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
+        """
+        # Normalize: demo format (type/signals) hoặc legacy (action/channels)
+        msg_type = data.get("type", "")
+        if msg_type in ("subscribe", "unsubscribe"):
+            action = msg_type
+            raw_ch = data.get("signals", data.get("channels", []))
+        else:
+            action = data.get("action", "subscribe")
+            raw_ch = data.get("channels", data.get("signals", []))
+        # signals có thể là string "*" hoặc list
+        channels = [raw_ch] if isinstance(raw_ch, str) else list(raw_ch)
         mode = data.get("mode", "continuous")
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
@@ -127,13 +140,12 @@ class ConnectionManager:
                     else:
                         sub.signal_names.discard(ch)
 
-        # Ack (outside lock to avoid holding lock during I/O)
+        # Ack — demo format: {"type": "subscribed", "signals": [...], "count": N}
+        ack_signals: list[str] | str = channels[0] if channels == ["*"] else channels
         ack_payload = json.dumps({
-            "type": "subscribe_ack",
-            "action": action,
-            "channels": channels,
-            "mode": mode,
-            "rate_ms": rate_ms,
+            "type": "subscribed",
+            "signals": ack_signals,
+            "count": len(channels),
         })
         try:
             await ws.send_text(ack_payload)
@@ -143,15 +155,14 @@ class ConnectionManager:
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
+        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, value}]}."""
+        import datetime
+        iso_ts = datetime.datetime.utcfromtimestamp(timestamp).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         payload = json.dumps({
-            "type": "signal",
-            "signal": signal_name,
-            "value": value,
-            "timestamp": timestamp,
+            "timestamp": iso_ts,
+            "signals": [{"name": signal_name, "value": value}],
         })
-        # Legacy broadcast
         await self._broadcast(payload, SubscriptionTopic.SIGNALS)
-        # New per-signal broadcast
         await self._broadcast_to_subscribers(payload, signal_name=signal_name)
 
     async def broadcast_alarm(self, alarm: dict) -> None:
@@ -299,7 +310,10 @@ class ConnectionManager:
                 except (json.JSONDecodeError, ValueError):
                     await ws.send_text(json.dumps({"type": "error", "message": "Invalid JSON"}))
                     continue
-                await self.process_subscribe_command(ws, data)
+                if data.get("type") == "ping":
+                    await ws.send_text(json.dumps({"type": "pong"}))
+                else:
+                    await self.process_subscribe_command(ws, data)
         except WebSocketDisconnect:
             logger.debug("WS subscribe ngắt kết nối")
         except Exception:

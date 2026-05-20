@@ -6,6 +6,13 @@
       "bitrate": 500000,
       "can_json_path": "config/can0.json",
       "can_db_files": ["db/candb/p_v2.dbc"]
+    },
+    {
+      "interface": "virtual",
+      "channel": "vcan1",
+      "bitrate": 500000,
+      "can_json_path": "config/can1.json",
+      "can_db_files": ["db/candb/m_dummy.dbc"]
     }
   ],
   "simulator": {

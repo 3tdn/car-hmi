@@ -24,56 +24,6 @@
   </header>
 
   <main class="hmi-grid">
-    <!-- Gauges row -->
-    <section class="widget-group" id="group-powertrain">
-      <h2>Powertrain</h2>
-      <div class="widgets-row">
-        <div class="widget gauge" id="widget-VehicleSpeed"
-             data-signal="VehicleSpeed" data-unit="km/h" data-min="0" data-max="260">
-          <canvas class="gauge__canvas" width="160" height="160"></canvas>
-          <span class="gauge__label">Speed</span>
-          <span class="gauge__value">—</span>
-        </div>
-        <div class="widget gauge" id="widget-EngineRPM"
-             data-signal="EngineRPM" data-unit="rpm" data-min="0" data-max="8000">
-          <canvas class="gauge__canvas" width="160" height="160"></canvas>
-          <span class="gauge__label">RPM</span>
-          <span class="gauge__value">—</span>
-        </div>
-        <div class="widget gauge" id="widget-CoolantTemp"
-             data-signal="CoolantTemp" data-unit="°C" data-min="-20" data-max="130">
-          <canvas class="gauge__canvas" width="160" height="160"></canvas>
-          <span class="gauge__label">Coolant °C</span>
-          <span class="gauge__value">—</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Bars row -->
-    <section class="widget-group" id="group-brakes-battery">
-      <h2>Brakes &amp; Battery</h2>
-      <div class="widgets-row">
-        <div class="widget bar" id="widget-BrakePressure"
-             data-signal="BrakePressure" data-unit="bar" data-min="0" data-max="200">
-          <span class="bar__label">Brake Pressure</span>
-          <div class="bar__track"><div class="bar__fill"></div></div>
-          <span class="bar__value">—</span>
-        </div>
-        <div class="widget bar" id="widget-BatteryVoltage"
-             data-signal="BatteryVoltage" data-unit="V" data-min="9" data-max="16">
-          <span class="bar__label">Battery Voltage</span>
-          <div class="bar__track"><div class="bar__fill"></div></div>
-          <span class="bar__value">—</span>
-        </div>
-        <div class="widget bar" id="widget-FuelLevel"
-             data-signal="FuelLevel" data-unit="%" data-min="0" data-max="100">
-          <span class="bar__label">Fuel Level</span>
-          <div class="bar__track"><div class="bar__fill"></div></div>
-          <span class="bar__value">—</span>
-        </div>
-      </div>
-    </section>
-
     <!-- Fast-changing signals panel removed (no layout) -->
 
     <!-- CarPC System Monitor -->
@@ -187,14 +137,6 @@
       </div>
     </section>
 
-    <!-- Alarm panel -->
-    <section class="alarm-panel" id="alarm-panel">
-      <h2>Active Alarms</h2>
-      <ul class="alarm-list" id="alarm-list">
-        <li class="alarm-list__empty">No active alarms</li>
-      </ul>
-    </section>
-
     <!-- Full signal list (real-time) -->
     <section class="signal-panel" id="signal-panel">
       <h2>All Signals</h2>
@@ -205,6 +147,7 @@
               <th>Signal</th>
               <th>Value</th>
               <th>History</th>
+              <th>Write</th>
             </tr>
           </thead>
           <tbody id="signal-table-body"></tbody>

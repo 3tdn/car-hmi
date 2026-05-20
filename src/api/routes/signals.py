@@ -7,6 +7,7 @@ import time
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
 
 from src.api.models import (
+    BatchSignalWrite,
     SignalListResponse,
     SignalMetadata,
     SignalMetadataListResponse,
@@ -73,6 +74,7 @@ async def list_available_signals(request: Request):
                     "max_value": sig_data.get("maximum"),
                     "unit": sig_data.get("unit") or None,
                     "writable": bool(sig_data.get("TX", False)),
+                    "states": sig_data.get("states") or None,
                 })
 
     # Load alarm configs
@@ -95,6 +97,7 @@ async def list_available_signals(request: Request):
                 min_value=sig_cfg.get("min_value"),
                 max_value=sig_cfg.get("max_value"),
                 writable=sig_cfg.get("writable", False),
+                states=sig_cfg.get("states"),
                 group_name=None,
                 widget_type=None,
                 alarm_warning_high=alm_cfg.get("warning_high"),
@@ -168,17 +171,49 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
     return {"signal_name": signal_name, "value": body.value, "queued_at": time.time()}
 
 
+@router.post(
+    "/batch_update",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Write multiple writable signals simultaneously (batch)",
+)
+async def batch_update_signals(body: BatchSignalWrite, request: Request):
+    """Ghi nhiều tín hiệu CAN cùng lúc.
+    REST write được broadcast ngay tới tất cả WS clients đang subscribe.
+    """
+    writer = getattr(request.app.state, "writer", None)
+    if writer is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
+        )
+    queued = []
+    for item in body.signals:
+        await writer.send_signal(item.signal_name, item.value)
+        queued.append({"signal_name": item.signal_name, "value": item.value})
+    return {"queued": queued, "count": len(queued), "queued_at": time.time()}
+
+
 # ── WebSocket ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 
 @ws_router.websocket("/signals")
 async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None)):
+    """Endpoint WebSocket chính — tương thích với demo API.
+
+    Client → Server:
+        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "unsubscribe", "signals": ["SignalName"]}
+        {"type": "ping"}  →  {"type": "pong"}
+    Server → Client (signal frame):
+        {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name": "...", "value": 0.0}]}
+    Server → Client (subscribe ack):
+        {"type": "subscribed", "signals": [...], "count": N}
+    """
     auth = websocket.app.state.auth
     if not auth.verify(api_key):
         await websocket.close(code=4401)
         return
     mgr: ConnectionManager = websocket.app.state.ws_manager
-    await mgr.handle(websocket, topics={SubscriptionTopic.SIGNALS})
+    await mgr.handle_subscribe(websocket)
 
 
 @ws_router.websocket("/alarms")
@@ -203,11 +238,12 @@ async def ws_all(websocket: WebSocket, api_key: str | None = Query(None)):
 
 @ws_router.websocket("/subscribe")
 async def ws_subscribe(websocket: WebSocket, api_key: str | None = Query(None)):
-    """Endpoint mới: client gửi JSON subscribe/unsubscribe để chọn kênh nhận dữ liệu.
+    """Alias của /ws/signals — giữ để backward compatible. Khuyến nghị dùng /ws/signals cho client mới.
 
-    Message format từ client:
-        {"action": "subscribe", "channels": ["EngineSpeed", "alarms", "metrics"], "mode": "continuous"}
-        {"action": "unsubscribe", "channels": ["EngineSpeed"]}
+    Hỗ trợ đồng thời cả 2 định dạng:
+        {"type": "subscribe", "signals": ["EngineSpeed", "*"]}   # demo format
+        {"action": "subscribe", "channels": ["metrics"]}          # legacy format
+        {"type": "ping"}  →  {"type": "pong"}
     """
     auth = websocket.app.state.auth
     if not auth.verify(api_key):

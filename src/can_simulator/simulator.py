@@ -114,6 +114,10 @@ class CANSimulator:
             # Collect raw signal dicts first so we can allocate missing start_bit
             raw_sigs: list[dict] = []
             for sig_name, sd in md.get("signals", {}).items():
+                # skip TX signals — những tín hiệu CAR_PC ghi ra bus, không mô phỏng
+                if sd.get("TX", False):
+                    logger.debug("Skip TX signal '%s' in '%s' (simulator only sends ECU→CarPC)", sig_name, msg_name)
+                    continue
                 # skip signals missing 'length'
                 raw_len = sd.get("length")
                 if raw_len is None:

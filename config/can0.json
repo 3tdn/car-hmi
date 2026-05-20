@@ -20,7 +20,7 @@
           "description": "Bit Encoding for manual component request by HMI (like ACR_Retract, ABL_Retract, ISB Overwrite) | Signalvalues: 1 = Seat FL enable\n2 = Seat FR enable\n4 = Seat R1 enable\n8 = Seat R2 enable\n16 = Seat RR enable",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -57,7 +57,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HMI_FL_OccupantAge_years": {
           "start_bit": 3,
@@ -72,7 +72,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HMI_FR_OccupantAge_years": {
           "start_bit": 10,
@@ -87,7 +87,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HMI_CrashImpactTrigger": {
           "start_bit": 17,
@@ -102,7 +102,7 @@
           "description": "Trigger bit that the crash happens right now",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -139,7 +139,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -717,7 +717,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ABL_FR_RetractRequest": {
           "start_bit": 8,
@@ -765,7 +765,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ABL_R1_RetractRequest": {
           "start_bit": 16,
@@ -813,7 +813,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ABL_R2_RetractRequest": {
           "start_bit": 24,
@@ -861,7 +861,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ABL_RR1_RetractRequest": {
           "start_bit": 32,
@@ -909,7 +909,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -1997,9 +1997,78 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ACR_FR_RetractRequest": {
           "start_bit": 8,
@@ -2012,9 +2081,78 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ACR_R1_RetractRequest": {
           "start_bit": 16,
@@ -2027,9 +2165,78 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ACR_R2_RetractRequest": {
           "start_bit": 24,
@@ -2042,9 +2249,78 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ACR_RR1_RetractRequest": {
           "start_bit": 32,
@@ -2057,9 +2333,78 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3037,7 +3382,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ELK_FR_LockingRequest": {
           "start_bit": 1,
@@ -3061,7 +3406,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ELK_R1_LockingRequest": {
           "start_bit": 2,
@@ -3085,7 +3430,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ELK_R2_LockingRequest": {
           "start_bit": 3,
@@ -3109,7 +3454,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ELK_RR1_LockingRequest": {
           "start_bit": 4,
@@ -3133,7 +3478,7 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3288,7 +3633,7 @@
           "description": "Activation Level for HB requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HB_FR_ActivationLevel": {
           "start_bit": 3,
@@ -3303,7 +3648,7 @@
           "description": "Activation Level for HB requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HB_R1_ActivationLevel": {
           "start_bit": 6,
@@ -3318,7 +3663,7 @@
           "description": "Activation Level for HB requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HB_R2_ActivationLevel": {
           "start_bit": 9,
@@ -3333,7 +3678,7 @@
           "description": "Activation Level for HB requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HB_RR1_ActivationLevel": {
           "start_bit": 12,
@@ -3348,7 +3693,7 @@
           "description": "Activation Level for HB requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3373,7 +3718,7 @@
           "description": "Syncs all Activation Levels of HBs",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3403,7 +3748,7 @@
           "description": "Target Temperature calculated from HB Boosting Algorithm",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "HB_ManualTargetTemp": {
           "start_bit": 32,
@@ -3418,7 +3763,7 @@
           "description": "Manual Target Temprature Requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3443,7 +3788,7 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_ColorBlue_byte": {
           "start_bit": 8,
@@ -3458,7 +3803,7 @@
           "description": "Intensity for Color Blue on FL Buckle",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_ColorRed_byte": {
           "start_bit": 16,
@@ -3473,7 +3818,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_Intensity_perc": {
           "start_bit": 24,
@@ -3488,7 +3833,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_Normalization_bool": {
           "start_bit": 31,
@@ -3503,7 +3848,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_Transitionspeed_nibble": {
           "start_bit": 32,
@@ -3518,7 +3863,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_GroupOrModule_bool": {
           "start_bit": 36,
@@ -3533,7 +3878,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_AddressByte0_byte": {
           "start_bit": 37,
@@ -3548,7 +3893,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FL_AddressByte1_byte": {
           "start_bit": 45,
@@ -3563,7 +3908,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3588,7 +3933,7 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_ColorBlue": {
           "start_bit": 8,
@@ -3603,7 +3948,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_ColorRed": {
           "start_bit": 16,
@@ -3618,7 +3963,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_Intensity_perc": {
           "start_bit": 24,
@@ -3633,7 +3978,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_Normalization": {
           "start_bit": 31,
@@ -3648,7 +3993,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_Transitionspeed": {
           "start_bit": 32,
@@ -3663,7 +4008,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_GroupOrModule": {
           "start_bit": 36,
@@ -3678,7 +4023,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_AddressByte0": {
           "start_bit": 37,
@@ -3693,7 +4038,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_FR_AddressByte1": {
           "start_bit": 45,
@@ -3708,7 +4053,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3733,7 +4078,7 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_ColorBlue": {
           "start_bit": 8,
@@ -3748,7 +4093,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_ColorRed": {
           "start_bit": 16,
@@ -3763,7 +4108,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_Intensity": {
           "start_bit": 24,
@@ -3778,7 +4123,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_Normalization": {
           "start_bit": 31,
@@ -3793,7 +4138,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_Transitionspeed": {
           "start_bit": 32,
@@ -3808,7 +4153,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_GroupOrModule": {
           "start_bit": 36,
@@ -3823,7 +4168,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_AddressByte0": {
           "start_bit": 37,
@@ -3838,7 +4183,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R1_AddressByte1": {
           "start_bit": 45,
@@ -3853,7 +4198,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -3878,7 +4223,7 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_ColorBlue": {
           "start_bit": 8,
@@ -3893,7 +4238,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_ColorRed": {
           "start_bit": 16,
@@ -3908,7 +4253,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_Intensity": {
           "start_bit": 24,
@@ -3923,7 +4268,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_Normalization": {
           "start_bit": 31,
@@ -3938,7 +4283,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_Transitionspeed": {
           "start_bit": 32,
@@ -3953,7 +4298,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_GroupOrModule": {
           "start_bit": 36,
@@ -3968,7 +4313,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_AddressByte0": {
           "start_bit": 37,
@@ -3983,7 +4328,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_R2_AddressByte1": {
           "start_bit": 45,
@@ -3998,7 +4343,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },
@@ -4023,7 +4368,7 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_ColorBlue": {
           "start_bit": 8,
@@ -4038,7 +4383,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_ColorRed": {
           "start_bit": 16,
@@ -4053,7 +4398,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_Intensity": {
           "start_bit": 24,
@@ -4068,7 +4413,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_Normalization": {
           "start_bit": 31,
@@ -4083,7 +4428,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_Transitionspeed": {
           "start_bit": 32,
@@ -4098,7 +4443,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_GroupOrModule": {
           "start_bit": 36,
@@ -4113,7 +4458,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_AddressByte0": {
           "start_bit": 37,
@@ -4128,7 +4473,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         },
         "ISB_RR1_AddressByte1": {
           "start_bit": 45,
@@ -4143,7 +4488,7 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": true
         }
       }
     },

@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import APIKeyAuth
-from src.api.routes import alarms, config, signals, system
+from src.api.routes import alarms, config, profiles, signals, system
 from src.api.websocket import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -60,11 +60,19 @@ def create_app(
     app.include_router(alarms.router, prefix="/alarms", tags=["Alarms"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
     app.include_router(system.router, prefix="/system", tags=["System"])
+    # /api/info — thông tin hệ thống theo demo spec
+    app.include_router(system.router, prefix="/api", tags=["System Info"])
+    # Profile management
+    app.include_router(profiles.router, prefix="/api", tags=["Profiles"], dependencies=[auth_dep])
     # Điểm cuối WebSocket (không có auth dep — auth xử lý trong handshake ws)
     app.include_router(signals.ws_router, prefix="/ws", tags=["WebSocket"])
 
-    # Phục vụ frontend tích hợp sẵn (nếu có) tại gốc ứng dụng
-    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    # Phục vụ frontend tích hợp sẵn tại gốc ứng dụng.
+    # Ưu tiên dist/ (npm build output); fallback về frontend/ (vanilla).
+    project_root = Path(__file__).resolve().parents[2]
+    frontend_dist = project_root / "frontend" / "dist"
+    frontend_vanilla = project_root / "frontend"
+    frontend_dir = frontend_dist if frontend_dist.exists() else frontend_vanilla
     if frontend_dir.exists():
         app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
         logger.info("Serving frontend from %s", frontend_dir)
