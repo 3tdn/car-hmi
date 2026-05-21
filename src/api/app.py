@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import APIKeyAuth
-from src.api.routes import alarms, config, profiles, signals, system
+from src.api.routes import alarms, config, profiles, signals, system, adaptive_restraint
 from src.api.websocket import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ def create_app(
     app.include_router(signals.router, prefix="/signals", tags=["Signals"], dependencies=[auth_dep])
     app.include_router(alarms.router, prefix="/alarms", tags=["Alarms"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
+    app.include_router(adaptive_restraint.router, prefix="/adaptive_restraint", tags=["Adaptive Restraint"])
     app.include_router(system.router, prefix="/system", tags=["System"])
     # /api/info — thông tin hệ thống theo demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])

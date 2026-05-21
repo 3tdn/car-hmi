@@ -308,3 +308,35 @@ function openSubscriptionWS(onMessage, onOpen) {
 
   return { ws: sock, subscribe, unsubscribe, ping };
 }
+
+// ── Adaptive Restraint ─────────────────────────────────────────────────────────
+
+/**
+ * Lấy danh sách các options lọc hệ thống hỗ trợ thích ứng
+ */
+async function fetchAdaptiveAvailable() {
+  const resp = await fetch(`${API_BASE}/adaptive_restraint/available`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /adaptive_restraint/available → ${resp.status}`);
+  return resp.json();
+}
+
+/**
+ * Lấy thống kê và thông tin vẽ biểu đồ Box-plot cho hệ thống thích ứng
+ */
+async function fetchAdaptiveChartInfo(params) {
+  const queryParts = [];
+  for (const [key, values] of Object.entries(params)) {
+    if (Array.isArray(values)) {
+      values.forEach(val => {
+        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
+      });
+    } else if (values !== undefined && values !== null) {
+      queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(values)}`);
+    }
+  }
+  const queryString = queryParts.length ? `?${queryParts.join("&")}` : "";
+  const resp = await fetch(`${API_BASE}/adaptive_restraint/chart_info${queryString}`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /adaptive_restraint/chart_info → ${resp.status}`);
+  return resp.json();
+}
+

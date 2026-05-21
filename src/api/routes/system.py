@@ -34,6 +34,13 @@ async def system_info(request: Request) -> SystemInfoResponse:
         db_connected=db_ok,
         signal_count=len(snapshot),
     )
+
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+)
 async def health(request: Request) -> HealthResponse:
     uptime = time.time() - request.app.state.start_time
     readers = getattr(request.app.state, "readers", None)

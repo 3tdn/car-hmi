@@ -20,6 +20,15 @@
     "default_cycle_ms": 10,
     "can_json_path": "config/can0.json"
   },
+  "adaptive_restraint": {
+    "db_path": "db/adaptive_restraint_db_db/synthetic_data_out_gui.db",
+    "csv_path": "db/adaptive_restraint_db_db/synthetic_data_out_gui.csv"
+  },
+  "adap": {
+    "enabled": true,
+    "default_cycle_ms": 10,
+    "can_json_path": "config/can0.json"
+  },
   "api": {
     "host": "0.0.0.0",
     "port": 8000,
