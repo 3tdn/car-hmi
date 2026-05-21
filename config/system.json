@@ -8,7 +8,11 @@
       "can_db_files": ["db/candb/p_v2.dbc"]
     }
   ],
-  "simulator": {
+  "adaptive_restraint": {
+    "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
+    "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
+  },
+  "adap": {
     "enabled": true,
     "default_cycle_ms": 10,
     "can_json_path": "config/can0.json"

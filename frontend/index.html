@@ -20,10 +20,14 @@
         </select>
       </label>
     </div>
-    <span id="connection-badge" class="badge badge--disconnected">Disconnected</span>
+    <nav class="hmi-nav">
+      <button id="tab-dashboard" class="nav-btn active">Dashboard</button>
+      <button id="tab-adaptive" class="nav-btn">Adaptive Restraint</button>
+    </nav>
+    <span id="connection-badge" class="badge badge--disconnected" style="margin-left:auto;">Disconnected</span>
   </header>
 
-  <main class="hmi-grid">
+  <main class="hmi-grid" id="view-dashboard">
     <!-- Fast-changing signals panel removed (no layout) -->
 
     <!-- CarPC System Monitor -->
@@ -156,6 +160,95 @@
     </section>
   </main>
 
+  <main class="adaptive-grid" id="view-adaptive" style="display: none;">
+    <aside class="adaptive-sidebar">
+      <h2>Filters</h2>
+      
+      <div class="filter-group">
+        <label>System</label>
+        <div id="filter-system" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Age</label>
+        <div id="filter-age" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Seatbelt Component</label>
+        <div id="filter-seatbelt" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Velocity (km/h)</label>
+        <div id="filter-velocity" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Weight</label>
+        <div id="filter-weight" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Height</label>
+        <div id="filter-height" class="cb-list"></div>
+      </div>
+      
+      <div class="filter-group">
+        <label>Distance (seat position)</label>
+        <div id="filter-distance" class="cb-list"></div>
+      </div>
+      
+      <button id="btn-apply-filters" class="btn" style="width: 100%; margin-top: 16px;">Apply Filters & Update</button>
+    </aside>
+    
+    <section class="adaptive-content">
+      <div style="display: flex; gap: 16px; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2>Adaptive Restraint Analysis</h2>
+        <span id="rows-count" class="badge" style="background: var(--border); color: var(--text);">Rows matched: —</span>
+      </div>
+      
+      <!-- Chart section -->
+      <div class="card chart-card">
+        <h3>Injury Risk Box Plot</h3>
+        <div id="adaptive-chart" style="width: 100%; min-height: 480px;"></div>
+      </div>
+      
+      <!-- Metrics Table section -->
+      <div class="card table-card" style="margin-top: 16px;">
+        <h3>Injury Risk Metrics (%)</h3>
+        <table class="metrics-table" id="metrics-table">
+          <thead>
+            <tr>
+              <th>System</th>
+              <th>Mean (%)</th>
+              <th>3-Sigma (%)</th>
+            </tr>
+          </thead>
+          <tbody id="metrics-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Data section -->
+      <div class="card table-card" style="margin-top: 16px;" id="raw-data-card">
+        <h3 style="display:flex;align-items:center;gap:12px;">
+          Raw Datatable (Preview limit to 100 rows)
+          <label style="font-size:0.82rem;font-weight:400;display:flex;align-items:center;gap:5px;cursor:pointer;">
+            <input type="checkbox" id="chk-raw-data" checked> Show raw data
+          </label>
+        </h3>
+        <div class="raw-table-wrapper" style="overflow-x: auto; max-height: 400px; border: 1px solid var(--border); border-radius: 4px;">
+          <table class="raw-data-table" id="raw-data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr id="raw-table-header"></tr>
+            </thead>
+            <tbody id="raw-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
   <footer class="hmi-footer">
     <span id="status-text">Connecting…</span>
   </footer>
@@ -182,6 +275,8 @@
     })();
   </script>
   <script src="js/app.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
+  <script src="js/adaptive.js"></script>
   <script>
     // Modal containers for settings and alarms
     const settingsModal = document.createElement('div');
