@@ -218,13 +218,16 @@ async def get_chart_info(
         conditions.append(f'"velocity [km/h]" IN ({",".join(["?"] * len(velocity_sel))})')
         params.extend(velocity_sel)
     if weight_sel:
-        conditions.append(f"weight IN ({",".join(["?"] * len(weight_sel))})")
+        _ph = ",".join(["?"] * len(weight_sel))
+        conditions.append(f"weight IN ({_ph})")
         params.extend(weight_sel)
     if height_sel:
-        conditions.append(f"height IN ({",".join(["?"] * len(height_sel))})")
+        _ph = ",".join(["?"] * len(height_sel))
+        conditions.append(f"height IN ({_ph})")
         params.extend(height_sel)
     if distance_sel:
-        conditions.append(f"seat_position IN ({",".join(["?"] * len(distance_sel))})")
+        _ph = ",".join(["?"] * len(distance_sel))
+        conditions.append(f"seat_position IN ({_ph})")
         params.extend(distance_sel)
     if seatbelt_sel:
         conditions.append(f'"Seatbelt Component" IN ({",".join(["?"] * len(seatbelt_sel))})')
