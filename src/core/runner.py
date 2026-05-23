@@ -203,7 +203,17 @@ class AppRunner:
             checker.add_alarm_handler(self._on_alarm)
             self._pipeline.add_stage(checker)
 
-        # 4. CAN Bus + Reader + Writer — mỗi kênh riêng ───────────────────────
+        # 4. Kiểm tra simulator sớm — trước khi mở bus ─────────────────────────
+        # Tự động tắt nếu có kênh dùng hardware thực (non-virtual)
+        real_interfaces = [ch.interface for ch in can_channels if ch.interface != "virtual"]
+        if sim_cfg.enabled and real_interfaces:
+            logger.info(
+                "Simulator auto-disabled — real CAN interface(s) detected: %s",
+                ", ".join(real_interfaces),
+            )
+            sim_cfg = type(sim_cfg)(**{**sim_cfg.model_dump(), "enabled": False})
+
+        # 5. CAN Bus + Reader + Writer — mỗi kênh riêng ───────────────────────
         writer_router = CANWriterRouter()
         for idx, ch_cfg in enumerate(can_channels):
             db_loader = self._db_loaders[idx]
@@ -237,7 +247,7 @@ class AppRunner:
 
         self._writer_router = writer_router
 
-        # 5. CAN Simulator (tùy chọn) ───────────────────────────────────────────
+        # 6. CAN Simulator (tùy chọn) ───────────────────────────────────────────
         if sim_cfg.enabled:
             self._simulator = await self._build_simulator(sim_cfg)
 
