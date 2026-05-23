@@ -167,7 +167,10 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
-    await writer.send_signal(signal_name, body.value)
+    try:
+        await writer.send_signal(signal_name, body.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return {"signal_name": signal_name, "value": body.value, "queued_at": time.time()}
 
 
@@ -186,10 +189,16 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
     queued = []
+    errors = []
     for item in body.signals:
-        await writer.send_signal(item.signal_name, item.value)
-        queued.append({"signal_name": item.signal_name, "value": item.value})
-    return {"queued": queued, "count": len(queued), "queued_at": time.time()}
+        try:
+            await writer.send_signal(item.signal_name, item.value)
+            queued.append({"signal_name": item.signal_name, "value": item.value})
+        except ValueError as exc:
+            errors.append({"signal_name": item.signal_name, "error": str(exc)})
+    if errors and not queued:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=errors)
+    return {"queued": queued, "count": len(queued), "queued_at": time.time(), "errors": errors}
 
 
 # ── WebSocket ────────────────────────────────────────────────────────────────────────────────────────────────────────
