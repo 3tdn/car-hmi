@@ -140,10 +140,11 @@ class ConnectionManager:
                     else:
                         sub.signal_names.discard(ch)
 
-        # Ack — demo format: {"type": "subscribed", "signals": [...], "count": N}
+        # Ack — demo format: {"type": "subscribed"|"unsubscribed", "signals": [...], "count": N}
+        ack_type = "unsubscribed" if action == "unsubscribe" else "subscribed"
         ack_signals: list[str] | str = channels[0] if channels == ["*"] else channels
         ack_payload = json.dumps({
-            "type": "subscribed",
+            "type": ack_type,
             "signals": ack_signals,
             "count": len(channels),
         })
