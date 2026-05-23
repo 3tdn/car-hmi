@@ -3,41 +3,8 @@
 from __future__ import annotations
 
 import time
-from collections import deque
 
 from src.processor.pipeline import ProcessingStage
-
-
-class SmoothingFilter(ProcessingStage):
-    """Áp dụng làm mượt trung bình trượt (hoặc EMA) cho giá trị tín hiệu."""
-
-    def __init__(self, window: int = 5, method: str = "moving_avg") -> None:
-        self._window = window
-        self._method = method
-        self._history: dict[str, deque[float]] = {}
-        self._ema_state: dict[str, float] = {}
-
-    async def process(self, signals: dict[str, float]) -> dict[str, float]:
-        result = {}
-        for name, value in signals.items():
-            buf = self._history.setdefault(name, deque(maxlen=self._window))
-            buf.append(value)
-            if self._method == "ema":
-                if len(buf) >= 2:
-                    alpha = 2.0 / (self._window + 1)
-                    if name in self._ema_state:
-                        smoothed = alpha * value + (1 - alpha) * self._ema_state[name]
-                    else:
-                        # Should not happen typically if we started from len 1, but just in case
-                        smoothed = sum(buf) / len(buf)
-                    self._ema_state[name] = smoothed
-                    result[name] = smoothed
-                else:
-                    self._ema_state[name] = value
-                    result[name] = value
-            else:
-                result[name] = sum(buf) / len(buf)
-        return result
 
 
 class RateLimiter(ProcessingStage):

@@ -123,7 +123,7 @@ class AppRunner:
         from src.can_io.writer import CANWriter, CANWriterRouter
         from src.processor.alarms import AlarmChecker
         from src.processor.computed import ComputedSignals
-        from src.processor.filters import RateLimiter, SmoothingFilter
+        from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
         from src.storage.database import init_db
         from src.storage.repository import SQLiteRepository
@@ -194,7 +194,6 @@ class AppRunner:
             batch_interval_sec=store_cfg.batch_interval_sec,
             batch_drain_size=proc_cfg.batch_drain_size,
         )
-        self._pipeline.add_stage(SmoothingFilter(window=proc_cfg.smoothing_window))
         self._pipeline.add_stage(RateLimiter(max_hz=proc_cfg.max_update_rate_hz))
         self._pipeline.add_stage(ComputedSignals())
 
