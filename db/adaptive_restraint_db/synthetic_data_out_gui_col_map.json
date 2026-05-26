@@ -1,0 +1,13 @@
+{
+  "weight": "weight",
+  "seat_position": "seat_position",
+  "height": "height",
+  "velocity_km_h": "velocity [km/h]",
+  "injury_risk_fusion_35y": "injury_risk_fusion_35y",
+  "injury_risk_fusion_65y": "injury_risk_fusion_65y",
+  "injury_risk_camera_35y": "injury_risk_camera_35y",
+  "injury_risk_camera_65y": "injury_risk_camera_65y",
+  "injury_risk_non_adapt_35y": "injury_risk_non_adapt_35y",
+  "injury_risk_non_adapt_65y": "injury_risk_non_adapt_65y",
+  "Seatbelt_Component": "Seatbelt Component"
+}

@@ -142,13 +142,213 @@ except Exception as _e:
 # Helpers
 # ---------------------------------------------------------------------------
 def get_unique(column: str) -> list[Any]:
-    """Return sorted distinct values for the given column."""
+    """Return sorted distinct values for *column*.
+
+    Uses the in-memory numpy cache when available (fast), falls back to a
+    SQLite query only before the cache is loaded (first request).
+    """
+    if _np_cache["columns"] is not None:
+        col_arr = _np_cache["columns"].get(column)
+        if col_arr is not None:
+            if col_arr.dtype == object:
+                return sorted({v for v in col_arr.tolist() if v})
+            elif np.issubdtype(col_arr.dtype, np.integer):
+                return np.unique(col_arr[col_arr != -1]).tolist()
+            else:  # float
+                return np.unique(col_arr[~np.isnan(col_arr)]).tolist()
     if not _DB_READY:
         return []
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute(f'SELECT DISTINCT "{column}" FROM crash_data WHERE "{column}" IS NOT NULL ORDER BY "{column}"')
+        cursor.execute(
+            f'SELECT DISTINCT "{column}" FROM crash_data'
+            f' WHERE "{column}" IS NOT NULL ORDER BY "{column}"'
+        )
         return [row[0] for row in cursor.fetchall()]
+
+# ---------------------------------------------------------------------------
+# NumPy columnar cache — vectorized filtering, no Python-level row iteration
+# ---------------------------------------------------------------------------
+_np_cache: dict = {
+    "columns":     None,   # dict[str, np.ndarray] — one array per DB column
+    "params_norm": None,   # frozenset-dict of last request params (for hit detection)
+    "mask":        None,   # np.ndarray[bool]      — current filter mask
+}
+
+
+def _to_py(v: Any) -> Any:
+    """Convert a numpy scalar/string to a plain Python type for JSON output."""
+    if isinstance(v, np.floating) and np.isnan(v):       return None
+    if isinstance(v, (int, np.integer)) and v == -1:     return None
+    if isinstance(v, np.generic):                        return v.item()
+    return v
+
+
+def _normalize_params(params: dict) -> dict:
+    """Return params as a dict of frozensets (used for exact-match cache hit check)."""
+    return {
+        "velocity_sel": frozenset(int(float(v)) for v in params.get("velocity_sel", [])),
+        "weight_sel":   frozenset(float(v)      for v in params.get("weight_sel",   [])),
+        "height_sel":   frozenset(float(v)      for v in params.get("height_sel",   [])),
+        "distance_sel": frozenset(int(float(v)) for v in params.get("distance_sel", [])),
+        "seatbelt_sel": frozenset(str(v)        for v in params.get("seatbelt_sel", [])),
+    }
+
+
+_NPZ_PATH     = DB_PATH.parent / "synthetic_data_out_gui.npz"
+_NPZ_MAP_PATH = DB_PATH.parent / "synthetic_data_out_gui_col_map.json"
+
+# Characters that are illegal in numpy .npz key names
+_NPZ_KEY_TR = str.maketrans({" ": "_", "[": "", "]": "", "/": "_"})
+
+
+def _col_to_npz_key(col: str) -> str:
+    return col.translate(_NPZ_KEY_TR)
+
+
+def _save_npz(columns: dict[str, np.ndarray]) -> None:
+    """Persist columnar numpy arrays to .npz + a JSON key-map (one-time operation)."""
+    import json as _json
+    key_map = {_col_to_npz_key(c): c for c in columns}
+    np.savez_compressed(_NPZ_PATH, **{_col_to_npz_key(c): v for c, v in columns.items()})
+    _NPZ_MAP_PATH.write_text(_json.dumps(key_map, indent=2), encoding="utf-8")
+    logger.info("Adaptive restraint .npz cache saved → %s (%.1f MB)",
+                _NPZ_PATH, _NPZ_PATH.stat().st_size / 1024 / 1024)
+
+
+def _load_npz() -> dict[str, np.ndarray]:
+    """Load columnar arrays from .npz (~140 ms vs ~2600 ms from SQLite)."""
+    import json as _json
+    key_map: dict[str, str] = _json.loads(_NPZ_MAP_PATH.read_text(encoding="utf-8"))
+    data = np.load(_NPZ_PATH, allow_pickle=True)
+    return {key_map[k]: data[k] for k in data.files}
+
+
+def _npz_is_fresh() -> bool:
+    """Return True when the .npz exists AND is newer than the SQLite DB."""
+    return (
+        _NPZ_PATH.exists()
+        and _NPZ_MAP_PATH.exists()
+        and _NPZ_PATH.stat().st_mtime >= DB_PATH.stat().st_mtime
+    )
+
+
+def _load_np_data() -> None:
+    """Load crash_data once into per-column numpy arrays (cold start).
+
+    Fast path  (~140 ms): loads from a pre-built .npz binary cache.
+    Slow path (~2600 ms): reads SQLite, builds arrays, then writes .npz for
+                          next time.
+
+    Integer columns  → int32   (velocity, seat_position)
+    Float columns    → float64 (weight, height, injury_risk_*)
+    String columns   → object  (Seatbelt Component)
+    NULL values      → -1 (int) / NaN (float) / "" (str)
+    """
+    # ── fast path: .npz cache ────────────────────────────────────────────────
+    if _npz_is_fresh():
+        logger.info("Loading adaptive restraint data from .npz cache…")
+        _np_cache["columns"] = _load_npz()
+        return
+
+    # ── slow path: read SQLite, then cache to .npz ───────────────────────────
+    logger.info("Cold-loading adaptive restraint data from SQLite (first run)…")
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        raw = conn.execute("SELECT * FROM crash_data").fetchall()
+
+    if not raw:
+        _np_cache["columns"] = {}
+        return
+
+    col_names_sql = raw[0].keys()
+    columns: dict[str, np.ndarray] = {}
+
+    for col in col_names_sql:
+        vals = [r[col] for r in raw]
+        if col in ("velocity [km/h]", "seat_position"):
+            columns[col] = np.array(
+                [int(v) if v is not None else -1 for v in vals], dtype=np.int32
+            )
+        elif col == "Seatbelt Component":
+            columns[col] = np.array([v or "" for v in vals], dtype=object)
+        else:  # weight, height, injury_risk_* — all float
+            columns[col] = np.array(
+                [v if v is not None else np.nan for v in vals], dtype=np.float64
+            )
+
+    _np_cache["columns"] = columns
+
+    # Save .npz so the next server start uses the fast path
+    try:
+        _save_npz(columns)
+    except Exception as exc:
+        logger.warning("Could not save .npz cache: %s", exc)
+
+
+def _build_np_mask(params: dict) -> np.ndarray:
+    """Return a boolean mask over all rows matching *params* (vectorized np.isin)."""
+    cols = _np_cache["columns"]
+    n    = len(next(iter(cols.values())))
+    mask = np.ones(n, dtype=bool)
+
+    if (vs := params.get("velocity_sel")):
+        mask &= np.isin(cols["velocity [km/h]"],
+                        np.array([int(float(v)) for v in vs], dtype=np.int32))
+    if (ws := params.get("weight_sel")):
+        mask &= np.isin(cols["weight"],
+                        np.array([float(v) for v in ws], dtype=np.float64))
+    if (hs := params.get("height_sel")):
+        mask &= np.isin(cols["height"],
+                        np.array([float(v) for v in hs], dtype=np.float64))
+    if (ds := params.get("distance_sel")):
+        mask &= np.isin(cols["seat_position"],
+                        np.array([int(float(v)) for v in ds], dtype=np.int32))
+    if (sbs := params.get("seatbelt_sel")):
+        mask &= np.isin(cols["Seatbelt Component"],
+                        np.array([str(v) for v in sbs], dtype=object))
+
+    return mask
+
+
+# Dimension map used by _compute_available_options
+# (response_key, params_key, col_name, col_dtype)
+_AVAIL_DIM_MAP = [
+    ("Velocity", "velocity_sel", "velocity [km/h]",   "int"),
+    ("Weight",   "weight_sel",   "weight",             "float"),
+    ("Height",   "height_sel",   "height",             "float"),
+    ("Distance", "distance_sel", "seat_position",      "int"),
+    ("Seatbelt", "seatbelt_sel", "Seatbelt Component", "str"),
+]
+
+
+def _compute_available_options(params: dict) -> dict[str, list]:
+    """Return per-dimension available values using cross-dimensional masks.
+
+    For each dimension D, builds a mask from ALL other filters (excluding D),
+    then returns the distinct values of column D that pass that mask.
+    This implements faceted-search: the frontend can gray-out values that would
+    yield zero results when combined with the current selection.
+    """
+    cols   = _np_cache["columns"]
+    result: dict[str, list] = {}
+
+    for out_key, param_key, col_name, col_dtype in _AVAIL_DIM_MAP:
+        cross_params = {k: v for k, v in params.items() if k != param_key}
+        cross_mask   = _build_np_mask(cross_params)
+        col_arr      = cols[col_name][cross_mask]
+
+        if col_dtype == "float":
+            valid = col_arr[~np.isnan(col_arr)]
+            result[out_key] = np.unique(valid).tolist()
+        elif col_dtype == "int":
+            result[out_key] = np.unique(col_arr).tolist()
+        else:  # str / object
+            valid = col_arr[col_arr != ""]
+            result[out_key] = sorted(set(valid.tolist()))
+
+    return result
+
 
 # ---------------------------------------------------------------------------
 # Endpoints
@@ -209,89 +409,59 @@ async def get_chart_info(
     height_sel = [float(h) for h in height_sel]
     distance_sel = [float(d) for d in distance_sel]
 
-    # 2. Build sql query
-    # We query the SQLite and filter by velocity, weight, height, distance, seatbelt
-    conditions = []
-    params = []
+    # 2. Build numpy boolean mask — vectorized np.isin, no Python-level row loop
+    current_params = {
+        "velocity_sel": velocity_sel,
+        "weight_sel":   weight_sel,
+        "height_sel":   height_sel,
+        "distance_sel": distance_sel,
+        "seatbelt_sel": seatbelt_sel,
+    }
 
-    if velocity_sel:
-        conditions.append(f'"velocity [km/h]" IN ({",".join(["?"] * len(velocity_sel))})')
-        params.extend(velocity_sel)
-    if weight_sel:
-        _ph = ",".join(["?"] * len(weight_sel))
-        conditions.append(f"weight IN ({_ph})")
-        params.extend(weight_sel)
-    if height_sel:
-        _ph = ",".join(["?"] * len(height_sel))
-        conditions.append(f"height IN ({_ph})")
-        params.extend(height_sel)
-    if distance_sel:
-        _ph = ",".join(["?"] * len(distance_sel))
-        conditions.append(f"seat_position IN ({_ph})")
-        params.extend(distance_sel)
-    if seatbelt_sel:
-        conditions.append(f'"Seatbelt Component" IN ({",".join(["?"] * len(seatbelt_sel))})')
-        params.extend(seatbelt_sel)
+    if _np_cache["columns"] is None:
+        _load_np_data()  # cold start: load all rows into columnar arrays (once)
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    sql = f"SELECT * FROM crash_data {where_clause}"
+    curr_norm = _normalize_params(current_params)
+    if _np_cache["params_norm"] != curr_norm:   # miss → rebuild mask
+        _np_cache["mask"]        = _build_np_mask(current_params)
+        _np_cache["params_norm"] = curr_norm
+    mask = _np_cache["mask"]
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(sql, params)
-        db_rows = cursor.fetchall()
-
-    # 3. Compute stats for each requested System + Age combination
+    # 3. Compute stats using numpy array slicing — no Python iteration over rows
+    cols  = _np_cache["columns"]
     datas = []
     for system in systems_sel:
         for age in ages_sel:
             col_name = f"injury_risk_{system}_{age}"
-            
-            # Fetch valid values for this column from matching rows
-            values = []
-            for r in db_rows:
-                try:
-                    val = r[col_name]
-                    if val is not None:
-                        # Values in database are ratio (e.g. 0.0031).
-                        # Let's return them as percentages or keep raw.
-                        # The streamlit app converts to percentage (val * 100), but let's keep exact raw/percentage
-                        # Let's provide raw/processed floats as matches original SQLite data.
-                        values.append(float(val))
-                except (IndexError, KeyError, ValueError, TypeError):
-                    continue
-
-            # Calculate box plot stats
-            if values:
-                vals_arr = np.array(values)
-                min_val = float(np.min(vals_arr))
-                max_val = float(np.max(vals_arr))
-                median = float(np.median(vals_arr))
-                q1 = float(np.percentile(vals_arr, 25))
-                q3 = float(np.percentile(vals_arr, 75))
-                iqr = q3 - q1
-                # Standard box plot fences
-                lower_fence = float(np.max([min_val, q1 - 1.5 * iqr]))
-                upper_fence = float(np.min([max_val, q3 + 1.5 * iqr]))
+            raw  = cols.get(col_name)
+            if raw is None:
+                vals = np.empty(0, dtype=np.float64)
             else:
-                min_val = 0.0
-                max_val = 0.0
-                median = 0.0
-                q1 = 0.0
-                q3 = 0.0
-                lower_fence = 0.0
-                upper_fence = 0.0
+                raw  = raw[mask]
+                vals = raw[~np.isnan(raw)]
+
+            if len(vals):
+                q1, q3      = np.percentile(vals, [25, 75])
+                iqr         = float(q3 - q1)
+                min_val     = float(vals.min())
+                max_val     = float(vals.max())
+                lower_fence = float(max(min_val, q1 - 1.5 * iqr))
+                upper_fence = float(min(max_val, q3 + 1.5 * iqr))
+                median      = float(np.median(vals))
+                q1          = float(q1)
+                q3          = float(q3)
+            else:
+                min_val = max_val = median = q1 = q3 = lower_fence = upper_fence = 0.0
 
             datas.append({
                 col_name: {
-                    "values": values,
-                    "max": max_val,
-                    "min": min_val,
+                    "values":      vals.tolist(),
+                    "max":         max_val,
+                    "min":         min_val,
                     "upper fence": upper_fence,
-                    "q3": q3,
-                    "median": median,
-                    "q1": q1,
+                    "q3":          q3,
+                    "median":      median,
+                    "q1":          q1,
                     "lower fence": lower_fence,
                 }
             })
@@ -308,7 +478,13 @@ async def get_chart_info(
             "RawData": RawData,
         },
         "datas": datas,
+        "available_options": _compute_available_options(current_params),
     }
     if RawData:
-        result["raw_rows"] = [dict(r) for r in db_rows[:100]]
+        indices   = np.where(mask)[0][:100]
+        col_names = list(cols.keys())
+        result["raw_rows"] = [
+            {c: _to_py(cols[c][i]) for c in col_names}
+            for i in indices
+        ]
     return result

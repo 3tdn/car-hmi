@@ -21,8 +21,8 @@
     "can_json_path": "config/can0.json"
   },
   "adaptive_restraint": {
-    "db_path": "db/adaptive_restraint_db_db/synthetic_data_out_gui.db",
-    "csv_path": "db/adaptive_restraint_db_db/synthetic_data_out_gui.csv"
+    "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
+    "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
   },
   "adap": {
     "enabled": true,

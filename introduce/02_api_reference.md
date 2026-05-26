@@ -154,7 +154,7 @@ Response `202 Accepted`:
 ### Adaptive Restraint
 
 > Phân tích rủi ro chấn thương (injury risk) theo cấu hình chiếm dụng xe và hệ thống an toàn.  
-> Dữ liệu nguồn: SQLite DB tạo từ CSV.  
+> Dữ liệu nguồn: SQLite DB tạo từ CSV → tự động cache sang NumPy `.npz` lần đầu chạy (~140 ms load từ lần 2, so với ~2600 ms từ SQLite).  
 > Cấu hình đường dẫn trong `config/system.json` → `adaptive_restraint.db_path` / `adaptive_restraint.csv_path`.  
 > Nếu DB chưa sẵn sàng, các endpoint trả về **503 Service Unavailable**.
 
@@ -202,7 +202,6 @@ Response:
     "Distance": [1440.0],
     "RawData": true
   },
-  // raw_rows chỉ có trong response khi RawData=true (mặc định)
   "datas": [
     {
       "injury_risk_fusion_35y": {
@@ -217,6 +216,13 @@ Response:
       }
     }
   ],
+  "available_options": {
+    "Velocity": [40, 50, 56],
+    "Weight":   [49.0, 58.67, 70.0],
+    "Height":   [155.0, 159.67, 170.0],
+    "Distance": [1440, 1534, 1620],
+    "Seatbelt": ["3-point"]
+  },
   "raw_rows": [
     {
       "weight": 49.0,
@@ -231,9 +237,10 @@ Response:
 }
 ```
 
-> Giá trị `injury_risk_*` trong response là tỷ lệ thô (0–1). Frontend nhân × 100 để hiển thị %.  
-> `raw_rows` giới hạn tối đa 100 dòng.  
-> `datas` chứa một entry cho mỗi tổ hợp `System × Age` được chọn.
+> **`datas`**: một entry cho mỗi tổ hợp `System × Age` được chọn.  
+> **`available_options`**: faceted-search — với mỗi dimension D, trả về các giá trị còn tồn tại trong dữ liệu khi áp dụng tất cả bộ lọc *trừ* D. Frontend dùng trường này để làm mờ (gray-out) các item không còn kết quả nếu được chọn.  
+> **`raw_rows`**: giới hạn tối đa 100 dòng; bị bỏ qua khi `RawData=false`.  
+> Giá trị `injury_risk_*` là tỷ lệ thô (0–1). Frontend nhân × 100 để hiển thị %.
 
 ---
 

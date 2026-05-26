@@ -421,6 +421,11 @@ body {
   cursor: pointer;
 }
 
+.cb-item.not-available {
+  opacity: 0.35;
+  color: var(--muted);
+}
+
 .cb-item input {
   cursor: pointer;
 }

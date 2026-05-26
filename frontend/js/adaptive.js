@@ -113,6 +113,30 @@ function _checked(containerId) {
   return Array.from(el.querySelectorAll("input:checked")).map(cb => cb.value);
 }
 
+// ── Availability highlight ────────────────────────────────────────────────────
+// Map API dimension key → filter container ID
+const _AVAIL_CONTAINERS = {
+  Velocity: "filter-velocity",
+  Weight:   "filter-weight",
+  Height:   "filter-height",
+  Distance: "filter-distance",
+  Seatbelt: "filter-seatbelt",
+};
+
+function _applyAvailability(available) {
+  if (!available) return;
+  for (const [dim, containerId] of Object.entries(_AVAIL_CONTAINERS)) {
+    const container = document.getElementById(containerId);
+    if (!container) continue;
+    const availSet = new Set((available[dim] || []).map(String));
+    container.querySelectorAll("label.cb-item").forEach(label => {
+      const cb = label.querySelector("input[type=checkbox]");
+      if (!cb) return;
+      label.classList.toggle("not-available", !availSet.has(String(cb.value)));
+    });
+  }
+}
+
 function _setStatus(msg) {
   const el = document.getElementById("status-text");
   if (el) el.textContent = msg;
@@ -154,6 +178,7 @@ async function updateAdaptiveAnalysis() {
     _drawPlotlyBox("adaptive-chart", data.datas);
     _renderMetricsTable(data.datas);
     if (wantRaw) _renderRawTable(data.raw_rows);
+    _applyAvailability(data.available_options);
 
     _setStatus("Ready");
   } catch (err) {
