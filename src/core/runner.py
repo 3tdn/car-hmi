@@ -8,6 +8,7 @@ import logging
 import logging.handlers
 import signal
 import sys
+import time
 from pathlib import Path
 
 from src.core.config import AppConfig, load_config
@@ -60,21 +61,26 @@ class AppRunner:
         self._tasks: list[asyncio.Task] = []
         # Tham chiếu đến các thành phần (khởi tạo trong start())
         self._pipeline = None
-        self._reader = None
-        self._writer = None
+        self._readers: list = []
+        self._writers: list = []
+        self._writer_router = None
         self._simulator = None
         self._simulator_bus = None
         self._db_conn = None
         self._repo = None
-        self._bus = None
-        self._bus_factory = None
+        self._buses: list = []
+        self._bus_factories: list = []
+        self._db_loaders: list = []
         self._fastapi_server = None
         self._ws_manager = None
+        self._start_time: float = 0.0
+        self._uvicorn_server = None
 
     async def start(self) -> None:
         """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
         _setup_logging(self.config)
         logger.info("CAN-HMI starting up (config validated ✓)")
+        self._start_time = time.time()
 
         loop = asyncio.get_running_loop()
         # Đăng ký xử lý tín hiệu. Trên một số nền tảng (nhất là Windows) vòng lặp sự kiện
@@ -114,23 +120,38 @@ class AppRunner:
         from src.can_io.bus_factory import create_bus
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
-        from src.can_io.writer import CANWriter
+        from src.can_io.writer import CANWriter, CANWriterRouter
         from src.processor.alarms import AlarmChecker
         from src.processor.computed import ComputedSignals
-        from src.processor.filters import RateLimiter, SmoothingFilter
+        from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
         from src.storage.database import init_db
         from src.storage.repository import SQLiteRepository
 
-        can_cfg = self.config.can
+        can_channels = self.config.can
         proc_cfg = self.config.processor
         store_cfg = self.config.storage
         sim_cfg = self.config.simulator
 
-        # 1. CAN DB ─────────────────────────────────────────────────────────────
-        db_loader = DatabaseLoader()
-        db_loader.load(can_cfg.can_json_path)
-        logger.info(db_loader.summary())
+        # 1. CAN DB — tải mỗi kênh từ can.json riêng ──────────────────────────
+        all_signals: dict[str, object] = {}
+        for ch_cfg in can_channels:
+            db_loader = DatabaseLoader()
+            db_loader.load(ch_cfg.can_json_path)
+            self._db_loaders.append(db_loader)
+            overlap_count = 0
+            for sig_name in db_loader.signals:
+                if sig_name in all_signals:
+                    overlap_count += 1
+            if overlap_count:
+                logger.debug(
+                    "Channel '%s': %d signals overlap with previously loaded channels",
+                    ch_cfg.channel, overlap_count,
+                )
+            all_signals.update(db_loader.signals)
+            logger.info(
+                "Channel '%s': %s", ch_cfg.channel, db_loader.summary(),
+            )
 
         # Khởi tạo SignalStore với tất cả tín hiệu đã biết (giá trị ban đầu + đơn vị)
         try:
@@ -138,7 +159,7 @@ class AppRunner:
 
             initial_values: dict[str, float] = {}
             units: dict[str, str] = {}
-            for name, sig in db_loader.signals.items():
+            for name, sig in all_signals.items():
                 units[name] = sig.unit or None
                 if sig.minimum is not None:
                     initial_values[name] = float(sig.minimum)
@@ -146,9 +167,11 @@ class AppRunner:
                     initial_values[name] = float(sig.maximum)
                 else:
                     initial_values[name] = 0.0
-            # Cập nhật hàng loạt để frontend biết tất cả tín hiệu có sẵn
             await self.store.bulk_update(initial_values, timestamp=time.time(), units=units)
-            logger.info("Seeded SignalStore with %d signals", len(initial_values))
+            logger.info(
+                "Seeded SignalStore with %d signals from %d channels",
+                len(initial_values), len(can_channels),
+            )
         except Exception:
             logger.exception("Failed to seed SignalStore with DB signals")
 
@@ -158,18 +181,8 @@ class AppRunner:
         self._db_conn = await init_db(str(db_path))
         self._repo = SQLiteRepository(self._db_conn)
 
-        # 3. CAN Bus ────────────────────────────────────────────────────────────
-        def _bus_factory():
-            return create_bus(can_cfg)
-
-        # Lưu factory để dùng sau (v.d. bus simulator) — có thể tạo thêm
-        # instance bus với cùng cấu hình.
-        self._bus_factory = _bus_factory
-        self._bus = _bus_factory()
-
-        # 4. Signal Pipeline ────────────────────────────────────────────────────
+        # 3. Signal Pipeline (dùng chung 1 queue cho tất cả kênh) ──────────────
         rx_queue: asyncio.Queue = asyncio.Queue(maxsize=proc_cfg.max_queue_size)
-        # Keep a reference for watchdog/metrics reporting
         self._rx_queue = rx_queue
 
         self._pipeline = SignalPipeline(
@@ -179,52 +192,84 @@ class AppRunner:
             queue_policy=proc_cfg.queue_policy,
             batch_size=store_cfg.batch_size,
             batch_interval_sec=store_cfg.batch_interval_sec,
+            batch_drain_size=proc_cfg.batch_drain_size,
         )
-        self._pipeline.add_stage(SmoothingFilter(window=proc_cfg.smoothing_window))
         self._pipeline.add_stage(RateLimiter(max_hz=proc_cfg.max_update_rate_hz))
         self._pipeline.add_stage(ComputedSignals())
 
-        # Kiểm tra cảnh báo
         alarm_configs = self._load_alarm_configs()
         if alarm_configs:
             checker = AlarmChecker(alarm_configs)
             checker.add_alarm_handler(self._on_alarm)
             self._pipeline.add_stage(checker)
 
-        # 5. CAN Reader ─────────────────────────────────────────────────────────
-        self._reader = CANReader(
-            bus=self._bus,
-            db=db_loader,
-            queue=rx_queue,
-            bus_factory=_bus_factory,
-            queue_policy=proc_cfg.queue_policy,
-            max_rate_hz=proc_cfg.max_update_rate_hz,
-        )
+        # 4. Kiểm tra simulator sớm — trước khi mở bus ─────────────────────────
+        # Tự động tắt nếu có kênh dùng hardware thực (non-virtual)
+        real_interfaces = [ch.interface for ch in can_channels if ch.interface != "virtual"]
+        if sim_cfg.enabled and real_interfaces:
+            logger.info(
+                "Simulator auto-disabled — real CAN interface(s) detected: %s",
+                ", ".join(real_interfaces),
+            )
+            sim_cfg = type(sim_cfg)(**{**sim_cfg.model_dump(), "enabled": False})
 
-        # 6. Trình ghi CAN ─────────────────────────────────────────────────────────
-        self._writer = CANWriter(bus=self._bus, db=db_loader)
+        # 5. CAN Bus + Reader + Writer — mỗi kênh riêng ───────────────────────
+        writer_router = CANWriterRouter()
+        for idx, ch_cfg in enumerate(can_channels):
+            db_loader = self._db_loaders[idx]
 
-        # 7. CAN Simulator (tùy chọn) ───────────────────────────────────────────
+            def _make_bus_factory(cfg=ch_cfg):
+                return lambda: create_bus(cfg)
+
+            bus_factory = _make_bus_factory()
+            bus = bus_factory()
+            self._bus_factories.append(bus_factory)
+            self._buses.append(bus)
+
+            reader = CANReader(
+                bus=bus,
+                db=db_loader,
+                queue=rx_queue,
+                bus_factory=bus_factory,
+                queue_policy=proc_cfg.queue_policy,
+                max_rate_hz=proc_cfg.max_update_rate_hz,
+            )
+            self._readers.append(reader)
+
+            writer = CANWriter(bus=bus, db=db_loader)
+            self._writers.append(writer)
+            writer_router.register(db_loader, writer)
+
+            logger.info(
+                "CAN channel[%d] '%s' ready (interface=%s, bitrate=%d)",
+                idx, ch_cfg.channel, ch_cfg.interface, ch_cfg.bitrate,
+            )
+
+        self._writer_router = writer_router
+
+        # 6. CAN Simulator (tùy chọn) ───────────────────────────────────────────
         if sim_cfg.enabled:
-            self._simulator = await self._build_simulator(db_loader, sim_cfg)
+            self._simulator = await self._build_simulator(sim_cfg)
 
-        # 8. Máy chủ FastAPI ─────────────────────────────────────────────────────
+        # 6. Máy chủ FastAPI ─────────────────────────────────────────────────────
         self._fastapi_server = await self._build_api_server()
 
         # Lên lịch tất cả tác vụ async
         self._tasks = [
             asyncio.create_task(self._pipeline.start(), name="pipeline"),
-            asyncio.create_task(self._reader.start(), name="can-reader"),
         ]
+        for idx, reader in enumerate(self._readers):
+            ch_name = can_channels[idx].channel
+            self._tasks.append(
+                asyncio.create_task(reader.start(), name=f"can-reader-{ch_name}")
+            )
         if self._simulator:
             self._tasks.append(asyncio.create_task(self._simulator.start(), name="simulator"))
         if self._fastapi_server:
             self._tasks.append(asyncio.create_task(self._fastapi_server(), name="api"))
         if self.config.supervisor.watchdog_interval_sec > 0:
             self._tasks.append(asyncio.create_task(self._watchdog(), name="watchdog"))
-        # Push system metrics qua WS cho subscriber
         self._tasks.append(asyncio.create_task(self._metrics_broadcaster(), name="metrics-push"))
-        # Dọn dẹp dữ liệu cũ theo retention_days
         self._tasks.append(asyncio.create_task(self._retention_cleanup(), name="retention"))
 
 
@@ -293,7 +338,7 @@ class AppRunner:
         except Exception as exc:
             logger.error("Failed to store/broadcast alarm: %s", exc)
 
-    async def _build_simulator(self, db_loader, sim_cfg) -> object | None:
+    async def _build_simulator(self, sim_cfg) -> object | None:
         """Xây dựng CANSimulator nếu cấu hình simulator tồn tại."""
         from src.can_simulator.simulator import CANSimulator
 
@@ -302,7 +347,10 @@ class AppRunner:
             logger.warning("can_json_path '%s' not found — simulator disabled", can_json_path)
             return None
 
-        sim_bus = self._bus_factory()
+        sim_bus = self._bus_factories[0]() if self._bus_factories else None
+        if sim_bus is None:
+            logger.warning("No CAN bus factory available — simulator disabled")
+            return None
         self._simulator_bus = sim_bus
         return CANSimulator(
             bus=sim_bus,
@@ -325,14 +373,14 @@ class AppRunner:
         app = create_app(
             signal_store=self.store,
             repository=self._repo,
-            can_reader=self._reader,
+            can_readers=self._readers,
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
         )
         # Expose runtime objects so config endpoints can attempt to apply changes
         app.state.pipeline = self._pipeline
         app.state.runner = self
-        app.state.writer = self._writer
+        app.state.writer = self._writer_router
         app.state.rx_queue = self._rx_queue
         self._ws_manager = app.state.ws_manager
 
@@ -350,11 +398,21 @@ class AppRunner:
             access_log=False,
         )
         server = uvicorn.Server(server_config)
+        self._uvicorn_server = server
 
         async def _serve_safe() -> None:
             """Bọ server.serve vào try/except để chuyển SystemExit thành ngoại lệ thông thường."""
             try:
                 await server.serve()
+            except asyncio.CancelledError:
+                # Expected when shutdown() cancels the api task — suppress noisy traceback.
+                pass
+            except OSError as exc:
+                logger.error(
+                    "API server failed to bind on %s:%d — %s (port already in use?)",
+                    api_cfg.host, api_cfg.port, exc,
+                )
+                raise RuntimeError(f"API bind error: {exc}") from exc
             except SystemExit as exc:
                 raise RuntimeError(f"API server exited with code {exc.code}") from exc
 
@@ -385,11 +443,12 @@ class AppRunner:
         new_q: asyncio.Queue = asyncio.Queue(maxsize=int(new_maxsize))
 
         # Route new incoming frames to new queue first
-        if self._reader and hasattr(self._reader, "set_queue"):
-            try:
-                self._reader.set_queue(new_q)
-            except Exception:
-                pass
+        for reader in self._readers:
+            if hasattr(reader, "set_queue"):
+                try:
+                    reader.set_queue(new_q)
+                except Exception:
+                    pass
 
         migrated = 0
         deadline = time.time() + float(timeout)
@@ -420,16 +479,15 @@ class AppRunner:
         """Broadcast system metrics qua WS tới subscriber đã đăng ký channel 'metrics'."""
         from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
-        interval = 3  # seconds — consistent with frontend polling interval
+        # metrics interval configurable via API config; default 3s -> allow float
+        interval = float(getattr(self.config.api, "ws_metrics_interval_sec", 3.0))
         while not self._shutting_down:
             await asyncio.sleep(interval)
             if self._ws_manager is None:
                 continue
             try:
                 rx_queue = getattr(self, "_rx_queue", None)
-                start_time = getattr(getattr(self._ws_manager, "", None), "", None)
-                # Use app.state.start_time if available
-                m = collect_system_metrics(rx_queue=rx_queue, start_time=None)
+                m = collect_system_metrics(rx_queue=rx_queue, start_time=self._start_time)
                 await self._ws_manager.broadcast_metrics(metrics_to_dict(m))
             except Exception:
                 logger.debug("Failed to broadcast metrics", exc_info=True)
@@ -457,9 +515,17 @@ class AppRunner:
         while not self._shutting_down:
             await asyncio.sleep(interval)
             alive = [t.get_name() for t in self._tasks if not t.done()]
-            done = [t.get_name() for t in self._tasks if t.done()]
+            done_tasks = [t for t in self._tasks if t.done()]
+            done = [t.get_name() for t in done_tasks]
             if done:
                 logger.warning("Tasks finished unexpectedly: %s", done)
+                # Log exceptions from dead tasks for diagnostics
+                for t in done_tasks:
+                    exc = t.exception() if not t.cancelled() else None
+                    if exc is not None:
+                        logger.error("Task '%s' raised: %s", t.get_name(), exc, exc_info=exc)
+                # Remove dead tasks so we don't report them again next cycle
+                self._tasks = [t for t in self._tasks if not t.done()]
             # Report reader/pipeline metrics if available
             try:
                 rx_q_size = self._rx_queue.qsize() if hasattr(self, "_rx_queue") else None
@@ -467,9 +533,12 @@ class AppRunner:
                 rx_q_size = None
 
             reader_metrics = None
-            if self._reader:
+            if self._readers:
                 try:
-                    reader_metrics = self._reader.get_metrics()
+                    reader_metrics = {
+                        f"ch{i}": r.get_metrics()
+                        for i, r in enumerate(self._readers)
+                    }
                 except Exception:
                     reader_metrics = None
 
@@ -482,16 +551,30 @@ class AppRunner:
         self._shutting_down = True
         logger.info("Shutting down (timeout=%ds)...", self.config.shutdown.timeout_sec)
 
-        if self._reader:
-            self._reader.stop()
+        for reader in self._readers:
+            reader.stop()
         if self._simulator:
             self._simulator.stop()
         if self._pipeline:
             self._pipeline.stop()
             try:
                 await asyncio.wait_for(self._pipeline.flush(), timeout=5.0)
-            except TimeoutError:
+            except (TimeoutError, asyncio.TimeoutError):
                 logger.warning("Pipeline flush timed out")
+
+        # Signal uvicorn to stop gracefully *before* cancelling its task so
+        # the lifespan context manager has a chance to exit cleanly.
+        if self._uvicorn_server is not None:
+            self._uvicorn_server.handle_exit(sig=signal.SIGTERM, frame=None)
+            # Wait for the API task to return on its own (uvicorn drains the
+            # lifespan queue and exits serve()). Only then cancel remaining
+            # tasks — this prevents the CancelledError traceback from Starlette.
+            api_tasks = [t for t in self._tasks if t.get_name() == "api"]
+            if api_tasks:
+                try:
+                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                    pass
 
         for task in self._tasks:
             task.cancel()
@@ -499,9 +582,9 @@ class AppRunner:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
-        if self._bus:
+        for bus in self._buses:
             try:
-                self._bus.shutdown()
+                bus.shutdown()
             except Exception:
                 pass
 

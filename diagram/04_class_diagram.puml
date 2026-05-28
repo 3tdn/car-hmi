@@ -27,8 +27,8 @@ class DatabaseLoader {
 package "api.auth" as pkg_auth #LightBlue {
 class APIKeyAuth {
     -api_key: str
-    +__call__(request: Request): str
-    +validate_ws_token(token: str): bool
+    +verify(key: str | None): bool
+    +__call__(key: str | None): None
 }
 
 note right of APIKeyAuth
@@ -113,8 +113,18 @@ class CANWriter {
     +send_message(msg_id: int, signals: dict): void
 }
 
+class CANWriterRouter {
+    -_signal_to_writer: dict[str, CANWriter]
+    -_msgid_to_writer: dict[int, CANWriter]
+    -_writers: list[CANWriter]
+    +register(db: DatabaseLoader, writer: CANWriter): void
+    +send_signal(name: str, value: float): void
+    +send_message(msg_id: int, signals: dict): void
+}
+
 CANReader --> DatabaseLoader : decode frames
 CANWriter --> DatabaseLoader : encode frames
+CANWriterRouter "1" o-- "many" CANWriter
 }
 
 ' ─── Signal Processing (Pipeline Pattern) ───
@@ -208,7 +218,7 @@ class SignalConfigRecord <<dataclass>> {
 }
 
 class AppConfig <<BaseModel>> {
-    +can: CANConfig
+    +can: list[CANConfig]
     +simulator: SimulatorConfig
     +api: APIConfig
     +storage: StorageConfig
@@ -338,14 +348,27 @@ enum SubscriptionTopic {
 }
 
 class ConnectionManager {
-    -_connections: dict[SubscriptionTopic, set[WebSocket]]
-    +connect(ws: WebSocket, topic: SubscriptionTopic): void
-    +disconnect(ws: WebSocket, topic: SubscriptionTopic): void
-    +broadcast_signal(name: str, sv: SignalValue): void
-    +broadcast_alarm(alarm: Alarm): void
-    +handle(ws: WebSocket, topic: SubscriptionTopic): void
-    -_broadcast(topic: SubscriptionTopic, data: dict): void
+    -_connections: dict[WebSocket, set[SubscriptionTopic]]
+    -_subscriptions: dict[WebSocket, _ClientSubscription]
+    -_lock: asyncio.Lock
+    +connect(ws: WebSocket, topics: set): void
+    +disconnect(ws: WebSocket): void
+    +connect_subscribe(ws: WebSocket): void
+    +process_subscribe_command(ws: WebSocket, data: dict): void
+    +broadcast_signal(name: str, value: float, ts: float): void
+    +broadcast_alarm(alarm: dict): void
+    +broadcast_metrics(metrics: dict): void
+    +handle(ws: WebSocket, topics: set): void
+    +handle_subscribe(ws: WebSocket): void
+    -_broadcast(text: str, topic: SubscriptionTopic): void
+    -_broadcast_to_subscribers(text: str, ...): void
 }
+
+note right of ConnectionManager
+  process_subscribe_command() now
+  acquires _lock before mutating
+  subscription state (race-condition fix)
+end note
 
 ConnectionManager "1" o-- "many" SubscriptionTopic
 }
@@ -361,11 +384,14 @@ AppFactory ..> AppConfig : reads
 class AppRunner {
     -_config: AppConfig
     -_simulator: CANSimulator | None
-    -_reader: CANReader
-    -_writer: CANWriter
+    -_readers: list[CANReader]
+    -_writers: list[CANWriter]
+    -_writer_router: CANWriterRouter
     -_pipeline: SignalPipeline
     -_store: SignalStore
     -_repo: SQLiteRepository
+    -_db_loaders: list[DatabaseLoader]
+    -_buses: list[can.BusABC]
     -_api: FastAPI | None
     -_ws_manager: ConnectionManager
     +start(): void
@@ -385,12 +411,12 @@ class CANSimulator {
     -_bus: can.Bus
     -_messages: list[_MsgDef]
     -_cycle_ms: int
-    -_loop: bool
+    -_repeat: bool
     -_running: bool
     +start(): void
     +stop(): void
     -_load_can_json(path: Path): list[_MsgDef]
-    -_tick(loop): void
+    -_tick(event_loop): void
 }
 
 }
@@ -398,6 +424,7 @@ class CANSimulator {
 AppRunner --> CANSimulator
 AppRunner --> CANReader
 AppRunner --> CANWriter
+AppRunner --> CANWriterRouter
 AppRunner --> SignalPipeline
 AppRunner --> SignalStore
 AppRunner --> ConnectionManager

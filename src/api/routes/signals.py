@@ -7,6 +7,7 @@ import time
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
 
 from src.api.models import (
+    BatchSignalWrite,
     SignalListResponse,
     SignalMetadata,
     SignalMetadataListResponse,
@@ -50,21 +51,31 @@ async def list_available_signals(request: Request):
     Client gọi 1 lần khi khởi động để lấy cấu trúc, sau đó chỉ subscribe
     value + timestamp nhẹ qua WebSocket.
     """
+    import json
     from pathlib import Path
 
-    import json
-
-    from src.core.config_manager import read_alarms
+    from src.core.config_manager import read_alarms, read_config
 
     store = request.app.state.store
     snapshot = await store.get_snapshot()
 
-    # Load signal configs
-    signal_configs: dict = {}
-    signals_path = Path("config/signals.json")
-    if signals_path.exists():
-        raw = json.loads(signals_path.read_text(encoding="utf-8")) or {}
-        signal_configs = raw.get("signals", {})
+    # Load signal configs from all can_json_path files listed in system.json
+    signal_configs: dict[str, dict] = {}
+    sys_cfg = read_config()
+    for ch in sys_cfg.get("can", []):
+        can_json_path = Path(ch.get("can_json_path", ""))
+        if not can_json_path.exists():
+            continue
+        ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
+        for msg_data in ch_raw.get("messages", {}).values():
+            for sig_name, sig_data in msg_data.get("signals", {}).items():
+                signal_configs.setdefault(sig_name, {
+                    "min_value": sig_data.get("minimum"),
+                    "max_value": sig_data.get("maximum"),
+                    "unit": sig_data.get("unit") or None,
+                    "writable": bool(sig_data.get("TX", False)),
+                    "states": sig_data.get("states") or None,
+                })
 
     # Load alarm configs
     alarm_raw = read_alarms()
@@ -82,12 +93,13 @@ async def list_available_signals(request: Request):
         items.append(
             SignalMetadata(
                 signal_name=name,
-                unit=getattr(sv, "unit", None) if sv else None,
+                unit=sig_cfg.get("unit") or (getattr(sv, "unit", None) if sv else None),
                 min_value=sig_cfg.get("min_value"),
                 max_value=sig_cfg.get("max_value"),
                 writable=sig_cfg.get("writable", False),
-                group_name=sig_cfg.get("group"),
-                widget_type=sig_cfg.get("widget"),
+                states=sig_cfg.get("states"),
+                group_name=None,
+                widget_type=None,
                 alarm_warning_high=alm_cfg.get("warning_high"),
                 alarm_warning_low=alm_cfg.get("warning_low"),
                 alarm_critical_high=alm_cfg.get("critical_high"),
@@ -155,38 +167,96 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
-    await writer.send_signal(signal_name, body.value)
+    try:
+        await writer.send_signal(signal_name, body.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return {"signal_name": signal_name, "value": body.value, "queued_at": time.time()}
+
+
+@router.post(
+    "/batch_update",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Write multiple writable signals simultaneously (batch)",
+)
+async def batch_update_signals(body: BatchSignalWrite, request: Request):
+    """Ghi nhiều tín hiệu CAN cùng lúc.
+    REST write được broadcast ngay tới tất cả WS clients đang subscribe.
+    """
+    writer = getattr(request.app.state, "writer", None)
+    if writer is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
+        )
+    queued = []
+    errors = []
+    for item in body.signals:
+        try:
+            await writer.send_signal(item.signal_name, item.value)
+            queued.append({"signal_name": item.signal_name, "value": item.value})
+        except ValueError as exc:
+            errors.append({"signal_name": item.signal_name, "error": str(exc)})
+    if errors and not queued:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=errors)
+    return {"queued": queued, "count": len(queued), "queued_at": time.time(), "errors": errors}
 
 
 # ── WebSocket ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 
 @ws_router.websocket("/signals")
-async def ws_signals(websocket: WebSocket):
+async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None)):
+    """Endpoint WebSocket chính — tương thích với demo API.
+
+    Client → Server:
+        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "unsubscribe", "signals": ["SignalName"]}
+        {"type": "ping"}  →  {"type": "pong"}
+    Server → Client (signal frame):
+        {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name": "...", "value": 0.0}]}
+    Server → Client (subscribe ack):
+        {"type": "subscribed", "signals": [...], "count": N}
+    """
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
-    await mgr.handle(websocket, topics={SubscriptionTopic.SIGNALS})
+    await mgr.handle_subscribe(websocket)
 
 
 @ws_router.websocket("/alarms")
-async def ws_alarms(websocket: WebSocket):
+async def ws_alarms(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALARMS})
 
 
 @ws_router.websocket("/all")
-async def ws_all(websocket: WebSocket):
+async def ws_all(websocket: WebSocket, api_key: str | None = Query(None)):
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle(websocket, topics={SubscriptionTopic.ALL})
 
 
 @ws_router.websocket("/subscribe")
-async def ws_subscribe(websocket: WebSocket):
-    """Endpoint mới: client gửi JSON subscribe/unsubscribe để chọn kênh nhận dữ liệu.
+async def ws_subscribe(websocket: WebSocket, api_key: str | None = Query(None)):
+    """Alias của /ws/signals — giữ để backward compatible. Khuyến nghị dùng /ws/signals cho client mới.
 
-    Message format từ client:
-        {"action": "subscribe", "channels": ["EngineSpeed", "alarms", "metrics"], "mode": "continuous"}
-        {"action": "unsubscribe", "channels": ["EngineSpeed"]}
+    Hỗ trợ đồng thời cả 2 định dạng:
+        {"type": "subscribe", "signals": ["EngineSpeed", "*"]}   # demo format
+        {"action": "subscribe", "channels": ["metrics"]}          # legacy format
+        {"type": "ping"}  →  {"type": "pong"}
     """
+    auth = websocket.app.state.auth
+    if not auth.verify(api_key):
+        await websocket.close(code=4401)
+        return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle_subscribe(websocket)

@@ -40,6 +40,7 @@ class SignalPipeline:
         queue_policy: str = "reject",
         batch_size: int = 100,
         batch_interval_sec: float = 2.0,
+        batch_drain_size: int = 200,
     ) -> None:
         self._queue = input_queue
         self._store = signal_store
@@ -47,6 +48,7 @@ class SignalPipeline:
         self._policy = queue_policy
         self._batch_size = batch_size
         self._batch_interval = batch_interval_sec
+        self._batch_drain_size = batch_drain_size
         self._stages: list[ProcessingStage] = []
         self._running = False
         self._buffer: list[tuple[str, float, str | None]] = []  # [(signal_name, value, unit), …]
@@ -59,53 +61,76 @@ class SignalPipeline:
         self._running = True
         logger.info("Signal pipeline started (%d stages)", len(self._stages))
         while self._running:
+            # --- 1. Chờ frame đầu tiên với timeout ---
+            # Avoid asyncio.wait_for() — Python 3.10 has a known bug where
+            # CancelledError is converted to TimeoutError and can escape the
+            # except clause.  Using asyncio.wait() with FIRST_COMPLETED
+            # sidesteps the issue entirely.
+            frame = None
             try:
-                # Wait for a frame with timeout; handle timeout and cancellation
-                try:
-                    frame = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-                except TimeoutError:
-                    # Hết thời gian rảnh — flush nếu đã đến kỳ flush, nhưng không spam log
+                get_coro = self._queue.get()
+                get_task = asyncio.ensure_future(get_coro)
+                done, _ = await asyncio.wait({get_task}, timeout=1.0)
+                if done:
+                    frame = get_task.result()
+                else:
+                    get_task.cancel()
+                    # Suppress CancelledError from the cancelled task
+                    try:
+                        await get_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    # Idle — flush buffer if interval elapsed
                     if time.monotonic() - self._last_flush >= self._batch_interval:
                         try:
                             await self._flush_buffer()
-                        except Exception as exc:
-                            logger.exception("Error flushing buffer during idle timeout: %s", exc)
+                        except Exception as fe:
+                            logger.exception("Error flushing buffer during idle: %s", fe)
                     continue
-                except asyncio.CancelledError:
-                    # Task bị hủy (sắt có lẽ khi tắt hệ thống) — thoát im lặng
-                    logger.debug("Signal pipeline task cancelled, shutting down")
+            except asyncio.CancelledError:
+                # Task is being shut down — exit cleanly
+                logger.debug("Signal pipeline task cancelled, shutting down")
+                return
+
+            # --- 2. Batch-drain: lấy thêm frame không chặn, merge lấy giá trị mới nhất ---
+            # Với tải cao (6,000+ fps), nhiều frame cùng signal_id nằm chờ trong queue.
+            # Thay vì xử lý N lần, merge thành 1 dict: giá trị sau ghi đè giá trị trước
+            # → N pipeline iterations → 1, không mất signal nào (chỉ giữ bản mới nhất).
+            merged: dict[str, float] = dict(frame.signals)
+            drained = 1
+            while drained < self._batch_drain_size:
+                try:
+                    extra = self._queue.get_nowait()
+                    merged.update(extra.signals)  # giá trị mới hơn ghi đè
+                    drained += 1
+                except asyncio.QueueEmpty:
                     break
 
-                # Đường xử lý bình thường
-                await self._process_frame(frame)
+            # --- 3. Xử lý batch đã merge ---
+            try:
+                await self._process_signals(merged)
             except Exception as exc:
-                # Lỗi xử lý không mong đợi — ghi log và tiếp tục
-                logger.exception("Pipeline error (dropping frame): %s", exc)
-                continue
+                logger.exception("Pipeline error (dropping batch of %d): %s", drained, exc)
 
-    async def _process_frame(self, frame) -> None:
-        signals: dict[str, float] = dict(frame.signals)
+    async def _process_signals(self, signals: dict[str, float]) -> None:
+        """Xử lý dict tín hiệu đã merge qua tất cả stages."""
         for stage in self._stages:
             try:
                 signals = await stage.process(signals)
             except Exception as exc:
-                logger.error("Stage %s failed: %s — dropping frame", type(stage).__name__, exc)
+                logger.error("Stage %s failed: %s — dropping batch", type(stage).__name__, exc)
                 return
             if not signals:
-                logger.debug("Stage %s returned empty signals — dropping frame", type(stage).__name__)
+                logger.debug("Stage %s returned empty signals — dropping batch", type(stage).__name__)
                 return
 
         now = time.time()
         # Phát lên SignalStore — bulk update: 1 lock thay vì N lock
         await self._store.bulk_update(signals, timestamp=now)
 
-        # Đệm cho ghi batch vào storage — lấy unit từ store sau bulk_update
+        # Đệm cho ghi batch vào storage — đọc unit đồng bộ để tránh N lần acquire asyncio.Lock
         for name, value in signals.items():
-            try:
-                sv = await self._store.get(name)
-                unit = getattr(sv, "unit", None) if sv is not None else None
-            except Exception:
-                unit = None
+            unit = self._store.get_unit(name)
             self._buffer.append((name, value, unit))
 
         # Flush nếu đạt ngưỡng batch

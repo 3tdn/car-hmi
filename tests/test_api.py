@@ -204,3 +204,92 @@ async def test_available_signals_returns_metadata(client):
     assert "unit" in vs
     assert "writable" in vs
     assert "alarm_warning_high" in vs
+
+
+# ── APIKeyAuth.verify() unit tests ──────────────────────────────────────────
+
+
+def test_api_key_auth_verify_valid():
+    """verify() returns True for correct key."""
+    from src.api.auth import APIKeyAuth
+
+    auth = APIKeyAuth("my-secret")
+    assert auth.verify("my-secret") is True
+
+
+def test_api_key_auth_verify_invalid():
+    """verify() returns False for wrong or missing key."""
+    from src.api.auth import APIKeyAuth
+
+    auth = APIKeyAuth("my-secret")
+    assert auth.verify("wrong") is False
+    assert auth.verify(None) is False
+    assert auth.verify("") is False
+
+
+def test_api_key_auth_verify_disabled():
+    """verify() always returns True when auth is disabled (empty key)."""
+    from src.api.auth import APIKeyAuth
+
+    auth = APIKeyAuth("")
+    assert auth.verify(None) is True
+    assert auth.verify("anything") is True
+
+
+# ── Config reset endpoint test ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_reset_general_config(monkeypatch):
+    """POST /config/general/reset calls write_default_bus and returns ok + default dict."""
+    import src.core.config_manager as cm
+
+    default_payload = {"can": [{"interface": "virtual", "channel": "vcan0"}], "api": {}}
+    monkeypatch.setattr(cm, "write_default_bus", lambda path=None: default_payload)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post("/config/general/reset", headers={"X-API-Key": "test-key"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert "default" in data
+    assert data["default"] == default_payload
+
+
+# ── WebSocket auth tests ─────────────────────────────────────────────────────
+
+
+def test_ws_auth_rejected_without_key():
+    """WebSocket connection is rejected when auth is enabled and no key is provided."""
+    from starlette.testclient import TestClient
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="ws-secret")
+    with TestClient(app, raise_server_exceptions=False) as sc:
+        with pytest.raises(Exception):
+            with sc.websocket_connect("/ws/signals") as ws:
+                ws.receive_text()
+
+
+def test_ws_auth_accepted_with_valid_key():
+    """WebSocket connection succeeds with valid API key in query string."""
+    from starlette.testclient import TestClient
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="ws-secret")
+    with TestClient(app) as sc:
+        with sc.websocket_connect("/ws/signals?api_key=ws-secret") as ws:
+            pass  # connection established — no exception raised
+
+
+def test_ws_no_auth_when_disabled():
+    """WebSocket connects freely when auth is disabled (empty api_key)."""
+    from starlette.testclient import TestClient
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="")
+    with TestClient(app) as sc:
+        with sc.websocket_connect("/ws/signals") as ws:
+            pass  # should connect without any key

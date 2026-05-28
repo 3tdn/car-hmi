@@ -151,6 +151,99 @@ Response `202 Accepted`:
 
 ---
 
+### Adaptive Restraint
+
+> Phân tích rủi ro chấn thương (injury risk) theo cấu hình chiếm dụng xe và hệ thống an toàn.  
+> Dữ liệu nguồn: SQLite DB tạo từ CSV → tự động cache sang NumPy `.npz` lần đầu chạy (~140 ms load từ lần 2, so với ~2600 ms từ SQLite).  
+> Cấu hình đường dẫn trong `config/system.json` → `adaptive_restraint.db_path` / `adaptive_restraint.csv_path`.  
+> Nếu DB chưa sẵn sàng, các endpoint trả về **503 Service Unavailable**.
+
+| Method | Path | Mô tả |
+|---|---|---|
+| `GET` | `/adaptive_restraint/available` | Lấy tất cả giá trị lọc khả dụng (System, Age, Seatbelt, Velocity, Weight, Height, Distance) |
+| `GET` | `/adaptive_restraint/chart_info` | Tính thống kê box-plot + raw data preview theo các bộ lọc |
+
+**GET /adaptive_restraint/available** — response:
+```json
+{
+  "System":   ["fusion", "camera", "non_adapt"],
+  "Age":      ["35y", "65y"],
+  "Seatbelt": ["3-point", "..."],
+  "Velocity": [40, 50, 56],
+  "Weight":   [49.0, 58.67, 70.0],
+  "Height":   [155.0, 159.67, 170.0],
+  "Distance": [1440, 1534, 1620]
+}
+```
+
+**GET /adaptive_restraint/chart_info** — query parameters (tất cả optional, mặc định = chọn tất cả):
+
+| Param | Type | Ví dụ |
+|---|---|---|
+| `System` | `list[str]` | `System=fusion&System=camera` |
+| `Age` | `list[str]` | `Age=35y` |
+| `Seatbelt` | `list[str]` | `Seatbelt=3-point` |
+| `Velocity` | `list[float]` | `Velocity=40&Velocity=56` |
+| `Weight` | `list[float]` | `Weight=49.0&Weight=58.67` |
+| `Height` | `list[float]` | `Height=159.67` |
+| `Distance` | `list[float]` | `Distance=1440` |
+| `RawData` | `bool` | `RawData=false` — mặc định `true`; set `false` để bỏ `raw_rows` khỏi response (giảm payload) |
+
+Response:
+```json
+{
+  "controls": {
+    "System": ["fusion", "camera"],
+    "Age": ["35y"],
+    "Seatbelt": ["3-point"],
+    "Velocity": [40.0, 56.0],
+    "Weight": [49.0],
+    "Height": [159.67],
+    "Distance": [1440.0],
+    "RawData": true
+  },
+  "datas": [
+    {
+      "injury_risk_fusion_35y": {
+        "values": [0.0031, 0.0045, "..."],
+        "min": 0.0012,
+        "max": 0.0198,
+        "lower fence": 0.0012,
+        "q1": 0.0028,
+        "median": 0.0041,
+        "q3": 0.0065,
+        "upper fence": 0.0115
+      }
+    }
+  ],
+  "available_options": {
+    "Velocity": [40, 50, 56],
+    "Weight":   [49.0, 58.67, 70.0],
+    "Height":   [155.0, 159.67, 170.0],
+    "Distance": [1440, 1534, 1620],
+    "Seatbelt": ["3-point"]
+  },
+  "raw_rows": [
+    {
+      "weight": 49.0,
+      "seat_position": 1440,
+      "height": 159.67,
+      "velocity [km/h]": 40,
+      "Seatbelt Component": "3-point",
+      "injury_risk_fusion_35y": 0.0031,
+      "..."
+    }
+  ]
+}
+```
+
+> **`datas`**: một entry cho mỗi tổ hợp `System × Age` được chọn.  
+> **`available_options`**: faceted-search — với mỗi dimension D, trả về các giá trị còn tồn tại trong dữ liệu khi áp dụng tất cả bộ lọc *trừ* D. Frontend dùng trường này để làm mờ (gray-out) các item không còn kết quả nếu được chọn.  
+> **`raw_rows`**: giới hạn tối đa 100 dòng; bị bỏ qua khi `RawData=false`.  
+> Giá trị `injury_risk_*` là tỷ lệ thô (0–1). Frontend nhân × 100 để hiển thị %.
+
+---
+
 ### System
 
 | Method | Path | Mô tả |
@@ -267,7 +360,7 @@ Whitelist hiện tại định nghĩa client-side trong `frontend/js/app.js` (`U
 | `404 Not Found` | Signal / alarm không tồn tại |
 | `409 Conflict` | Alarm đã acknowledged / resolved |
 | `422 Unprocessable Entity` | Sai schema request body (Pydantic) |
-| `503 Service Unavailable` | CAN writer không khả dụng |
+| `503 Service Unavailable` | CAN writer không khả dụng hoặc Adaptive Restraint DB chưa sẵn sàng |
 
 WebSocket close codes:
 - `4001` — Unauthorized (invalid token)

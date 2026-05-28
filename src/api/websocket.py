@@ -83,73 +83,87 @@ class ConnectionManager:
         return self._subscriptions.get(ws)
 
     async def process_subscribe_command(self, ws: WebSocket, data: dict) -> None:
-        """Xử lý lệnh subscribe/unsubscribe từ client."""
-        action = data.get("action", "subscribe")
-        channels = data.get("channels", [])
+        """Xử lý lệnh subscribe/unsubscribe từ client.
+
+        Chấp nhận cả 2 định dạng:
+        - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
+        - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
+        """
+        # Normalize: demo format (type/signals) hoặc legacy (action/channels)
+        msg_type = data.get("type", "")
+        if msg_type in ("subscribe", "unsubscribe"):
+            action = msg_type
+            raw_ch = data.get("signals", data.get("channels", []))
+        else:
+            action = data.get("action", "subscribe")
+            raw_ch = data.get("channels", data.get("signals", []))
+        # signals có thể là string "*" hoặc list
+        channels = [raw_ch] if isinstance(raw_ch, str) else list(raw_ch)
         mode = data.get("mode", "continuous")
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
 
-        sub = self._get_sub(ws)
-        if sub is None:
-            return
+        async with self._lock:
+            sub = self._get_sub(ws)
+            if sub is None:
+                return
 
-        # Apply rate limit if provided
+            # Apply rate limit if provided
+            try:
+                if rate_ms is not None:
+                    # coerce to float seconds, clamp to >= 0
+                    sub.min_interval_s = max(0.0, float(rate_ms) / 1000.0)
+            except Exception:
+                pass
+
+            for ch in channels:
+                ch_lower = ch.lower()
+                if action == "subscribe":
+                    if ch_lower == "alarms":
+                        sub.subscribe_alarms = True
+                    elif ch_lower == "metrics":
+                        sub.subscribe_metrics = True
+                    elif ch == "*":
+                        sub.signal_names.add("*")
+                    else:
+                        sub.signal_names.add(ch)  # signal name — case-sensitive
+
+                    if mode == "once":
+                        sub.once_channels.add(ch)
+                elif action == "unsubscribe":
+                    if ch_lower == "alarms":
+                        sub.subscribe_alarms = False
+                    elif ch_lower == "metrics":
+                        sub.subscribe_metrics = False
+                    elif ch == "*":
+                        sub.signal_names.discard("*")
+                    else:
+                        sub.signal_names.discard(ch)
+
+        # Ack — demo format: {"type": "subscribed"|"unsubscribed", "signals": [...], "count": N}
+        ack_type = "unsubscribed" if action == "unsubscribe" else "subscribed"
+        ack_signals: list[str] | str = channels[0] if channels == ["*"] else channels
+        ack_payload = json.dumps({
+            "type": ack_type,
+            "signals": ack_signals,
+            "count": len(channels),
+        })
         try:
-            if rate_ms is not None:
-                # coerce to float seconds, clamp to >= 0
-                sub.min_interval_s = max(0.0, float(rate_ms) / 1000.0)
-        except Exception:
-            pass
-
-        for ch in channels:
-            ch_lower = ch.lower()
-            if action == "subscribe":
-                if ch_lower == "alarms":
-                    sub.subscribe_alarms = True
-                elif ch_lower == "metrics":
-                    sub.subscribe_metrics = True
-                elif ch == "*":
-                    sub.signal_names.add("*")
-                else:
-                    sub.signal_names.add(ch)  # signal name — case-sensitive
-
-                if mode == "once":
-                    sub.once_channels.add(ch)
-            elif action == "unsubscribe":
-                if ch_lower == "alarms":
-                    sub.subscribe_alarms = False
-                elif ch_lower == "metrics":
-                    sub.subscribe_metrics = False
-                elif ch == "*":
-                    sub.signal_names.discard("*")
-                else:
-                    sub.signal_names.discard(ch)
-
-        # Ack
-        try:
-            await ws.send_text(json.dumps({
-                "type": "subscribe_ack",
-                "action": action,
-                "channels": channels,
-                "mode": mode,
-                "rate_ms": rate_ms,
-            }))
+            await ws.send_text(ack_payload)
         except Exception:
             pass
 
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
+        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, value}]}."""
+        import datetime
+        iso_ts = datetime.datetime.utcfromtimestamp(timestamp).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         payload = json.dumps({
-            "type": "signal",
-            "signal": signal_name,
-            "value": value,
-            "timestamp": timestamp,
+            "timestamp": iso_ts,
+            "signals": [{"name": signal_name, "value": value}],
         })
-        # Legacy broadcast
         await self._broadcast(payload, SubscriptionTopic.SIGNALS)
-        # New per-signal broadcast
         await self._broadcast_to_subscribers(payload, signal_name=signal_name)
 
     async def broadcast_alarm(self, alarm: dict) -> None:
@@ -297,7 +311,10 @@ class ConnectionManager:
                 except (json.JSONDecodeError, ValueError):
                     await ws.send_text(json.dumps({"type": "error", "message": "Invalid JSON"}))
                     continue
-                await self.process_subscribe_command(ws, data)
+                if data.get("type") == "ping":
+                    await ws.send_text(json.dumps({"type": "pong"}))
+                else:
+                    await self.process_subscribe_command(ws, data)
         except WebSocketDisconnect:
             logger.debug("WS subscribe ngắt kết nối")
         except Exception:

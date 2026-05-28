@@ -1997,7 +1997,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2012,7 +2081,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2027,7 +2165,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2042,7 +2249,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         },
@@ -2057,7 +2333,76 @@
           "maximum": 255,
           "unit": null,
           "description": "Manual ACR Retraction request by HMI",
-          "states": [],
+          "states": [
+            {
+              "value": 5,
+              "description": "Slack Removal"
+            },
+            {
+              "value": 10,
+              "description": "Retract Level 1"
+            },
+            {
+              "value": 11,
+              "description": "Retract Level 2"
+            },
+            {
+              "value": 12,
+              "description": "Retract Level 3"
+            },
+            {
+              "value": 13,
+              "description": "Retract Level 4"
+            },
+            {
+              "value": 14,
+              "description": "Haptic Warning 1"
+            },
+            {
+              "value": 15,
+              "description": "Haptic Warning 2"
+            },
+            {
+              "value": 16,
+              "description": "Haptic Warning 3"
+            },
+            {
+              "value": 17,
+              "description": "Haptic Warning 4"
+            },
+            {
+              "value": 18,
+              "description": "Haptic Warning 5"
+            },
+            {
+              "value": 19,
+              "description": "Haptic Warning 6"
+            },
+            {
+              "value": 20,
+              "description": "Reserved 1"
+            },
+            {
+              "value": 21,
+              "description": "Reserved 2"
+            },
+            {
+              "value": 22,
+              "description": "Dynamic Belt"
+            },
+            {
+              "value": 23,
+              "description": "Re-Position 1"
+            },
+            {
+              "value": 24,
+              "description": "Re-Position 2"
+            },
+            {
+              "value": 25,
+              "description": "Re-Position 3"
+            }
+          ],
           "RX": true,
           "TX": true
         }
@@ -4584,3198 +4929,6 @@
           "maximum": 4095,
           "unit": "mm",
           "description": "FR Seat HeadRest for Position Actuator",
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ECM_EngineStatus1": {
-      "id": 608,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "EngineSpeed": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 16383.75,
-          "unit": "rpm",
-          "description": "Engine speed measured from crankshaft",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EngineLoad": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ThrottlePosition": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CoolantTemp": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EngineRunning": {
-          "start_bit": 40,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "StarterRequest": {
-          "start_bit": 41,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "MIL_Status": {
-          "start_bit": 42,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ECM_MsgCounter": {
-          "start_bit": 56,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 15,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ECM_Checksum": {
-          "start_bit": 60,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 15,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ECM_EngineStatus2": {
-      "id": 612,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "OilPressure": {
-          "start_bit": null,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 4,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1020,
-          "unit": "kPa",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "OilTemp": {
-          "start_bit": 8,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "IntakeAirTemp": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BoostPressure": {
-          "start_bit": 24,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 6553.5,
-          "unit": "kPa",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FuelConsumption": {
-          "start_bit": 40,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.05,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3276.75,
-          "unit": "L/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EngineRuntime": {
-          "start_bit": 56,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 10,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 2550,
-          "unit": "min",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ECM_EngineStatus3": {
-      "id": 616,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "FuelLevel": {
-          "start_bit": null,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FuelRange": {
-          "start_bit": 8,
-          "length": 10,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1023,
-          "unit": "km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "InstFuelConsumption": {
-          "start_bit": 18,
-          "length": 14,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 163.83,
-          "unit": "L/100km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AvgFuelConsumption": {
-          "start_bit": 32,
-          "length": 14,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 163.83,
-          "unit": "L/100km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FuelLowWarning": {
-          "start_bit": 46,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AdBlueLevel": {
-          "start_bit": 48,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AdBlueLowWarning": {
-          "start_bit": 56,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ECM_Torque": {
-      "id": 620,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "ActualTorque": {
-          "start_bit": null,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -500,
-          "minimum": -500,
-          "maximum": 1547.5,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RequestedTorque": {
-          "start_bit": 12,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -500,
-          "minimum": -500,
-          "maximum": 1547.5,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "MaxTorqueAvailable": {
-          "start_bit": 24,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -500,
-          "minimum": -500,
-          "maximum": 1547.5,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TorqueReductionReq": {
-          "start_bit": 36,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CruiseControlActive": {
-          "start_bit": 37,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CruiseSetSpeed": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "TCM_TransStatus": {
-      "id": 640,
-      "size": 8,
-      "senders": [
-        "TCM"
-      ],
-      "signals": {
-        "CurrentGear": {
-          "start_bit": null,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 9,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TargetGear": {
-          "start_bit": 4,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 9,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "GearShifting": {
-          "start_bit": 8,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TransMode": {
-          "start_bit": 9,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 7,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TransTemp": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TorqueConverterSlip": {
-          "start_bit": 24,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 16383.75,
-          "unit": "rpm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TransInputSpeed": {
-          "start_bit": 40,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 16383.75,
-          "unit": "rpm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ParkLockEngaged": {
-          "start_bit": 56,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "TCM_GearboxInfo": {
-      "id": 644,
-      "size": 8,
-      "senders": [
-        "TCM"
-      ],
-      "signals": {
-        "GearRatio": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.001,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 65.535,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "OutputShaftSpeed": {
-          "start_bit": 16,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 16383.75,
-          "unit": "rpm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ShiftPaddleLeft": {
-          "start_bit": 32,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ShiftPaddleRight": {
-          "start_bit": 33,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SportModeActive": {
-          "start_bit": 34,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ManualModeActive": {
-          "start_bit": 35,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TransFaultActive": {
-          "start_bit": 36,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ESP_VehicleDynamics1": {
-      "id": 512,
-      "size": 8,
-      "senders": [
-        "ESP"
-      ],
-      "signals": {
-        "VehicleSpeed": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 655.35,
-          "unit": "km/h",
-          "description": "Vehicle speed computed from 4-wheel average",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "YawRate": {
-          "start_bit": 16,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": -327.68,
-          "minimum": -327.68,
-          "maximum": 327.67,
-          "unit": "deg/s",
-          "description": "Yaw rate",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "LateralAccel": {
-          "start_bit": 32,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.001,
-          "offset": -32.768,
-          "minimum": -32.768,
-          "maximum": 32.767,
-          "unit": "g",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "LongitudinalAccel": {
-          "start_bit": 48,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.001,
-          "offset": -32.768,
-          "minimum": -32.768,
-          "maximum": 32.767,
-          "unit": "g",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ESP_VehicleDynamics2": {
-      "id": 516,
-      "size": 8,
-      "senders": [
-        "ESP"
-      ],
-      "signals": {
-        "WheelSpeed_FL": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 655.35,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WheelSpeed_FR": {
-          "start_bit": 16,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 655.35,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WheelSpeed_RL": {
-          "start_bit": 32,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 655.35,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WheelSpeed_RR": {
-          "start_bit": 48,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 655.35,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ESP_BrakeStatus": {
-      "id": 520,
-      "size": 8,
-      "senders": [
-        "ESP"
-      ],
-      "signals": {
-        "BrakePedalPressed": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakePedalPosition": {
-          "start_bit": 1,
-          "length": 7,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.7874,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakePressure_MC": {
-          "start_bit": 8,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 409.5,
-          "unit": "bar",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ABSActive": {
-          "start_bit": 20,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ESPActive": {
-          "start_bit": 21,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TCSActive": {
-          "start_bit": 22,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakeDiscTemp_FL": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 3,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 765,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakeDiscTemp_FR": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 3,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 765,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakePadWear_FL": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakePadWear_FR": {
-          "start_bit": 48,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakeFluidLow": {
-          "start_bit": 56,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "EPB_Status": {
-      "id": 528,
-      "size": 4,
-      "senders": [
-        "EPB"
-      ],
-      "signals": {
-        "ParkingBrakeActive": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ParkingBrakeRequest": {
-          "start_bit": 1,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AutoHoldActive": {
-          "start_bit": 2,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HillStartAssist": {
-          "start_bit": 3,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EPB_FaultStatus": {
-          "start_bit": 8,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 15,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "EPS_SteeringStatus": {
-      "id": 544,
-      "size": 8,
-      "senders": [
-        "EPS"
-      ],
-      "signals": {
-        "SteeringAngle": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": -3200,
-          "minimum": -3200,
-          "maximum": 3200,
-          "unit": "deg",
-          "description": "Steering wheel angle, positive = right",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SteeringAngleSpeed": {
-          "start_bit": 16,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -16384,
-          "minimum": -16384,
-          "maximum": 16383.5,
-          "unit": "deg/s",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SteeringTorque": {
-          "start_bit": 32,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": -20.48,
-          "minimum": -20.48,
-          "maximum": 20.47,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "LaneKeepAssistTorque": {
-          "start_bit": 44,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": -20.48,
-          "minimum": -20.48,
-          "maximum": 20.47,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EPSFaultActive": {
-          "start_bit": 56,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "LaneKeepAssistActive": {
-          "start_bit": 57,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "BCM_LightingStatus": {
-      "id": 672,
-      "size": 8,
-      "senders": [
-        "BCM"
-      ],
-      "signals": {
-        "HeadlightLeft": {
-          "start_bit": null,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HeadlightRight": {
-          "start_bit": 2,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HighBeamActive": {
-          "start_bit": 4,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FogLightFront": {
-          "start_bit": 5,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FogLightRear": {
-          "start_bit": 6,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DaytimeRunLight": {
-          "start_bit": 7,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TurnSignalLeft": {
-          "start_bit": 8,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TurnSignalRight": {
-          "start_bit": 9,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HazardLights": {
-          "start_bit": 10,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BrakeLights": {
-          "start_bit": 11,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ReverseLights": {
-          "start_bit": 12,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AmbientLightLevel": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AmbientLightColor": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AutoHighBeamActive": {
-          "start_bit": 32,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "BCM_DoorStatus": {
-      "id": 676,
-      "size": 8,
-      "senders": [
-        "BCM"
-      ],
-      "signals": {
-        "DoorOpen_FL": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorOpen_FR": {
-          "start_bit": 1,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorOpen_RL": {
-          "start_bit": 2,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorOpen_RR": {
-          "start_bit": 3,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TrunkOpen": {
-          "start_bit": 4,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HoodOpen": {
-          "start_bit": 5,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "FuelCapOpen": {
-          "start_bit": 6,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorLocked_FL": {
-          "start_bit": 8,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorLocked_FR": {
-          "start_bit": 9,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorLocked_RL": {
-          "start_bit": 10,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DoorLocked_RR": {
-          "start_bit": 11,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TrunkLocked": {
-          "start_bit": 12,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CentralLockStatus": {
-          "start_bit": 16,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "KeyInIgnition": {
-          "start_bit": 18,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "KeylessEntryDetect": {
-          "start_bit": 19,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WindowPos_FL": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WindowPos_FR": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WindowPos_RL": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "WindowPos_RR": {
-          "start_bit": 48,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SunroofPos": {
-          "start_bit": 56,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.39216,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 100,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "BCM_PowerManagement": {
-      "id": 680,
-      "size": 8,
-      "senders": [
-        "BCM"
-      ],
-      "signals": {
-        "BatteryVoltage": {
-          "start_bit": null,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 40.95,
-          "unit": "V",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BatterySoC": {
-          "start_bit": 12,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 127.5,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BatteryCurrent": {
-          "start_bit": 20,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.05,
-          "offset": -102.4,
-          "minimum": -102.4,
-          "maximum": 102.35,
-          "unit": "A",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BatteryTemp": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AlternatorVoltage": {
-          "start_bit": 40,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.01,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 40.95,
-          "unit": "V",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "IgnitionStatus": {
-          "start_bit": 52,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 7,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "StartStopActive": {
-          "start_bit": 55,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EcoModeActive": {
-          "start_bit": 56,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ComfortModeActive": {
-          "start_bit": 57,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SportModeActive_BCM": {
-          "start_bit": 58,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SportPlusModeActive": {
-          "start_bit": 59,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "HVAC_ClimateStatus": {
-      "id": 720,
-      "size": 8,
-      "senders": [
-        "HVAC"
-      ],
-      "signals": {
-        "CabinTemp": {
-          "start_bit": null,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -20,
-          "minimum": -20,
-          "maximum": 107.5,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SetTempDriver": {
-          "start_bit": 8,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 15,
-          "minimum": 15,
-          "maximum": 32,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SetTempPassenger": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 15,
-          "minimum": 15,
-          "maximum": 32,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ACCompressorOn": {
-          "start_bit": 24,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ACAutoMode": {
-          "start_bit": 25,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BlowerSpeed": {
-          "start_bit": 26,
-          "length": 4,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 15,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RecirculationMode": {
-          "start_bit": 30,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RearDefrostActive": {
-          "start_bit": 31,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatHeatDriver": {
-          "start_bit": 32,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatHeatPassenger": {
-          "start_bit": 35,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatVentDriver": {
-          "start_bit": 40,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatVentPassenger": {
-          "start_bit": 43,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SteeringWheelHeat": {
-          "start_bit": 48,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "OutsideTemp": {
-          "start_bit": 50,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 87.5,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "SRS_OccupantStatus": {
-      "id": 768,
-      "size": 8,
-      "senders": [
-        "SRS"
-      ],
-      "signals": {
-        "SeatbeltDriver": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatbeltPassenger": {
-          "start_bit": 1,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatbeltRL": {
-          "start_bit": 2,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatbeltRM": {
-          "start_bit": 3,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "SeatbeltRR": {
-          "start_bit": 4,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "PassengerOccupied": {
-          "start_bit": 5,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ChildSeatDetected": {
-          "start_bit": 6,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AirbagWarning": {
-          "start_bit": 8,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CrashDetected": {
-          "start_bit": 9,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "PreSafeActivated": {
-          "start_bit": 11,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "DriverWeight": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 127.5,
-          "unit": "kg",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "PassengerWeight": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 127.5,
-          "unit": "kg",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "IC_DisplayInfo": {
-      "id": 800,
-      "size": 8,
-      "senders": [
-        "IC"
-      ],
-      "signals": {
-        "Odometer": {
-          "start_bit": null,
-          "length": 24,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1677721.5,
-          "unit": "km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TripMeter_A": {
-          "start_bit": 24,
-          "length": 20,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 104857.5,
-          "unit": "km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TripMeter_B": {
-          "start_bit": 44,
-          "length": 20,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 104857.5,
-          "unit": "km",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ADAS_FrontCamera": {
-      "id": 848,
-      "size": 8,
-      "senders": [
-        "ADAS"
-      ],
-      "signals": {
-        "LaneDepartureWarn": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "LanePosition": {
-          "start_bit": 1,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": -2.54,
-          "minimum": -2.54,
-          "maximum": 2.56,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HeadwayDistance": {
-          "start_bit": 9,
-          "length": 9,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255.5,
-          "unit": "m",
-          "description": "Distance to leading vehicle",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HeadwayTime": {
-          "start_bit": 18,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "s",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ForwardCollisionWarn": {
-          "start_bit": 26,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "PedestrianDetected": {
-          "start_bit": 28,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TrafficSignType": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TrafficSignValue": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RoadType": {
-          "start_bit": 48,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 7,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "CameraBlocked": {
-          "start_bit": 51,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ADAS_RadarFront": {
-      "id": 852,
-      "size": 8,
-      "senders": [
-        "ADAS"
-      ],
-      "signals": {
-        "TargetDetected": {
-          "start_bit": null,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TargetDistance": {
-          "start_bit": 1,
-          "length": 10,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255.75,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TargetRelSpeed": {
-          "start_bit": 11,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.05,
-          "offset": -102.4,
-          "minimum": -102.4,
-          "maximum": 102.35,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TargetAngle": {
-          "start_bit": 23,
-          "length": 9,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": -25.6,
-          "minimum": -25.6,
-          "maximum": 25.5,
-          "unit": "deg",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AdaptiveCruiseActive": {
-          "start_bit": 32,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ACCSetSpeed": {
-          "start_bit": 33,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 255,
-          "unit": "km/h",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ACCFollowDistance": {
-          "start_bit": 41,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 7,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AEBWarning": {
-          "start_bit": 44,
-          "length": 2,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "AEBBrakeRequest": {
-          "start_bit": 46,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BlindSpotLeft": {
-          "start_bit": 48,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "BlindSpotRight": {
-          "start_bit": 49,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "ADAS_ParkingAssist": {
-      "id": 856,
-      "size": 8,
-      "senders": [
-        "ADAS"
-      ],
-      "signals": {
-        "UltrasonicDist_FL": {
-          "start_bit": null,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_FLC": {
-          "start_bit": 8,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_FRC": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_FR": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_RL": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_RLC": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_RRC": {
-          "start_bit": 48,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "UltrasonicDist_RR": {
-          "start_bit": 56,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.02,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5.1,
-          "unit": "m",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "TPMS_TireStatus": {
-      "id": 896,
-      "size": 8,
-      "senders": [
-        "ESP"
-      ],
-      "signals": {
-        "TirePressure_FL": {
-          "start_bit": null,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.0125,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3.1875,
-          "unit": "bar",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TirePressure_FR": {
-          "start_bit": 8,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.0125,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3.1875,
-          "unit": "bar",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TirePressure_RL": {
-          "start_bit": 16,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.0125,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3.1875,
-          "unit": "bar",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TirePressure_RR": {
-          "start_bit": 24,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.0125,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 3.1875,
-          "unit": "bar",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TireTemp_FL": {
-          "start_bit": 32,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TireTemp_FR": {
-          "start_bit": 40,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TireTemp_RL": {
-          "start_bit": 48,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "TireTemp_RR": {
-          "start_bit": 56,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "HV_BatteryStatus": {
-      "id": 960,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "HVBattery_SoC": {
-          "start_bit": null,
-          "length": 10,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 102.3,
-          "unit": "%",
-          "description": "High-voltage battery State of Charge (SoC)",
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HVBattery_Voltage": {
-          "start_bit": 10,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1023.75,
-          "unit": "V",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HVBattery_Current": {
-          "start_bit": 22,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.25,
-          "offset": -512,
-          "minimum": -512,
-          "maximum": 511.75,
-          "unit": "A",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HVBattery_Temp": {
-          "start_bit": 34,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HVBattery_Power": {
-          "start_bit": 42,
-          "length": 14,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.1,
-          "offset": -819.2,
-          "minimum": -819.2,
-          "maximum": 819.1,
-          "unit": "kW",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "HVBattery_Health": {
-          "start_bit": 56,
-          "length": 7,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 63.5,
-          "unit": "%",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ChargingStatus": {
-          "start_bit": 63,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        }
-      }
-    },
-    "HV_MotorStatus": {
-      "id": 964,
-      "size": 8,
-      "senders": [
-        "ECM"
-      ],
-      "signals": {
-        "ElecMotorSpeed": {
-          "start_bit": null,
-          "length": 16,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -30000,
-          "minimum": -30000,
-          "maximum": 30000,
-          "unit": "rpm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ElecMotorTorque": {
-          "start_bit": 16,
-          "length": 12,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 0.5,
-          "offset": -500,
-          "minimum": -500,
-          "maximum": 1547.5,
-          "unit": "Nm",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ElecMotorTemp": {
-          "start_bit": 28,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "InverterTemp": {
-          "start_bit": 36,
-          "length": 8,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": -40,
-          "minimum": -40,
-          "maximum": 215,
-          "unit": "degC",
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RegenBrakeActive": {
-          "start_bit": 44,
-          "length": 1,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "RegenBrakeLevel": {
-          "start_bit": 45,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 5,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "EVDriveMode": {
-          "start_bit": 48,
-          "length": 3,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 7,
-          "unit": null,
-          "description": null,
-          "states": [],
-          "RX": true,
-          "TX": false
-        },
-        "ElecRange": {
-          "start_bit": 51,
-          "length": 10,
-          "byte_order": "little_endian",
-          "is_signed": false,
-          "factor": 1,
-          "offset": 0,
-          "minimum": 0,
-          "maximum": 1023,
-          "unit": "km",
-          "description": null,
           "states": [],
           "RX": true,
           "TX": false

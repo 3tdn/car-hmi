@@ -5,9 +5,11 @@ participant "CAN Bus" as CANBus
 participant "CANReader" as CANReader
 participant "SignalPipeline" as Pipeline
 participant "AlarmChecker" as AlarmChecker
+participant "AppRunner\n_on_alarm()" as Runner
 participant "Repository" as Repo
 participant "WebSocket Manager" as WS
 participant Frontend
+participant API
 
 == Alarm detection path ==
 Vehicle -> CANBus: send CAN frame
@@ -15,9 +17,14 @@ CANBus -> CANReader: deliver frame
 CANReader -> Pipeline: decode -> signals
 Pipeline -> AlarmChecker: evaluate thresholds
 alt alarm triggered
-  AlarmChecker -> Repo: insert_alarm(alarm_record)
+  AlarmChecker -> Runner: call alarm_handler(alarm_record)
+  note right of Runner
+    AppRunner registers _on_alarm()
+    as the handler when creating AlarmChecker
+  end note
+  Runner -> Repo: insert_alarm(alarm_record)
   Repo -> Repo: persist alarm
-  AlarmChecker -> WS: broadcast_alarm(alarm_payload)
+  Runner -> WS: broadcast_alarm(alarm_payload)
   WS -> Frontend: push alarm notification
 else no alarm
   note right: continue normal processing

@@ -109,11 +109,17 @@ async def get_general_config():
 async def patch_general_config(body: dict, request: Request):
     from src.core.config_manager import update_config_partial
 
-    update_config_partial(body, path="config/system.json")
+    try:
+        update_config_partial(body, path="config/system.json")
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     # try to reload validated config
     from src.core.config import load_config
 
-    cfg = load_config("config/system.json")
+    try:
+        cfg = load_config("config/system.json")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return cfg.model_dump()
 
 
@@ -155,16 +161,20 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
     from src.core.config import load_config
 
     # Update on-disk JSON first
-    update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/system.json")
+    try:
+        update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/system.json")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
     # Try to apply to running components if available
-    reader = getattr(request.app.state, "reader", None)
+    readers = getattr(request.app.state, "readers", None)
     pipeline = getattr(request.app.state, "pipeline", None)
-    if reader and body.queue_policy is not None:
-        try:
-            reader.set_queue_policy(body.queue_policy)
-        except Exception:
-            pass
+    if readers and body.queue_policy is not None:
+        for reader in readers:
+            try:
+                reader.set_queue_policy(body.queue_policy)
+            except Exception:
+                pass
     # Attempt a best-effort migration of the runtime RX queue via the runner
     runner = getattr(request.app.state, "runner", None)
     if runner and body.max_queue_size is not None:

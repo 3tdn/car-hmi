@@ -10,8 +10,6 @@ if (Queue full?\n(size >= max_queue_size)) then (yes)
     if (queue_policy?) then (drop_oldest)
         :Drop oldest message;
         :Log WARNING\n"backpressure: dropped frame";
-    elseif (block) then (block)
-        :Block producer until\nspace available;
     else (reject)
         :Reject frame;\n:Return backpressure error;
         stop
@@ -21,7 +19,7 @@ endif
 
 partition "Stage 1: Smoothing Filter" {
     if (smoothing enabled?) then (yes)
-        :Apply Moving Average\nor EMA (configurable window);
+        :Apply Moving Average\nor EMA (alpha=2/(window+1), constant);
     else (no)
         :Pass through;
     endif
@@ -73,7 +71,9 @@ partition "Output" {
     fork again
         :Buffer to Storage queue;
         if (batch_size reached\nOR interval elapsed?) then (yes)
+            :BEGIN transaction;
             :Batch INSERT into\nSQLite signal_log;
+            :COMMIT (ROLLBACK on error);
         endif
     end fork
 }

@@ -8,24 +8,20 @@
 ## 1. Tổng quan luồng dữ liệu (End-to-End)
 
 ```
-[Vehicle ECU / Simulator]
-         │
-         │  CAN frame (raw bytes, 8 byte max / CAN FD 64 byte)
-         │  Message ID + Data
-         ▼
-┌─────────────────────────────────────────────┐
-│  CANReader (can_io/reader.py)               │
-│  ─────────────────────────────────────────  │
-│  1. Nhận can.Message từ bus (async)         │
-│  2. Lookup message ID trong DatabaseLoader  │
-│  3. Decode: raw bytes → dict[str, float]    │
-│     VD: {VehicleSpeed: 84.1, EngineRPM: 2500.0}│
-│  4. Tạo DecodedFrame(raw, signals, msg_name)│
-│  5. Đẩy vào asyncio.Queue                  │
-└───────────────────┬─────────────────────────┘
-                    │  asyncio.Queue[DecodedFrame]
-                    │  (maxsize=10 000, backpressure: drop_oldest)
-                    ▼
+[Vehicle ECU / Simulator]          [Vehicle ECU / Simulator]
+         │  Channel 0 (vcan0)                │  Channel 1 (vcan1)
+         │  CAN frame                        │  CAN frame
+         ▼                                   ▼
+┌──────────────────────────┐  ┌──────────────────────────┐
+│  CANReader #0            │  │  CANReader #1            │
+│  (can_io/reader.py)      │  │  (can_io/reader.py)      │
+│  decode via DB Loader #0 │  │  decode via DB Loader #1 │
+└────────────┬─────────────┘  └────────────┬─────────────┘
+             │                              │
+             └──────────┬───────────────────┘
+                        │  shared asyncio.Queue[DecodedFrame]
+                        │  (maxsize=10 000, backpressure: drop_oldest)
+                        ▼
 ┌─────────────────────────────────────────────┐
 │  SignalPipeline (processor/pipeline.py)     │
 │  ─────────────────────────────────────────  │
@@ -54,6 +50,10 @@
          ▼
 [Web Dashboard / Client]
 ```
+
+> **Multi-channel**: Hệ thống hỗ trợ N kênh CAN song song. Mỗi kênh có
+> DatabaseLoader & CANReader riêng, tất cả đổ vào chung 1 Queue.
+> `CANWriterRouter` đảm bảo lệnh ghi đi đúng kênh (O(1) lookup).
 
 ---
 
@@ -117,6 +117,7 @@ _signal_to_msg: dict[str, int]        ← reverse index
 **Mục đích**: Làm mượt nhiễu tín hiệu analog (cảm biến, ADC).
 
 **Thuật toán**: Sliding window (Moving Average) hoặc EMA (Exponential Moving Average).
+EMA sử dụng alpha cố định = 2/(window+1), đảm bảo tính nhất quán bất kể vị trí trong chuỗi.
 
 ```
 Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 giá trị gần nhất)
@@ -234,7 +235,7 @@ Signal updates → Buffer list[SignalRecord]
                       │
                       ▼
               SQLite batch INSERT
-              (1 transaction nhiều rows)
+              (1 transaction: BEGIN/COMMIT/ROLLBACK)
 ```
 
 **Config**:

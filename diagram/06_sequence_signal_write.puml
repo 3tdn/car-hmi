@@ -8,7 +8,7 @@ participant "FastAPI\n(signals.py)" as api
 participant "Auth\n(auth.py)" as auth
 participant "Pydantic\n(models.py)" as model
 participant "Signal Store\n(signal_store.py)" as store
-participant "CAN Writer\n(writer.py)" as writer
+participant "CAN Writer Router\n(writer.py)" as writer
 participant "CAN Bus\n(vcan0)" as bus
 participant "ECU / Simulator" as ecu
 
@@ -57,6 +57,8 @@ alt signal not writable
 end
 
 api -> writer : send_signal("BrakePressure", 45.0)
+note right of writer : CANWriterRouter routes to
+the correct CANWriter by signal name
 writer -> writer : encode(signal, value)\nusing can.json definitions
 writer -> bus : bus.send(can.Message(id=0x..., data=...))
 alt bus.send fails (BusError / timeout)

@@ -2,7 +2,15 @@
 """Generate `config/can.json` aggregating messages and signals from DBC files.
 
 Usage:
-  python scripts/gen_can_json.py -d db/ --out config/can.json [--dry-run] [--overwrite]
+  # Single directory (scans all *.dbc recursively)
+  python scripts/gen_can_json.py -d db/ --out config/can.json
+
+  # Multiple explicit DBC files
+  python scripts/gen_can_json.py -d db/candb/filedbc1.dbc db/candb/filedbc2.dbc --out config/can.json
+
+  # Extra options
+  python scripts/gen_can_json.py -d db/ --out config/can.json --dry-run
+  python scripts/gen_can_json.py -d db/ --out config/can.json --overwrite
 """
 from __future__ import annotations
 
@@ -14,17 +22,19 @@ from dbc_utils import load_json, write_json, parse_dbc_messages
 
 logger = logging.getLogger("gen_can_json")
 
-
-def merge_messages(existing: dict, parsed: dict, overwrite: bool = False) -> dict:
+def merge_messages(existing: dict, parsed: dict) -> dict:
     cfg = existing.copy()
-    messages = cfg.get("messages") or {}
+    messages = {k: dict(v) for k, v in (cfg.get("messages") or {}).items()}
     for name, info in parsed.get("messages", {}).items():
-        if name in messages and not overwrite:
-            continue
-        messages[name] = info
+        if name in messages:
+            # Deep-merge signals from same message name across DBC files
+            merged_signals = dict(messages[name].get("signals") or {})
+            merged_signals.update(info.get("signals") or {})
+            messages[name] = {**info, "signals": merged_signals}
+        else:
+            messages[name] = info
     cfg["messages"] = messages
     return cfg
-
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Generate config/can.json from DBC files")
@@ -37,13 +47,21 @@ def main(argv: list[str] | None = None) -> int:
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
-    paths = [Path(p) for p in args.dbc]
+    paths = [Path(d) for d in args.dbc]
+    logger.info("paths: %s", paths)
     parsed = parse_dbc_messages(paths)
     logger.info("Parsed %d messages", len(parsed.get("messages", {})))
 
     out_path = Path(args.out)
-    existing = load_json(out_path)
-    new_cfg = merge_messages(existing, parsed, overwrite=args.overwrite)
+    existing: dict = {}
+    if args.overwrite:
+        new_cfg = parsed
+    else:
+        try:
+            existing = load_json(out_path)
+            new_cfg = merge_messages(existing, parsed)
+        except FileNotFoundError:
+            new_cfg = parsed
 
     if args.dry_run:
         added = set(new_cfg.get("messages", {}).keys()) - set(existing.get("messages", {}).keys())
@@ -56,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Wrote %s", out_path)
     return 0
 
+if False:
+    main(["-d", ".\\db\\can_db\\p_v2.dbc", "--out", "config/can2.json", "--overwrite"])
+    exit(0)
 
 if __name__ == "__main__":
     raise SystemExit(main())

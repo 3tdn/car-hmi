@@ -6,8 +6,20 @@
       "bitrate": 500000,
       "can_json_path": "config/can0.json",
       "can_db_files": ["db/candb/p_v2.dbc"]
+    },
+    {
+      "interface": "virtual",
+      "channel": "vcan1",
+      "bitrate": 500000,
+      "can_json_path": "config/can1.json",
+      "can_db_files": ["db/candb/m_dummy.dbc"]
     }
   ],
+  "simulator": {
+    "enabled": true,
+    "default_cycle_ms": 10,
+    "can_json_path": "config/can0.json"
+  },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
     "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"

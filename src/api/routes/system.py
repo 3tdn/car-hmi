@@ -6,17 +6,48 @@ import time
 
 from fastapi import APIRouter, Request
 
-from src.api.models import HealthResponse, ReadinessResponse, SystemMetricsResponse
+from src.api.models import HealthResponse, ReadinessResponse, SystemInfoResponse, SystemMetricsResponse
 from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
 router = APIRouter()
 
 
-@router.get("/health", response_model=HealthResponse, summary="Liveness probe")
+@router.get(
+    "/info",
+    response_model=SystemInfoResponse,
+    summary="Get project & system information",
+)
+async def system_info(request: Request) -> SystemInfoResponse:
+    """Thông tin tổng quan dự án: tên, phiên bản, uptime, trạng thái kết nối, số tín hiệu."""
+    uptime = time.time() - request.app.state.start_time
+    readers = getattr(request.app.state, "readers", None)
+    bus_ok = bool(readers and any(getattr(r, "_bus", None) is not None for r in readers))
+    db_ok = bool(request.app.state.repo)
+    store = request.app.state.store
+    snapshot = await store.get_snapshot()
+    return SystemInfoResponse(
+        name="CAN-HMI Signal API",
+        version="1.0.0",
+        description="Real-time CAN bus signal monitoring and control API",
+        uptime_seconds=round(uptime, 1),
+        bus_connected=bus_ok,
+        db_connected=db_ok,
+        signal_count=len(snapshot),
+    )
+
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+)
 async def health(request: Request) -> HealthResponse:
     uptime = time.time() - request.app.state.start_time
-    reader = getattr(request.app.state, "reader", None)
-    bus_ok = bool(reader and getattr(reader, "_bus", None) is not None)
+    readers = getattr(request.app.state, "readers", None)
+    bus_ok = bool(
+        readers
+        and any(getattr(r, "_bus", None) is not None for r in readers)
+    )
     db_ok = bool(request.app.state.repo)
     overall = "ok" if (bus_ok and db_ok) else "degraded"
     return HealthResponse(
@@ -31,8 +62,11 @@ async def health(request: Request) -> HealthResponse:
     "/ready", response_model=ReadinessResponse, summary="Readiness probe (for container/systemd)"
 )
 async def ready(request: Request) -> ReadinessResponse:
-    reader = getattr(request.app.state, "reader", None)
-    bus_ok = bool(reader and getattr(reader, "_bus", None) is not None)
+    readers = getattr(request.app.state, "readers", None)
+    bus_ok = bool(
+        readers
+        and any(getattr(r, "_bus", None) is not None for r in readers)
+    )
     db_ok = bool(request.app.state.repo)
     details = {"bus": bus_ok, "db": db_ok}
     return ReadinessResponse(ready=all(details.values()), details=details)

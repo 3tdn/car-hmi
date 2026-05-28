@@ -113,14 +113,19 @@ class SQLiteRepository(ISignalRepository):
         await self._conn.commit()
 
     async def insert_signals_bulk(self, records: list[SignalRecord]) -> None:
-        await self._conn.executemany(
-            "INSERT INTO signal_log (signal_name, value, unit, timestamp) VALUES (?,?,?,?)",
-            [
-                (record.signal_name, record.value, record.unit, record.timestamp)
-                for record in records
-            ],
-        )
-        await self._conn.commit()
+        try:
+            await self._conn.execute("BEGIN")
+            await self._conn.executemany(
+                "INSERT INTO signal_log (signal_name, value, unit, timestamp) VALUES (?,?,?,?)",
+                [
+                    (record.signal_name, record.value, record.unit, record.timestamp)
+                    for record in records
+                ],
+            )
+            await self._conn.execute("COMMIT")
+        except Exception:
+            await self._conn.execute("ROLLBACK")
+            raise
 
     async def query_signals(
         self,

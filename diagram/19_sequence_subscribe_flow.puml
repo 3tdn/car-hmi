@@ -30,11 +30,13 @@ FE -> WS : WS /ws/subscribe
 WS --> FE : accept (handshake)
 
 FE -> WS : {"action":"subscribe",\n"channels":["EngineSpeed","BatterySOC",\n"alarms","metrics"],\n"mode":"continuous"}
+WS -> WS : acquire _lock\nmutate subscription state
 WS --> FE : {"type":"subscribe_ack", ...}
 
 note right of WS
-  ConnectionManager giữ state riêng cho
-  mỗi WS connection:
+  ConnectionManager acquires asyncio.Lock
+  before mutating _ClientSubscription state
+  to prevent race with broadcast task.
   - signal_names: {"EngineSpeed","BatterySOC"}
   - subscribe_alarms: true
   - subscribe_metrics: true

@@ -3,6 +3,7 @@ title Sequence — Signal Read Flow
 actor Vehicle
 participant "CAN Bus" as CANBus
 participant "CANReader" as CANReader
+queue "asyncio.Queue" as Queue
 participant "SignalPipeline" as Pipeline
 participant "SignalStore" as Store
 participant "Repository" as Repo
@@ -12,8 +13,12 @@ participant Frontend
 == Frame travels from vehicle to frontend ==
 Vehicle -> CANBus: send CAN frame
 CANBus -> CANReader: deliver frame
-note right: python-can frame received
-CANReader -> Pipeline: decode frame -> produce signals
+note right: python-can bus.recv() in executor
+CANReader -> CANReader: decode frame (DatabaseLoader)
+CANReader -> Queue: put(DecodedFrame)
+note right: CANReader writes;
+Pipeline reads batch
+Queue -> Pipeline: get batch (up to batch_drain_size)
 Pipeline -> Store: update(signal_name, value)
 activate Store
 Store -> WS: notify subscribers (signal update)

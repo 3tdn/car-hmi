@@ -149,7 +149,7 @@ Yêu cầu hỗ trợ:
 | Encode + Send | Nhận lệnh thay đổi signal → encode → gửi CAN frame |
 | Async | Chạy non-blocking (`asyncio`) để không block main loop |
 | Filter | Hỗ trợ CAN ID filter (chỉ nhận message quan tâm) |
-| Bus config | Đọc từ file config (YAML): interface, channel, bitrate |
+| Bus config | Đọc từ file config (JSON): interface, channel, bitrate. Hỗ trợ nhiều kênh CAN đồng thời |
 | Output | Push decoded signal dict vào internal queue (asyncio.Queue) |
 | Queue policy | Hỗ trợ 3 chính sách khi queue đầy: `block`, `reject`, `drop_oldest` |
 | Reconnect | Tự reconnect khi bus lỗi với exponential backoff (1s → 30s), max retries configurable |
@@ -160,12 +160,12 @@ Yêu cầu hỗ trợ:
 Định dạng chuẩn gồm 4 phần chính:
 1) **Message config** — metadata từ config/can.json
 2) **Raw message** — frame nhận được từ CAN bus
-3) **Signal configs** — định nghĩa bit layout, factor/offset từ DBC/CANdb
+3) **Signal configs** — định nghĩa bit layout, factor/offset từ can.json
 4) **Decoded signal values** — giá trị thực sau khi decode (`raw × factor + offset`)
 
 ```json
 {
-    // --- 1) Message config (từ config + DBC/CANdb) ------------------------------
+    // --- 1) Message config (từ config + can.json) ------------------------------
     "message_config": {
         "msg_name": "SBS_WMS_FR_Response",
         "msg_id": 401,
@@ -248,8 +248,8 @@ Yêu cầu hỗ trợ:
 ```
 
 > **Ghi chú:**
-> - `message_config` là metadata dùng cho mapping giữa config và DBC/CANdb (ví dụ: cycle time, mô tả, nguồn dữ liệu).
-> - `signal_configs` gồm các thông tin lấy từ DBC/CANdb (factor/offset/unit/bit layout/description), dùng để encode/decode.
+> - `message_config` là metadata dùng cho mapping giữa config và can.json (ví dụ: cycle time, mô tả, nguồn dữ liệu).
+> - `signal_configs` gồm các thông tin lấy từ can.json (factor/offset/unit/bit layout/description), dùng để encode/decode.
 > - `signals` là giá trị đã decode từ `raw_message` dựa trên `signal_configs`.
 > - Decoder/encoder phải hỗ trợ cả CANdb (candb) để giữ nhất quán tên/số ID và cấu hình tính toán.
 
@@ -260,14 +260,14 @@ Yêu cầu hỗ trợ:
 
 > Xử lý, lọc, biến đổi tín hiệu thô trước khi lưu và phát ra ngoài.
 >
-> **Lưu ý:** Processor nên hỗ trợ nhận đường dẫn tới thư mục chứa file định nghĩa (DBC/A2L) để load các định nghĩa message/signal (có thể nhiều file cùng lúc).
+> **Lưu ý:** Processor nên hỗ trợ nhiều kênh CAN đồng thời, mỗi kênh có file can.json riêng. Tín hiệu từ tất cả các kênh được gộp vào chung một pipeline xử lý.
 >
 | Hạng mục | Yêu cầu |
 |---|---|
 | Smoothing | Moving average, exponential moving average (configurable window, `method: "moving_avg"` hoặc `"ema"`) |
 | Rate limiting | Giới hạn tần số cập nhật per signal (ví dụ: max 10 Hz cho UI) |
 | Alarm / Threshold | Định nghĩa ngưỡng cảnh báo per signal (YAML config), phát hiện state change (none→warning→critical) |
-| Unit conversion | Hỗ trợ convert đơn vị (raw → engineering value đã có từ DBC/CANdb, thêm custom nếu cần) |
+| Unit conversion | Hỗ trợ convert đơn vị (raw → engineering value đã có từ can.json, thêm custom nếu cần) |
 | Computed signals | Hỗ trợ virtual signal tính từ nhiều signal khác (ví dụ: `Power = RPM × Torque / 9549`) — `ComputedSignals` stage với pluggable formulas |
 | Output | Signal dict đã xử lý → push vào broadcast queue + gửi cho storage |
 | Backpressure | Khi queue đầy: áp dụng `queue_policy` (drop_oldest / block / reject). Queue size configurable (`max_queue_size`, default 10 000) |
@@ -790,8 +790,8 @@ Dev Mode thì liệt kê hết ra signal (kể cả không hiển thị trên da
 |---|---|---|---|---|
 | `ERR_CAN_BUS_OFF` | CAN I/O | Bus-off state do lỗi phần cứng hoặc quá tải | CRITICAL | Auto-reconnect với exponential backoff (1s → max 30s). Log lỗi, tạm dừng write. Sau 5 lần thất bại liên tiếp → alert Supervisor |
 | `ERR_CAN_TIMEOUT` | CAN Reader | Không nhận frame trong thời gian kỳ vọng (> 3× cycle time) | WARNING | Log warning, gửi stale status cho signal. Nếu > 30s → đánh dấu signal offline |
-| `ERR_PARSE_DBC` | Parser | File DBC/A2L/CANdb không hợp lệ hoặc bị hỏng | CRITICAL | Reject file, log chi tiết lỗi (file, line, reason). Hệ thống vẫn chạy với các file hợp lệ còn lại |
-| `ERR_DECODE_FRAME` | CAN Reader | Frame nhận được không match DBC definition (DLC mismatch, unknown ID) | WARNING | Log + skip frame, increment error counter. Nếu error rate > threshold → alert |
+| `ERR_PARSE_DB` | Parser | File can.json không hợp lệ hoặc bị hỏng | CRITICAL | Reject file, log chi tiết lỗi (file, line, reason). Hệ thống vẫn chạy với các file hợp lệ còn lại |
+| `ERR_DECODE_FRAME` | CAN Reader | Frame nhận được không match can.json definition (DLC mismatch, unknown ID) | WARNING | Log + skip frame, increment error counter. Nếu error rate > threshold → alert |
 | `ERR_STORAGE_WRITE` | Storage | SQLite write thất bại (disk full, lock, corruption) | CRITICAL | Retry 3 lần với backoff. Nếu vẫn thất bại → buffer in-memory (max 10 000 records), alert Supervisor. Khi DB phục hồi → flush buffer |
 | `ERR_STORAGE_FULL` | Storage | Disk usage vượt ngưỡng `storage.max_disk_mb` | WARNING | Chạy retention purge ngay lập tức. Nếu vẫn không đủ → giảm batch size, log warning |
 | `ERR_WS_SLOW_CLIENT` | WebSocket | Client không consume message kịp (send buffer > threshold) | WARNING | Drop oldest messages cho client đó (per-client buffer). Nếu client quá chậm > 60s → disconnect |
@@ -881,7 +881,7 @@ sudo ip link set up can0
 |---|---|
 | Authentication | API key (header `X-API-Key`) cho REST. JWT (optional) cho multi-user. WS: token via query param `?token=` |
 | Authorization | Signal write access kiểm tra `writable` flag trong `signal_config`. Chỉ signal có `writable=true` mới cho phép PUT |
-| Input validation | Pydantic model validate tất cả request body. Signal value phải nằm trong `[min, max]` range từ config/DBC |
+| Input validation | Pydantic model validate tất cả request body. Signal value phải nằm trong `[min, max]` range từ config/can.json |
 | Rate limiting | Global: 100 req/s (configurable). Write: 10 req/s per signal. Trả HTTP 429 + `Retry-After` |
 | TLS | Production: HTTPS (reverse proxy nginx/caddy). Dev: plain HTTP OK |
 | Secret management | API key không hard-code; đọc từ env var `CANHMI_API_KEY` hoặc secret file. Config file không commit secret |
@@ -1127,18 +1127,24 @@ jobs:
 
 ```json
 {
-  "can": {
-    "interface": "virtual",
-    "channel": "vcan0",
-    "bitrate": 500000,
-    "can_db_files": [],
-    "can_db_dirs": ["db/can_db/"],
-    "a2l_dirs": ["db/ecu_db/"],
-    "can_db_format": "auto"
-  },
+  "can": [
+    {
+      "interface": "virtual",
+      "channel": "vcan0",
+      "bitrate": 500000,
+      "can_json_path": "config/can.json"
+    },
+    {
+      "interface": "virtual",
+      "channel": "vcan1",
+      "bitrate": 500000,
+      "can_json_path": "config/can1.json"
+    }
+  ],
   "simulator": {
     "enabled": true,
-    "default_cycle_ms": 50
+    "default_cycle_ms": 50,
+    "can_json_path": "config/can.json"
   },
   "api": {
     "host": "0.0.0.0",

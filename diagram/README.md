@@ -13,15 +13,19 @@ Format: **PlantUML** (`.puml`).
 | 04 | `04_class_diagram.puml` | Class | Key classes, interfaces, design patterns (Strategy, Pipeline, Repository, Observer, Factory) |
 | 05 | `05_sequence_signal_read.puml` | Sequence | CAN Bus → Reader → Processor → Dashboard (4 stages, with NFR timing) |
 | 06 | `06_sequence_signal_write.puml` | Sequence | Dashboard → API → CAN Writer → CAN Bus (202 response, bus error handling) |
-| 07 | `07_sequence_websocket.puml` | Sequence | WebSocket lifecycle (topic-based: /ws/signals, /ws/alarms, /ws/all) |
-| 08 | `08_activity_pipeline.puml` | Activity | Signal processing pipeline (4 stages + backpressure + exception handling) |
+| 07 | `07_sequence_websocket.puml` | Sequence | WebSocket lifecycle (topic-based: /ws/signals, /ws/alarms, /ws/all; per-signal: /ws/subscribe) |
+| 08 | `08_activity_pipeline.puml` | Activity | Signal processing pipeline (4 stages + backpressure: drop_oldest/reject + exception handling) |
 | 09 | `09_state_vehicle.puml` | State Machine | Vehicle state detection — **PROPOSED, not yet implemented** |
-| 10 | `10_deployment.puml` | Deployment | Physical nodes, CAN bus, LAN, frontend, dev simulator |
-| 11 | `11_database_er.puml` | ER | Database schema (signal_log, signal_config with group_name/widget_type, alarm_log with triggered_at) |
+| 10 | `10_deployment.puml` | Deployment | Physical nodes, multi-channel CAN bus (vcan0/vcan1), LAN, frontend, deploy_linux.sh |
+| 11 | `11_database_er.puml` | ER | Database schema (signal_log, signal_config, alarm_log — epoch REAL timestamps) |
 | 12 | `12_data_flow.puml` | Data Flow | End-to-end data flow overview |
-| 13 | `13_sequence_startup_shutdown.puml` | Sequence | System startup and graceful shutdown |
+| 13 | `13_sequence_startup_shutdown.puml` | Sequence | System startup (all tasks: pipeline, readers, watchdog, metrics-push, retention) and graceful shutdown |
 | 14 | `14_state_ws_client.puml` | State Machine | WebSocket client reconnection logic |
-| 15 | `15_error_taxonomy.puml` | Error Taxonomy | Error classification, severity, and recovery strategies (req 2.9) |
+| 15 | `15_error_taxonomy.puml` | Error Taxonomy | Error classification, severity, and recovery strategies; monitoring via psutil /system/metrics |
+| 16 | `16_sequence_signal_read.puml` | Sequence | Simplified signal read: CAN Bus → asyncio.Queue → Pipeline → Store → WS → Frontend |
+| 17 | `17_sequence_signal_write.puml` | Sequence | Signal write-back: Frontend → API → CANWriterRouter → CAN Bus → ECU |
+| 18 | `18_sequence_alarm_flow.puml` | Sequence | Alarm detection via AppRunner._on_alarm() handler → Repo + WS broadcast |
+| 19 | `19_sequence_subscribe_flow.puml` | Sequence | Per-signal subscribe flow (/ws/subscribe) |
 
 ## Rendering
 
@@ -46,3 +50,4 @@ java -jar plantuml.jar Diagram/*.puml
 - **Review Round 4**: Add /ready to container monitoring, alarm WS push in read seq (AC-13), APIKeyAuth class for security 2.11
 - **Review Round 5**: Configurable queue_policy in activity diagram (block/drop_oldest/reject), align SQLiteRepository with ISignalRepository interface
 - **Code Sync v0.7.0**: Full sync with actual codebase — removed VehicleStateMachine (not implemented), reordered pipeline stages to SmoothingFilter→RateLimiter→ComputedSignals→AlarmChecker, updated class diagram (all classes/fields match code), fixed ER schema (signal_log, alarm_log, signal_config match database.py), added bus_factory/parser/config_manager to component diagram, fixed WebSocket to topic-based (/ws/signals, /ws/alarms, /ws/all), fixed write endpoint to 202, removed video/camera from data flow, marked 09_state_vehicle as PROPOSED
+- **Code Sync v0.8.0**: Full audit against source — removed DMS/OMS Camera + GStreamer (not implemented anywhere); removed Docker option (no Dockerfile); fixed queue policy: removed `block` (only `drop_oldest` and `reject` exist); fixed ER: triggered_at/resolved_at/updated_at are REAL (epoch float) not TEXT; fixed APIKeyAuth method: `verify(key)` not `validate_ws_token`; fixed write flow: CANWriterRouter (not CANWriter directly), removed non-existent write audit record; added AppRunner._on_alarm() as alarm handler intermediary; updated WS seq: /ws/subscribe added, removed get_all_configs() call; startup seq: added metrics-push + retention tasks; deployment: multi-channel vcan0/vcan1, scripts/deploy_linux.sh reference; system metrics via psutil not Prometheus; diagram 16: asyncio.Queue shown between CANReader and Pipeline

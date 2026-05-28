@@ -51,7 +51,11 @@
 | `bus_factory.py` | Tạo instance `can.BusABC` theo config (socketcan, virtual, pcan, vector…) |
 | `parser.py` | Load và parse `config/can.json` thành `ParsedMessage` / `ParsedSignal`. Decode/encode CAN frame bằng bit manipulation tự viết |
 | `reader.py` | `CANReader`: async producer, đọc frame từ bus → giải mã → đưa vào `asyncio.Queue`. Hỗ trợ reconnect tự động và backpressure |
-| `writer.py` | `CANWriter`: encode signal value → CAN frame → gửi lên bus |
+| `writer.py` | `CANWriter`: encode signal value → CAN frame → gửi lên bus. `CANWriterRouter`: định tuyến ghi tín hiệu đến đúng kênh CAN |
+
+**Hỗ trợ nhiều kênh CAN**: Mỗi kênh (vcan0, vcan1…) có `DatabaseLoader`, `CANReader`, `CANWriter` riêng.
+Tất cả reader đổ vào chung một `asyncio.Queue` → pipeline xử lý tập trung.
+`CANWriterRouter` định tuyến O(1) tín hiệu ghi đến đúng writer/kênh.
 
 **DatabaseLoader** là lớp trung tâm load can.json:
 ```python
@@ -173,11 +177,11 @@ Simulator dùng **virtual bus** riêng, tách biệt với bus reader (python-ca
 `AppRunner` là trung tâm điều phối khởi động toàn hệ thống theo thứ tự:
 
 1. Setup logging (rotating file + console)
-2. Load CAN database (can.json)
-3. Seed SignalStore với initial values từ DB
+2. Load CAN database cho mỗi kênh (can.json per channel)
+3. Seed SignalStore với initial values từ tất cả DB của các kênh
 4. Khởi tạo SQLite storage
-5. Tạo CAN Bus instance
-6. Khởi tạo Signal Pipeline + các stage
+5. Tạo CAN Bus instance cho mỗi kênh
+6. Khởi tạo Signal Pipeline + các stage (dùng chung 1 queue)
 7. Tạo CANReader + CANWriter
 8. Khởi động CAN Simulator (nếu bật)
 9. Tạo FastAPI server (uvicorn)
