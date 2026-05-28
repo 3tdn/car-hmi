@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import APIKeyAuth
-from src.api.routes import alarms, config, signals, system
+from src.api.routes import alarms, config, restraints, signals, system
 from src.api.websocket import ConnectionManager
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,7 @@ def create_app(
     app.include_router(alarms.router, prefix="/alarms", tags=["Alarms"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
     app.include_router(system.router, prefix="/system", tags=["System"])
+    app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
     # Điểm cuối WebSocket (không có auth dep — auth xử lý trong handshake ws)
     app.include_router(signals.ws_router, prefix="/ws", tags=["WebSocket"])
 
