@@ -72,7 +72,7 @@ class StorageConfig(BaseModel):
     retention_days: int = 30
     # Số ngày giữ dữ liệu; bản ghi cũ hơn sẽ bị xoá bởi retention task
     max_disk_mb: int = 2048
-    # Giới hạn dung lượng DB (MB); cảnh báo sẽ được phát khi vượt ngưỡng
+    # Giới hạn dung lượng DB (MB); khi vượt ngưỡng, retention task sẽ xóa oldest rows và VACUUM
 
 
 class ProcessorConfig(BaseModel):
