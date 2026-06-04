@@ -1,6 +1,6 @@
 @startuml Sequence - System Startup
 !theme plain
-title System Startup & Graceful Shutdown Sequence
+title System Startup Sequence
 
 participant "CLI / Main" as cli
 participant "Runner\n(runner.py)" as runner
@@ -11,8 +11,6 @@ participant "Signal Pipeline\n(pipeline.py)" as pipe
 participant "Storage\n(database.py)" as db
 participant "FastAPI\n(app.py)" as api
 participant "Monitoring\n(watchdog)" as mon
-
-== Startup Sequence ==
 
 cli -> runner : start(config_path="config/system.json")
 activate runner
@@ -74,38 +72,6 @@ note over cli, mon
   Config validation: fail fast with clear error
 end note
 
-== Graceful Shutdown ==
-
-cli -> runner : SIGTERM / SIGINT received
-activate runner #salmon
-
-runner -> mon : stop watchdog
-runner -> api : shutdown uvicorn\n(close WS connections)
-api -> api : send Close(1001) to all WS clients
-api -> api : await pending responses
-api --> runner : API stopped
-
-runner -> pipe : stop pipeline
-pipe -> pipe : flush() — drain remaining buffer
-pipe -> db : batch INSERT remaining records
-db --> pipe : flushed
-pipe --> runner : Pipeline stopped
-
-loop for each CAN channel
-    runner -> reader : stop reader #i
-    reader -> reader : close CAN bus #i
-    reader --> runner : Reader #i stopped
-end
-
-opt simulator running
-    runner -> sim : stop simulator
-    sim --> runner : Simulator stopped
-end
-
-runner -> db : close connection
-db --> runner : DB closed
-
-runner --> cli : Shutdown complete
 deactivate runner
 
 @enduml

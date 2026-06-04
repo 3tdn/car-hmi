@@ -12,20 +12,11 @@ participant "WebSocket Manager" as WS
 participant Frontend
 
 == Frame travels from vehicle to frontend ==
-Vehicle -> CANBus : send CAN frame
-CANBus -> CANReader : deliver frame
+Vehicle -> CANBus : CAN Frame
+CANBus -> CANReader : Deliver CAN Frame
 
-note right
-  python-can bus.recv() in executor
-end note
-
-CANReader -> CANReader : decode frame (DatabaseLoader)
-CANReader -> Queue : put(DecodedFrame)
-
-note right
-  CANReader writes;
-  Pipeline reads batch
-end note
+CANReader -> CANReader : Decode CAN Frame
+CANReader -> Queue : Put Decoded CAN Frame
 
 Queue -> Pipeline : get batch (up to batch_drain_size)
 Pipeline -> Store : update(signal_name, value)
@@ -37,6 +28,6 @@ deactivate Store
 Pipeline -> Repo : buffer and batch-insert(signal records)
 Repo -> Repo : persist to DB (async)
 
-WS -> Frontend : broadcast {type: "signal", signal, value, timestamp}
+WS -> Frontend : Broadcast CAN signals
 
 @enduml

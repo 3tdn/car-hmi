@@ -1,0 +1,28 @@
+@startuml
+title Sequence — Signal Write (Write-back) Flow
+
+actor User
+participant Frontend
+participant "FastAPI (signals)" as API
+participant "CANWriterRouter" as Writer
+participant "CAN Bus" as CANBus
+participant ECU
+
+== User requests a signal write in UI ==
+User -> Frontend : Enter value & click send
+Frontend -> API : PUT /signals/{CAN_signal}
+
+API -> API : Validate request
+
+alt valid
+  API -> Writer : Request write CAN signal
+
+  Writer -> CANBus : CAN frame
+  CANBus -> ECU : CAN Frame
+  API -> Frontend : Return success response
+
+else invalid
+  API -> Frontend : Return error response
+end
+
+@enduml
