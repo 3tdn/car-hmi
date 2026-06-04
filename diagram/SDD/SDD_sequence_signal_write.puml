@@ -38,8 +38,10 @@ end
 == Rate Limit Check ==
 api -> api : check rate limit
 note right of api
-  Prevents CAN bus spam
-  Configurable per signal
+  OUTDATED / NOT IMPLEMENTED IN CURRENT CODE
+  Design intent: Prevents CAN bus spam
+  Config values exist but not enforced in route
+  See SDD_DETAILED_VERIFICATION.md
 end note
 alt rate limit exceeded
     api --> dash : 429 Too Many Requests
@@ -50,11 +52,12 @@ api -> api : check shutting_down flag
 alt system is shutting down
     api --> dash : 503 {"error":{"code":"SERVICE_UNAVAILABLE","status":503}}
     note right of api
-      Reject writes during
-      graceful shutdown (req 2.8)
+      OUTDATED / NOT IMPLEMENTED IN CURRENT CODE
+      Design intent: Reject writes during graceful shutdown
+      Route does NOT check runner.is_shutting_down flag
+      See SDD_DETAILED_VERIFICATION.md
     end note
 end
-
 == Write to CAN Bus ==
 api -> store : get("BrakePressure")
 store --> api : SignalValue{value=current}

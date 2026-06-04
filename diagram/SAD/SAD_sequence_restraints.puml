@@ -1,3 +1,27 @@
 @startuml
+title Restraints — Arch Flow
+
+actor "Client\n(Frontend)" as Client
+participant "API\n(restraints.py)" as API
+participant "Filesystem\n(MEDIA_DIR)" as FS
+
+== Match phase ==
+Client -> API : GET /match?seat=driver&seat_belt=SLL
+API -> FS : iterdir() scan files
+API -> API : parse filename regex
+API -> API : score matches (seat_belt + position + percentile)
+API --> Client : {matched: true, video: {...}, score: N}
+
+== Serve phase ==
+Client -> API : GET /video/{filename}
+API -> API : validate path (no '..', '/')
+API -> FS : load file → FileResponse
+API --> Client : stream video
+
+note right of API
+  VERIFIED AGAINST CURRENT SOURCE CODE
+  Full match: _parse_video_filename, _score_match, path validation all correct.
+  See SDD_sequence_restraints & SDD_DETAILED_VERIFICATION.md
+end note
 
 @enduml

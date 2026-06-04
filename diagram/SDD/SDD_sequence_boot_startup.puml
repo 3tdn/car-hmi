@@ -70,6 +70,7 @@ runner --> cli : System running\n(listening on :8000)
 note over cli, mon
   NFR: Cold start → ready ≤ 5 seconds
   Config validation: fail fast with clear error
+  VERIFIED AGAINST CURRENT SOURCE CODE — Startup sequence complete and accurate.
 end note
 
 deactivate runner

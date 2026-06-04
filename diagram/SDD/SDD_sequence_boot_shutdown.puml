@@ -1,4 +1,4 @@
-@startuml Sequence - System Graceful Shutdown
+@startuml
 !theme plain
 title System Graceful Shutdown Sequence
 
@@ -42,5 +42,9 @@ db --> runner : DB closed
 
 runner --> cli : Shutdown complete
 deactivate runner
+
+note over cli, db
+  VERIFIED AGAINST CURRENT SOURCE CODE — Graceful shutdown sequence complete and accurate.
+end note
 
 @enduml

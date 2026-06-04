@@ -1,33 +1,34 @@
 @startuml
-title Sequence — Signal Read Flow
+title Signal Read — Arch Flow
 
-actor Vehicle
-participant "CAN Bus" as CANBus
-participant "CANReader" as CANReader
-queue "asyncio.Queue" as Queue
-participant "SignalPipeline" as Pipeline
-participant "SignalStore" as Store
+actor "Vehicle\n(ECU)" as Vehicle
+participant "CAN Bus" as Bus
+participant "Reader\n(decode)" as Reader
+participant "Queue" as Queue
+participant "Pipeline\n(process)" as Pipeline
+participant "Store" as Store
 participant "Repository" as Repo
-participant "WebSocket Manager" as WS
-participant Frontend
+participant "WebSocket" as WS
+participant "Frontend" as Frontend
 
-== Frame travels from vehicle to frontend ==
-Vehicle -> CANBus : CAN Frame
-CANBus -> CANReader : Deliver CAN Frame
+== Read flow: CAN → Dashboard ==
+Vehicle -> Bus : CAN frame (ID, data)
+Bus -> Reader : recv_loop() thread
+Reader -> Reader : Decode (ID → signal)
+Reader -> Queue : enqueue frame
+Queue -> Pipeline : batch drain
+Pipeline -> Pipeline : Process (RateLimiter,\nComputedSignals,\nAlarmChecker)
+Pipeline -> Store : bulk_update
+Store -> WS : notify_subscribers
+WS -> Frontend : WebSocket push (JSON)
 
-CANReader -> CANReader : Decode CAN Frame
-CANReader -> Queue : Put Decoded CAN Frame
+Pipeline -> Repo : batch INSERT signal_log
 
-Queue -> Pipeline : get batch (up to batch_drain_size)
-Pipeline -> Store : update(signal_name, value)
-
-activate Store
-Store -> WS : notify subscribers (signal update)
-deactivate Store
-
-Pipeline -> Repo : buffer and batch-insert(signal records)
-Repo -> Repo : persist to DB (async)
-
-WS -> Frontend : Broadcast CAN signals
+note right of Pipeline
+  NOT CONFIGURED: SmoothingFilter stage NOT added to pipeline
+  Design intent in SDD; not implemented in code.
+  Current stages: RateLimiter, ComputedSignals, AlarmChecker
+  See SDD_sequence_signal_read & SDD_DETAILED_VERIFICATION.md
+end note
 
 @enduml

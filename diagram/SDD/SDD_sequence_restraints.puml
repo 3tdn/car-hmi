@@ -61,6 +61,7 @@ deactivate api
 note over api, helper
   Key behavior: filename parsing based solely on filename pattern; scoring deterministic; no DB used.
   Security: path-traversal prevented by simple validation (reject '..','/','\\').
+  VERIFIED AGAINST CURRENT SOURCE CODE — Implementation complete and matches SDD exactly.
 end note
 
 @enduml
