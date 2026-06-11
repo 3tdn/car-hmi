@@ -1,0 +1,34 @@
+@startuml
+title Signal Read — Arch Flow
+
+actor "Vehicle\n(ECU)" as Vehicle
+participant "CAN Bus" as Bus
+participant "Reader\n(decode)" as Reader
+participant "Queue" as Queue
+participant "Pipeline\n(process)" as Pipeline
+participant "Store" as Store
+participant "Repository" as Repo
+participant "WebSocket" as WS
+participant "Frontend" as Frontend
+
+== Read flow: CAN → Dashboard ==
+Vehicle -> Bus : CAN frame (ID, data)
+Bus -> Reader : recv_loop() thread
+Reader -> Reader : Decode (ID → signal)
+Reader -> Queue : enqueue frame
+Queue -> Pipeline : batch drain
+Pipeline -> Pipeline : Process (RateLimiter,\nComputedSignals,\nAlarmChecker)
+Pipeline -> Store : bulk_update
+Store -> WS : notify_subscribers
+WS -> Frontend : WebSocket push (JSON)
+
+Pipeline -> Repo : batch INSERT signal_log
+
+note right of Pipeline
+  NOT CONFIGURED: SmoothingFilter stage NOT added to pipeline
+  Design intent in SDD; not implemented in code.
+  Current stages: RateLimiter, ComputedSignals, AlarmChecker
+  See SDD_sequence_signal_read & SDD_DETAILED_VERIFICATION.md
+end note
+
+@enduml

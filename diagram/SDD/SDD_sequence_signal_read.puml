@@ -40,6 +40,11 @@ loop consume from queue
     q -> proc : get batch up to batch_drain_size
     note right of proc : Merge same signal_id→keep latest value
     proc -> proc : 1. SmoothingFilter.process()
+    note right of proc
+      NOT CONFIGURED / NOT ACTIVE IN CURRENT PIPELINE
+      Design intent only. Not added to pipeline in code.
+      See SDD_DETAILED_VERIFICATION.md
+    end note
     proc -> proc : 2. RateLimiter.process()
     proc -> proc : 3. ComputedSignals.process()
     proc -> proc : 4. AlarmChecker.process()

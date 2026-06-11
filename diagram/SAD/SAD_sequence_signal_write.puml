@@ -1,0 +1,29 @@
+@startuml
+title Signal Write — Arch Flow
+
+actor User
+participant Frontend
+participant "API (write_signal)" as API
+participant "Writer\n(encode+send)" as Writer
+participant "CAN Bus" as Bus
+participant ECU
+
+== Write path ==
+User -> Frontend : Input signal value
+Frontend -> API : PUT /signals/{name}
+API -> API : Auth + parse body
+API -> Writer : send_signal(name, value)
+Writer -> Writer : Encode via CAN DB
+Writer -> Bus : CAN frame (async)
+Bus -> ECU : Deliver
+API -> Frontend : 202 Accepted
+
+note right of API
+  OUTDATED: Route-level checks NOT implemented
+  - Rate-limit check: missing (config exists, not enforced)
+  - Shutdown guard: missing (no is_shutting_down check)
+  - Writable validation: missing (skips store.get())
+  See SDD_sequence_signal_write & SDD_DETAILED_VERIFICATION.md
+end note
+
+@enduml

@@ -1,0 +1,30 @@
+@startuml
+title System Startup — Arch Flow
+
+actor "Admin\n(CLI)" as Admin
+participant "Runner\n(AppRunner)" as Runner
+participant "Config" as Config
+participant "DB" as DB
+participant "CAN Layer" as CAN
+participant "Pipeline" as Pipeline
+participant "API" as API
+
+== Startup sequence ==
+Admin -> Runner : start(config_path)
+Runner -> Config : load(system.json, alarms.json)
+Runner -> Config : validate schema
+Runner -> DB : init_db() + schema
+Runner -> CAN : per-channel: load DB, init CANReader
+Runner -> Pipeline : create + add stages
+Runner -> API : create_app(config)
+Runner -> Runner : asyncio.create_task(all)
+Runner --> Admin : ready on :8000
+
+note right of Runner
+  VERIFIED AGAINST CURRENT SOURCE CODE
+  All init steps correct & in order.
+  Cold start target: ≤5s. Config validation: fail-fast.
+  See SDD_sequence_boot_startup & SDD_DETAILED_VERIFICATION.md
+end note
+
+@enduml

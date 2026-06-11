@@ -1,5 +1,6 @@
 @startuml
 title Sequence — Signal Write (Write-back) Flow
+
 actor User
 participant Frontend
 participant "FastAPI (signals)" as API
@@ -8,18 +9,25 @@ participant "CAN Bus" as CANBus
 participant ECU
 
 == User requests a signal write in UI ==
-User -> Frontend: enter value & click Send
-Frontend -> API: PUT /signals/{signal_name} (value)
-API -> API: validate request (auth + writable + range)
+User -> Frontend : enter value & click Send
+Frontend -> API : PUT /signals/{signal_name} (value)
+
+API -> API : validate request (auth + writable + range)
+
 alt valid
-  API -> Writer: send_signal(signal_name, value)
-  note right of Writer : CANWriterRouter routes to the
-  correct CANWriter by signal name
-  Writer -> CANBus: transmit CAN frame
-  CANBus -> ECU: receive frame
-  API -> Frontend: 200 OK
+  API -> Writer : send_signal(signal_name, value)
+
+  note right of Writer
+    CANWriterRouter routes to the
+    correct CANWriter by signal name
+  end note
+
+  Writer -> CANBus : transmit CAN frame
+  CANBus -> ECU : receive frame
+  API -> Frontend : 200 OK
+
 else invalid
-  API -> Frontend: 4xx error
+  API -> Frontend : 4xx error
 end
 
 @enduml

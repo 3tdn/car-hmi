@@ -1,0 +1,66 @@
+
+@startuml
+!theme plain
+title Restraints: Match Video + Serve File
+
+actor "Frontend / Client" as client
+participant "FastAPI\n(routes/restraints.py)" as api
+participant "Filesystem\n(MEDIA_DIR)" as fs
+participant "Helper fns\n(_parse_video_filename, _score_match)" as helper
+
+== 1. Find best matching video ==
+client -> api : GET /api/restraints/match?seat=driver&seat_belt=SLL&crash_pulse=OLC18
+activate api
+
+api -> fs : if not MEDIA_DIR.exists() -> 500
+alt media dir missing
+    api --> client : 500 Media directory not found
+    deactivate api
+end
+
+api -> fs : iterate MEDIA_DIR.iterdir()
+loop for each file
+    fs --> api : filename
+    api -> helper : _parse_video_filename(filename)
+    alt parse OK
+        helper --> api : metadata dict (percentile, seat_position, weight, seat_belt)
+        api -> helper : _score_match(video_meta, requested_seat_belt, preferred_position, target_percentile)
+        helper --> api : score (float)
+    else parse fail
+        helper --> api : None (skip file)
+    end
+end
+
+api -> api : select best_video by highest score
+alt no videos or best_score <= 0
+    api --> client : {matched: false, video: null, score: 0}
+else
+    api --> client : {matched: true, video:{filename, percentile, seat_position, weight, seat_belt, url:'/api/restraints/video/<filename>'}, score}
+end
+deactivate api
+
+== 2. Client requests video file ==
+client -> api : GET /api/restraints/video/{filename}
+activate api
+
+api -> api : validate filename (no '..' or path sep)
+alt invalid filename
+    api --> client : 400 Invalid filename
+    deactivate api
+end
+
+api -> fs : file_path = MEDIA_DIR / filename
+alt file not found
+    api --> client : 404 Video not found
+else file exists
+    api -> api : resolve media_type by suffix
+    api --> client : FileResponse(path=file_path, media_type)
+end
+deactivate api
+
+note over api, helper
+  Key behavior: filename parsing based solely on filename pattern; scoring deterministic; no DB used.
+  Security: path-traversal prevented by simple validation (reject '..','/','\\').
+end note
+
+@enduml
