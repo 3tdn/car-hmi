@@ -14,6 +14,7 @@ authors = [{ name = "HMI Team" }]
 dependencies = [
     # CAN bus
     "python-can>=4.4",
+    "cantools>=4.0",
     # Web framework
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",

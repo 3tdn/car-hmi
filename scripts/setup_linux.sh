@@ -36,6 +36,29 @@ log() { echo "[setup] $*"; }  # In message với prefix "[setup]" để dễ nh�
 # ── Bước 1: Cài pyenv (nếu chưa có) ──────────────────────────────────────────
 # pyenv là công cụ quản lý nhiều phiên bản Python, giúp tránh conflict phiên bản.
 # Kiểm tra: pyenv executable tồn tại tại $PYENV_ROOT/bin/pyenv
+# Prefer an existing system Python >= requested version to avoid long pyenv builds.
+if command -v python3 &>/dev/null; then
+    log "System python3 detected — checking version"
+    if python3 - <<PY >/dev/null 2>&1
+import sys
+req = "${PYTHON_VERSION}"
+reqt = tuple(map(int, req.split(".")))
+if sys.version_info[:3] >= reqt:
+    sys.exit(0)
+sys.exit(1)
+PY
+    then
+        PYTHON="$(command -v python3)"
+        log "Using system Python: $PYTHON"
+        SKIP_PYENV=1
+    else
+        log "System python3 present but older than ${PYTHON_VERSION}; will use pyenv"
+        SKIP_PYENV=0
+    fi
+else
+    SKIP_PYENV=0
+fi
+
 if [ ! -x "$PYENV_ROOT/bin/pyenv" ]; then
     log "pyenv not found — installing pyenv to $PYENV_ROOT"
     log "(This may take a few seconds — downloading and running pyenv installer)"
@@ -58,7 +81,10 @@ fi
 # Cần thiết để script này có thể dùng pyenv commands (pyenv versions, pyenv install)
 export PYENV_ROOT              # Biến môi trường cho pyenv biết thư mục cài của nó
 export PATH="$PYENV_ROOT/bin:$PATH"  # Thêm pyenv vào PATH để tìm được pyenv command
-eval "$(pyenv init -)"         # Khởi tạo pyenv trong shell này (setup shim, auto-version detection)
+# Initialize pyenv only when it's available and we didn't decide to use system python
+if [ "$SKIP_PYENV" != "1" ] && [ -x "$PYENV_ROOT/bin/pyenv" ]; then
+    eval "$(pyenv init -)"
+fi
 
 # ── Bước 3: Cài Python phiên bản chỉ định qua pyenv (nếu chưa có) ──────────────
 # Kiểm tra: Python $PYTHON_VERSION đã cài chưa (pyenv versions --bare)
