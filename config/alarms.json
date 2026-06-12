@@ -56,59 +56,59 @@
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R1_ActivationLevelStatus": {
+    "ABL_RL1_ActivationLevelStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R1_ActivationLevelStatus",
+      "description": "Auto-generated from DBC: ABL_RL1_ActivationLevelStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R1_ActivationPhase": {
+    "ABL_RL1_ActivationPhase": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R1_ActivationPhase",
+      "description": "Auto-generated from DBC: ABL_RL1_ActivationPhase",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R1_RetractRequest": {
+    "ABL_RL1_RetractRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R1_RetractRequest",
+      "description": "Auto-generated from DBC: ABL_RL1_RetractRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R1_S0SensorStatus": {
+    "ABL_RL1_S0SensorStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R1_S0SensorStatus",
+      "description": "Auto-generated from DBC: ABL_RL1_S0SensorStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R2_ActivationLevelStatus": {
+    "ABL_RL2_ActivationLevelStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R2_ActivationLevelStatus",
+      "description": "Auto-generated from DBC: ABL_RL2_ActivationLevelStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R2_ActivationPhase": {
+    "ABL_RL2_ActivationPhase": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R2_ActivationPhase",
+      "description": "Auto-generated from DBC: ABL_RL2_ActivationPhase",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R2_RetractRequest": {
+    "ABL_RL2_RetractRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R2_RetractRequest",
+      "description": "Auto-generated from DBC: ABL_RL2_RetractRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ABL_R2_S0SensorStatus": {
+    "ABL_RL2_S0SensorStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ABL_R2_S0SensorStatus",
+      "description": "Auto-generated from DBC: ABL_RL2_S0SensorStatus",
       "warning_high": null,
       "warning_low": null
     },
@@ -231,59 +231,59 @@
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R1_ActivationLevelStatus": {
+    "ACR_RL1_ActivationLevelStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R1_ActivationLevelStatus",
+      "description": "Auto-generated from DBC: ACR_RL1_ActivationLevelStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R1_ActivationPhase": {
+    "ACR_RL1_ActivationPhase": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R1_ActivationPhase",
+      "description": "Auto-generated from DBC: ACR_RL1_ActivationPhase",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R1_RetractRequest": {
+    "ACR_RL1_RetractRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R1_RetractRequest",
+      "description": "Auto-generated from DBC: ACR_RL1_RetractRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R1_SpoolFasterClutch": {
+    "ACR_RL1_SpoolFasterClutch": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R1_SpoolFasterClutch",
+      "description": "Auto-generated from DBC: ACR_RL1_SpoolFasterClutch",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R2_ActivationLevelStatus": {
+    "ACR_RL2_ActivationLevelStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R2_ActivationLevelStatus",
+      "description": "Auto-generated from DBC: ACR_RL2_ActivationLevelStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R2_ActivationPhase": {
+    "ACR_RL2_ActivationPhase": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R2_ActivationPhase",
+      "description": "Auto-generated from DBC: ACR_RL2_ActivationPhase",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R2_RetractRequest": {
+    "ACR_RL2_RetractRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R2_RetractRequest",
+      "description": "Auto-generated from DBC: ACR_RL2_RetractRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ACR_R2_SpoolFasterClutch": {
+    "ACR_RL2_SpoolFasterClutch": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ACR_R2_SpoolFasterClutch",
+      "description": "Auto-generated from DBC: ACR_RL2_SpoolFasterClutch",
       "warning_high": null,
       "warning_low": null
     },
@@ -427,17 +427,17 @@
       "warning_high": null,
       "warning_low": null
     },
-    "BSW_R1_BuckleStatus": {
+    "BSW_RL1_BuckleStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: BSW_R1_BuckleStatus",
+      "description": "Auto-generated from DBC: BSW_RL1_BuckleStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "BSW_R2_BuckleStatus": {
+    "BSW_RL2_BuckleStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: BSW_R2_BuckleStatus",
+      "description": "Auto-generated from DBC: BSW_RL2_BuckleStatus",
       "warning_high": null,
       "warning_low": null
     },
@@ -763,31 +763,31 @@
       "warning_high": null,
       "warning_low": null
     },
-    "ELK_R1_LockingRequest": {
+    "ELK_RL1_LockingRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ELK_R1_LockingRequest",
+      "description": "Auto-generated from DBC: ELK_RL1_LockingRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ELK_R1_LockingStatus": {
+    "ELK_RL1_LockingStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ELK_R1_LockingStatus",
+      "description": "Auto-generated from DBC: ELK_RL1_LockingStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "ELK_R2_LockingRequest": {
+    "ELK_RL2_LockingRequest": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ELK_R2_LockingRequest",
+      "description": "Auto-generated from DBC: ELK_RL2_LockingRequest",
       "warning_high": null,
       "warning_low": null
     },
-    "ELK_R2_LockingStatus": {
+    "ELK_RL2_LockingStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ELK_R2_LockingStatus",
+      "description": "Auto-generated from DBC: ELK_RL2_LockingStatus",
       "warning_high": null,
       "warning_low": null
     },
@@ -1008,17 +1008,17 @@
       "warning_high": null,
       "warning_low": null
     },
-    "HB_R1_ActivationLevel": {
+    "HB_RL1_ActivationLevel": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: HB_R1_ActivationLevel",
+      "description": "Auto-generated from DBC: HB_RL1_ActivationLevel",
       "warning_high": null,
       "warning_low": null
     },
-    "HB_R2_ActivationLevel": {
+    "HB_RL2_ActivationLevel": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: HB_R2_ActivationLevel",
+      "description": "Auto-generated from DBC: HB_RL2_ActivationLevel",
       "warning_high": null,
       "warning_low": null
     },
@@ -1274,129 +1274,129 @@
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_AdressByte0": {
+    "ISB_RL1_AdressByte0": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_AdressByte0",
+      "description": "Auto-generated from DBC: ISB_RL1_AdressByte0",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_AdressByte1": {
+    "ISB_RL1_AdressByte1": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_AdressByte1",
+      "description": "Auto-generated from DBC: ISB_RL1_AdressByte1",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_ColorBlue": {
+    "ISB_RL1_ColorBlue": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_ColorBlue",
+      "description": "Auto-generated from DBC: ISB_RL1_ColorBlue",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_ColorGreen": {
+    "ISB_RL1_ColorGreen": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_ColorGreen",
+      "description": "Auto-generated from DBC: ISB_RL1_ColorGreen",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_ColorRed": {
+    "ISB_RL1_ColorRed": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_ColorRed",
+      "description": "Auto-generated from DBC: ISB_RL1_ColorRed",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_GroupOrModule": {
+    "ISB_RL1_GroupOrModule": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_GroupOrModule",
+      "description": "Auto-generated from DBC: ISB_RL1_GroupOrModule",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_Intensity": {
+    "ISB_RL1_Intensity": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_Intensity",
+      "description": "Auto-generated from DBC: ISB_RL1_Intensity",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_Normalization": {
+    "ISB_RL1_Normalization": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_Normalization",
+      "description": "Auto-generated from DBC: ISB_RL1_Normalization",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R1_Transitionspeed": {
+    "ISB_RL1_Transitionspeed": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R1_Transitionspeed",
+      "description": "Auto-generated from DBC: ISB_RL1_Transitionspeed",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_AdressByte0": {
+    "ISB_RL2_AdressByte0": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_AdressByte0",
+      "description": "Auto-generated from DBC: ISB_RL2_AdressByte0",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_AdressByte1": {
+    "ISB_RL2_AdressByte1": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_AdressByte1",
+      "description": "Auto-generated from DBC: ISB_RL2_AdressByte1",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_ColorBlue": {
+    "ISB_RL2_ColorBlue": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_ColorBlue",
+      "description": "Auto-generated from DBC: ISB_RL2_ColorBlue",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_ColorGreen": {
+    "ISB_RL2_ColorGreen": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_ColorGreen",
+      "description": "Auto-generated from DBC: ISB_RL2_ColorGreen",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_ColorRed": {
+    "ISB_RL2_ColorRed": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_ColorRed",
+      "description": "Auto-generated from DBC: ISB_RL2_ColorRed",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_GroupOrModule": {
+    "ISB_RL2_GroupOrModule": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_GroupOrModule",
+      "description": "Auto-generated from DBC: ISB_RL2_GroupOrModule",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_Intensity": {
+    "ISB_RL2_Intensity": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_Intensity",
+      "description": "Auto-generated from DBC: ISB_RL2_Intensity",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_Normalization": {
+    "ISB_RL2_Normalization": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_Normalization",
+      "description": "Auto-generated from DBC: ISB_RL2_Normalization",
       "warning_high": null,
       "warning_low": null
     },
-    "ISB_R2_Transitionspeed": {
+    "ISB_RL2_Transitionspeed": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: ISB_R2_Transitionspeed",
+      "description": "Auto-generated from DBC: ISB_RL2_Transitionspeed",
       "warning_high": null,
       "warning_low": null
     },
@@ -2324,45 +2324,45 @@
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R1_SensorStatus": {
+    "WMS_RL1_SensorStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R1_SensorStatus",
+      "description": "Auto-generated from DBC: WMS_RL1_SensorStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R1_SpoolAngle": {
+    "WMS_RL1_SpoolAngle": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R1_SpoolAngle",
+      "description": "Auto-generated from DBC: WMS_RL1_SpoolAngle",
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R1_WebbingMovement": {
+    "WMS_RL1_WebbingMovement": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R1_WebbingMovement",
+      "description": "Auto-generated from DBC: WMS_RL1_WebbingMovement",
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R2_SensorStatus": {
+    "WMS_RL2_SensorStatus": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R2_SensorStatus",
+      "description": "Auto-generated from DBC: WMS_RL2_SensorStatus",
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R2_SpoolAngle": {
+    "WMS_RL2_SpoolAngle": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R2_SpoolAngle",
+      "description": "Auto-generated from DBC: WMS_RL2_SpoolAngle",
       "warning_high": null,
       "warning_low": null
     },
-    "WMS_R2_WebbingMovement": {
+    "WMS_RL2_WebbingMovement": {
       "critical_high": null,
       "critical_low": null,
-      "description": "Auto-generated from DBC: WMS_R2_WebbingMovement",
+      "description": "Auto-generated from DBC: WMS_RL2_WebbingMovement",
       "warning_high": null,
       "warning_low": null
     },

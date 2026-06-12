@@ -1,0 +1,667 @@
+VERSION "Generated from CSV"
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: CAR_PC EL_ECU PANTHER PUMA_FL PUMA_FR PUMA_R1 PUMA_R2 PUMA_RR1 SIMI
+VAL_TABLE_ VT_Buckle_State 1 "Buckled" 0 "Unbuckled" ;
+
+
+BO_ 132 INC_Generic_MnlCpnActivation: 1 CAR_PC
+ SG_ Generic_SeatFunctionEnable : 0|5@1+ (1,0) [0|31] ""  PANTHER
+
+BO_ 128 INC_HMI_CrashInfo: 3 CAR_PC
+ SG_ HMI_CrashImpactTrigger : 17|1@1+ (1,0) [0|1] ""  PANTHER
+ SG_ HMI_FR_OccupantAge_years : 10|7@1+ (1,0) [0|127] ""  PANTHER
+ SG_ HMI_FL_OccupantAge_years : 3|7@1+ (1,0) [0|127] ""  PANTHER
+ SG_ HMI_CrashSeverity : 0|3@1+ (1,0) [0|7] ""  PANTHER
+
+BO_ 129 INC_HMI_SILGRequest: 1 CAR_PC
+ SG_ HMI_SILG_ActivationRequest : 0|2@1+ (1,0) [0|3] ""  PANTHER
+
+BO_ 177 MON_ARS_InjuryRisk: 4 PANTHER
+ SG_ ARS_FR_InjuryRiskNonAdaptive : 24|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FR_InjuryRiskAdaptive : 16|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FL_InjuryRiskNonAdaptive : 8|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FL_InjuryRiskAdaptive : 0|8@1+ (1,0) [0|255] ""  CAR_PC
+
+BO_ 130 MON_ARS_MSLLRequest: 1 PANTHER
+ SG_ ARS_MSLL_ActivationRequest : 0|8@1+ (1,0) [0|255] ""  CAR_PC
+
+BO_ 178 MON_ARS_TTF: 4 PANTHER
+ SG_ ARS_FR_TimeToFireSeatbelt : 24|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FR_TimeToFireAirbag : 16|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FL_TimeToFireSeatbelt : 8|8@1+ (1,0) [0|255] ""  CAR_PC
+ SG_ ARS_FL_TimeToFireAirbag : 0|8@1+ (1,0) [0|255] ""  CAR_PC
+
+BO_ 179 MON_OMS_FL_Status: 7 SIMI
+ SG_ OMS_FL_OccupantGender : 50|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_SeatbeltMisuse_bool : 49|1@1+ (1,0) [0|1] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_OccupantHeightStd_cm : 41|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_OccupantHeightMean_cm : 33|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_OccupantWeightStd_kg : 25|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_OccupantWeightMean_kg : 17|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_OutOfPosition : 5|12@1+ (1,0) [0|4095] ""  PANTHER
+ SG_ OMS_FL_OccupantClassification : 2|3@1+ (1,0) [0|7] ""  CAR_PC,PANTHER
+ SG_ OMS_FL_HandsOnWheel : 0|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+
+BO_ 180 MON_OMS_FR_Status: 7 SIMI
+ SG_ OMS_FR_OccupantGender : 49|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_SeatbeltMisuse_bool : 48|1@1+ (1,0) [0|1] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_ChildSeatDetected_bool : 47|1@1+ (1,0) [0|1] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_OccupantHeightStd_cm : 39|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_OccupantHeightMean_cm : 31|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_OccupantWeightStd_kg : 23|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_OccupantWeightMean_kg : 15|8@1+ (1,0) [0|255] ""  CAR_PC,PANTHER
+ SG_ OMS_FR_OutOfPosition : 3|12@1+ (1,0) [0|4095] ""  PANTHER
+ SG_ OMS_FR_OccupantClassification : 0|3@1+ (1,0) [0|7] ""  CAR_PC,PANTHER
+
+BO_ 176 MON_SMA_VehicleState: 1 PANTHER
+ SG_ SMA_VehicleStable : 0|1@1+ (1,0) [0|1] ""  CAR_PC
+
+BO_ 144 SBS_ABL_Activation: 5 CAR_PC
+ SG_ ABL_RR1_RetractRequest : 32|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ABL_RL2_RetractRequest : 24|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ABL_RL1_RetractRequest : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ABL_FR_RetractRequest : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ABL_FL_RetractRequest : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+
+BO_ 384 SBS_ABL_FL_Response: 3 PUMA_FL
+ SG_ ABL_FL_ActivationPhase : 9|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_FL_ActivationLevelStatus : 1|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_FL_S0SensorStatus_bool : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 385 SBS_ABL_FR_Response: 3 PUMA_FR
+ SG_ ABL_FR_ActivationPhase : 9|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_FR_ActivationLevelStatus : 1|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_FR_S0SensorStatus_bool : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 386 SBS_ABL_RL1_Response: 3 PUMA_R1
+ SG_ ABL_RL1_ActivationPhase : 9|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RL1_ActivationLevelStatus : 1|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RL1_S0SensorStatus_bool : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 387 SBS_ABL_RL2_Response: 3 PUMA_R2
+ SG_ ABL_RL2_ActivationPhase : 9|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RL2_ActivationLevelStatus : 1|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RL2_S0SensorStatus_bool : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 388 SBS_ABL_RR1_Response: 3 PUMA_RR1
+ SG_ ABL_RR1_ActivationPhase : 9|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RR1_ActivationLevelStatus : 1|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ABL_RR1_S0SensorStatus_bool : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 145 SBS_ACR_Activation: 5 CAR_PC
+ SG_ ACR_RR1_RetractRequest : 32|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ACR_RL2_RetractRequest : 24|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ACR_RL1_RetractRequest : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ACR_FR_RetractRequest : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ACR_FL_RetractRequest : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+
+BO_ 392 SBS_ACR_FL_Response: 3 PUMA_FL
+ SG_ ACR_FL_SpoolFasterClutch : 16|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_FL_ActivationPhase : 8|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_FL_ActivationLevelStatus : 0|8@1+ (1,0) [0|255] ""  PANTHER
+
+BO_ 393 SBS_ACR_FR_Response: 3 PUMA_FR
+ SG_ ACR_FR_SpoolFasterClutch : 16|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_FR_ActivationPhase : 8|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_FR_ActivationLevelStatus : 0|8@1+ (1,0) [0|255] ""  PANTHER
+
+BO_ 394 SBS_ACR_RL1_Response: 3 PUMA_R1
+ SG_ ACR_RL1_SpoolFasterClutch : 16|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RL1_ActivationPhase : 8|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RL1_ActivationLevelStatus : 0|8@1+ (1,0) [0|255] ""  PANTHER
+
+BO_ 395 SBS_ACR_RL2_Response: 3 PUMA_R2
+ SG_ ACR_RL2_SpoolFasterClutch : 16|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RL2_ActivationPhase : 8|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RL2_ActivationLevelStatus : 0|8@1+ (1,0) [0|255] ""  PANTHER
+
+BO_ 396 SBS_ACR_RR1_Response: 3 PUMA_RR1
+ SG_ ACR_RR1_SpoolFasterClutch : 16|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RR1_ActivationPhase : 8|8@1+ (1,0) [0|255] ""  PANTHER
+ SG_ ACR_RR1_ActivationLevelStatus : 0|8@1+ (1,0) [0|255] ""  PANTHER
+
+BO_ 409 SBS_BSW_Status: 1 PANTHER
+ SG_ BSW_RR1_BuckleStatus : 4|1@1+ (1,0) [0|1] ""  CAR_PC
+ SG_ BSW_RL2_BuckleStatus : 3|1@1+ (1,0) [0|1] ""  CAR_PC
+ SG_ BSW_RL1_BuckleStatus : 2|1@1+ (1,0) [0|1] ""  CAR_PC
+ SG_ BSW_FR_BuckleStatus : 1|1@1+ (1,0) [0|1] ""  CAR_PC
+ SG_ BSW_FL_BuckleStatus : 0|1@1+ (1,0) [0|1] ""  CAR_PC
+
+BO_ 146 SBS_ELK_Activation: 1 CAR_PC
+ SG_ ELK_RR1_LockingRequest : 4|1@1+ (1,0) [0|1] ""  PANTHER,EL_ECU
+ SG_ ELK_RL2_LockingRequest : 3|1@1+ (1,0) [0|1] ""  PANTHER,EL_ECU
+ SG_ ELK_RL1_LockingRequest : 2|1@1+ (1,0) [0|1] ""  PANTHER,EL_ECU
+ SG_ ELK_FR_LockingRequest : 1|1@1+ (1,0) [0|1] ""  PANTHER,EL_ECU
+ SG_ ELK_FL_LockingRequest : 0|1@1+ (1,0) [0|1] ""  PANTHER,EL_ECU
+
+BO_ 408 SBS_ELK_Status: 2 EL_ECU
+ SG_ ELK_RR1_LockingStatus : 8|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ ELK_RL2_LockingStatus : 6|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ ELK_RL1_LockingStatus : 4|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ ELK_FR_LockingStatus : 2|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+ SG_ ELK_FL_LockingStatus : 0|2@1+ (1,0) [0|3] ""  CAR_PC,PANTHER
+
+BO_ 410 SBS_HB_Status: 2 CAR_PC
+ SG_ HB_RR1_ActivationLevel : 12|3@1+ (1,0) [0|7] ""  PANTHER
+ SG_ HB_RL2_ActivationLevel : 9|3@1+ (1,0) [0|7] ""  PANTHER
+ SG_ HB_RL1_ActivationLevel : 6|3@1+ (1,0) [0|7] ""  PANTHER
+ SG_ HB_FR_ActivationLevel : 3|3@1+ (1,0) [0|7] ""  PANTHER
+ SG_ HB_FL_ActivationLevel : 0|3@1+ (1,0) [0|7] ""  PANTHER
+
+BO_ 131 SBS_HB_GenericCmd: 1 CAR_PC
+ SG_ HB_ActivationSync : 0|1@1+ (1,0) [0|1] ""  PANTHER
+
+BO_ 133 SBS_HB_TargetTemp: 8 CAR_PC
+ SG_ HB_ManualTargetTemp : 32|32@1+ (1,0) [0|4294967295] ""  PUMA_FL,PUMA_FR,PUMA_R1,PUMA_R2,PUMA_RR1
+ SG_ HB_DynamicTargetTemp : 0|32@1+ (1,0) [0|4294967295] ""  PANTHER,CAR_PC
+
+BO_ 160 SBS_ISB_FL_Request: 7 CAR_PC
+ SG_ ISB_FL_AddressByte1_byte : 45|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_AddressByte0_byte : 37|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_GroupOrModule_bool : 36|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_Transitionspeed_nibble : 32|4@1+ (1,0) [0|15] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_Normalization_bool : 31|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_Intensity_perc : 24|7@1+ (1,0) [0|127] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_ColorRed_byte : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_ColorBlue_byte : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+ SG_ ISB_FL_ColorGreen_byte : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FL
+
+BO_ 161 SBS_ISB_FR_Request: 7 CAR_PC
+ SG_ ISB_FR_AddressByte1 : 45|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_AddressByte0 : 37|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_GroupOrModule : 36|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_Transitionspeed : 32|4@1+ (1,0) [0|15] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_Normalization : 31|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_Intensity_perc : 24|7@1+ (1,0) [0|127] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_ColorRed : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_ColorBlue : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+ SG_ ISB_FR_ColorGreen : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_FR
+
+BO_ 162 SBS_ISB_RL1_Request: 7 PANTHER
+ SG_ ISB_RL1_AddressByte1 : 45|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_AddressByte0 : 37|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_GroupOrModule : 36|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_Transitionspeed : 32|4@1+ (1,0) [0|15] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_Normalization : 31|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_Intensity : 24|7@1+ (1,0) [0|127] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_ColorRed : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_ColorBlue : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+ SG_ ISB_RL1_ColorGreen : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R1
+
+BO_ 163 SBS_ISB_RL2_Request: 7 PANTHER
+ SG_ ISB_RL2_AddressByte1 : 45|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_AddressByte0 : 37|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_GroupOrModule : 36|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_Transitionspeed : 32|4@1+ (1,0) [0|15] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_Normalization : 31|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_Intensity : 24|7@1+ (1,0) [0|127] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_ColorRed : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_ColorBlue : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+ SG_ ISB_RL2_ColorGreen : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_R2
+
+BO_ 164 SBS_ISB_RR1_Request: 7 CAR_PC
+ SG_ ISB_RR1_AddressByte1 : 45|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_AddressByte0 : 37|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_GroupOrModule : 36|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_Transitionspeed : 32|4@1+ (1,0) [0|15] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_Normalization : 31|1@1+ (1,0) [0|1] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_Intensity : 24|7@1+ (1,0) [0|127] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_ColorRed : 16|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_ColorBlue : 8|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+ SG_ ISB_RR1_ColorGreen : 0|8@1+ (1,0) [0|255] ""  PANTHER,PUMA_RR1
+
+BO_ 400 SBS_WMS_FL_Response: 4 PANTHER
+ SG_ WMS_FL_SensorStatus_bool : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
+ SG_ WMS_FL_SpoolAngle_deg : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_FL_WebbingMovement_mm : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
+
+BO_ 401 SBS_WMS_FR_Response: 4 PANTHER
+ SG_ WMS_FR_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
+ SG_ WMS_FR_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_FR_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
+
+BO_ 402 SBS_WMS_RL1_Response: 4 PUMA_R1
+ SG_ WMS_RL1_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
+ SG_ WMS_RL1_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RL1_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
+
+BO_ 403 SBS_WMS_RL2_Response: 4 PUMA_R2
+ SG_ WMS_RL2_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
+ SG_ WMS_RL2_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RL2_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
+
+BO_ 404 SBS_WMS_RR1_Response: 4 PANTHER
+ SG_ WMS_RR1_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
+ SG_ WMS_RR1_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RR1_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
+
+BO_ 181 STS_SPS_FL_SeatPosition: 8 PANTHER
+ SG_ SPS_FL_HeadRestPosition : 48|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_FootRestPosition : 36|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatDirectionX : 0|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+
+BO_ 182 STS_SPS_FR_SeatPosition: 8 PANTHER
+ SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+
+BO_TX_BU_ 179 : SIMI,PANTHER;
+BO_TX_BU_ 180 : SIMI,PANTHER;
+BO_TX_BU_ 144 : CAR_PC,PANTHER;
+BO_TX_BU_ 145 : CAR_PC,PANTHER;
+BO_TX_BU_ 146 : CAR_PC,PANTHER;
+BO_TX_BU_ 408 : EL_ECU,PANTHER;
+BO_TX_BU_ 410 : CAR_PC,PANTHER;
+BO_TX_BU_ 131 : CAR_PC,PANTHER;
+BO_TX_BU_ 133 : CAR_PC,PUMA_FL,PUMA_FR,PUMA_R1,PUMA_R2,PUMA_RR1,PANTHER;
+BO_TX_BU_ 160 : CAR_PC,PANTHER;
+BO_TX_BU_ 161 : CAR_PC,PANTHER;
+BO_TX_BU_ 162 : CAR_PC,PANTHER;
+BO_TX_BU_ 163 : CAR_PC,PANTHER;
+BO_TX_BU_ 164 : CAR_PC,PANTHER;
+BO_TX_BU_ 400 : PANTHER,PUMA_FL;
+BO_TX_BU_ 401 : PANTHER,PUMA_FR;
+BO_TX_BU_ 402 : PANTHER,PUMA_R1;
+BO_TX_BU_ 403 : PANTHER,PUMA_R2;
+BO_TX_BU_ 404 : PANTHER,PUMA_RR1;
+
+
+CM_ SG_ 132 Generic_SeatFunctionEnable "Bit Encoding for manual component request by HMI (like ACR_Retract, ABL_Retract, ISB Overwrite) | Signalvalues: 1 = Seat FL enable
+2 = Seat FR enable
+4 = Seat R1 enable
+8 = Seat R2 enable
+16 = Seat RR enable";
+CM_ SG_ 128 HMI_CrashImpactTrigger "Trigger bit that the crash happens right now";
+CM_ SG_ 128 HMI_CrashSeverity "Crash Severity Selection from HMI | Signalvalues: 0 = nothing
+1 = 32kmh (low severity)
+2 = 56km/h (high severity)";
+CM_ SG_ 129 HMI_SILG_ActivationRequest "HMI SILG Activation for Request Actuator | Signalvalues: 0 = Nothing
+1 = Blow in
+2 = Blow out";
+CM_ SG_ 177 ARS_FR_InjuryRiskNonAdaptive "Calulated Injurity Risk by Adaptive Restraint Algo based on non adaptive restraint system parameter";
+CM_ SG_ 177 ARS_FR_InjuryRiskAdaptive "Calulated Injurity Risk based on the Adaptive Restrain Parameter";
+CM_ SG_ 177 ARS_FL_InjuryRiskNonAdaptive "Calulated Injurity Risk by Adaptive Restraint Algo based on non adaptive restraint system parameter";
+CM_ SG_ 177 ARS_FL_InjuryRiskAdaptive "Calulated Injurity Risk based on the Adaptive Restrain Parameter";
+CM_ SG_ 130 ARS_MSLL_ActivationRequest "Trigger signal from active restraint system";
+CM_ SG_ 178 ARS_FR_TimeToFireSeatbelt "ARS TimeToFire for Seatbelt Actuator";
+CM_ SG_ 178 ARS_FR_TimeToFireAirbag "ARS TimeToFire for Airbag Vent";
+CM_ SG_ 178 ARS_FL_TimeToFireSeatbelt "ARS TimeToFire for Seatbelt Actuator";
+CM_ SG_ 178 ARS_FL_TimeToFireAirbag "ARS TimeToFire for Airbag Vent";
+CM_ SG_ 179 OMS_FL_OccupantGender "DMS Torso for Angle Actuator";
+CM_ SG_ 179 OMS_FL_OccupantHeightMean_cm "DMS Occupant for Lenght Actuator";
+CM_ SG_ 179 OMS_FL_OccupantWeightMean_kg "DMS Occupant for Weight Actuator";
+CM_ SG_ 179 OMS_FL_OutOfPosition "DMS Out Of for Position Actuator";
+CM_ SG_ 179 OMS_FL_OccupantClassification "DMS Occupant for Classification Actuator | Signalvalues: 25%, 50%, 95% Occupant";
+CM_ SG_ 179 OMS_FL_HandsOnWheel "DMS Hands on for Wheel Actuator | Signalvalues: 0 = Hands off Wheel
+1 = Hands on Wheel";
+CM_ SG_ 180 OMS_FR_OccupantGender "OMS Torso for Angle Actuator";
+CM_ SG_ 180 OMS_FR_OccupantHeightStd_cm "OMS Occupant for Lenght Actuator";
+CM_ SG_ 180 OMS_FR_OccupantWeightMean_kg "OMS Occupant for Weight Actuator";
+CM_ SG_ 180 OMS_FR_OutOfPosition "OMS Out Of for Position Actuator";
+CM_ SG_ 180 OMS_FR_OccupantClassification "OMS Occupant for Classification Actuator | Signalvalues: 25%, 50%, 95% Occupant";
+CM_ SG_ 176 SMA_VehicleStable "Calulated Vehicle Stable by SMA | Signalvalues: 0 = vehicle unstable
+1 = vehicle stable";
+CM_ SG_ 144 ABL_RR1_RetractRequest "Manual ABL Retraction request by HMI | Signalvalues: 0 = nothing
+1 = Offer Position
+2 = S0 Position
+3 = Dynamic
+4 = Pre Crash
+5 = Haptic
+11 = Wake Up
+12 = Park Position";
+CM_ SG_ 144 ABL_RL2_RetractRequest "Manual ABL Retraction request by HMI | Signalvalues: 0 = nothing
+1 = Offer Position
+2 = S0 Position
+3 = Dynamic
+4 = Pre Crash
+5 = Haptic
+11 = Wake Up
+12 = Park Position";
+CM_ SG_ 144 ABL_RL1_RetractRequest "Manual ABL Retraction request by HMI | Signalvalues: 0 = nothing
+1 = Offer Position
+2 = S0 Position
+3 = Dynamic
+4 = Pre Crash
+5 = Haptic
+11 = Wake Up
+12 = Park Position";
+CM_ SG_ 144 ABL_FR_RetractRequest "Manual ABL Retraction request by HMI | Signalvalues: 0 = nothing
+1 = Offer Position
+2 = S0 Position
+3 = Dynamic
+4 = Pre Crash
+5 = Haptic
+11 = Wake Up
+12 = Park Position";
+CM_ SG_ 144 ABL_FL_RetractRequest "Manual ABL Retraction request by HMI | Signalvalues: 0 = nothing
+1 = Offer Position
+2 = S0 Position
+3 = Dynamic
+4 = Pre Crash
+5 = Haptic
+11 = Wake Up
+12 = Park Position";
+CM_ SG_ 384 ABL_FL_ActivationPhase "FL ABL Actuator Execution Phase for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome
+12 = S0 Calibration
+21 = Buckle Lift
+31 = Beltpark
+41 = Beltslack Removal
+51 = Haptic Warning
+71 = Retract 1
+72 = Retract 2
+81 = Release
+74 = Reverse
+90 = PTMP direct demand";
+CM_ SG_ 384 ABL_FL_ActivationLevelStatus "FL ABL Actuator Activation Level for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome Request
+11 = Diagnoses Pulse
+12 = S0 calibration
+21 = Buckle Lift
+22 = Buckle Lift Post Crash
+31 - Beltpark Support
+41 = Beltslack Removal
+51 = Haptic Warning
+61 = Dynamic Support
+71 = Retract Level 1
+72 = Retract Level 2
+73 = Retract Level 3
+74 = Retract Level 4
+75 = Retract Level 5
+76 = Retract Level 6
+77 = Retract Level 7
+78 = Retract Level 8
+79 = Retract Level 9
+81 = Safety Release
+95 = PTMP Position Demand
+96 = PTMP Speed Demand
+97 = PTMP Current Demand
+98 = PTMP Voltage Demand
+99 = PTMP Dutycycle Demand";
+CM_ SG_ 384 ABL_FL_S0SensorStatus_bool "FL ABL S0 Sensor for Status Actuator | Signalvalues: 0 = Not in S0 position
+1 = S0 position reached";
+CM_ SG_ 385 ABL_FR_ActivationPhase "FR ABL Actuator Execution Phase for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome
+12 = S0 Calibration
+21 = Buckle Lift
+31 = Beltpark
+41 = Beltslack Removal
+51 = Haptic Warning
+71 = Retract 1
+72 = Retract 2
+81 = Release
+74 = Reverse
+90 = PTMP direct demand";
+CM_ SG_ 385 ABL_FR_ActivationLevelStatus "FR ABL Actuator Activation Level for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome Request
+11 = Diagnoses Pulse
+12 = S0 calibration
+21 = Buckle Lift
+22 = Buckle Lift Post Crash
+31 - Beltpark Support
+41 = Beltslack Removal
+51 = Haptic Warning
+61 = Dynamic Support
+71 = Retract Level 1
+72 = Retract Level 2
+73 = Retract Level 3
+74 = Retract Level 4
+75 = Retract Level 5
+76 = Retract Level 6
+77 = Retract Level 7
+78 = Retract Level 8
+79 = Retract Level 9
+81 = Safety Release
+95 = PTMP Position Demand
+96 = PTMP Speed Demand
+97 = PTMP Current Demand
+98 = PTMP Voltage Demand
+99 = PTMP Dutycycle Demand";
+CM_ SG_ 385 ABL_FR_S0SensorStatus_bool "FR ABL S0 Sensor for Status Actuator | Signalvalues: 0 = Not in S0 position
+1 = S0 position reached";
+CM_ SG_ 386 ABL_RL1_ActivationPhase "RL1 ABL Actuator Execution Phase for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome
+12 = S0 Calibration
+21 = Buckle Lift
+31 = Beltpark
+41 = Beltslack Removal
+51 = Haptic Warning
+71 = Retract 1
+72 = Retract 2
+81 = Release
+74 = Reverse
+90 = PTMP direct demand";
+CM_ SG_ 386 ABL_RL1_S0SensorStatus_bool "RL1 ABL S0 Sensor for Status Actuator | Signalvalues: 0 = Not in S0 position
+1 = S0 position reached";
+CM_ SG_ 387 ABL_RL2_ActivationPhase "R2 ABL Actuator Execution Phase for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome
+12 = S0 Calibration
+21 = Buckle Lift
+31 = Beltpark
+41 = Beltslack Removal
+51 = Haptic Warning
+71 = Retract 1
+72 = Retract 2
+81 = Release
+74 = Reverse
+90 = PTMP direct demand";
+CM_ SG_ 387 ABL_RL2_S0SensorStatus_bool "R2 ABL S0 Sensor for Status Actuator | Signalvalues: 0 = Not in S0 position
+1 = S0 position reached";
+CM_ SG_ 388 ABL_RR1_ActivationPhase "RR1 ABL Actuator Execution Phase for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome
+12 = S0 Calibration
+21 = Buckle Lift
+31 = Beltpark
+41 = Beltslack Removal
+51 = Haptic Warning
+71 = Retract 1
+72 = Retract 2
+81 = Release
+74 = Reverse
+90 = PTMP direct demand";
+CM_ SG_ 388 ABL_RR1_ActivationLevelStatus "RR1 ABL Actuator Activation Level for Status Actuator | Signalvalues: 0 = No activation
+1 = Welcome Request
+11 = Diagnoses Pulse
+12 = S0 calibration
+21 = Buckle Lift
+22 = Buckle Lift Post Crash
+31 - Beltpark Support
+41 = Beltslack Removal
+51 = Haptic Warning
+61 = Dynamic Support
+71 = Retract Level 1
+72 = Retract Level 2
+73 = Retract Level 3
+74 = Retract Level 4
+75 = Retract Level 5
+76 = Retract Level 6
+77 = Retract Level 7
+78 = Retract Level 8
+79 = Retract Level 9
+81 = Safety Release
+95 = PTMP Position Demand
+96 = PTMP Speed Demand
+97 = PTMP Current Demand
+98 = PTMP Voltage Demand
+99 = PTMP Dutycycle Demand";
+CM_ SG_ 388 ABL_RR1_S0SensorStatus_bool "RR1 ABL S0 Sensor for Status Actuator | Signalvalues: 0 = Not in S0 position
+1 = S0 position reached";
+CM_ SG_ 145 ACR_RR1_RetractRequest "Manual ACR Retraction request by HMI";
+CM_ SG_ 145 ACR_RL2_RetractRequest "Manual ACR Retraction request by HMI";
+CM_ SG_ 145 ACR_RL1_RetractRequest "Manual ACR Retraction request by HMI";
+CM_ SG_ 145 ACR_FR_RetractRequest "Manual ACR Retraction request by HMI";
+CM_ SG_ 145 ACR_FL_RetractRequest "Manual ACR Retraction request by HMI";
+CM_ SG_ 392 ACR_FL_SpoolFasterClutch "FL ACR Motor for Speed Actuator";
+CM_ SG_ 392 ACR_FL_ActivationPhase "FL ACR Actuator Execution Phase for Status Actuator";
+CM_ SG_ 392 ACR_FL_ActivationLevelStatus "FL ACR Actuator Activation Level for Status Actuator | Signalvalues: 0 - No activation.
+11 - Diagnoses Pulse.
+16 - PTMP demanded Motor Speed and Current Limit.
+17 - PTMP demanded Motor Current.
+18 - PTMP demanded Motor Voltage.
+19 - PTMP demanded Motor PWM Dutycycle and direction.
+29 - BeltPark Level 1
+30 - BeltPark Level 2
+31 - Beltslack Reduction.
+32 - Haptic Warning Level 1
+33 - Haptic Warning Level 2
+34 - Haptic Warning Level 3
+35 - Haptic Warning Level 4
+36 - Haptic Warning Level 5
+37 - Haptic Warning Level 6
+41 - Retract Level 1.
+42 - Retract Level 2.
+43 - Retract Level 3.
+44 - Retract Level 4.
+45 - Retract Level 5.
+46 - Retract Level 6.
+47 - Retract Level 7.
+48 - Dynamik Belt.
+49 - Retract Level 9.
+51 - RePos level 1 request.
+52 - RePos level 2 request.
+53 - RePos level 3 request.";
+CM_ SG_ 393 ACR_FR_SpoolFasterClutch "FR ACR Motor for Speed Actuator";
+CM_ SG_ 393 ACR_FR_ActivationPhase "FR ACR Actuator Execution Phase for Status Actuator";
+CM_ SG_ 393 ACR_FR_ActivationLevelStatus "FR ACR Actuator Activation Level for Status Actuator | Signalvalues: 0 - No activation.
+11 - Diagnoses Pulse.
+16 - PTMP demanded Motor Speed and Current Limit.
+17 - PTMP demanded Motor Current.
+18 - PTMP demanded Motor Voltage.
+19 - PTMP demanded Motor PWM Dutycycle and direction.
+29 - BeltPark Level 1
+30 - BeltPark Level 2
+31 - Beltslack Reduction.
+32 - Haptic Warning Level 1
+33 - Haptic Warning Level 2
+34 - Haptic Warning Level 3
+35 - Haptic Warning Level 4
+36 - Haptic Warning Level 5
+37 - Haptic Warning Level 6
+41 - Retract Level 1.
+42 - Retract Level 2.
+43 - Retract Level 3.
+44 - Retract Level 4.
+45 - Retract Level 5.
+46 - Retract Level 6.
+47 - Retract Level 7.
+48 - Dynamik Belt.
+49 - Retract Level 9.
+51 - RePos level 1 request.
+52 - RePos level 2 request.
+53 - RePos level 3 request.";
+CM_ SG_ 394 ACR_RL1_SpoolFasterClutch "RL1 ACR Motor for Speed Actuator";
+CM_ SG_ 394 ACR_RL1_ActivationPhase "RL1 ACR Actuator Execution Phase for Status Actuator";
+CM_ SG_ 395 ACR_RL2_SpoolFasterClutch "R2 ACR Motor for Speed Actuator";
+CM_ SG_ 395 ACR_RL2_ActivationPhase "R2 ACR Actuator Execution Phase for Status Actuator";
+CM_ SG_ 396 ACR_RR1_SpoolFasterClutch "RR1 ACR Motor for Speed Actuator";
+CM_ SG_ 396 ACR_RR1_ActivationPhase "RR1 ACR Actuator Execution Phase for Status Actuator";
+CM_ SG_ 396 ACR_RR1_ActivationLevelStatus "RR1 ACR Actuator Activation Level for Status Actuator | Signalvalues: 0 - No activation.
+11 - Diagnoses Pulse.
+16 - PTMP demanded Motor Speed and Current Limit.
+17 - PTMP demanded Motor Current.
+18 - PTMP demanded Motor Voltage.
+19 - PTMP demanded Motor PWM Dutycycle and direction.
+29 - BeltPark Level 1
+30 - BeltPark Level 2
+31 - Beltslack Reduction.
+32 - Haptic Warning Level 1
+33 - Haptic Warning Level 2
+34 - Haptic Warning Level 3
+35 - Haptic Warning Level 4
+36 - Haptic Warning Level 5
+37 - Haptic Warning Level 6
+41 - Retract Level 1.
+42 - Retract Level 2.
+43 - Retract Level 3.
+44 - Retract Level 4.
+45 - Retract Level 5.
+46 - Retract Level 6.
+47 - Retract Level 7.
+48 - Dynamik Belt.
+49 - Retract Level 9.
+51 - RePos level 1 request.
+52 - RePos level 2 request.
+53 - RePos level 3 request.";
+CM_ SG_ 409 BSW_RR1_BuckleStatus "Buckle Switch Status | Signalvalues: Buckled, Unbuckled";
+CM_ SG_ 409 BSW_RL2_BuckleStatus "Buckle Switch Status | Signalvalues: Buckled, Unbuckled";
+CM_ SG_ 409 BSW_RL1_BuckleStatus "Buckle Switch Status | Signalvalues: Buckled, Unbuckled";
+CM_ SG_ 409 BSW_FR_BuckleStatus "Buckle Switch Status | Signalvalues: Buckled, Unbuckled";
+CM_ SG_ 409 BSW_FL_BuckleStatus "Buckle Switch Status | Signalvalues: Buckled, Unbuckled";
+CM_ SG_ 146 ELK_RR1_LockingRequest "Manual Locking Request from HMI | Signalvalues: Lock, No Lock";
+CM_ SG_ 146 ELK_RL2_LockingRequest "Manual Locking Request from HMI | Signalvalues: Lock, No Lock";
+CM_ SG_ 146 ELK_RL1_LockingRequest "Manual Locking Request from HMI | Signalvalues: Lock, No Lock";
+CM_ SG_ 146 ELK_FR_LockingRequest "Manual Locking Request from HMI | Signalvalues: Lock, No Lock";
+CM_ SG_ 146 ELK_FL_LockingRequest "Manual Locking Request from HMI | Signalvalues: Lock, No Lock";
+CM_ SG_ 408 ELK_RR1_LockingStatus "E-Locking Status for RR1 Actuator | Signalvalues: Lock, No Lock";
+CM_ SG_ 408 ELK_RL2_LockingStatus "E-Locking Status for R2 Actuator | Signalvalues: Lock, No Lock";
+CM_ SG_ 408 ELK_RL1_LockingStatus "E-Locking Status for R1 Actuator | Signalvalues: Lock, No Lock";
+CM_ SG_ 408 ELK_FR_LockingStatus "E-Locking Status for FR Actuator | Signalvalues: Lock, No Lock";
+CM_ SG_ 408 ELK_FL_LockingStatus "E-Locking Status for FL Actuator | Signalvalues: Lock, No Lock";
+CM_ SG_ 410 HB_RR1_ActivationLevel "Activation Level for HB requested by HMI | Signalvalues: Level 1-7";
+CM_ SG_ 410 HB_RL2_ActivationLevel "Activation Level for HB requested by HMI | Signalvalues: Level 1-6";
+CM_ SG_ 410 HB_RL1_ActivationLevel "Activation Level for HB requested by HMI | Signalvalues: Level 1-5";
+CM_ SG_ 410 HB_FR_ActivationLevel "Activation Level for HB requested by HMI | Signalvalues: Level 1-4";
+CM_ SG_ 410 HB_FL_ActivationLevel "Activation Level for HB requested by HMI | Signalvalues: Level 1-3";
+CM_ SG_ 131 HB_ActivationSync "Syncs all Activation Levels of HBs | Signalvalues: bool";
+CM_ SG_ 133 HB_ManualTargetTemp "Manual Target Temprature Requested by HMI | Signalvalues: degree celcius";
+CM_ SG_ 133 HB_DynamicTargetTemp "Target Temperature calculated from HB Boosting Algorithm | Signalvalues: degree celcius";
+CM_ SG_ 160 ISB_FL_ColorBlue_byte "Intensity for Color Blue on FL Buckle";
+CM_ SG_ 160 ISB_FL_ColorGreen_byte "Color Code for ISB with RGB and Intensity requested by HMI | Signalvalues: Custom RGBA Colorcode --> A will be the intensity";
+CM_ SG_ 161 ISB_FR_ColorGreen "Color Code for ISB with RGB and Intensity requested by HMI | Signalvalues: Custom RGBA Colorcode --> A will be the intensity";
+CM_ SG_ 162 ISB_RL1_ColorGreen "Color Code for ISB with RGB and Intensity requested by HMI | Signalvalues: Custom RGBA Colorcode --> A will be the intensity";
+CM_ SG_ 163 ISB_RL2_ColorGreen "Color Code for ISB with RGB and Intensity requested by HMI | Signalvalues: Custom RGBA Colorcode --> A will be the intensity";
+CM_ SG_ 164 ISB_RR1_ColorGreen "Color Code for ISB with RGB and Intensity requested by HMI | Signalvalues: Custom RGBA Colorcode --> A will be the intensity";
+CM_ SG_ 400 WMS_FL_WebbingMovement_mm "Webbing Payout measured by ACR spool rotation | Signalvalues: 0-max mm";
+CM_ SG_ 401 WMS_FR_WebbingMovement "Webbing Payout measured by ACR spool rotation | Signalvalues: 0-max mm";
+CM_ SG_ 402 WMS_RL1_WebbingMovement "Webbing Payout measured by ACR spool rotation | Signalvalues: 0-max mm";
+CM_ SG_ 403 WMS_RL2_WebbingMovement "Webbing Payout measured by ACR spool rotation | Signalvalues: 0-max mm";
+CM_ SG_ 404 WMS_RR1_WebbingMovement "Webbing Payout measured by ACR spool rotation | Signalvalues: 0-max mm";
+CM_ SG_ 181 SPS_FL_HeadRestPosition "FL Seat HeadRest for Position Actuator | Signalvalues: mm";
+CM_ SG_ 181 SPS_FL_FootRestPosition "FL Seat FootRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 181 SPS_FL_SeatBackRestPosition "FL Seat BackRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 181 SPS_FL_SeatDirectionZ "FL Seat z-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 181 SPS_FL_SeatDirectionX "FL Seat x-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 182 SPS_FR_HeadRestPosition "FR Seat HeadRest for Position Actuator | Signalvalues: mm";
+CM_ SG_ 182 SPS_FR_FootRestPosition "FR Seat FootRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 182 SPS_FR_SeatBackRestPosition "FR Seat BackRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 182 SPS_FR_SeatDirectionZ "FR Seat z-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 182 SPS_FR_SeatDirectionX "FR Seat x-for Direction Actuator | Signalvalues: mm";
+VAL_ 409 BSW_FL_BuckleStatus 1 "Buckled" 0 "Unbuckled" ;
+
