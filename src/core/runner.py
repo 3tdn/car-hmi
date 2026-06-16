@@ -248,7 +248,7 @@ class AppRunner:
             )
             self._readers.append(reader)
 
-            writer = CANWriter(bus=bus, db=db_loader)
+            writer = CANWriter(bus=bus, db=db_loader, signal_store=self.store)
             self._writers.append(writer)
             writer_router.register(db_loader, writer)
 
