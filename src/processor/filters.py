@@ -23,3 +23,4 @@ class RateLimiter(ProcessingStage):
                 result[name] = value
                 self._last_update[name] = now
         return result
+        return result

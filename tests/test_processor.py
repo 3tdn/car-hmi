@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.mark.skip(reason="SmoothingFilter removed per project policy")
 @pytest.mark.asyncio
 async def test_smoothing_filter_ema():
     from src.processor.filters import SmoothingFilter
@@ -36,6 +37,7 @@ async def test_smoothing_filter_ema():
     assert result6["speed"] == pytest.approx(42.63374485596708)
 
 
+@pytest.mark.skip(reason="SmoothingFilter removed per project policy")
 @pytest.mark.asyncio
 async def test_smoothing_filter_moving_avg():
     from src.processor.filters import SmoothingFilter
