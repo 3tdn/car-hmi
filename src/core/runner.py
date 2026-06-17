@@ -288,8 +288,19 @@ class AppRunner:
     def _load_alarm_configs(self) -> list:
         """Tải cấu hình ngưỡng cảnh báo từ config/alarms.json."""
         import json
-
+        from src.core.config import load_config
         from src.processor.alarms import AlarmConfig
+
+        # Respect a top-level flag in system config to temporarily disable alarms
+        try:
+            sys_cfg = load_config("config/system.json")
+            alarms_enabled = getattr(sys_cfg, "alarms", {}).get("enabled", True) if hasattr(sys_cfg, "alarms") else True
+        except Exception:
+            alarms_enabled = True
+
+        if not alarms_enabled:
+            logger.info("Alarms disabled via config/system.json — skipping alarm load")
+            return []
 
         alarm_path = Path("config/alarms.json")
         if not alarm_path.exists():

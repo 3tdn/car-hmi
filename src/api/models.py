@@ -13,6 +13,7 @@ class SignalValueResponse(BaseModel):
     """Giá trị tức thời của một tín hiệu CAN."""
 
     signal_name: str = Field(..., description="Tên định danh của tín hiệu")
+    std_name: str | None = Field(None, description="Tên chuẩn hóa theo sync_dict (nếu có)")
     value: float = Field(..., description="Giá trị số thực đã được giải mã")
     unit: str | None = Field(None, description="Đơn vị đo lường (ví dụ: km/h, °C)")
     timestamp: float = Field(..., description="Unix timestamp (giây) khi đọc được giá trị")
@@ -51,6 +52,7 @@ class SignalMetadata(BaseModel):
     """Full metadata cho 1 signal — trả về bởi GET /signals/available."""
 
     signal_name: str = Field(..., description="Tên định danh duy nhất của tín hiệu")
+    std_name: str | None = Field(None, description="Tên chuẩn hóa theo sync_dict (nếu có)")
     unit: str | None = Field(None, description="Đơn vị đo lường")
     min_value: float | None = Field(None, description="Giá trị tối thiểu hợp lệ")
     max_value: float | None = Field(None, description="Giá trị tối đa hợp lệ")

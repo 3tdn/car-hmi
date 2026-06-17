@@ -499,3 +499,12 @@ body {
   top: 0;
 }
 
+/* ── std_name support: display standardized name below canonical name ──────── */
+.signal-std-name {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: normal;
+  margin-top: 2px;
+  font-style: italic;
+}

@@ -8,6 +8,11 @@
       "can_db_files": ["db/candb/p_v2.dbc"]
     }
   ],
+  "simulator": {
+    "enabled": true,
+    "default_cycle_ms": 10,
+    "can_json_path": "config/can0.json"
+  },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
     "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
@@ -42,6 +47,11 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
+  "alarms": {
+    "enabled": false,
+    "config_path": "config/alarms.json",
+    "check_interval_sec": 0.5
+  },
   "writer": {
     "rate_limit_per_sec": 10,
     "burst": 5
@@ -51,6 +61,9 @@
   },
   "supervisor": {
     "watchdog_interval_sec": 5
+  },
+  "signal": {
+    "sync_dict": "config/signal_std_name.json"
   },
   "logging": {
     "level": "INFO",
