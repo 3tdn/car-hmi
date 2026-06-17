@@ -433,6 +433,11 @@ class DatabaseLoader:
             is_extended_id=msg_id > 0x7FF,
         )
 
+    def get_message_for_signal(self, signal_name: str) -> "ParsedMessage | None":
+        """Trả về ParsedMessage chứa signal_name, hoặc None nếu không tìm thấy."""
+        msg_id = self._signal_to_msg.get(signal_name)
+        return self._messages.get(msg_id) if msg_id is not None else None
+
     def summary(self) -> str:
         return (
             f"DatabaseLoader: {len(self._loaded_files)} files loaded, "
