@@ -163,9 +163,9 @@ const USER_SIGNAL_WHITELIST = [
   "HB_RR1_ActivationLevel"
 ];
 
-function isSignalAllowed(name) {
+function isSignalAllowed(name, std_name) {
   if (FRONTEND_MODE === 'dev') return true;
-  return USER_SIGNAL_WHITELIST.includes(name);
+  return USER_SIGNAL_WHITELIST.includes(name) || USER_SIGNAL_WHITELIST.includes(std_name);
 }
 
 // ── Signal tracking for the table + fast gauges ────────────────────────────
@@ -212,8 +212,14 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
        </td>`;
   }
 
+  // Get std_name to display alongside canonical name
+  const stdName = getSignalMetadata(signalName)?.std_name;
+  const nameDisplay = stdName && stdName !== signalName 
+    ? `${signalName}<br/><small class="signal-std-name">${stdName}</small>`
+    : signalName;
+
   row.innerHTML = `
-    <td class="signal-name">${signalName}</td>
+    <td class="signal-name">${nameDisplay}</td>
     <td class="signal-value">— ${unit || ""}</td>
     <td class="signal-history"><canvas class="sparkline" width="140" height="28"></canvas></td>
     ${writeCell}
@@ -315,23 +321,26 @@ async function loadSnapshot() {
   // 1. Fetch full metadata (heavy, once)
   try {
     const { items } = await fetchAvailableSignals();
+    // Populate std_name → signal_name registry for resolving names
+    populateSignalRegistry(items);
     items.forEach((meta) => {
+      // Use canonical signal_name as the key for metadata cache
       signalMetadataCache.set(meta.signal_name, meta);
       const unit = meta.unit || "";
       if (unit) signalUnits.set(meta.signal_name, unit);
-      if (meta.value != null && isSignalAllowed(meta.signal_name)) {
+      if (meta.value != null && isSignalAllowed(meta.signal_name, meta.std_name)) {
         updateWidget(meta.signal_name, meta.value);
         updateSignalRow(meta.signal_name, meta.value, meta.timestamp || 0, unit, !!meta.writable, meta.states || null);
       }
     });
-    console.info(`Loaded metadata for ${items.length} signals`);
+    console.info(`Loaded metadata for ${items.length} signals; std_name registry populated`);
   } catch (e) {
     console.warn("Available signals fetch failed, falling back to /signals:", e);
     // Fallback to legacy snapshot
     try {
       const { items } = await fetchSignals();
-      items.forEach(({ signal_name, value, unit, timestamp }) => {
-        if (!isSignalAllowed(signal_name)) return;
+      items.forEach(({ signal_name, std_name, value, unit, timestamp }) => {
+        if (!isSignalAllowed(signal_name, std_name)) return;
         updateWidget(signal_name, value);
         updateSignalRow(signal_name, value, timestamp, unit || "");
       });
@@ -426,8 +435,8 @@ function handleMessage(msg) {
   // Demo-compatible batch frame: {timestamp: "ISO8601", signals: [{name, value}]}
   if (Array.isArray(msg.signals) && !msg.type) {
     const ts = msg.timestamp ? new Date(msg.timestamp).getTime() / 1000 : Date.now() / 1000;
-    msg.signals.forEach(({ name, value }) => {
-      if (!isSignalAllowed(name)) return;
+    msg.signals.forEach(({ name, value, std_name }) => {
+      if (!isSignalAllowed(name, std_name)) return;
       const meta = signalMetadataCache.get(name);
       updateWidget(name, value);
       updateSignalRow(name, value, ts, signalUnits.get(name) || "", !!(meta && meta.writable), (meta && meta.states) || null);
@@ -436,7 +445,7 @@ function handleMessage(msg) {
   }
   // Legacy single-signal frame
   if (msg.type === "signal") {
-    if (!isSignalAllowed(msg.signal)) return;
+    if (!isSignalAllowed(msg.signal, msg.std_name)) return;
     const meta = signalMetadataCache.get(msg.signal);
     updateWidget(msg.signal, msg.value);
     updateSignalRow(msg.signal, msg.value, msg.timestamp, signalUnits.get(msg.signal) || "", !!(meta && meta.writable), (meta && meta.states) || null);

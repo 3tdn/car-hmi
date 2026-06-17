@@ -64,6 +64,10 @@ class TestDatabaseLoader:
 
     def test_summary(self):
         loader = DatabaseLoader()
+        from pathlib import Path
+        can_json = Path("config/can.json")
+        if not can_json.exists():
+            pytest.skip("config/can.json not found")
         loader.load("config/can.json")
         s = loader.summary()
         assert "files loaded" in s
@@ -72,6 +76,10 @@ class TestDatabaseLoader:
     def test_decode_frame(self):
         """Decode a real CAN frame using can.json."""
         loader = DatabaseLoader()
+        from pathlib import Path
+        can_json = Path("config/can.json")
+        if not can_json.exists():
+            pytest.skip("config/can.json not found")
         loader.load("config/can.json")
 
         # msg_id=608 = ECM_EngineStatus1 = EngineSpeed at bit 0, 16 bits, factor=0.25
@@ -86,6 +94,10 @@ class TestDatabaseLoader:
 
     def test_encode_signal(self):
         loader = DatabaseLoader()
+        from pathlib import Path
+        can_json = Path("config/can.json")
+        if not can_json.exists():
+            pytest.skip("config/can.json not found")
         loader.load("config/can.json")
 
         msg = loader.encode_signal("EngineSpeed", 1000.0)
@@ -94,6 +106,10 @@ class TestDatabaseLoader:
 
     def test_encode_message(self):
         loader = DatabaseLoader()
+        from pathlib import Path
+        can_json = Path("config/can.json")
+        if not can_json.exists():
+            pytest.skip("config/can.json not found")
         loader.load("config/can.json")
 
         msg = loader.encode_message(608, {"EngineSpeed": 1500.0, "CoolantTemp": 90.0})

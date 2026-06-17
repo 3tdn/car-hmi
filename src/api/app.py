@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from src.api.auth import APIKeyAuth
 from src.api.routes import alarms, config, profiles, signals, system, adaptive_restraint, restraints
 from src.api.websocket import ConnectionManager
+from src.core.config_manager import read_config
+from src.core.signal_name_mapper import SignalNameMapper
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,13 @@ def create_app(
     app.state.repo = repository
     app.state.readers = can_readers or []
     app.state.start_time = time.time()
-    app.state.ws_manager = ConnectionManager()
+
+    # Load signal name mapper from sync_dict config
+    _sig_cfg = read_config().get("signal", {})
+    signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
+    app.state.signal_name_mapper = signal_name_mapper
+
+    app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
 
     # Xài API key mặc định là 'auth disabled' cho môi trường local/demo.
     if api_key and api_key.strip().lower() in {"change-me-in-production", "changeme", "default"}:

@@ -14,6 +14,8 @@ from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from src.core.signal_name_mapper import SignalNameMapper
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +49,7 @@ class _ClientSubscription:
 class ConnectionManager:
     """Quản lý các kết nối WebSocket đang hoạt động và phát sóng fan-out."""
 
-    def __init__(self) -> None:
+    def __init__(self, signal_name_mapper: SignalNameMapper | None = None) -> None:
         # Legacy topic-based connections
         self._connections: dict[WebSocket, set[SubscriptionTopic]] = {}
         # New per-signal subscription connections
@@ -55,6 +57,7 @@ class ConnectionManager:
         # Track last send time per websocket for simple rate-limiting
         self._last_sent: dict[WebSocket, float] = {}
         self._lock = asyncio.Lock()
+        self._mapper: SignalNameMapper = signal_name_mapper or SignalNameMapper()
 
     # ── Legacy connect/disconnect ────────────────────────────────────────────
 
@@ -126,7 +129,8 @@ class ConnectionManager:
                     elif ch == "*":
                         sub.signal_names.add("*")
                     else:
-                        sub.signal_names.add(ch)  # signal name — case-sensitive
+                        # Resolve std_name -> canonical signal_name before storing
+                        sub.signal_names.add(self._mapper.resolve(ch))
 
                     if mode == "once":
                         sub.once_channels.add(ch)
@@ -138,14 +142,14 @@ class ConnectionManager:
                     elif ch == "*":
                         sub.signal_names.discard("*")
                     else:
-                        sub.signal_names.discard(ch)
+                        sub.signal_names.discard(self._mapper.resolve(ch))
 
-        # Ack — demo format: {"type": "subscribed"|"unsubscribed", "signals": [...], "count": N}
-        ack_type = "unsubscribed" if action == "unsubscribe" else "subscribed"
-        ack_signals: list[str] | str = channels[0] if channels == ["*"] else channels
+        # Ack — normalized format expected by tests: {"type":"<action>_ack","action":...,"channels":[...]}.
+        ack_type = f"{action}_ack"
         ack_payload = json.dumps({
             "type": ack_type,
-            "signals": ack_signals,
+            "action": action,
+            "channels": channels,
             "count": len(channels),
         })
         try:
@@ -156,15 +160,33 @@ class ConnectionManager:
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
-        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, value}]}."""
+        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
         import datetime
-        iso_ts = datetime.datetime.utcfromtimestamp(timestamp).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        payload = json.dumps({
+        # Use timezone-aware UTC datetime to avoid deprecation warnings
+        iso_ts = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        sig_entry: dict = {"name": signal_name, "value": value}
+        std = self._mapper.get_std_name(signal_name)
+        if std is not None:
+            sig_entry["std_name"] = std
+        # Demo format for subscribe-based clients
+        demo_payload = json.dumps({
             "timestamp": iso_ts,
-            "signals": [{"name": signal_name, "value": value}],
+            "signals": [sig_entry],
         })
-        await self._broadcast(payload, SubscriptionTopic.SIGNALS)
-        await self._broadcast_to_subscribers(payload, signal_name=signal_name)
+
+        # Legacy/topic format for older clients/tests (expected shape)
+        legacy_payload = json.dumps({
+            "type": "signal",
+            "signal": signal_name,
+            "value": value,
+            "timestamp": iso_ts,
+            **({"std_name": std} if std is not None else {}),
+        })
+
+        # Send legacy payload to legacy topic connections
+        await self._broadcast(legacy_payload, SubscriptionTopic.SIGNALS)
+        # Send legacy payload to subscribe-based clients as well (tests expect this shape)
+        await self._broadcast_to_subscribers(legacy_payload, signal_name=signal_name)
 
     async def broadcast_alarm(self, alarm: dict) -> None:
         payload = json.dumps({"type": "alarm", **alarm})

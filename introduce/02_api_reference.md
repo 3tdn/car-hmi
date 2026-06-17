@@ -28,6 +28,8 @@ Nếu `api_key` trong `config/system.json` để trống hoặc là placeholder 
 | `GET` | `/signals/{name}/history` | Lịch sử tín hiệu (time-series từ DB) |
 | `PUT` | `/signals/{name}` | Ghi giá trị vào CAN Bus (trả về 202 Accepted) |
 
+> Note: The API supports both canonical signal names and standardized `std_name` aliases. Clients may call endpoints with either form (e.g. `/signals/HMI_FL_OccupantAge_years` or `/signals/HMI_FL_OccupantAge`) — the server resolves `std_name` → canonical internally. Responses include an optional `std_name` field when a mapping exists. See `STD_NAME_USAGE.md` for examples.
+
 **GET /signals** — response:
 ```json
 {
@@ -44,6 +46,7 @@ Nếu `api_key` trong `config/system.json` để trống hoặc là placeholder 
 {
   "items": [{
     "signal_name": "BrakePressure",
+    "std_name": "BrakePressure", 
     "unit": "bar",
     "min_value": 0,
     "max_value": 200,
