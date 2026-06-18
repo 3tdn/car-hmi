@@ -52,9 +52,8 @@ class CANWriter:
     async def send_signal(self, name: str, value: float) -> None:
         """Mã hóa một tín hiệu và truyền khung CAN tương ứng.
 
-        Thực hiện read-modify-write: đọc giá trị hiện tại của tất cả tín hiệu
-        trong cùng CAN message từ SignalStore, sau đó encode full frame để
-        tránh zero-out các tín hiệu khác cùng message.
+        Delegate sang ``send_signals_batch`` để dùng chung logic
+        read-modify-write (giữ nguyên các tín hiệu khác cùng message).
 
         Tham số:
             name:  Tên tín hiệu theo định nghĩa trong cơ sở dữ liệu DBC/CANdb.
@@ -64,44 +63,86 @@ class CANWriter:
             ValueError: nếu tín hiệu ``name`` không tìm thấy trong DB.
             can.CanError: nếu ``bus.send()`` thất bại.
         """
-        msg_def = self._db.get_message_for_signal(name)
-        if msg_def is None:
-            raise ValueError(f"Signal '{name}' not found in CAN database — cannot encode")
+        await self.send_signals_batch({name: value})
 
-        # ── Read-modify-write: giữ nguyên các tín hiệu khác trong cùng frame ──
-        signals_to_encode: dict[str, float] = {name: value}
-        if self._store is not None:
-            for sig_name in msg_def.signals:
-                if sig_name == name:
-                    continue
-                sv = await self._store.get(sig_name)
-                if sv is not None:
-                    signals_to_encode[sig_name] = sv.value
+    async def send_signals_batch(self, signals: dict[str, float]) -> dict[str, float]:
+        """Gộp nhiều tín hiệu theo message ID rồi gửi mỗi message một frame duy nhất.
 
-        msg = self._db.encode_message(msg_def.msg_id, signals_to_encode)
-        if msg is None:
-            raise ValueError(f"Failed to encode message for signal '{name}'")
-        msg.timestamp = time.time()
+        Với mỗi CAN message được đề cập trong ``signals``:
+        - Đọc giá trị hiện tại của tất cả tín hiệu còn lại trong message từ
+          SignalStore (read-modify-write) để không zero-out chúng.
+        - Ghi đè bằng các giá trị mới trong ``signals``.
+        - Mã hoá và gửi một frame CAN duy nhất cho message đó.
 
-        async with self._lock:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._bus.send, msg)
-            self._sent_count += 1
-            logger.info(
-                "CAN write [%d]: %s = %s  (msg_id=%#x, data=%s)",
-                self._sent_count,
-                name,
-                value,
-                msg.arbitration_id,
-                msg.data.hex(),
-            )
+        Tham số:
+            signals: dict {signal_name → giá_trị_vật_lý} cho tất cả tín hiệu cần ghi.
 
-        # ── Cập nhật SignalStore trực tiếp sau khi gửi thành công ─────────────
-        # SocketCAN mặc định không loopback frame gửi đi về chính socket đó,
-        # nên nếu chỉ dựa vào CANReader thì SignalStore/dashboard sẽ không
-        # cập nhật. Cập nhật trực tiếp đảm bảo WebSocket clients thấy giá trị mới.
-        if self._store is not None:
-            await self._store.bulk_update({name: value}, timestamp=time.time())
+        Trả về:
+            dict {signal_name → value} của các tín hiệu đã được gửi thành công.
+
+        Ngoại lệ:
+            ValueError: nếu một tín hiệu không tìm thấy trong DB của kênh này.
+        """
+        # ── Bước 1: gom nhóm theo message ─────────────────────────────────────
+        from src.can_io.parser import ParsedMessage  # tránh circular ở top-level
+
+        msg_groups: dict[int, dict[str, float]] = {}
+        msg_defs: dict[int, ParsedMessage] = {}
+
+        for sig_name, value in signals.items():
+            msg_def = self._db.get_message_for_signal(sig_name)
+            if msg_def is None:
+                raise ValueError(
+                    f"Signal '{sig_name}' not found in CAN database — cannot encode"
+                )
+            if msg_def.msg_id not in msg_groups:
+                msg_groups[msg_def.msg_id] = {}
+                msg_defs[msg_def.msg_id] = msg_def
+            msg_groups[msg_def.msg_id][sig_name] = value
+
+        # ── Bước 2: gửi một frame duy nhất cho mỗi message ────────────────────
+        sent: dict[str, float] = {}
+        ts = time.time()
+
+        for msg_id, sig_values in msg_groups.items():
+            msg_def = msg_defs[msg_id]
+
+            # Read-modify-write: giữ nguyên các tín hiệu không có trong batch
+            signals_to_encode: dict[str, float] = {}
+            if self._store is not None:
+                for sig_name in msg_def.signals:
+                    if sig_name in sig_values:
+                        continue
+                    sv = await self._store.get(sig_name)
+                    if sv is not None:
+                        signals_to_encode[sig_name] = sv.value
+
+            signals_to_encode.update(sig_values)
+
+            msg = self._db.encode_message(msg_id, signals_to_encode)
+            if msg is None:
+                raise ValueError(f"Failed to encode message {msg_id:#x}")
+            msg.timestamp = ts
+
+            async with self._lock:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, self._bus.send, msg)
+                self._sent_count += 1
+                logger.info(
+                    "CAN batch write [%d]: msg_id=%#x signals=%s data=%s",
+                    self._sent_count,
+                    msg_id,
+                    list(sig_values.keys()),
+                    msg.data.hex(),
+                )
+
+            sent.update(sig_values)
+
+        # ── Bước 3: cập nhật SignalStore một lần cho toàn bộ batch ────────────
+        if self._store is not None and sent:
+            await self._store.bulk_update(sent, timestamp=ts)
+
+        return sent
 
     async def send_message(self, msg_id: int, signals: dict[str, float]) -> None:
         """Mã hóa toàn bộ thông điệp theo ID và gửi đi.
@@ -181,3 +222,51 @@ class CANWriterRouter:
                 f"Message ID {msg_id:#x} not found in any CAN channel — cannot encode"
             )
         await writer.send_message(msg_id, signals)
+
+    async def send_signals_batch(
+        self, signals: dict[str, float]
+    ) -> tuple[dict[str, float], list[dict]]:
+        """Gộp batch tín hiệu theo kênh rồi gửi, mỗi CAN message chỉ một frame.
+
+        Tín hiệu không tìm thấy trên bất kỳ kênh nào được thu thập vào danh sách
+        lỗi thay vì ném ngoại lệ, để các tín hiệu hợp lệ vẫn được gửi.
+
+        Tham số:
+            signals: dict {canonical_signal_name → giá_trị_vật_lý}
+
+        Trả về:
+            (sent, errors)
+            - sent:   dict {signal_name → value} các tín hiệu đã gửi thành công
+            - errors: list[{"signal_name": ..., "error": ...}] các tín hiệu thất bại
+        """
+        # ── Phân loại signal → writer ──────────────────────────────────────────
+        writer_groups: dict[int, tuple[CANWriter, dict[str, float]]] = {}
+        errors: list[dict] = []
+
+        for sig_name, value in signals.items():
+            writer = self._signal_to_writer.get(sig_name)
+            if writer is None:
+                errors.append(
+                    {
+                        "signal_name": sig_name,
+                        "error": f"Signal '{sig_name}' not found in any CAN channel",
+                    }
+                )
+                continue
+            wid = id(writer)
+            if wid not in writer_groups:
+                writer_groups[wid] = (writer, {})
+            writer_groups[wid][1][sig_name] = value
+
+        # ── Gửi batch cho từng kênh ────────────────────────────────────────────
+        sent: dict[str, float] = {}
+        for writer, sig_map in writer_groups.values():
+            try:
+                result = await writer.send_signals_batch(sig_map)
+                sent.update(result)
+            except (ValueError, Exception) as exc:
+                # Đưa toàn bộ tín hiệu của kênh này vào errors
+                for sig_name in sig_map:
+                    errors.append({"signal_name": sig_name, "error": str(exc)})
+
+        return sent, errors

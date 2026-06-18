@@ -194,6 +194,10 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
 )
 async def batch_update_signals(body: BatchSignalWrite, request: Request):
     """Ghi nhiều tín hiệu CAN cùng lúc.
+
+    Các tín hiệu thuộc cùng một CAN message được gộp lại và gửi thành một
+    frame duy nhất (read-modify-write: giữ nguyên giá trị các tín hiệu khác
+    trong cùng message không có trong danh sách batch).
     REST write được broadcast ngay tới tất cả WS clients đang subscribe.
     """
     writer = getattr(request.app.state, "writer", None)
@@ -202,15 +206,16 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
     mapper = getattr(request.app.state, "signal_name_mapper", None)
-    queued = []
-    errors = []
+
+    # Resolve canonical names; last entry wins nếu trùng tên sau resolve
+    resolved: dict[str, float] = {}
     for item in body.signals:
         canonical = mapper.resolve(item.signal_name) if mapper else item.signal_name
-        try:
-            await writer.send_signal(canonical, item.value)
-            queued.append({"signal_name": canonical, "value": item.value})
-        except ValueError as exc:
-            errors.append({"signal_name": item.signal_name, "error": str(exc)})
+        resolved[canonical] = item.value
+
+    sent, errors = await writer.send_signals_batch(resolved)
+    queued = [{"signal_name": k, "value": v} for k, v in sent.items()]
+
     if errors and not queued:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=errors)
     return {"queued": queued, "count": len(queued), "queued_at": time.time(), "errors": errors}

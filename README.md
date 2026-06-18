@@ -209,6 +209,11 @@ Returns full metadata for every signal (call once on client startup). Includes m
 curl -H "X-API-Key: your_api_key" http://localhost:8000/signals/available
 ```
 
+Print format json output to out.json
+```bash
+curl -H "" http://localhost:8000/signals/available -o ./tests/out.json
+```
+
 Response item schema:
 ```json
 {
@@ -237,6 +242,11 @@ Get latest value for a single signal. Returns `404` if unknown.
 curl -H "X-API-Key: your_api_key" http://localhost:8000/signals/EngineSpeed
 ```
 
+Print format json output to out.json
+```bash
+curl -H "X-API-Key: your_api_key" http://localhost:8000/signals/OMS_FL_OccupantWeightMean | python -m json.tool > ./tests/out.json
+```
+
 #### `GET /signals/{name}/history`
 Query time-series history from the database.
 
@@ -256,7 +266,7 @@ curl "http://localhost:8000/signals/EngineSpeed/history?start=1716400000&limit=5
 Write a value to CAN bus. Returns `202 Accepted`. Returns `503` if CAN writer is unavailable.
 
 ```bash
-curl -X PUT http://localhost:8000/signals/EngineSpeed \
+curl -X PUT http://localhost:8000/signals/ISB_FL_ColorGreen \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
   -d '{"value": 3500}'
@@ -264,8 +274,10 @@ curl -X PUT http://localhost:8000/signals/EngineSpeed \
 
 Response:
 ```json
-{"signal_name": "EngineSpeed", "value": 3500.0, "queued_at": 1716451200.456}
+{"signal_name": "ISB_FL_ColorGreen", "value": 3500.0, "queued_at": 1716451200.456}
 ```
+
+
 
 #### `POST /signals/batch_update`
 Write multiple writable signals simultaneously. Successful items are returned even if some fail.
