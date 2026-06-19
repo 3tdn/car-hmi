@@ -340,3 +340,30 @@ async function fetchAdaptiveChartInfo(params) {
   return resp.json();
 }
 
+// ── Restraint Video Match ──────────────────────────────────────────────────────
+
+/**
+ * Find the best-matching restraint video for given crash parameters.
+ *
+ * @param {object} params
+ * @param {number} params.weight          - Occupant weight in kg
+ * @param {number} params.height          - Occupant height in cm
+ * @param {string} params.crash_severity  - OLC code (OLC16/OLC18/OLC26/OLC33) or velocity (35/40/50/56)
+ * @param {string} params.seatbelt_system - Seatbelt system: SLL | CLL | MSLL
+ * @param {string} [params.seat]          - Seat: fl (front-left) | fr (front-right)
+ * @param {number|null} [params.seat_x_mm] - Seat travel distance in mm (0=front, 113.5=mid, 227=rear).
+ *                                           If null, backend reads from live CAN signal SPS_SeatDirectionX.
+ * @returns {Promise<object>} API response with matched video info and context
+ */
+async function fetchRestraintMatch({ weight, height, crash_severity, seatbelt_system, seat = "driver", seat_x_mm = null }) {
+  const p = { weight, height, crash_severity, seatbelt_system, seat };
+  if (seat_x_mm !== null && seat_x_mm !== undefined) p.seat_x_mm = seat_x_mm;
+  const qs = new URLSearchParams(p).toString();
+  const resp = await fetch(`/api/restraints/match?${qs}`, { headers: _headers() });
+  if (!resp.ok) {
+    const detail = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(detail.detail || `GET /api/restraints/match → ${resp.status}`);
+  }
+  return resp.json();
+}
+

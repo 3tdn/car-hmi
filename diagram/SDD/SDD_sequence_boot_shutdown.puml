@@ -1,0 +1,50 @@
+@startuml
+!theme plain
+title System Graceful Shutdown Sequence
+
+participant "CLI / Main" as cli
+participant "Runner\n(runner.py)" as runner
+participant "Monitoring\n(watchdog)" as mon
+participant "FastAPI\n(app.py)" as api
+participant "Signal Pipeline\n(pipeline.py)" as pipe
+participant "CAN Reader\n(reader.py)" as reader
+participant "CAN Simulator\n(simulator.py)" as sim
+participant "Storage\n(database.py)" as db
+
+cli -> runner : SIGTERM / SIGINT received
+activate runner #salmon
+
+runner -> mon : stop watchdog
+runner -> api : shutdown uvicorn\n(close WS connections)
+api -> api : send Close(1001) to all WS clients
+api -> api : await pending responses
+api --> runner : API stopped
+
+runner -> pipe : stop pipeline
+pipe -> pipe : flush() — drain remaining buffer
+pipe -> db : batch INSERT remaining records
+db --> pipe : flushed
+pipe --> runner : Pipeline stopped
+
+loop for each CAN channel
+    runner -> reader : stop reader #i
+    reader -> reader : close CAN bus #i
+    reader --> runner : Reader #i stopped
+end
+
+opt simulator running
+    runner -> sim : stop simulator
+    sim --> runner : Simulator stopped
+end
+
+runner -> db : close connection
+db --> runner : DB closed
+
+runner --> cli : Shutdown complete
+deactivate runner
+
+note over cli, db
+  VERIFIED AGAINST CURRENT SOURCE CODE — Graceful shutdown sequence complete and accurate.
+end note
+
+@enduml

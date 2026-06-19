@@ -1,0 +1,29 @@
+@startuml
+title System Shutdown — Arch Flow
+
+actor "Admin\n(SIGTERM/SIGINT)" as Admin
+participant "Runner\n(AppRunner)" as Runner
+participant "API" as API
+participant "Pipeline" as Pipeline
+participant "Readers" as Readers
+participant "DB" as DB
+
+== Graceful shutdown ==
+Admin -> Runner : SIGTERM / SIGINT
+Runner -> Runner : set is_shutting_down=True
+Runner -> API : handle_exit() + close WS
+Runner -> Pipeline : stop() + flush()
+Pipeline -> DB : batch INSERT remaining
+Runner -> Readers : stop() per-channel
+Readers -> Readers : close CAN bus
+Runner -> DB : close connection
+Runner --> Admin : Shutdown complete
+
+note right of Runner
+  VERIFIED AGAINST CURRENT SOURCE CODE
+  Graceful sequence complete. Signal handlers registered.
+  API drain, pipeline flush, reader stop all correct.
+  See SDD_sequence_boot_shutdown & SDD_DETAILED_VERIFICATION.md
+end note
+
+@enduml

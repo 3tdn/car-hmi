@@ -37,6 +37,18 @@ def _setup_logging(cfg: AppConfig) -> None:
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
 
 
+def _db_total_size(db_path: "Path") -> int:
+    """Tổng kích thước file .db + .db-wal + .db-shm (bytes)."""
+    total = 0
+    for suffix in ("", "-wal", "-shm"):
+        p = Path(str(db_path) + suffix)
+        try:
+            total += p.stat().st_size
+        except FileNotFoundError:
+            pass
+    return total
+
+
 class AppRunner:
     """Bộ điều phối: khởi tạo và chạy tất cả các thành phần của hệ thống.
 
@@ -493,10 +505,15 @@ class AppRunner:
                 logger.debug("Failed to broadcast metrics", exc_info=True)
 
     async def _retention_cleanup(self) -> None:
-        """Xóa bản ghi signal_log cũ hơn retention_days mỗi 1 giờ."""
+        """Xóa bản ghi signal_log theo hai tiêu chí:
+        1. Time-based: xóa các bản ghi cũ hơn retention_days mỗi 1 giờ.
+        2. Size-based: xóa oldest rows rồi VACUUM nếu file DB vượt max_disk_mb.
+        """
         import time as _time_mod
 
         retention_sec = self.config.storage.retention_days * 86400
+        max_bytes = int(self.config.storage.max_disk_mb) * 1024 * 1024
+        db_path = Path(self.config.storage.sqlite_path)
         while not self._shutting_down:
             await asyncio.sleep(3600)
             if self._shutting_down:
@@ -506,6 +523,26 @@ class AppRunner:
                 deleted = await self._repo.delete_old_signals(cutoff)
                 if deleted:
                     logger.info("Retention cleanup: deleted %d old signal records", deleted)
+
+                # Size-based enforcement: trim oldest rows nếu DB vượt max_disk_mb
+                if max_bytes > 0 and self._repo is not None:
+                    db_size = _db_total_size(db_path)
+                    if db_size > max_bytes:
+                        logger.warning(
+                            "DB size %.1f MB > limit %.1f MB (over by %.1f MB) — trimming oldest records",
+                            db_size / 1_048_576,
+                            max_bytes / 1_048_576,
+                            (db_size - max_bytes) / 1_048_576,
+                        )
+                        trimmed = await self._repo.trim_to_size(db_size, max_bytes)
+                        await self._repo.vacuum()
+                        new_size = _db_total_size(db_path)
+                        logger.info(
+                            "DB trim complete: removed %d rows, %.1f MB → %.1f MB",
+                            trimmed,
+                            db_size / 1_048_576,
+                            new_size / 1_048_576,
+                        )
             except Exception:
                 logger.exception("Retention cleanup failed")
 

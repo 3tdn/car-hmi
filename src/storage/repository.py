@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import sqlite3
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -91,6 +93,12 @@ class ISignalRepository(ABC):
     async def delete_old_signals(self, older_than: float) -> int: ...
 
     @abstractmethod
+    async def trim_to_size(self, current_size: int, max_bytes: int, batch_size: int = 5_000) -> int: ...
+
+    @abstractmethod
+    async def vacuum(self) -> None: ...
+
+    @abstractmethod
     async def get_signal_config(self, signal_name: str) -> SignalConfigRecord | None: ...
 
     @abstractmethod
@@ -113,19 +121,14 @@ class SQLiteRepository(ISignalRepository):
         await self._conn.commit()
 
     async def insert_signals_bulk(self, records: list[SignalRecord]) -> None:
-        try:
-            await self._conn.execute("BEGIN")
-            await self._conn.executemany(
-                "INSERT INTO signal_log (signal_name, value, unit, timestamp) VALUES (?,?,?,?)",
-                [
-                    (record.signal_name, record.value, record.unit, record.timestamp)
-                    for record in records
-                ],
-            )
-            await self._conn.execute("COMMIT")
-        except Exception:
-            await self._conn.execute("ROLLBACK")
-            raise
+        await self._conn.executemany(
+            "INSERT INTO signal_log (signal_name, value, unit, timestamp) VALUES (?,?,?,?)",
+            [
+                (record.signal_name, record.value, record.unit, record.timestamp)
+                for record in records
+            ],
+        )
+        await self._conn.commit()
 
     async def query_signals(
         self,
@@ -154,8 +157,63 @@ class SQLiteRepository(ISignalRepository):
 
     async def delete_old_signals(self, older_than: float) -> int:
         cur = await self._conn.execute("DELETE FROM signal_log WHERE timestamp < ?", (older_than,))
+        deleted = cur.rowcount
+        await cur.close()
         await self._conn.commit()
-        return cur.rowcount
+        return deleted
+
+    async def trim_to_size(self, current_size: int, max_bytes: int, batch_size: int = 5_000) -> int:
+        """Xóa các bản ghi signal_log cũ nhất theo tỷ lệ để đưa DB về dưới max_bytes sau VACUUM.
+
+        Thuật toán: ước lượng số row cần xóa = total_rows x (excess / current_size),
+        xóa theo batch rồi trả về tổng số row đã xóa.
+        """
+        target = int(max_bytes * 0.85)  # target 85% để tránh cleanup liên tục
+        async with self._conn.execute("SELECT COUNT(*) FROM signal_log") as cur:
+            total_rows = (await cur.fetchone())[0]
+        if total_rows == 0:
+            return 0
+        excess_fraction = max(0.0, (current_size - target) / current_size)
+        rows_to_delete = max(batch_size, int(total_rows * excess_fraction))
+        total_deleted = 0
+        while total_deleted < rows_to_delete:
+            n_batch = min(batch_size, rows_to_delete - total_deleted)
+            cur = await self._conn.execute(
+                "DELETE FROM signal_log WHERE id IN "
+                "(SELECT id FROM signal_log ORDER BY timestamp ASC LIMIT ?)",
+                (n_batch,),
+            )
+            n = cur.rowcount
+            await cur.close()
+            await self._conn.commit()
+            total_deleted += n
+            if n == 0:
+                break
+        return total_deleted
+
+    async def vacuum(self) -> None:
+        """Checkpoint WAL rồi VACUUM để thu hồi các freed pages và thu nhỏ file DB."""
+        await self._conn.commit()
+
+        # DB có thể đang bận vì pipeline ghi liên tục. Retry ngắn rồi bỏ qua chu kỳ
+        # hiện tại để tránh log traceback lặp lại và ảnh hưởng runtime.
+        retries = 3
+        for attempt in range(1, retries + 1):
+            try:
+                async with self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)") as ckpt_cur:
+                    await ckpt_cur.fetchall()
+                async with self._conn.execute("VACUUM"):
+                    pass
+                return
+            except sqlite3.OperationalError as exc:
+                msg = str(exc).lower()
+                if "locked" in msg or "statements in progress" in msg:
+                    if attempt < retries:
+                        await asyncio.sleep(0.2 * attempt)
+                        continue
+                    logger.warning("Skip VACUUM this cycle: database is busy (%s)", exc)
+                    return
+                raise
 
     # ── Thao tác cảnh báo ──────────────────────────────────────────────────────
 

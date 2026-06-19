@@ -1,4 +1,4 @@
-@startuml Sequence - WebSocket Lifecycle
+@startuml
 !theme plain
 title WebSocket Connection Lifecycle — Subscribe, Stream, Reconnect
 
@@ -16,6 +16,7 @@ note right of client
   New per-signal endpoint:
   ws://host/ws/subscribe
 end note
+
 ws -> ws : auth.verify(api_key)
 alt invalid key
     ws --> client : Close(4401, "Unauthorized")
@@ -27,7 +28,9 @@ end
 ws -> store : get_snapshot()
 store --> ws : {all signals with values}
 ws -> client : {"type":"signal", "signal":"VehicleSpeed", "value":84.1, ...}
-note right of ws : One message per signal in snapshot
+note right of ws
+  One message per signal in snapshot
+end note
 
 == 3. Real-time Streaming ==
 loop continuous
@@ -44,27 +47,38 @@ ws <- ws : broadcast_metrics(metrics_dict)
 ws -> client : {"type":"metrics",\n "cpu_percent":23.4,"ram_percent":41.0,...}
 
 == 6. Heartbeat ==
-note over ws : Runs concurrently (asyncio task)
+note over ws
+  Runs concurrently (asyncio task)
+end note
 loop every ws_heartbeat_interval_sec (e.g. 0.5s)
     ws -> client : {"type":"heartbeat",\n "timestamp":..., "uptime_sec":...}
 end
 
 == 7. Per-Signal Subscribe (/ws/subscribe) ==
-note over client : Alternative: use /ws/subscribe for
-selective signal streaming
+note over client
+  Alternative: use /ws/subscribe for
+  selective signal streaming
+end note
+
 client -> ws : ws://host/ws/subscribe
 ws --> client : Connection accepted
+
 client -> ws : {"action":"subscribe",\n "channels":["EngineSpeed","alarms","metrics"],\n "mode":"continuous"}
+
 ws -> ws : acquire _lock, mutate _ClientSubscription
 ws --> client : {"type":"subscribe_ack"}
+
 store -> ws : signal update ("EngineSpeed", 2750.0)
 ws -> ws : filter: client subscribed? YES
 ws --> client : {"type":"signal","signal":"EngineSpeed","value":2750.0,...}
 
 == 8. Disconnection & Reconnect ==
 client ->x ws : Connection lost
-note over client : Detect: no heartbeat
-client -> client : Reconnect with\nexponential backoff\n(1s → 2s → 4s → ... → 30s max)
+note over client
+  Detect: no heartbeat
+end note
+
+client -> client : Reconnect with\nexponential backoff\n(1s -> 2s -> 4s -> ... -> 30s max)
 client -> ws : ws://host/ws/signals?api_key=<key>
 ws --> client : Connection accepted
 
