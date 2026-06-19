@@ -321,3 +321,114 @@ function _renderRawTable(rows) {
     body.appendChild(tr);
   });
 }
+
+// ── Restraint Video Panel ─────────────────────────────────────────────────────
+
+(function initRestraintVideoPanel() {
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("btn-rv-match");
+    if (!btn) return;
+    btn.addEventListener("click", runRestraintVideoMatch);
+
+    // Keep slider and number input in sync
+    const slider = document.getElementById("rv-seat-x-slider");
+    const numIn  = document.getElementById("rv-seat-x");
+    const autoCb = document.getElementById("rv-seat-x-auto");
+
+    function _syncSliderToNum() { if (numIn) numIn.value = slider.value; }
+    function _syncNumToSlider() {
+      const v = parseFloat(numIn.value);
+      if (!isNaN(v) && slider) slider.value = Math.min(227, Math.max(0, v));
+    }
+    function _updateDisabled() {
+      const auto = autoCb && autoCb.checked;
+      if (slider) slider.disabled = auto;
+      if (numIn)  numIn.disabled  = auto;
+    }
+
+    if (slider) slider.addEventListener("input",  _syncSliderToNum);
+    if (numIn)  numIn.addEventListener("change",  _syncNumToSlider);
+    if (autoCb) { autoCb.addEventListener("change", _updateDisabled); _updateDisabled(); }
+  });
+})();
+
+async function runRestraintVideoMatch() {
+  const weight          = parseFloat(document.getElementById("rv-weight")?.value);
+  const height          = parseFloat(document.getElementById("rv-height")?.value);
+  const crash_severity  = document.getElementById("rv-crash-severity")?.value;
+  const seatbelt_system = document.getElementById("rv-seatbelt")?.value;
+  const seat            = document.getElementById("rv-seat")?.value;
+  const autoCb          = document.getElementById("rv-seat-x-auto");
+  const seatXInput      = document.getElementById("rv-seat-x");
+  const seat_x_mm       = (autoCb && autoCb.checked) ? null : parseFloat(seatXInput?.value);
+
+  const ctxEl     = document.getElementById("rv-context");
+  const oopEl     = document.getElementById("rv-oop-warning");
+  const playerEl  = document.getElementById("rv-player-wrap");
+  const videoEl   = document.getElementById("rv-video");
+  const srcEl     = document.getElementById("rv-video-src");
+  const labelEl   = document.getElementById("rv-video-label");
+  const noMatchEl = document.getElementById("rv-no-match");
+  const btn       = document.getElementById("btn-rv-match");
+
+  // Reset state
+  if (ctxEl)     { ctxEl.style.display    = "none"; ctxEl.innerHTML = ""; }
+  if (oopEl)     oopEl.style.display      = "none";
+  if (playerEl)  playerEl.style.display   = "none";
+  if (noMatchEl) noMatchEl.style.display  = "none";
+  if (btn)       btn.disabled = true;
+
+  try {
+    const result = await fetchRestraintMatch({ weight, height, crash_severity, seatbelt_system, seat, seat_x_mm });
+
+    // Show context info
+    if (ctxEl && result.context) {
+      const c = result.context;
+      const canPct  = c.can_percentile != null ? `${c.can_percentile}th %ile (CAN)` : "n/a";
+      const oop     = c.out_of_position ? '<span style="color:#ffbbbb">⚠ OUT OF POSITION</span>' : "ok";
+      const xVal    = c.seat_x_mm != null ? `${c.seat_x_mm} mm` : "n/a";
+      const xSrc    = { hmi_param: "HMI param", can_signal: "CAN signal", default: "default" }[c.seat_x_source] || c.seat_x_source;
+      ctxEl.innerHTML =
+        `<b>Occupant:</b> ${c.weight_kg ?? weight} kg / ${c.height_cm ?? height} cm &nbsp;|&nbsp; ` +
+        `<b>Percentile (weight):</b> ${c.derived_percentile}th &nbsp;|&nbsp; ` +
+        `<b>Percentile (CAN):</b> ${canPct} &nbsp;|&nbsp; ` +
+        `<b>Effective:</b> ${c.effective_percentile}th &nbsp;|&nbsp; ` +
+        `<b>Velocity:</b> ${c.target_velocity_kmh} km/h &nbsp;|&nbsp; ` +
+        `<b>Seatbelt:</b> ${c.seatbelt_system} &nbsp;|&nbsp; ` +
+        `<b>Seat X:</b> ${xVal} (${xSrc}) → <b>${c.seat_position_zone}</b> &nbsp;|&nbsp; ` +
+        `<b>OOP:</b> ${oop} &nbsp;|&nbsp; ` +
+        `<b>Candidates:</b> ${c.candidates_found ?? "—"}`;
+      ctxEl.style.display = "block";
+    }
+
+    // Out-of-position warning
+    if (oopEl && result.context?.out_of_position) {
+      oopEl.style.display = "block";
+    }
+
+    if (result.matched && result.video) {
+      const v = result.video;
+      if (srcEl)  srcEl.src  = v.url;
+      if (srcEl)  srcEl.type = v.url.endsWith(".webm") ? "video/webm"
+                             : v.url.endsWith(".mkv")  ? "video/x-matroska"
+                             : "video/mp4";
+      if (videoEl) { videoEl.load(); }
+      if (labelEl) {
+        labelEl.textContent =
+          `${v.filename}  |  Percentile: ${v.percentile}th  |  ${v.velocity_kmh} km/h  ` +
+          `|  Seatbelt: ${v.seatbelt}  |  Score: ${result.score}`;
+      }
+      if (playerEl) playerEl.style.display = "block";
+    } else {
+      if (noMatchEl) noMatchEl.style.display = "block";
+    }
+  } catch (err) {
+    console.error("Restraint video match failed:", err);
+    if (ctxEl) {
+      ctxEl.innerHTML = `<span style="color:#ffbbbb">Error: ${err.message}</span>`;
+      ctxEl.style.display = "block";
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
