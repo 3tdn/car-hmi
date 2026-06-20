@@ -375,9 +375,21 @@ async def match_restraint(
     if not videos:
         return {"matched": False, "video": None, "score": 0, "context": _ctx}
 
+
+    strict_candidates = [
+        v for v in videos
+        if v["seatbelt"].upper() == seatbelt_upper
+        and v["velocity"] == target_velocity
+    ]
+
+    # fallback nếu không có exact match
+    candidates = strict_candidates if strict_candidates else videos
+
+    # ── 8. Score remaining candidates ─────────────────────────────────────────
     best_video = None
     best_score = -1.0
-    for v in videos:
+
+    for v in candidates:
         s = _score_match(v, effective_percentile, target_velocity, seatbelt_upper, preferred_position)
         if s > best_score:
             best_score = s
