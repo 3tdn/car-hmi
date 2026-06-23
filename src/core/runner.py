@@ -380,6 +380,7 @@ class AppRunner:
             can_json_path=can_json_path,
             cycle_ms=sim_cfg.default_cycle_ms,
             repeat=True,
+            random_mode=getattr(sim_cfg, "random_mode", False),
         )
 
     async def _build_api_server(self):

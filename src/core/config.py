@@ -35,6 +35,9 @@ class SimulatorConfig(BaseModel):
 
     enabled: bool = True
     # Bật/tắt simulator; nên tắt (false) trên xe thật
+    random_mode: bool = False
+    # Nếu True, simulator sẽ phát giá trị tín hiệu random
+    # Nếu False, simulator sẽ phát giá trị tăng dần lên 1 đơn vị (hoặc 1 state)
     default_cycle_ms: int = 50
     # Chu kỳ phát mỗi message tính bằng ms; giảm xuống làm tăng tải bus
     can_json_path: str = "config/can.json"
