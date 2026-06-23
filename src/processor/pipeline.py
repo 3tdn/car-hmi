@@ -92,13 +92,15 @@ class SignalPipeline:
                 logger.debug("Signal pipeline task cancelled, shutting down")
                 return
 
-            # --- 2. Batch-drain: lấy thêm frame không chặn, merge lấy giá trị mới nhất ---
-            # Với tải cao (6,000+ fps), nhiều frame cùng signal_id nằm chờ trong queue.
-            # Thay vì xử lý N lần, merge thành 1 dict: giá trị sau ghi đè giá trị trước
-            # → N pipeline iterations → 1, không mất signal nào (chỉ giữ bản mới nhất).
+            # --- 2. Drain toàn bộ queue: giữ giá trị mới nhất mỗi signal ---
+            # Drain không giới hạn số frame cho đến khi queue rỗng.
+            # Với tải cao, nhiều frame cùng signal_id nằm chờ trong queue;
+            # merged.update() ghi đè liên tục → chỉ giá trị MỚI NHẤT được xử lý.
+            # Đảm bảo tín hiệu cập nhật thường xuyên không tích lũy giá trị cũ
+            # trong buffer storage hay SignalStore.
             merged: dict[str, float] = dict(frame.signals)
             drained = 1
-            while drained < self._batch_drain_size:
+            while True:
                 try:
                     extra = self._queue.get_nowait()
                     merged.update(extra.signals)  # giá trị mới hơn ghi đè

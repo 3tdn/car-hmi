@@ -245,6 +245,7 @@ class AppRunner:
                 bus_factory=bus_factory,
                 queue_policy=proc_cfg.queue_policy,
                 max_rate_hz=proc_cfg.max_update_rate_hz,
+                priority_sec=self.config.reader.frequency_piority,
             )
             self._readers.append(reader)
 
