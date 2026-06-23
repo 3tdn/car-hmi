@@ -56,6 +56,7 @@ class CANReader:
         max_reconnect_retries: int = 5,
         queue_policy: str = "reject",
         max_rate_hz: float = 0.0,
+        priority_sec: float = 0.0,
     ) -> None:
         """
         Tham số:
@@ -69,6 +70,9 @@ class CANReader:
                             cùng ID vừa được enqueue trong vòng 1/max_rate_hz giây.
                             Giúp tránh queue full khi simulator gửi nhanh hơn
                             pipeline tiêu thụ.
+            priority_sec:   Nếu > 0, tín hiệu chưa được enqueue trong khoảng thời
+                            gian này sẽ được buộc đưa vào queue dù giá trị không đổi.
+                            Đảm bảo không bỏ lỡ tín hiệu có tần suất thay đổi thấp.
         """
         self._bus = bus
         self._db = db
@@ -84,6 +88,13 @@ class CANReader:
         # Per-ID rate gate: min interval in seconds (0 = disabled)
         self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
         self._last_enqueue: dict[int, float] = {}
+        # Dedup: last raw data per msg_id; last decoded value per signal name
+        self._last_msg_data: dict[int, bytes] = {}
+        self._last_signal_values: dict[str, float] = {}
+        # Priority: force-refresh signals that haven't been enqueued for > _priority_sec
+        # 0.0 = disabled (only enqueue on value change)
+        self._priority_sec: float = priority_sec
+        self._signal_last_enqueue_time: dict[str, float] = {}
         # Throttled drop warning state
         self._drop_warn_count = 0
         self._drop_warn_last_log = 0.0
@@ -178,17 +189,42 @@ class CANReader:
         if self._filter_ids and msg.arbitration_id not in self._filter_ids:
             return
 
+        now_t = arrival if arrival else time.monotonic()
+
         if self._min_interval > 0.0:
-            now_t = arrival if arrival else time.monotonic()
             last_t = self._last_enqueue.get(msg.arbitration_id, 0.0)
             if (now_t - last_t) < self._min_interval:
                 self._rate_limited_count += 1
                 return
             self._last_enqueue[msg.arbitration_id] = now_t
 
+        # Skip message if raw data bytes are unchanged AND no signal is overdue for refresh
+        last_data = self._last_msg_data.get(msg.arbitration_id)
+        if last_data is not None and last_data == msg.data:
+            if not self._is_stale_message(msg.arbitration_id, now_t):
+                return
+        self._last_msg_data[msg.arbitration_id] = msg.data
+
         frame = self._decode(msg)
         if not frame.signals:
             logger.debug("msg_id=%#x has no signals in DB", msg.arbitration_id)
+            return
+
+        # Keep signals whose value changed OR that are overdue for a refresh (low-freq priority)
+        changed: dict[str, float] = {}
+        for sig_name, value in frame.signals.items():
+            is_changed = self._last_signal_values.get(sig_name) != value
+            is_stale = (
+                self._priority_sec > 0.0
+                and (now_t - self._signal_last_enqueue_time.get(sig_name, 0.0)) >= self._priority_sec
+            )
+            if is_changed or is_stale:
+                changed[sig_name] = value
+                self._last_signal_values[sig_name] = value
+                self._signal_last_enqueue_time[sig_name] = now_t
+        if not changed:
+            return
+        frame.signals = changed
 
         try:
             self._queue.put_nowait(frame)
@@ -230,6 +266,22 @@ class CANReader:
     def stop(self) -> None:
         """Thông báo cho vòng lặp đọc dừng sạch sẽ."""
         self._running = False
+
+    def _is_stale_message(self, msg_id: int, now: float) -> bool:
+        """True nếu bất kỳ tín hiệu nào trong message chưa được enqueue trong > _priority_sec giây.
+
+        Dùng để bypass message-level dedup cho message có data không đổi nhưng
+        chứa tín hiệu "hiếm thay đổi" cần được refresh định kỳ.
+        """
+        if self._priority_sec <= 0.0:
+            return False
+        msg_def = self._db.messages.get(msg_id)
+        if msg_def is None:
+            return False
+        for sig_name in msg_def.signals:
+            if (now - self._signal_last_enqueue_time.get(sig_name, 0.0)) >= self._priority_sec:
+                return True
+        return False
 
     # ── Giải mã ───────────────────────────────────────────────────────────────
 

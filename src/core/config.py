@@ -113,6 +113,18 @@ class WriterConfig(BaseModel):
     # Dừng gửi liên tục sau periodic_duration ms kể từ lần gửi đầu tiên
 
 
+class ReaderConfig(BaseModel):
+    """Cấu hình bộ đọc CAN (CANReader)."""
+
+    frequency_piority: float = 0.0
+    # Ngưỡng thời gian (giây) để ưu tiên tín hiệu có tần suất thay đổi thấp.
+    # Nếu > 0, tín hiệu chưa được enqueue trong khoảng thời gian này sẽ được
+    # buộc đưa vào queue dù giá trị không đổi (heartbeat) và bypass kiểm tra
+    # message-level dedup — đảm bảo không bỏ lỡ tín hiệu "hiếm thay đổi".
+    # Ví dụ: 1.0 = tín hiệu ổn định > 1 s luôn được refresh vào queue.
+    # 0.0 = tắt tính năng này (chỉ enqueue khi giá trị thay đổi).
+
+
 class ShutdownConfig(BaseModel):
     """Cấu hình trình tự tắt ứng dụng."""
 
@@ -153,6 +165,8 @@ class AppConfig(BaseModel):
     # Cấu hình lưu trữ dữ liệu lịch sử
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)
     # Cấu hình pipeline xử lý tín hiệu
+    reader: ReaderConfig = Field(default_factory=ReaderConfig)
+    # Cấu hình bộ đọc CAN
     writer: WriterConfig = Field(default_factory=WriterConfig)
     # Cấu hình CAN Writer
     shutdown: ShutdownConfig = Field(default_factory=ShutdownConfig)

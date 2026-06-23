@@ -24,12 +24,20 @@ def test_load_config_from_file():
     assert len(cfg.can) >= 1
     assert cfg.can[0].interface == "virtual"
     assert cfg.api.port == 8000
+    assert cfg.reader.frequency_piority == pytest.approx(1.0)
 
 
 def test_can_config_defaults():
     cfg = CANConfig(interface="virtual", channel="vcan0")
     assert cfg.bitrate == 500_000
     assert cfg.can_json_path == "config/can.json"
+
+
+def test_reader_config_defaults():
+    from src.core.config import ReaderConfig
+
+    cfg = ReaderConfig()
+    assert cfg.frequency_piority == pytest.approx(0.0)
 
 
 def test_app_config_can_is_list():
@@ -96,6 +104,7 @@ def test_load_config_custom(tmp_path):
     cfg = load_config(str(cfg_file))
     assert cfg.can[0].bitrate == 250000
     assert cfg.api.port == 9000
+    assert cfg.reader.frequency_piority == pytest.approx(0.0)
 
 
 # ── SignalStore ───────────────────────────────────────────────────────────────
