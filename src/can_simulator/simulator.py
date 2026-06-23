@@ -43,6 +43,7 @@ class _SigDef:
     offset: float
     minimum: float
     maximum: float
+    states: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -73,6 +74,7 @@ class CANSimulator:
         can_json_path: str | Path,
         cycle_ms: int = 50,
         repeat: bool = True,
+        random_mode: bool = False,
     ) -> None:
         """
         Tham số:
@@ -80,11 +82,15 @@ class CANSimulator:
             can_json_path: Đường dẫn tới file ``can.json``.
             cycle_ms:      Chu kỳ phát (ms) — lấy từ ``cfg.simulator.default_cycle_ms``.
             repeat:        Nếu ``True`` thì chạy liên tục cho đến khi ``stop()``.
+            random_mode:   Nếu ``False`` thì mỗi chu kỳ phát sẽ dùng raw value (hoặc state) tăng lên 1.
+                           Nếu ``True`` thì dùng random.uniform() như bình thường.
         """
         self._bus = bus
         self._cycle_ms = cycle_ms
         self._repeat = repeat
         self._running = False
+        self._random_mode = random_mode
+        self._signal_values: dict[tuple[int, str], int] = {}
         self._messages = self._load_can_json(Path(can_json_path))
         logger.info(
             "CANSimulator initialized: %d messages, %d signals total from '%s'",
@@ -145,6 +151,7 @@ class CANSimulator:
                     "offset": float(sd.get("offset", 0.0)),
                     "minimum": sd.get("minimum"),
                     "maximum": sd.get("maximum"),
+                    "states": sd.get("states", []),
                 })
 
             # Track used bits (LSB-indexed 0..dlc*8-1). First pass: mark signals with known start_bit.
@@ -268,6 +275,7 @@ class CANSimulator:
                         offset=offset,
                         minimum=sig_min_f,
                         maximum=sig_max_f,
+                        states=[int(s["value"]) for s in rs.get("states", [])],
                     )
                 )
             if sigs:
@@ -310,15 +318,35 @@ class CANSimulator:
         for msg_def in self._messages:
             frame_data = bytearray(msg_def.dlc)
             for sig in msg_def.signals:
-                physical = random.uniform(sig.minimum, sig.maximum)  # noqa: S311
-                raw_val = round((physical - sig.offset) / sig.factor)
-                # Clamp raw về dải bit hợp lệ
+                # compute valid raw range
                 if sig.is_signed:
                     r_min = -(1 << (sig.length - 1))
                     r_max = (1 << (sig.length - 1)) - 1
                 else:
                     r_min = 0
                     r_max = (1 << sig.length) - 1
+
+                if not self._random_mode:
+                    key = (msg_def.msg_id, sig.name)
+                    if sig.states:
+                        # cycle through defined states
+                        prev_idx = self._signal_values.get(key, -1)
+                        next_idx = prev_idx + 1
+                        if next_idx >= len(sig.states):
+                            next_idx = 0
+                        self._signal_values[key] = next_idx
+                        raw_val = sig.states[next_idx]
+                    else:
+                        # increment raw value by 1 each tick, wrapping around
+                        prev = self._signal_values.get(key, r_min)
+                        raw_val = prev + 1
+                        if raw_val > r_max:
+                            raw_val = r_min
+                        self._signal_values[key] = raw_val
+                else:
+                    physical = random.uniform(sig.minimum, sig.maximum)  # noqa: S311
+                    raw_val = round((physical - sig.offset) / sig.factor)
+                # Clamp raw về dải bit hợp lệ
                 raw_val = max(r_min, min(r_max, raw_val))
                 try:
                     _insert_bits(frame_data, raw_val, sig.start_bit, sig.length, sig.is_signed, sig.big_endian)

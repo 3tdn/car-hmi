@@ -10,7 +10,8 @@
   ],
   "simulator": {
     "enabled": true,
-    "default_cycle_ms": 10,
+    "random_mode": false,
+    "default_cycle_ms": 100,
     "can_json_path": "config/can0.json"
   },
   "adaptive_restraint": {
