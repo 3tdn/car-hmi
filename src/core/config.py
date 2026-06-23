@@ -101,6 +101,13 @@ class WriterConfig(BaseModel):
     # Số frame ghi tối đa mỗi giây; ngăn flood bus khi nhiều lệnh đến cùng lúc
     burst: int = 5
     # Số frame được phép ghi liên tiếp vượt rate_limit (token bucket burst size)
+    periodic_mode: bool = False
+    # Nếu True, mỗi lần write sẽ gửi liên tục theo chu kỳ periodic_time_step ms
+    # trong khoảng periodic_duration ms, bỏ qua rate_limit_per_sec và burst
+    periodic_time_step: int = 20
+    # Thời gian giữa 2 lần gửi liên tục (ms) khi periodic_mode=True
+    periodic_duration: int = 10000
+    # Dừng gửi liên tục sau periodic_duration ms kể từ lần gửi đầu tiên
 
 
 class ShutdownConfig(BaseModel):

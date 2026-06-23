@@ -55,7 +55,10 @@
   },
   "writer": {
     "rate_limit_per_sec": 10,
-    "burst": 5
+    "burst": 5,
+    "periodic_mode": true,
+    "periodic_time_step": 20,
+    "periodic_duration": 10000
   },
   "shutdown": {
     "timeout_sec": 10
