@@ -12,6 +12,7 @@ import can
 from src.can_io.parser import DatabaseLoader
 
 if TYPE_CHECKING:
+    from src.core.config import WriterConfig
     from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,10 @@ class CANWriter:
        để không zero-out các tín hiệu khác trong cùng CAN frame.
     2. Cập nhật SignalStore trực tiếp sau khi gửi thành công, vì SocketCAN
        mặc định không loopback lại frame của chính socket (recv_own_msgs=False).
+
+    Khi ``periodic_mode=True`` (từ WriterConfig), mỗi lần ``send_signals_batch``
+    sẽ gửi ngay lập tức, sau đó tiếp tục gửi lại theo chu kỳ ``periodic_time_step`` ms
+    trong tổng thời gian ``periodic_duration`` ms.  Rate-limit và burst bị bỏ qua.
     """
 
     def __init__(
@@ -35,19 +40,34 @@ class CANWriter:
         bus: can.BusABC,
         db: DatabaseLoader,
         signal_store: "SignalStore | None" = None,
+        writer_config: "WriterConfig | None" = None,
     ) -> None:
         """
         Tham số:
-            bus:          Đối tượng ``can.Bus`` mở để ghi vào.
-            db:           ``DatabaseLoader`` dùng để mã hóa tín hiệu.
-            signal_store: Tham chiếu tới SignalStore để read-modify-write và
-                          cập nhật dashboard sau khi gửi (tuỳ chọn).
+            bus:           Đối tượng ``can.Bus`` mở để ghi vào.
+            db:            ``DatabaseLoader`` dùng để mã hóa tín hiệu.
+            signal_store:  Tham chiếu tới SignalStore để read-modify-write và
+                           cập nhật dashboard sau khi gửi (tuỳ chọn).
+            writer_config: Cấu hình writer (periodic mode, rate limit, ...).
         """
         self._bus = bus
         self._db = db
         self._store = signal_store
         self._lock = asyncio.Lock()
         self._sent_count = 0
+
+        # Periodic mode config
+        if writer_config is not None:
+            self._periodic_mode = writer_config.periodic_mode
+            self._periodic_time_step_ms = writer_config.periodic_time_step
+            self._periodic_duration_ms = writer_config.periodic_duration
+        else:
+            self._periodic_mode = False
+            self._periodic_time_step_ms = 20
+            self._periodic_duration_ms = 10000
+
+        # Quản lý periodic tasks: msg_id → asyncio.Task
+        self._periodic_tasks: dict[int, asyncio.Task] = {}
 
     async def send_signal(self, name: str, value: float) -> None:
         """Mã hóa một tín hiệu và truyền khung CAN tương ứng.
@@ -106,35 +126,19 @@ class CANWriter:
 
         for msg_id, sig_values in msg_groups.items():
             msg_def = msg_defs[msg_id]
+            await self._send_frame(msg_id, msg_def, sig_values, ts)
 
-            # Read-modify-write: giữ nguyên các tín hiệu không có trong batch
-            signals_to_encode: dict[str, float] = {}
-            if self._store is not None:
-                for sig_name in msg_def.signals:
-                    if sig_name in sig_values:
-                        continue
-                    sv = await self._store.get(sig_name)
-                    if sv is not None:
-                        signals_to_encode[sig_name] = sv.value
-
-            signals_to_encode.update(sig_values)
-
-            msg = self._db.encode_message(msg_id, signals_to_encode)
-            if msg is None:
-                raise ValueError(f"Failed to encode message {msg_id:#x}")
-            msg.timestamp = ts
-
-            async with self._lock:
-                loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, self._bus.send, msg)
-                self._sent_count += 1
-                logger.info(
-                    "CAN batch write [%d]: msg_id=%#x signals=%s data=%s",
-                    self._sent_count,
-                    msg_id,
-                    list(sig_values.keys()),
-                    msg.data.hex(),
+            if self._periodic_mode:
+                # Hủy periodic task cũ (nếu có) cho msg_id này
+                old_task = self._periodic_tasks.pop(msg_id, None)
+                if old_task is not None and not old_task.done():
+                    old_task.cancel()
+                # Khởi động periodic task mới
+                task = asyncio.create_task(
+                    self._periodic_sender(msg_id, msg_def, dict(sig_values)),
+                    name=f"periodic-writer-{msg_id:#x}",
                 )
+                self._periodic_tasks[msg_id] = task
 
             sent.update(sig_values)
 
@@ -143,6 +147,70 @@ class CANWriter:
             await self._store.bulk_update(sent, timestamp=ts)
 
         return sent
+
+    async def _send_frame(
+        self,
+        msg_id: int,
+        msg_def: object,
+        sig_values: dict[str, float],
+        ts: float,
+    ) -> None:
+        """Thực hiện read-modify-write rồi gửi một CAN frame cho ``msg_id``."""
+        signals_to_encode: dict[str, float] = {}
+        if self._store is not None:
+            for sig_name in msg_def.signals:
+                if sig_name in sig_values:
+                    continue
+                sv = await self._store.get(sig_name)
+                if sv is not None:
+                    signals_to_encode[sig_name] = sv.value
+
+        signals_to_encode.update(sig_values)
+
+        msg = self._db.encode_message(msg_id, signals_to_encode)
+        if msg is None:
+            raise ValueError(f"Failed to encode message {msg_id:#x}")
+        msg.timestamp = ts
+
+        async with self._lock:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._bus.send, msg)
+            self._sent_count += 1
+            logger.info(
+                "CAN batch write [%d]: msg_id=%#x signals=%s data=%s",
+                self._sent_count,
+                msg_id,
+                list(sig_values.keys()),
+                msg.data.hex(),
+            )
+
+    async def _periodic_sender(
+        self,
+        msg_id: int,
+        msg_def: object,
+        sig_values: dict[str, float],
+    ) -> None:
+        """Gửi lặp lại CAN frame mỗi ``periodic_time_step`` ms trong ``periodic_duration`` ms."""
+        interval = self._periodic_time_step_ms / 1000.0
+        deadline = time.monotonic() + self._periodic_duration_ms / 1000.0
+        try:
+            while time.monotonic() < deadline:
+                await asyncio.sleep(interval)
+                if time.monotonic() >= deadline:
+                    break
+                ts = time.time()
+                await self._send_frame(msg_id, msg_def, sig_values, ts)
+                if self._store is not None:
+                    await self._store.bulk_update(sig_values, timestamp=ts)
+        except asyncio.CancelledError:
+            logger.debug("Periodic sender cancelled for msg_id=%#x", msg_id)
+        finally:
+            self._periodic_tasks.pop(msg_id, None)
+            logger.debug(
+                "Periodic sender stopped for msg_id=%#x after %.1f ms",
+                msg_id,
+                self._periodic_duration_ms,
+            )
 
     async def send_message(self, msg_id: int, signals: dict[str, float]) -> None:
         """Mã hóa toàn bộ thông điệp theo ID và gửi đi.
