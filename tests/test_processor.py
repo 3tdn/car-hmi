@@ -232,6 +232,69 @@ async def test_pipeline_unit_stored_in_db(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_pipeline_keeps_latest_signal_value(tmp_path):
+    """When multiple updates for the same signal are queued, only the latest value should survive."""
+    import asyncio
+    import time
+
+    from src.can_io.reader import DecodedFrame, RawCANFrame
+    from src.core.signal_store import SignalStore
+    from src.processor.pipeline import SignalPipeline
+    from src.storage.database import init_db
+    from src.storage.repository import SQLiteRepository
+
+    conn = await init_db(str(tmp_path / "test.db"))
+    repo = SQLiteRepository(conn)
+    store = SignalStore()
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+    pipeline = SignalPipeline(
+        input_queue=queue,
+        signal_store=store,
+        repository=repo,
+        batch_size=100,
+        batch_interval_sec=60.0,
+    )
+
+    for value in (10.0, 20.0, 30.0):
+        raw = RawCANFrame(
+            timestamp=time.time(),
+            bus="test",
+            msg_id=100,
+            is_extended=False,
+            is_fd=False,
+            data=bytes(8),
+        )
+        await queue.put(DecodedFrame(raw=raw, signals={"EngineRPM": value}))
+
+    task = asyncio.create_task(pipeline.start())
+
+    latest = None
+    for _ in range(30):
+        latest = await store.get("EngineRPM")
+        if latest is not None:
+            break
+        await asyncio.sleep(0.1)
+
+    assert latest is not None
+    assert latest.value == pytest.approx(30.0)
+
+    pipeline.stop()
+    await pipeline.flush()
+
+    records = await repo.query_signals(signal_name="EngineRPM")
+    assert len(records) == 1
+    assert records[0].value == pytest.approx(30.0)
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    await conn.close()
+
+
+@pytest.mark.asyncio
 async def test_pipeline_stop_while_idle(tmp_path):
     """Pipeline.stop() should exit cleanly even when queue is empty."""
     import asyncio

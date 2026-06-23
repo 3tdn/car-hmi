@@ -32,6 +32,54 @@ def test_decoded_frame_fields():
 
 
 @pytest.mark.asyncio
+async def test_enqueue_refreshes_stale_priority_signal():
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader, DecodedFrame, RawCANFrame
+
+    bus_mock = Mock(spec=can.BusABC)
+    db_mock = Mock()
+    db_mock.messages = {100: SimpleNamespace(signals={"Speed": None})}
+    queue_mock = asyncio.Queue(maxsize=10)
+
+    reader = CANReader(bus=bus_mock, db=db_mock, queue=queue_mock, priority_sec=1.0)
+    reader._decode = Mock(
+        return_value=DecodedFrame(
+            raw=RawCANFrame(
+                timestamp=1.0,
+                bus="test",
+                msg_id=100,
+                is_extended=False,
+                is_fd=False,
+                data=b"\x01",
+            ),
+            signals={"Speed": 10.0},
+            msg_name="TestMsg",
+        )
+    )
+
+    msg = can.Message(arbitration_id=100, data=b"\x01")
+
+    reader._enqueue_sync(msg, arrival=1.0)
+    assert queue_mock.qsize() == 1
+
+    reader._enqueue_sync(msg, arrival=1.5)
+    assert queue_mock.qsize() == 1
+
+    first = queue_mock.get_nowait()
+    assert first.signals == {"Speed": 10.0}
+
+    reader._enqueue_sync(msg, arrival=2.2)
+    assert queue_mock.qsize() == 1
+    second = queue_mock.get_nowait()
+    assert second.signals == {"Speed": 10.0}
+
+
+@pytest.mark.asyncio
 async def test_reconnect_success_first_attempt():
     import asyncio
     from unittest.mock import AsyncMock, Mock, patch
