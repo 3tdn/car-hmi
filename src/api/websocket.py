@@ -54,8 +54,9 @@ class ConnectionManager:
         self._connections: dict[WebSocket, set[SubscriptionTopic]] = {}
         # New per-signal subscription connections
         self._subscriptions: dict[WebSocket, _ClientSubscription] = {}
-        # Track last send time per websocket for simple rate-limiting
-        self._last_sent: dict[WebSocket, float] = {}
+        # Track last send time per websocket + stream key for rate-limiting.
+        # Key format: (ws, "sig:<name>") or (ws, "ch:<alarms|metrics>").
+        self._last_sent: dict[tuple[WebSocket, str], float] = {}
         self._lock = asyncio.Lock()
         self._mapper: SignalNameMapper = signal_name_mapper or SignalNameMapper()
 
@@ -71,6 +72,10 @@ class ConnectionManager:
         async with self._lock:
             self._connections.pop(ws, None)
             self._subscriptions.pop(ws, None)
+            # Cleanup per-stream rate-limit state for this websocket
+            stale_rate_keys = [key for key in self._last_sent if key[0] is ws]
+            for key in stale_rate_keys:
+                self._last_sent.pop(key, None)
         logger.debug("WS đã ngắt kết nối — tổng số: %d", len(self._connections) + len(self._subscriptions))
 
     # ── New subscribe-based connect ──────────────────────────────────────────
@@ -239,14 +244,11 @@ class ConnectionManager:
         async with self._lock:
             snapshot = list(self._subscriptions.items())
 
-        async def _send(ws: WebSocket) -> WebSocket | None:
+        async def _send(ws: WebSocket, rate_key: str | None = None) -> WebSocket | None:
             try:
                 await ws.send_text(text)
-                # record last sent time for simple rate limiting
-                try:
-                    self._last_sent[ws] = asyncio.get_event_loop().time()
-                except Exception:
-                    pass
+                if rate_key is not None:
+                    self._last_sent[(ws, rate_key)] = asyncio.get_event_loop().time()
                 return None
             except Exception:
                 return ws
@@ -276,11 +278,15 @@ class ConnectionManager:
 
             if should_send:
                 # Check simple per-connection rate limit (client-requested)
-                last = self._last_sent.get(ws, 0.0)
+                if signal_name is not None:
+                    rate_key = f"sig:{signal_name}"
+                else:
+                    rate_key = f"ch:{channel}"
+                last = self._last_sent.get((ws, rate_key), 0.0)
                 if sub.min_interval_s > 0 and (now - last) < sub.min_interval_s:
                     # skip send for this connection due to rate limiting
                     continue
-                tasks.append(asyncio.create_task(_send(ws)))
+                tasks.append(asyncio.create_task(_send(ws, rate_key)))
                 if once_key is not None:
                     once_remove.append((ws, once_key))
 
