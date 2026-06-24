@@ -23,18 +23,12 @@ const USER_SIGNAL_WHITELIST = [
   "ABL_FR_RetractRequest",
   "ABL_RL1_RetractRequest",
   "ABL_RL2_RetractRequest",
-  "ABL_RR1_RetractRequest",
-  "ACR_FL_RetractRequest",
   "ACR_FR_RetractRequest",
   "ACR_RL1_RetractRequest",
   "ACR_RL2_RetractRequest",
-  "ACR_RR1_RetractRequest",
-  "ELK_FL_LockingRequest",
   "ELK_FR_LockingRequest",
   "ELK_RL1_LockingRequest",
   "ELK_RL2_LockingRequest",
-  "ELK_RR1_LockingRequest",
-  "ISB_FL_ColorGreen",
   "ISB_FL_ColorBlue",
   "ISB_FL_ColorRed",
   "ISB_FL_Intensity",
@@ -70,16 +64,6 @@ const USER_SIGNAL_WHITELIST = [
   "ISB_RL2_GroupOrModule",
   "ISB_RL2_AdressByte0",
   "ISB_RL2_AdressByte1",
-  "ISB_RR1_ColorGreen",
-  "ISB_RR1_ColorBlue",
-  "ISB_RR1_ColorRed",
-  "ISB_RR1_Intensity",
-  "ISB_RR1_Normalization",
-  "ISB_RR1_Transitionspeed",
-  "ISB_RR1_GroupOrModule",
-  "ISB_RR1_AdressByte0",
-  "ISB_RR1_AdressByte1",
-  "SMA_VehicleStable",
   "OMS_FL_HandsOnWheel",
   "OMS_FL_OccupantClassification",
   "OMS_FL_OutOfPosition",
@@ -113,10 +97,6 @@ const USER_SIGNAL_WHITELIST = [
   "ABL_RL2_S0SensorStatus",
   "ABL_RL2_ActivationLevelStatus",
   "ABL_RL2_ActivationPhase",
-  "ABL_RR1_S0SensorStatus",
-  "ABL_RR1_ActivationLevelStatus",
-  "ABL_RR1_ActivationPhase",
-  "ACR_FL_ActivationLevelStatus",
   "ACR_FL_ActivationPhase",
   "ACR_FL_SpoolFasterClutch",
   "ACR_FR_ActivationLevelStatus",
@@ -128,10 +108,6 @@ const USER_SIGNAL_WHITELIST = [
   "ACR_RL2_ActivationLevelStatus",
   "ACR_RL2_ActivationPhase",
   "ACR_RL2_SpoolFasterClutch",
-  "ACR_RR1_ActivationLevelStatus",
-  "ACR_RR1_ActivationPhase",
-  "ACR_RR1_SpoolFasterClutch",
-  "WMS_FL_WebbingMovement",
   "WMS_FL_SpoolAngle",
   "WMS_FL_SensorStatus",
   "WMS_FR_WebbingMovement",
@@ -143,24 +119,15 @@ const USER_SIGNAL_WHITELIST = [
   "WMS_RL2_WebbingMovement",
   "WMS_RL2_SpoolAngle",
   "WMS_RL2_SensorStatus",
-  "WMS_RR1_WebbingMovement",
-  "WMS_RR1_SpoolAngle",
-  "WMS_RR1_SensorStatus",
-  "ELK_FL_LockingStatus",
   "ELK_FR_LockingStatus",
   "ELK_RL1_LockingStatus",
   "ELK_RL2_LockingStatus",
-  "ELK_RR1_LockingStatus",
-  "BSW_FL_BuckleStatus",
   "BSW_FR_BuckleStatus",
   "BSW_RL1_BuckleStatus",
   "BSW_RL2_BuckleStatus",
-  "BSW_RR1_BuckleStatus",
-  "HB_FL_ActivationLevel",
   "HB_FR_ActivationLevel",
   "HB_RL1_ActivationLevel",
-  "HB_RL2_ActivationLevel",
-  "HB_RR1_ActivationLevel"
+  "HB_RL2_ActivationLevel"
 ];
 
 function isSignalAllowed(name, std_name) {
@@ -375,11 +342,10 @@ function connect() {
       if (FRONTEND_MODE === 'dev') {
         subConn.subscribe(["*", "alarms", "metrics"], "continuous");
       } else {
-        // subscribe only to whitelist signals plus alarms and metrics — ask server for reduced update rate
+        // subscribe only to whitelist signals plus alarms and metrics
         const channels = USER_SIGNAL_WHITELIST.slice();
-        channels.push('alarms', 'metrics');
-        // request server-side rate limit (e.g., 200 ms updates) to reduce server CPU when many tabs open
-        subConn.subscribe(channels, 'continuous', { rate_ms: 200 });
+        // channels.push('alarms', 'metrics');
+        subConn.subscribe(channels, 'continuous');
       }
         // If metrics polling was started earlier, stop it since subscribe will push metrics.
         try {
