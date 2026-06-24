@@ -142,9 +142,11 @@ class CANWriter:
 
             sent.update(sig_values)
 
-        # ── Bước 3: cập nhật SignalStore một lần cho toàn bộ batch ────────────
+        # ── Bước 3: cập nhật SignalStore (fire-and-forget) ───────────────────
+        # Tách khỏi await chain để response HTTP trả về ngay sau khi CAN frame
+        # đã được gửi, không bị block bởi WS broadcast.
         if self._store is not None and sent:
-            await self._store.bulk_update(sent, timestamp=ts)
+            asyncio.create_task(self._store.bulk_update(sent, timestamp=ts))
 
         return sent
 
