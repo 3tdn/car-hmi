@@ -176,7 +176,12 @@ class CANWriter:
 
         async with self._lock:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._bus.send, msg)
+            try:
+                await loop.run_in_executor(None, self._bus.send, msg)
+            except Exception as exc:
+                raise can.CanError(
+                    f"Failed to send CAN frame for msg_id={msg_id:#x}: {exc}"
+                ) from exc
             self._sent_count += 1
             logger.info(
                 "CAN batch write [%d]: msg_id=%#x signals=%s data=%s",
@@ -231,7 +236,12 @@ class CANWriter:
         msg.timestamp = time.time()
         async with self._lock:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._bus.send, msg)
+            try:
+                await loop.run_in_executor(None, self._bus.send, msg)
+            except Exception as exc:
+                raise can.CanError(
+                    f"Failed to send CAN message {msg_id:#x}: {exc}"
+                ) from exc
             self._sent_count += 1
             logger.debug(
                 "CAN write msg [%d]: msg_id=%#x signals=%s",
@@ -334,9 +344,15 @@ class CANWriterRouter:
             try:
                 result = await writer.send_signals_batch(sig_map)
                 sent.update(result)
-            except (ValueError, Exception) as exc:
+            except ValueError as exc:
                 # Đưa toàn bộ tín hiệu của kênh này vào errors
                 for sig_name in sig_map:
-                    errors.append({"signal_name": sig_name, "error": str(exc)})
+                    errors.append({"signal_name": sig_name, "error": str(exc), "kind": "value"})
+            except can.CanError as exc:
+                for sig_name in sig_map:
+                    errors.append({"signal_name": sig_name, "error": str(exc), "kind": "transport"})
+            except Exception as exc:
+                for sig_name in sig_map:
+                    errors.append({"signal_name": sig_name, "error": str(exc), "kind": "unknown"})
 
         return sent, errors

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+import can
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
 
 from src.api.models import (
@@ -183,7 +184,18 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
     try:
         await writer.send_signal(canonical, body.value)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        message = str(exc)
+        if "not found" in message.lower() or "cannot encode" in message.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=message,
+        ) from exc
+    except can.CanError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     return {"signal_name": canonical, "value": body.value, "queued_at": time.time()}
 
 
@@ -216,6 +228,11 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
     sent, errors = await writer.send_signals_batch(resolved)
     queued = [{"signal_name": k, "value": v} for k, v in sent.items()]
 
+    if not queued and any(err.get("kind") == "transport" for err in errors):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=errors,
+        )
     if errors and not queued:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=errors)
     return {"queued": queued, "count": len(queued), "queued_at": time.time(), "errors": errors}
