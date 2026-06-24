@@ -105,8 +105,19 @@ function drawSparkline(canvas, values) {
  * @param {string} signalName
  * @param {number} value
  */
+const _widgetElementsCache = new Map();
+
+function _getWidgetElements(signalName) {
+  let elements = _widgetElementsCache.get(signalName);
+  if (!elements) {
+    elements = Array.from(document.querySelectorAll(`[data-signal="${signalName}"]`));
+    _widgetElementsCache.set(signalName, elements);
+  }
+  return elements;
+}
+
 function updateWidget(signalName, value) {
-  const elements = document.querySelectorAll(`[data-signal="${signalName}"]`);
+  const elements = _getWidgetElements(signalName);
   if (!elements.length) return;
   elements.forEach((el) => {
     if (el.classList.contains("gauge")) updateGaugeWidget(el, value);

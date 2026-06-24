@@ -123,6 +123,10 @@ class ReaderConfig(BaseModel):
     # message-level dedup — đảm bảo không bỏ lỡ tín hiệu "hiếm thay đổi".
     # Ví dụ: 1.0 = tín hiệu ổn định > 1 s luôn được refresh vào queue.
     # 0.0 = tắt tính năng này (chỉ enqueue khi giá trị thay đổi).
+    only_send_signal_update: bool = False
+    # Điều khiển payload WS signal:
+    #   False = gửi full tập signal đã subscribe (latest snapshot)
+    #   True  = chỉ gửi các signal vừa thay đổi trong batch hiện tại
 
 
 class ShutdownConfig(BaseModel):

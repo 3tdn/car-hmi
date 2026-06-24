@@ -57,8 +57,19 @@ class ConnectionManager:
         # Track last send time per websocket + stream key for rate-limiting.
         # Key format: (ws, "sig:<name>") or (ws, "ch:<alarms|metrics>").
         self._last_sent: dict[tuple[WebSocket, str], float] = {}
+        # Latest signal values for building full subscribed payloads.
+        self._latest_signals: dict[str, dict] = {}
+        self._only_send_signal_update: bool = False
         self._lock = asyncio.Lock()
         self._mapper: SignalNameMapper = signal_name_mapper or SignalNameMapper()
+
+    def set_only_send_signal_update(self, enabled: bool) -> None:
+        """Control WS signal payload mode for subscribe connections.
+
+        False: send full subscribed snapshot (from latest cache).
+        True: send only changed signals from current batch.
+        """
+        self._only_send_signal_update = bool(enabled)
 
     # ── Legacy connect/disconnect ────────────────────────────────────────────
 
@@ -166,32 +177,39 @@ class ConnectionManager:
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
         """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
+        await self.broadcast_signals([(signal_name, value, timestamp)])
+
+    async def broadcast_signals(self, updates: list[tuple[str, float, float]]) -> None:
+        """Push 1 WS frame chứa nhiều signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
+        if not updates:
+            return
+
         import datetime
-        # Use timezone-aware UTC datetime to avoid deprecation warnings
-        iso_ts = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        sig_entry: dict = {"name": signal_name, "value": value}
-        std = self._mapper.get_std_name(signal_name)
-        if std is not None:
-            sig_entry["std_name"] = std
-        # Demo format for subscribe-based clients
-        demo_payload = json.dumps({
-            "timestamp": iso_ts,
-            "signals": [sig_entry],
-        })
 
-        # Legacy/topic format for older clients/tests (expected shape)
-        legacy_payload = json.dumps({
-            "type": "signal",
-            "signal": signal_name,
-            "value": value,
-            "timestamp": iso_ts,
-            **({"std_name": std} if std is not None else {}),
-        })
+        latest_ts = max(ts for _, _, ts in updates)
+        iso_ts = datetime.datetime.fromtimestamp(latest_ts, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-        # Send legacy payload to legacy topic connections
-        await self._broadcast(legacy_payload, SubscriptionTopic.SIGNALS)
-        # Send legacy payload to subscribe-based clients as well (tests expect this shape)
-        await self._broadcast_to_subscribers(legacy_payload, signal_name=signal_name)
+        # Last-write-wins theo signal_name trong cùng một batch.
+        merged: dict[str, dict] = {}
+        for signal_name, value, _ in updates:
+            std = self._mapper.get_std_name(signal_name) or signal_name
+            entry = {
+                "name": signal_name,
+                "std_name": std,
+                "value": value,
+            }
+            merged[signal_name] = entry
+            self._latest_signals[signal_name] = entry
+
+        entries = list(merged.values())
+
+        # Legacy/topic WS clients always receive full batch.
+        await self._broadcast(
+            json.dumps({"timestamp": iso_ts, "signals": entries}),
+            SubscriptionTopic.SIGNALS,
+        )
+        # Subscribe WS clients receive filtered batch according to subscription.
+        await self._broadcast_signal_batch_to_subscribers(entries, iso_ts)
 
     async def broadcast_alarm(self, alarm: dict) -> None:
         payload = json.dumps({"type": "alarm", **alarm})
@@ -307,6 +325,102 @@ class ConnectionManager:
                     sub.subscribe_alarms = False
                 elif key == "metrics":
                     sub.subscribe_metrics = False
+                else:
+                    sub.signal_names.discard(key)
+
+        for ws in stale:
+            await self.disconnect(ws)
+
+    async def _broadcast_signal_batch_to_subscribers(
+        self,
+        entries: list[dict],
+        iso_ts: str,
+    ) -> None:
+        """Broadcast signal batch tới subscribe-based WS theo filter từng kết nối."""
+        stale: list[WebSocket] = []
+        async with self._lock:
+            snapshot = list(self._subscriptions.items())
+
+        async def _send(ws: WebSocket, text: str) -> WebSocket | None:
+            try:
+                await ws.send_text(text)
+                self._last_sent[(ws, "sig:batch")] = asyncio.get_event_loop().time()
+                return None
+            except Exception:
+                return ws
+
+        tasks = []
+        once_remove: list[tuple[WebSocket, str]] = []
+        now = asyncio.get_event_loop().time()
+        changed_names = {
+            e.get("name")
+            for e in entries
+            if isinstance(e.get("name"), str)
+        }
+
+        for ws, sub in snapshot:
+            if not changed_names:
+                continue
+
+            if "*" in sub.signal_names:
+                has_relevant_change = True
+            else:
+                has_relevant_change = bool(changed_names.intersection(sub.signal_names))
+
+            if not has_relevant_change:
+                continue
+
+            # Respect per-connection min interval for signal stream.
+            last = self._last_sent.get((ws, "sig:batch"), 0.0)
+            if sub.min_interval_s > 0 and (now - last) < sub.min_interval_s:
+                continue
+
+            if self._only_send_signal_update:
+                # Changed-only mode.
+                if "*" in sub.signal_names:
+                    selected = [e for e in entries if e.get("name") in changed_names]
+                else:
+                    selected = [
+                        e for e in entries
+                        if isinstance(e.get("name"), str) and e.get("name") in sub.signal_names
+                    ]
+            else:
+                # Full-snapshot mode.
+                if "*" in sub.signal_names:
+                    selected = list(self._latest_signals.values())
+                else:
+                    selected = [
+                        self._latest_signals[name]
+                        for name in sub.signal_names
+                        if name in self._latest_signals
+                    ]
+
+            if not selected:
+                continue
+
+            payload = json.dumps({"timestamp": iso_ts, "signals": selected})
+            tasks.append(asyncio.create_task(_send(ws, payload)))
+
+            # once-mode cleanup keys for signals actually sent.
+            if "*" in sub.once_channels:
+                once_remove.append((ws, "*"))
+            for e in selected:
+                name = e.get("name")
+                if isinstance(name, str) and name in sub.once_channels:
+                    once_remove.append((ws, name))
+
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for res in results:
+                if res is not None and not isinstance(res, Exception):
+                    stale.append(res)
+
+        for ws, key in once_remove:
+            sub = self._subscriptions.get(ws)
+            if sub:
+                sub.once_channels.discard(key)
+                if key == "*":
+                    sub.signal_names.discard("*")
                 else:
                     sub.signal_names.discard(key)
 

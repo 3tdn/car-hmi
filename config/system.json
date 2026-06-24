@@ -55,7 +55,8 @@
     "check_interval_sec": 0.5
   },
   "reader": {
-    "frequency_piority": 1
+    "frequency_piority": 1,
+    "only_send_signal_update": true
   },
   "writer": {
     "rate_limit_per_sec": 10,

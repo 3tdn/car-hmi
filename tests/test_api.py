@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -293,3 +295,32 @@ def test_ws_no_auth_when_disabled():
     with TestClient(app) as sc:
         with sc.websocket_connect("/ws/signals") as ws:
             pass  # should connect without any key
+
+
+def test_ws_subscribe_signal_payload_format():
+    """WS signal frame uses timestamp + signals[{name,std_name,value}] format."""
+    from starlette.testclient import TestClient
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="")
+    mgr = app.state.ws_manager
+
+    with TestClient(app) as sc:
+        with sc.websocket_connect("/ws/subscribe") as ws:
+            ws.send_text(json.dumps({"type": "subscribe", "signals": ["VehicleSpeed"]}))
+            ack = json.loads(ws.receive_text())
+            assert ack["type"] == "subscribe_ack"
+
+            import asyncio
+
+            asyncio.run(mgr.broadcast_signal("VehicleSpeed", 23.0, 1717243200.123))
+            frame = json.loads(ws.receive_text())
+
+            assert "timestamp" in frame
+            assert isinstance(frame.get("signals"), list)
+            assert len(frame["signals"]) == 1
+            sig = frame["signals"][0]
+            assert set(sig.keys()) == {"name", "std_name", "value"}
+            assert sig["name"] == "VehicleSpeed"
+            assert sig["std_name"] == "VehicleSpeed"
+            assert sig["value"] == 23.0

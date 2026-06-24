@@ -628,12 +628,14 @@ Special channel names: `*` (all signals), `alarms` (alarm events), `metrics` (sy
 
 // Signal update frame (streamed continuously)
 {
-  "timestamp": "2026-05-23T10:00:00.123Z",
+  "timestamp": "2024-06-01T12:00:00.123Z",
   "signals": [
-    {"name": "EngineSpeed", "value": 3200.0},
-    {"name": "CoolantTemp", "value": 87.5}
+    {"name": "ARS_FL_InjuryRiskAdaptive", "std_name": "ARS_FL_InjuryRiskAdaptive", "value": 23},
+    {"name": "ARS_FR_InjuryRiskAdaptive", "std_name": "ARS_FR_InjuryRiskAdaptive", "value": 23}
   ]
 }
+
+// Note: server may batch multiple changed signals into one frame.
 
 // Alarm event frame (when subscribed to "alarms" or via /ws/alarms)
 {
@@ -673,7 +675,7 @@ ws.onmessage = (event) => {
     console.log("Subscribed to:", msg.signals);
   } else if (msg.signals) {
     // Signal update frame
-    msg.signals.forEach(s => console.log(s.name, "=", s.value));
+    msg.signals.forEach(s => console.log(s.name, "(", s.std_name, ") =", s.value));
   } else if (msg.type === "alarm") {
     console.warn("ALARM:", msg.signal_name, msg.level, msg.value);
   }

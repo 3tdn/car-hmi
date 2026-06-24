@@ -31,7 +31,7 @@
  *     {"type": "ping"}
  *   Server → Client (signal frame):
  *     {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name":"...", "value":0, "std_name":"..."}]}
- *   Server → Client (ack):    {"type": "subscribed", "signals": [...], "count": N}
+ *   Server → Client (ack):    {"type": "subscribe_ack", "action": "subscribe", "channels": [...], "count": N}
  *   Server → Client (pong):   {"type": "pong"}
  *
  * std_name Support:

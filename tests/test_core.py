@@ -38,6 +38,7 @@ def test_reader_config_defaults():
 
     cfg = ReaderConfig()
     assert cfg.frequency_piority == pytest.approx(0.0)
+    assert cfg.only_send_signal_update is False
 
 
 def test_app_config_can_is_list():
@@ -98,6 +99,7 @@ def test_load_config_custom(tmp_path):
                 ],
                 "api": {"host": "127.0.0.1", "port": 9000},
                 "storage": {"sqlite_path": str(tmp_path / "test.db")},
+                "reader": {"only_send_signal_update": True},
             }
         )
     )
@@ -105,6 +107,7 @@ def test_load_config_custom(tmp_path):
     assert cfg.can[0].bitrate == 250000
     assert cfg.api.port == 9000
     assert cfg.reader.frequency_piority == pytest.approx(0.0)
+    assert cfg.reader.only_send_signal_update is True
 
 
 # ── SignalStore ───────────────────────────────────────────────────────────────

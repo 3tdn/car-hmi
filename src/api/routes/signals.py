@@ -250,7 +250,7 @@ async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None)):
         {"type": "unsubscribe", "signals": ["SignalName"]}
         {"type": "ping"}  →  {"type": "pong"}
     Server → Client (signal frame):
-        {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name": "...", "value": 0.0}]}
+        {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name": "...", "std_name": "...", "value": 0.0}]}
     Server → Client (subscribe ack):
         {"type": "subscribed", "signals": [...], "count": N}
     """
