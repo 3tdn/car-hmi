@@ -140,9 +140,16 @@ function isSignalAllowed(name, std_name) {
 const signalUnits = new Map();
 const signalHistory = new Map();
 const lastUpdateTs = new Map();
+const lastSparkRenderMs = new Map();
 const FAST_SIGNAL_THRESHOLD_S = 0.25;
 const FAST_SIGNAL_MAX = 4;
 const SIGNAL_HISTORY_LEN = 60;
+const SPARKLINE_MIN_RENDER_INTERVAL_MS = 120;
+
+// WS update queue to keep UI responsive under high-frequency streams.
+const pendingSignalUpdates = new Map();
+let uiFlushScheduled = false;
+const UI_UPDATES_PER_FRAME = 120;
 
 // fast-changing signals feature removed; no container present
 const fastSignalsContainer = null;
@@ -273,7 +280,58 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
   }
   const canvas = row.querySelector("canvas.sparkline");
   if (canvas) {
-    drawSparkline(canvas, history);
+    const nowMs = performance.now();
+    const lastMs = lastSparkRenderMs.get(signalName) || 0;
+    // Throttle sparkline redraws; value cell still updates every flush.
+    if ((nowMs - lastMs) >= SPARKLINE_MIN_RENDER_INTERVAL_MS) {
+      drawSparkline(canvas, history);
+      lastSparkRenderMs.set(signalName, nowMs);
+    }
+  }
+}
+
+function enqueueSignalUpdate(signalName, value, timestamp, std_name) {
+  pendingSignalUpdates.set(signalName, {
+    value,
+    timestamp,
+    std_name,
+  });
+  if (!uiFlushScheduled) {
+    uiFlushScheduled = true;
+    requestAnimationFrame(flushPendingSignalUpdates);
+  }
+}
+
+function flushPendingSignalUpdates() {
+  if (!pendingSignalUpdates.size) {
+    uiFlushScheduled = false;
+    return;
+  }
+
+  let processed = 0;
+  for (const [name, upd] of pendingSignalUpdates) {
+    pendingSignalUpdates.delete(name);
+    if (!isSignalAllowed(name, upd.std_name)) continue;
+
+    const meta = signalMetadataCache.get(name);
+    updateWidget(name, upd.value);
+    updateSignalRow(
+      name,
+      upd.value,
+      upd.timestamp,
+      signalUnits.get(name) || "",
+      !!(meta && meta.writable),
+      (meta && meta.states) || null,
+    );
+
+    processed += 1;
+    if (processed >= UI_UPDATES_PER_FRAME) break;
+  }
+
+  if (pendingSignalUpdates.size) {
+    requestAnimationFrame(flushPendingSignalUpdates);
+  } else {
+    uiFlushScheduled = false;
   }
 }
 
@@ -398,33 +456,25 @@ function connectLegacy() {
 }
 
 function handleMessage(msg) {
-  // Demo-compatible batch frame: {timestamp: "ISO8601", signals: [{name, value}]}
+  // Unified signal frame: {timestamp: "ISO8601", signals: [{name, std_name, value}]}
   if (Array.isArray(msg.signals) && !msg.type) {
-    const ts = msg.timestamp ? new Date(msg.timestamp).getTime() / 1000 : Date.now() / 1000;
+    const parsedTs = msg.timestamp ? (new Date(msg.timestamp).getTime() / 1000) : NaN;
+    const ts = Number.isFinite(parsedTs) ? parsedTs : Date.now() / 1000;
     msg.signals.forEach(({ name, value, std_name }) => {
-      if (!isSignalAllowed(name, std_name)) return;
-      const meta = signalMetadataCache.get(name);
-      updateWidget(name, value);
-      updateSignalRow(name, value, ts, signalUnits.get(name) || "", !!(meta && meta.writable), (meta && meta.states) || null);
+      enqueueSignalUpdate(name, value, ts, std_name);
     });
     return;
   }
-  // Legacy single-signal frame
-  if (msg.type === "signal") {
-    if (!isSignalAllowed(msg.signal, msg.std_name)) return;
-    const meta = signalMetadataCache.get(msg.signal);
-    updateWidget(msg.signal, msg.value);
-    updateSignalRow(msg.signal, msg.value, msg.timestamp, signalUnits.get(msg.signal) || "", !!(meta && meta.writable), (meta && meta.states) || null);
-  } else if (msg.type === "alarm") {
+  if (msg.type === "alarm") {
     renderAlarm(msg);
   } else if (msg.type === "metrics") {
     renderMetrics(msg);
-  } else if (msg.type === "subscribed") {
-    // Demo-compatible ack: {type: "subscribed", signals: [...], count: N}
-    console.debug("Subscribed:", msg.signals, "count:", msg.count);
   } else if (msg.type === "subscribe_ack") {
-    // Legacy ack format — kept for backward compat
-    console.debug("Subscribe ack:", msg);
+    // Current backend ack format.
+    console.debug("Subscribe ack:", msg.channels, "count:", msg.count);
+  } else if (msg.type === "subscribed") {
+    // Backward-compat fallback.
+    console.debug("Subscribed:", msg.signals, "count:", msg.count);
   } else if (msg.type === "pong") {
     // keepalive response — no action needed
   }

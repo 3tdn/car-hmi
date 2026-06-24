@@ -294,7 +294,15 @@ Response:
 
 Message format từ server:
 ```json
-{"type": "signal", "signal": "VehicleSpeed", "value": 84.1, "timestamp": 1742000000.0}
+{
+  "timestamp": "2024-06-01T12:00:00.123Z",
+  "signals": [
+    {"name": "ARS_FL_InjuryRiskAdaptive", "std_name": "ARS_FL_InjuryRiskAdaptive", "value": 23},
+    {"name": "ARS_FR_InjuryRiskAdaptive", "std_name": "ARS_FR_InjuryRiskAdaptive", "value": 23}
+  ]
+}
+
+> Server có thể gộp nhiều signal thay đổi vào cùng một frame `signals`.
 {"type": "alarm",  "signal_name": "EngineRPM", "level": "critical", "value": 7650.0, ...}
 ```
 

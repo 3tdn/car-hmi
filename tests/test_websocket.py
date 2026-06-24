@@ -82,9 +82,14 @@ async def test_broadcast_signal_to_subscribers(mgr):
     assert len(ws_alarms.sent) == 0
 
     payload = json.loads(ws_all.sent[0])
-    assert payload["type"] == "signal"
-    assert payload["signal"] == "Speed"
-    assert payload["value"] == 80.0
+    assert "timestamp" in payload
+    assert isinstance(payload.get("signals"), list)
+    assert len(payload["signals"]) == 1
+    sig = payload["signals"][0]
+    assert set(sig.keys()) == {"name", "std_name", "value"}
+    assert sig["name"] == "Speed"
+    assert sig["std_name"] == "Speed"
+    assert sig["value"] == 80.0
 
 
 @pytest.mark.asyncio
@@ -175,7 +180,7 @@ async def test_subscribe_signal_filter(mgr):
     await mgr.broadcast_signal("Speed", 80.0, 1000.0)
     assert len(ws.sent) == 1
     payload = json.loads(ws.sent[0])
-    assert payload["signal"] == "Speed"
+    assert payload["signals"][0]["name"] == "Speed"
 
     # Broadcast RPM → should NOT receive
     await mgr.broadcast_signal("RPM", 3000.0, 1001.0)
@@ -319,3 +324,93 @@ async def test_subscribe_no_leak_to_legacy(mgr):
     # Legacy gets ALL, subscribe does NOT (not subscribed to RPM)
     assert len(ws_legacy.sent) == 2
     assert len(ws_sub.sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_broadcast_signals_batch_single_frame(mgr):
+    """Multiple signals should be delivered in one WS frame with signals[] entries."""
+    ws = FakeWebSocket()
+    await mgr.connect_subscribe(ws)
+    await mgr.process_subscribe_command(ws, {
+        "type": "subscribe",
+        "signals": ["Speed", "RPM"],
+        "mode": "continuous",
+    })
+    ws.sent.clear()  # drop ack
+
+    await mgr.broadcast_signals([
+        ("Speed", 80.0, 1000.0),
+        ("RPM", 3000.0, 1000.1),
+    ])
+
+    assert len(ws.sent) == 1
+    payload = json.loads(ws.sent[0])
+    assert "timestamp" in payload
+    assert isinstance(payload.get("signals"), list)
+    assert len(payload["signals"]) == 2
+    names = {s["name"] for s in payload["signals"]}
+    assert names == {"Speed", "RPM"}
+    for s in payload["signals"]:
+        assert set(s.keys()) == {"name", "std_name", "value"}
+
+
+@pytest.mark.asyncio
+async def test_subscribe_receives_full_subscribed_set_from_cache(mgr):
+    """After cache is warm, each push includes all subscribed signals, not only changed ones."""
+    ws = FakeWebSocket()
+    await mgr.connect_subscribe(ws)
+    await mgr.process_subscribe_command(ws, {
+        "type": "subscribe",
+        "signals": ["Speed", "RPM"],
+        "mode": "continuous",
+    })
+    ws.sent.clear()  # drop ack
+
+    # Warm cache with both signals.
+    await mgr.broadcast_signals([
+        ("Speed", 80.0, 1000.0),
+        ("RPM", 3000.0, 1000.1),
+    ])
+    ws.sent.clear()
+
+    # Change only one signal; payload should still contain full subscribed set.
+    await mgr.broadcast_signals([
+        ("Speed", 81.0, 1000.2),
+    ])
+
+    assert len(ws.sent) == 1
+    payload = json.loads(ws.sent[0])
+    assert isinstance(payload.get("signals"), list)
+    names = {s["name"] for s in payload["signals"]}
+    assert names == {"Speed", "RPM"}
+    speed = next(s for s in payload["signals"] if s["name"] == "Speed")
+    rpm = next(s for s in payload["signals"] if s["name"] == "RPM")
+    assert speed["value"] == 81.0
+    assert rpm["value"] == 3000.0
+
+
+@pytest.mark.asyncio
+async def test_subscribe_changed_only_mode(mgr):
+    """When only_send_signal_update=True, payload contains only changed subscribed signals."""
+    mgr.set_only_send_signal_update(True)
+
+    ws = FakeWebSocket()
+    await mgr.connect_subscribe(ws)
+    await mgr.process_subscribe_command(ws, {
+        "type": "subscribe",
+        "signals": ["Speed", "RPM"],
+        "mode": "continuous",
+    })
+    ws.sent.clear()
+
+    await mgr.broadcast_signals([
+        ("Speed", 81.0, 1000.2),
+    ])
+
+    assert len(ws.sent) == 1
+    payload = json.loads(ws.sent[0])
+    assert isinstance(payload.get("signals"), list)
+    assert len(payload["signals"]) == 1
+    sig = payload["signals"][0]
+    assert sig["name"] == "Speed"
+    assert sig["value"] == 81.0

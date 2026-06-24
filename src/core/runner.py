@@ -408,10 +408,38 @@ class AppRunner:
         app.state.writer = self._writer_router
         app.state.rx_queue = self._rx_queue
         self._ws_manager = app.state.ws_manager
+        self._ws_manager.set_only_send_signal_update(self.config.reader.only_send_signal_update)
+
+        # Coalesce fast signal updates into a single WS frame to reduce chatter.
+        ws_batch_window_s = 0.02
+        pending_ws_updates: dict[str, tuple[float, float]] = {}
+        ws_batch_task: asyncio.Task | None = None
+
+        async def _flush_ws_batch() -> None:
+            nonlocal ws_batch_task
+            try:
+                while True:
+                    await asyncio.sleep(ws_batch_window_s)
+                    if not pending_ws_updates:
+                        ws_batch_task = None
+                        return
+
+                    batch = [
+                        (name, value_ts[0], value_ts[1])
+                        for name, value_ts in pending_ws_updates.items()
+                    ]
+                    pending_ws_updates.clear()
+                    await self._ws_manager.broadcast_signals(batch)
+            except Exception:
+                logger.exception("WS batch flush failed")
+                ws_batch_task = None
 
         # Đăng ký SignalStore để phát sóng qua WebSocket
         async def _broadcast_signal(name: str, sv) -> None:
-            await self._ws_manager.broadcast_signal(name, sv.value, sv.timestamp)
+            nonlocal ws_batch_task
+            pending_ws_updates[name] = (sv.value, sv.timestamp)
+            if ws_batch_task is None or ws_batch_task.done():
+                ws_batch_task = asyncio.create_task(_flush_ws_batch())
 
         self.store.subscribe(_broadcast_signal)
 
