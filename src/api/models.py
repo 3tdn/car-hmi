@@ -74,7 +74,7 @@ class SignalMetadata(BaseModel):
 class SignalMetadataListResponse(BaseModel):
     """Danh sách metadata tín hiệu."""
 
-    items: list[SignalMetadata] = Field(..., description="Danh sách metadata tín hiệu")
+    signals_info: list[SignalMetadata] = Field(..., description="Danh sách metadata tín hiệu")
     total: int = Field(..., description="Tổng số tín hiệu")
 
 

@@ -192,13 +192,13 @@ async def test_available_signals_returns_metadata(client):
     resp = await client.get("/signals/available", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 200
     data = resp.json()
-    assert "items" in data
+    assert "signals_info" in data
     assert "total" in data
     assert data["total"] >= 1
     # VehicleSpeed should be present from the fixture
-    names = [item["signal_name"] for item in data["items"]]
+    names = [item["signal_name"] for item in data["signals_info"]]
     assert "VehicleSpeed" in names
-    vs = next(i for i in data["items"] if i["signal_name"] == "VehicleSpeed")
+    vs = next(i for i in data["signals_info"] if i["signal_name"] == "VehicleSpeed")
     assert vs["value"] == 60.0
     # Metadata fields should exist (even if None)
     assert "unit" in vs

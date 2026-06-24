@@ -287,10 +287,10 @@ const signalMetadataCache = new Map();
 async function loadSnapshot() {
   // 1. Fetch full metadata (heavy, once)
   try {
-    const { items } = await fetchAvailableSignals();
+    const { signals_info } = await fetchAvailableSignals();
     // Populate std_name → signal_name registry for resolving names
-    populateSignalRegistry(items);
-    items.forEach((meta) => {
+    populateSignalRegistry(signals_info);
+    signals_info.forEach((meta) => {
       // Use canonical signal_name as the key for metadata cache
       signalMetadataCache.set(meta.signal_name, meta);
       const unit = meta.unit || "";
@@ -300,7 +300,7 @@ async function loadSnapshot() {
         updateSignalRow(meta.signal_name, meta.value, meta.timestamp || 0, unit, !!meta.writable, meta.states || null);
       }
     });
-    console.info(`Loaded metadata for ${items.length} signals; std_name registry populated`);
+    console.info(`Loaded metadata for ${signals_info.length} signals; std_name registry populated`);
   } catch (e) {
     console.warn("Available signals fetch failed, falling back to /signals:", e);
     // Fallback to legacy snapshot
