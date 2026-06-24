@@ -214,6 +214,32 @@ Print format json output to out.json
 curl -H "" http://localhost:8000/signals/available -o ./tests/out.json
 ```
 
+Response:
+```json
+{
+  "signals_info": [
+    {
+      "signal_name": "EngineSpeed",
+      "unit": "rpm",
+      "min_value": 0.0,
+      "max_value": 8000.0,
+      "writable": true,
+      "states": null,
+      "group_name": null,
+      "widget_type": null,
+      "alarm_warning_high": 6000.0,
+      "alarm_warning_low": null,
+      "alarm_critical_high": 7500.0,
+      "alarm_critical_low": null,
+      "value": 3200.0,
+      "status": "ok",
+      "timestamp": 1716451200.123
+    }
+  ],
+  "total": 1
+}
+```
+
 Response item schema:
 ```json
 {

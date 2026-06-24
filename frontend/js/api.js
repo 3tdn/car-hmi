@@ -72,7 +72,7 @@ function getSignalMetadata(nameOrStdName) {
 
 /**
  * Populate signal registry from available signals (call after fetchAvailableSignals).
- * @param {Array} availableSignalsList — items from fetchAvailableSignals().items
+ * @param {Array} availableSignalsList — list from fetchAvailableSignals().signals_info
  */
 function populateSignalRegistry(availableSignalsList) {
   _signalRegistry.byCanonical.clear();
@@ -217,12 +217,17 @@ async function fetchSignals() {
 /**
  * Full metadata của tất cả signals (gọi 1 lần khi khởi động).
  * Gồm: unit, min/max, alarm thresholds, writable, giá trị hiện tại.
- * @returns {Promise<{items:Array, total:number}>}
+ * @returns {Promise<{signals_info:Array, total:number}>}
  */
 async function fetchAvailableSignals() {
   const resp = await fetch(`${API_BASE}/signals/available`, { headers: _headers() });
   if (!resp.ok) throw new Error(`GET /signals/available → ${resp.status}`);
-  return resp.json();
+  const data = await resp.json();
+  // Backward-compatible normalization during contract transition.
+  return {
+    ...data,
+    signals_info: data.signals_info || data.items || [],
+  };
 }
 
 /**

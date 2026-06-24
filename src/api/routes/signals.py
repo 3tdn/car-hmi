@@ -116,7 +116,7 @@ async def list_available_signals(request: Request):
                 timestamp=sv.timestamp if sv else None,
             )
         )
-    return SignalMetadataListResponse(items=items, total=len(items))
+    return SignalMetadataListResponse(signals_info=items, total=len(items))
 
 
 @router.get(

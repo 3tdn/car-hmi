@@ -44,7 +44,7 @@ Nếu `api_key` trong `config/system.json` để trống hoặc là placeholder 
 **GET /signals/available** — response (một phần tử):
 ```json
 {
-  "items": [{
+  "signals_info": [{
     "signal_name": "BrakePressure",
     "std_name": "BrakePressure", 
     "unit": "bar",
