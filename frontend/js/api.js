@@ -349,7 +349,7 @@ function openSubscriptionWS(onMessage, onOpen) {
    */
   function subscribe(signals, mode = "continuous", opts) {
     if (sock.readyState === WebSocket.OPEN) {
-      const payload = { type: "subscribe", signals, mode };
+      const payload = { type: "subscribe", signals, mode, rate_ms: 200 };
       if (opts && typeof opts === "object") Object.assign(payload, opts);
       sock.send(JSON.stringify(payload));
     }

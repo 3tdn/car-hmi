@@ -611,16 +611,35 @@ class AppRunner:
                 rx_q_size = None
 
             reader_metrics = None
+            reader_fatal: list[dict] = []
             if self._readers:
                 try:
                     reader_metrics = {
                         f"ch{i}": r.get_metrics()
                         for i, r in enumerate(self._readers)
                     }
+                    for idx, reader in enumerate(self._readers):
+                        state = reader.get_runtime_state() if hasattr(reader, "get_runtime_state") else {}
+                        if state.get("fatal_error"):
+                            reader_fatal.append(
+                                {
+                                    "channel": idx,
+                                    "fatal_error": state.get("fatal_error"),
+                                    "last_error": state.get("last_error"),
+                                }
+                            )
                 except Exception:
                     reader_metrics = None
 
             logger.info("Watchdog — alive tasks: %s | rx_queue_size=%s | reader_metrics=%s", alive, rx_q_size, reader_metrics)
+
+            if reader_fatal:
+                logger.critical(
+                    "Detected unrecoverable CAN reader failure(s): %s — fail-fast shutdown to let supervisor restart process",
+                    reader_fatal,
+                )
+                await self.shutdown()
+                raise RuntimeError(f"Unrecoverable CAN reader failure: {reader_fatal}")
 
     async def shutdown(self) -> None:
         """Tắt đúng cách: flush pipeline, dừng reader, đóng DB."""
