@@ -36,6 +36,7 @@ ignore = [
 "src/can_io/reader.py" = ["E501"]               # Vietnamese docstrings exceed 100 chars
 "src/core/signal_store.py" = ["S110"]           # subscriber errors must not crash store
 "src/core/config.py" = ["S104"]                 # bind 0.0.0.0 is intentional for dev
+"src/core/camera_stream.py" = ["S110"]          # upstream errors logged; reconnect loop must not crash
 
 [lint.isort]
 known-first-party = ["src"]

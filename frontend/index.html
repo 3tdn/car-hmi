@@ -320,6 +320,28 @@
         </div>
       </div>
 
+      <!-- Camera Live View panel -->
+      <div class="card" style="margin-top: 16px;" id="camera-stream-panel">
+        <h3 style="display:flex;align-items:center;gap:10px;">
+          Camera Live View
+          <span id="camera-status-badge" class="badge badge--disconnected" style="font-size:0.7rem;">Connecting…</span>
+        </h3>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">
+          Live MJPEG stream proxied from the vehicle camera. Multiple devices can view this
+          stream at the same time — CarPC keeps a single upstream connection to the camera
+          (source allows only 1 concurrent receiver) and fans it out to all connected viewers.
+        </p>
+        <div style="position:relative;background:#000;border-radius:6px;overflow:hidden;min-height:200px;
+             display:flex;align-items:center;justify-content:center;">
+          <img id="camera-stream-img" alt="Camera stream"
+               style="width:100%;max-height:420px;display:block;" />
+          <div id="camera-stream-offline" style="display:none;color:var(--muted);font-size:0.85rem;padding:24px;">
+            Camera stream unavailable.
+          </div>
+        </div>
+        <p id="camera-stream-info" style="font-size:0.78rem;color:var(--muted);margin-top:6px;"></p>
+      </div>
+
       <!-- Data section -->
       <div class="card table-card" style="margin-top: 16px;" id="raw-data-card">
         <h3 style="display:flex;align-items:center;gap:12px;">

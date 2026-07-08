@@ -6,6 +6,18 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# ── Model camera stream ────────────────────────────────────────────────────
+
+
+class CameraStatusResponse(BaseModel):
+    """Trạng thái proxy MJPEG camera stream."""
+
+    enabled: bool = Field(..., description="Camera stream có được bật trong config hay không")
+    stream_url: str = Field(..., description="URL MJPEG nguồn mà CarPC proxy tới")
+    connected: bool = Field(..., description="CarPC hiện có đang kết nối được tới camera hay không")
+    viewer_count: int = Field(..., description="Số client đang xem stream qua CarPC")
+    last_error: str | None = Field(None, description="Lỗi upstream gần nhất (nếu có)")
+
 # ── Model tín hiệu ─────────────────────────────────────────────────────────
 
 

@@ -11,8 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import APIKeyAuth
-from src.api.routes import alarms, config, profiles, signals, system, adaptive_restraint, restraints
+from src.api.routes import (
+    adaptive_restraint,
+    alarms,
+    camera,
+    config,
+    profiles,
+    restraints,
+    signals,
+    system,
+)
 from src.api.websocket import ConnectionManager
+from src.core.camera_stream import CameraStreamProxy
 from src.core.config_manager import read_config
 from src.core.signal_name_mapper import SignalNameMapper
 
@@ -54,6 +64,29 @@ def create_app(
 
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
 
+    # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
+    # cho phép 1 kết nối đồng thời (mutex phía nguồn).
+    _cam_cfg = read_config().get("camera", {})
+    if _cam_cfg.get("enabled", False):
+        camera_proxy = CameraStreamProxy(
+            stream_url=_cam_cfg.get("stream_url", "http://192.168.2.119:8080/stream"),
+            reconnect_interval_sec=_cam_cfg.get("reconnect_interval_sec", 3.0),
+            connect_timeout_sec=_cam_cfg.get("connect_timeout_sec", 5.0),
+            read_timeout_sec=_cam_cfg.get("read_timeout_sec", 10.0),
+            chunk_size=_cam_cfg.get("chunk_size", 4096),
+            subscriber_queue_size=_cam_cfg.get("subscriber_queue_size", 64),
+            startup_wait_sec=_cam_cfg.get("startup_wait_sec", 5.0),
+        )
+        app.state.camera_proxy = camera_proxy
+
+        async def _close_camera_proxy() -> None:
+            await camera_proxy.aclose()
+
+        app.router.on_shutdown.append(_close_camera_proxy)
+    else:
+        app.state.camera_proxy = None
+        logger.info("Camera stream disabled via config/system.json ('camera.enabled' = false)")
+
     # Xài API key mặc định là 'auth disabled' cho môi trường local/demo.
     if api_key and api_key.strip().lower() in {"change-me-in-production", "changeme", "default"}:
         logger.warning("API key is set to a placeholder value; authentication disabled.")
@@ -70,6 +103,7 @@ def create_app(
     app.include_router(adaptive_restraint.router, prefix="/adaptive_restraint", tags=["Adaptive Restraint"])
     app.include_router(system.router, prefix="/system", tags=["System"])
     app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
+    app.include_router(camera.router, prefix="/api/camera", tags=["Camera"])
     # /api/info — thông tin hệ thống theo demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])
     # Profile management

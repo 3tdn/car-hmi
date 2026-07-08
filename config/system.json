@@ -34,6 +34,16 @@
       "http://localhost:5173"
     ]
   },
+  "camera": {
+    "enabled": true,
+    "stream_url": "http://192.168.2.119:8080/stream",
+    "reconnect_interval_sec": 3.0,
+    "connect_timeout_sec": 5.0,
+    "read_timeout_sec": 10.0,
+    "chunk_size": 4096,
+    "subscriber_queue_size": 64,
+    "startup_wait_sec": 5.0
+  },
   "storage": {
     "engine": "sqlite",
     "sqlite_path": "data/signals.db",

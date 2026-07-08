@@ -433,3 +433,26 @@ async function fetchRestraintMatch({ weight, height, crash_severity, seatbelt_sy
   return resp.json();
 }
 
+// ── Camera Stream ──────────────────────────────────────────────────────────────
+
+/**
+ * URL of the MJPEG camera stream proxied by CarPC. Suitable as an <img> src —
+ * many devices can point at this URL simultaneously; CarPC keeps a single
+ * upstream connection to the camera and fans it out to all viewers.
+ * @returns {string}
+ */
+function cameraStreamUrl() {
+  return `${API_BASE}/api/camera/stream`;
+}
+
+/**
+ * Current status of the camera stream proxy: upstream connectivity and
+ * number of active viewers.
+ * @returns {Promise<{enabled:boolean, stream_url:string, connected:boolean, viewer_count:number, last_error:string|null}>}
+ */
+async function fetchCameraStatus() {
+  const resp = await fetch(`${API_BASE}/api/camera/status`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /api/camera/status → ${resp.status}`);
+  return resp.json();
+}
+
