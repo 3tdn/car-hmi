@@ -61,6 +61,31 @@ class APIConfig(BaseModel):
     # Danh sách origin được phép CORS; thêm URL frontend nếu chạy trên domain khác
 
 
+class CameraConfig(BaseModel):
+    """Cấu hình proxy camera stream (MJPEG)."""
+
+    enabled: bool = False
+    # Bật/tắt route camera stream
+    stream_url: str = "http://192.168.2.119:8080/stream"
+    # URL MJPEG stream nguồn (CarPC truy cập camera qua IP:port này)
+    # LƯU Ý: MJPG server phía camera chỉ cho phép DUY NHẤT 1 kết nối đồng thời
+    # (mutex phía nguồn) — CarPC phải mở đúng 1 kết nối upstream và tự fan-out
+    # cho nhiều client (nhiều thiết bị đầu cuối) xem đồng thời.
+    reconnect_interval_sec: float = 3.0
+    # Thời gian chờ trước khi thử kết nối lại upstream sau khi mất kết nối/lỗi
+    connect_timeout_sec: float = 5.0
+    # Timeout thiết lập kết nối TCP tới camera (giây)
+    read_timeout_sec: float = 10.0
+    # Timeout đọc dữ liệu giữa 2 chunk liên tiếp từ camera (giây)
+    chunk_size: int = 4096
+    # Kích thước mỗi chunk đọc từ upstream và fan-out cho client (bytes)
+    subscriber_queue_size: int = 64
+    # Số chunk tối đa buffer cho mỗi client chậm trước khi bị drop frame cũ
+    startup_wait_sec: float = 5.0
+    # Thời gian tối đa chờ phát hiện Content-Type/boundary thật từ upstream
+    # trước khi trả response cho client (đảm bảo header đúng boundary MJPEG)
+
+
 class StorageConfig(BaseModel):
     """Cấu hình lưu trữ dữ liệu tín hiệu lịch sử."""
 
@@ -168,6 +193,8 @@ class AppConfig(BaseModel):
     # Cấu hình CAN simulator nội bộ
     api: APIConfig = Field(default_factory=APIConfig)
     # Cấu hình REST API / WebSocket
+    camera: CameraConfig = Field(default_factory=CameraConfig)
+    # Cấu hình proxy camera stream (MJPEG)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     # Cấu hình lưu trữ dữ liệu lịch sử
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)

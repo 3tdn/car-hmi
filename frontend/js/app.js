@@ -493,7 +493,62 @@ function handleMessage(msg) {
   // Metrics polling as fallback — WS subscribe also pushes metrics.
   // Keep REST fallback in case WS doesn't cover metrics yet.
   startMetricsPolling();
+  initCameraStream();
 })();
+
+// ── Camera Stream ───────────────────────────────────────────────────────────
+
+const CAMERA_STATUS_POLL_INTERVAL_MS = 5000;
+const CAMERA_RETRY_DELAY_MS = 4000;
+
+function initCameraStream() {
+  const img       = document.getElementById("camera-stream-img");
+  const offlineEl = document.getElementById("camera-stream-offline");
+  const badge     = document.getElementById("camera-status-badge");
+  const infoEl    = document.getElementById("camera-stream-info");
+  if (!img) return;
+
+  let retryTimer = null;
+
+  function startStream() {
+    if (offlineEl) offlineEl.style.display = "none";
+    img.style.display = "block";
+    // Cache-bust so <img> reopens a fresh multipart connection to the proxy.
+    img.src = `${cameraStreamUrl()}?t=${Date.now()}`;
+  }
+
+  img.addEventListener("error", () => {
+    img.style.display = "none";
+    if (offlineEl) offlineEl.style.display = "flex";
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(startStream, CAMERA_RETRY_DELAY_MS);
+  });
+
+  async function pollStatus() {
+    try {
+      const status = await fetchCameraStatus();
+      if (badge) {
+        badge.textContent = status.connected ? "Connected" : "Reconnecting…";
+        badge.className = `badge ${status.connected ? "badge--connected" : "badge--disconnected"}`;
+      }
+      if (infoEl) {
+        infoEl.textContent = `${status.stream_url}  |  Viewers: ${status.viewer_count}` +
+          (status.last_error ? `  |  Last error: ${status.last_error}` : "");
+      }
+    } catch (err) {
+      if (badge) {
+        badge.textContent = "Unavailable";
+        badge.className = "badge badge--disconnected";
+      }
+      if (infoEl) infoEl.textContent = "Camera stream not configured.";
+    }
+  }
+
+  startStream();
+  pollStatus();
+  setInterval(pollStatus, CAMERA_STATUS_POLL_INTERVAL_MS);
+}
+
 
 // ── CarPC System Metrics Polling ───────────────────────────────────────────
 
