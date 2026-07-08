@@ -58,9 +58,12 @@ def create_app(
     app.state.start_time = time.time()
 
     # Load signal name mapper from sync_dict config
-    _sig_cfg = read_config().get("signal", {})
+    _cfg = read_config()
+    _sig_cfg = _cfg.get("signal", {})
+    _reader_cfg = _cfg.get("reader", {})
     signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
     app.state.signal_name_mapper = signal_name_mapper
+    app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
 
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
 

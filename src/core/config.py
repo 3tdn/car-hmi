@@ -152,6 +152,9 @@ class ReaderConfig(BaseModel):
     # Điều khiển payload WS signal:
     #   False = gửi full tập signal đã subscribe (latest snapshot)
     #   True  = chỉ gửi các signal vừa thay đổi trong batch hiện tại
+    stale_threshold_sec: float = 30.0
+    # Ngưỡng tối đa (giây) cho tuổi của frame CAN gần nhất.
+    # Nếu quá ngưỡng này, health/readiness sẽ coi reader là stale.
 
 
 class ShutdownConfig(BaseModel):

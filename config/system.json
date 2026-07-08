@@ -66,7 +66,8 @@
   },
   "reader": {
     "frequency_piority": 1,
-    "only_send_signal_update": true
+    "only_send_signal_update": true,
+    "stale_threshold_sec": 30.0
   },
   "writer": {
     "rate_limit_per_sec": 10,

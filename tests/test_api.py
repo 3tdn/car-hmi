@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 import pytest_asyncio
@@ -63,6 +64,18 @@ class _FakeRepo:
         pass
 
 
+class _FakeReader:
+    def __init__(self, *, thread_alive: bool, last_frame_timestamp: float, fatal_error: str | None = None):
+        self._state = {
+            "thread_alive": thread_alive,
+            "last_frame_timestamp": last_frame_timestamp,
+            "fatal_error": fatal_error,
+        }
+
+    def get_runtime_state(self):
+        return dict(self._state)
+
+
 @pytest_asyncio.fixture
 async def client():
     store = SignalStore()
@@ -105,6 +118,42 @@ async def test_ready_endpoint(client):
     resp = await client.get("/system/ready")
     assert resp.status_code == 200
     assert "ready" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint_error_on_reader_fatal():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    now = time.time()
+    app = create_app(
+        store,
+        _FakeRepo(),
+        can_readers=[_FakeReader(thread_alive=False, last_frame_timestamp=now - 120.0, fatal_error="reconnect_failed")],
+        api_key="",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get("/system/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_ready_false_when_reader_frames_stale():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    now = time.time()
+    app = create_app(
+        store,
+        _FakeRepo(),
+        can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=now - 120.0, fatal_error=None)],
+        api_key="",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get("/system/ready")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ready"] is False
+    assert data["details"]["readers_recent_frames"] is False
 
 
 @pytest.mark.asyncio

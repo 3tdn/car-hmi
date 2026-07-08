@@ -85,6 +85,10 @@ class CANReader:
         self._error_count = 0
         self._dropped_count = 0
         self._rate_limited_count = 0
+        self._last_frame_timestamp: float = 0.0
+        self._last_recv_monotonic: float = 0.0
+        self._fatal_error: str | None = None
+        self._last_error: str | None = None
         # Per-ID rate gate: min interval in seconds (0 = disabled)
         self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
         self._last_enqueue: dict[int, float] = {}
@@ -111,6 +115,7 @@ class CANReader:
         - Thích hợp cho tốc độ 5,000-10,000 frames/s trên CAN FD 8 Mbps.
         """
         self._running = True
+        self._fatal_error = None
         event_loop = asyncio.get_running_loop()
         logger.info(
             "CAN Reader started (interface=%s, channel=%s, %d msgs in DB)",
@@ -161,6 +166,8 @@ class CANReader:
                 msg: can.Message | None = bus.recv(timeout=0.2)
                 if msg is None:
                     continue
+                self._last_frame_timestamp = msg.timestamp if msg.timestamp else time.time()
+                self._last_recv_monotonic = time.monotonic()
                 # Copy data before posting — some backends reuse internal buffers
                 msg_copy = can.Message(
                     arbitration_id=msg.arbitration_id,
@@ -174,9 +181,11 @@ class CANReader:
                 event_loop.call_soon_threadsafe(self._enqueue_sync, msg_copy, arrival)
             except can.CanError as exc:
                 self._error_count += 1
+                self._last_error = str(exc)
                 logger.error("CAN bus error #%d: %s — recv thread exiting", self._error_count, exc)
                 break  # watchdog detects thread death and initiates reconnect
             except Exception as exc:
+                self._last_error = str(exc)
                 logger.exception("Unexpected error in CAN recv thread: %s", exc)
         logger.debug("CAN recv thread exited")
 
@@ -319,17 +328,21 @@ class CANReader:
                 self._bus.shutdown()
                 if self._bus_factory:
                     self._bus = self._bus_factory()
+                    self._last_error = None
                     logger.info("CAN bus re-opened: %s", self._bus)
                 else:
                     logger.warning("No bus_factory — cannot re-open bus; stopping reader")
+                    self._fatal_error = "no_bus_factory"
                     self.stop()
                 return
             except can.CanError as exc:
+                self._last_error = str(exc)
                 logger.warning("Reconnect attempt %d failed: %s", attempt, exc)
         logger.critical(
             "CAN bus reconnect failed after %d attempts — supervisor must intervene",
             retries,
         )
+        self._fatal_error = "reconnect_failed"
         self.stop()  # dừng vòng lặp; watchdog/supervisor phải khởi động lại tiến trình
 
     def get_metrics(self) -> dict:
@@ -338,7 +351,39 @@ class CANReader:
             "dropped_frames": int(self._dropped_count),
             "error_count": int(self._error_count),
             "rate_limited_frames": int(self._rate_limited_count),
+            "last_frame_timestamp": float(self._last_frame_timestamp),
+            "last_recv_age_sec": (
+                max(0.0, time.monotonic() - self._last_recv_monotonic)
+                if self._last_recv_monotonic
+                else None
+            ),
+            "thread_alive": bool(self._recv_thread and self._recv_thread.is_alive()),
+            "running": bool(self._running),
+            "fatal_error": self._fatal_error,
+            "last_error": self._last_error,
         }
+
+    def get_runtime_state(self) -> dict:
+        """Trả về trạng thái runtime của reader cho watchdog/health checks."""
+        now_mono = time.monotonic()
+        return {
+            "running": bool(self._running),
+            "thread_alive": bool(self._recv_thread and self._recv_thread.is_alive()),
+            "last_frame_timestamp": float(self._last_frame_timestamp),
+            "last_recv_age_sec": (
+                max(0.0, now_mono - self._last_recv_monotonic)
+                if self._last_recv_monotonic
+                else None
+            ),
+            "fatal_error": self._fatal_error,
+            "last_error": self._last_error,
+            "error_count": int(self._error_count),
+        }
+
+    @property
+    def has_fatal_error(self) -> bool:
+        """True nếu reader không thể tự phục hồi và cần supervisor restart."""
+        return self._fatal_error is not None
 
     # Runtime helpers
     def set_queue_policy(self, policy: str) -> None:
