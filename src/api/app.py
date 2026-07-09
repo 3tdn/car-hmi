@@ -79,6 +79,7 @@ def create_app(
             chunk_size=_cam_cfg.get("chunk_size", 4096),
             subscriber_queue_size=_cam_cfg.get("subscriber_queue_size", 64),
             startup_wait_sec=_cam_cfg.get("startup_wait_sec", 5.0),
+            fps_log_interval_sec=_cam_cfg.get("fps_log_interval_sec", 5.0),
         )
         app.state.camera_proxy = camera_proxy
 

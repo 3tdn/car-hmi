@@ -1,0 +1,106 @@
+@startuml 44_activity_camera_stream
+!theme plain
+title Camera MJPEG Stream Proxy — Activity Diagram (CameraStreamProxy)
+
+start
+
+partition "App startup (create_app)" {
+    :Read config/system.json → "camera" section;
+    if (camera.enabled?) then (yes)
+        :Instantiate CameraStreamProxy(\nstream_url, timeouts, chunk_size,\nsubscriber_queue_size, startup_wait_sec,\nfps_log_interval_sec);
+        :app.state.camera_proxy = proxy;
+        :Register proxy.aclose() on app shutdown\n(app.router.on_shutdown);
+    else (no)
+        :app.state.camera_proxy = None;
+        stop
+    endif
+}
+
+partition "Client request — GET /api/camera/stream" {
+    :Route camera_stream(request)\n(src/api/routes/camera.py);
+    :_get_proxy(request) → 503 if camera_proxy is None;
+    :await proxy.open_subscription();
+}
+
+partition "CameraStreamProxy.open_subscription()" {
+    :Create asyncio.Queue(maxsize=subscriber_queue_size)\nfor this client;
+    :acquire _lock;
+    :_subscribers.add(queue);
+    if (_upstream_task running?) then (no — first subscriber)
+        :_stopping = False;
+        :_content_type_ready.clear();
+        :Spawn task _run_upstream();
+    else (yes — reuse existing connection)
+    endif
+    :release _lock;
+    :Wait up to startup_wait_sec for\n_content_type_ready event\n(so Content-Type header matches real MJPEG boundary);
+    :Return queue to route handler;
+}
+
+partition "Route: build response" {
+    :StreamingResponse(\nproxy.stream_queue(queue),\nmedia_type=proxy.content_type);
+    :Response streamed to client\n(multipart/x-mixed-replace);
+}
+
+partition "CameraStreamProxy._run_upstream() — background task,\nexactly 1 instance for ALL clients" {
+    while (subscribers non-empty AND not _stopping?) is (yes)
+        :Open httpx.AsyncClient + GET stream_url\n(connect/read timeouts);
+        if (connection OK?) then (yes)
+            :resp.raise_for_status();
+            :_content_type = resp.headers["content-type"];
+            :_connected = True; _last_error = None;
+            :_content_type_ready.set();
+            :_reset_fps_counter();
+            while (chunk = next(resp.aiter_bytes(chunk_size))) is (has data)
+                if (subscribers empty OR _stopping?) then (yes)
+                    break
+                else (no)
+                endif
+                :_track_fps(chunk)\n— count JPEG EOI (0xFFD9) markers,\nlog FPS every fps_log_interval_sec;
+                :_broadcast(chunk)\n— put_nowait(chunk) to every subscriber queue;
+                if (a subscriber queue full?) then (yes — slow client)
+                    :Drop oldest chunk in that queue,\nput new chunk instead\n(bounded latency, lossy);
+                else (no)
+                endif
+            endwhile (EOF / stream ended)
+        else (no — exception)
+            :_last_error = str(exc);
+            :Log WARNING "Camera upstream error";
+        endif
+        :_connected = False;
+        if (subscribers empty OR _stopping?) then (yes)
+            break
+        else (no)
+            :await asyncio.sleep(reconnect_interval_sec);
+        endif
+    endwhile (no more subscribers / stopping)
+    :_connected = False; _fps = 0.0;
+    :_content_type_ready.set()\n(unblock any pending open_subscription);
+    :_broadcast_end()\n— put None sentinel into every subscriber queue;
+}
+
+partition "CameraStreamProxy.stream_queue(queue) — per-client generator" {
+    while (chunk = await queue.get()) is (not None)
+        :yield chunk to StreamingResponse\n(client receives bytes);
+    endwhile (None sentinel received)
+    :finally → _remove_subscriber(queue);
+}
+
+partition "CameraStreamProxy._remove_subscriber(queue)\n(called on client disconnect OR sentinel)" {
+    :acquire _lock;
+    :_subscribers.discard(queue);
+    if (_subscribers now empty AND task running?) then (yes)
+        :_stopping = True;
+        :cancel _upstream_task\n(releases the single camera connection);
+    else (no — other viewers remain)
+    endif
+    :release _lock;
+}
+
+partition "GET /api/camera/status (any time)" {
+    :Return {enabled, stream_url, connected,\nviewer_count, last_error};
+}
+
+stop
+
+@enduml

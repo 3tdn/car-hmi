@@ -71,6 +71,12 @@ This directory contains a comprehensive set of PlantUML diagrams documenting all
 ### Documentation (39)
 - **39_documentation_map.puml** - Meta-diagram showing all diagrams and their relationships
 
+### Camera Stream (44)
+- **44_activity_camera_stream.puml** - Camera MJPEG stream proxy: single-upstream fan-out
+  activity diagram covering `CameraStreamProxy` (open_subscription, `_run_upstream`,
+  `_broadcast`, `_track_fps`, `stream_queue`, `_remove_subscriber`) and the
+  `/api/camera/stream` + `/api/camera/status` routes.
+
 ## Quick Navigation
 
 ### For New Developers

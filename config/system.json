@@ -42,7 +42,8 @@
     "read_timeout_sec": 10.0,
     "chunk_size": 4096,
     "subscriber_queue_size": 64,
-    "startup_wait_sec": 5.0
+    "startup_wait_sec": 5.0,
+    "fps_log_interval_sec": 5.0
   },
   "storage": {
     "engine": "sqlite",

@@ -117,6 +117,26 @@ async def test_viewer_count_decrements_on_unsubscribe():
         await proxy.aclose()
 
 
+def test_track_fps_counts_jpeg_eoi_markers_and_logs(caplog):
+    proxy = CameraStreamProxy("http://fake/stream", fps_log_interval_sec=0.0)
+    proxy._fps_window_start -= 1.0  # force elapsed > 0 so fps computation doesn't divide by ~0
+
+    with caplog.at_level("INFO", logger="src.core.camera_stream"):
+        # 2 full frames in one chunk
+        proxy._track_fps(b"\xff\xd8...\xff\xd9\xff\xd8...\xff\xd9")
+
+    assert proxy.fps > 0
+    assert any("Camera upstream FPS" in r.message for r in caplog.records)
+
+
+def test_track_fps_detects_marker_split_across_chunks():
+    proxy = CameraStreamProxy("http://fake/stream", fps_log_interval_sec=100.0)
+    # marker 0xFF 0xD9 split across two consecutive chunks
+    proxy._track_fps(b"\xff\xd8...\xff")
+    proxy._track_fps(b"\xd9\xff\xd8...")
+    assert proxy._frame_count == 1
+
+
 async def test_camera_status_route_reports_viewer_count():
     app = FastAPI()
     app.include_router(camera_route.router, prefix="/api/camera")

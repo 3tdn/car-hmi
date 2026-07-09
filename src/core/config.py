@@ -84,6 +84,9 @@ class CameraConfig(BaseModel):
     startup_wait_sec: float = 5.0
     # Thời gian tối đa chờ phát hiện Content-Type/boundary thật từ upstream
     # trước khi trả response cho client (đảm bảo header đúng boundary MJPEG)
+    fps_log_interval_sec: float = 5.0
+    # Chu kỳ (giây) log FPS thực tế của upstream camera (đếm gần đúng qua marker
+    # JPEG EOI 0xFFD9) — dùng để giám sát/chẩn đoán, không ảnh hưởng tới relay.
 
 
 class StorageConfig(BaseModel):
