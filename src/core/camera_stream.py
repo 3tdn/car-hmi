@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator
 
 import httpx
@@ -37,6 +38,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CONTENT_TYPE = "multipart/x-mixed-replace; boundary=frame"
+_JPEG_EOI_MARKER = b"\xff\xd9"  # JPEG End-Of-Image marker — dùng để đếm frame gần đúng
 
 
 class CameraStreamProxy:
@@ -52,6 +54,7 @@ class CameraStreamProxy:
         chunk_size: int = 4096,
         subscriber_queue_size: int = 64,
         startup_wait_sec: float = 5.0,
+        fps_log_interval_sec: float = 5.0,
     ) -> None:
         self.stream_url = stream_url
         self._reconnect_interval_sec = reconnect_interval_sec
@@ -60,6 +63,7 @@ class CameraStreamProxy:
         self._chunk_size = chunk_size
         self._subscriber_queue_size = subscriber_queue_size
         self._startup_wait_sec = startup_wait_sec
+        self._fps_log_interval_sec = fps_log_interval_sec
 
         self._subscribers: set[asyncio.Queue[bytes | None]] = set()
         self._lock = asyncio.Lock()
@@ -69,6 +73,13 @@ class CameraStreamProxy:
         self._connected = False
         self._last_error: str | None = None
         self._stopping = False
+
+        # Đếm FPS gần đúng dựa trên marker JPEG EOI (0xFFD9) — chỉ dùng để log/giám
+        # sát, không ảnh hưởng tới dữ liệu relay cho client.
+        self._fps: float = 0.0
+        self._frame_count = 0
+        self._fps_window_start = time.monotonic()
+        self._prev_chunk_last_byte = b""
 
     # ── Trạng thái ─────────────────────────────────────────────────────────
     @property
@@ -86,6 +97,11 @@ class CameraStreamProxy:
     @property
     def last_error(self) -> str | None:
         return self._last_error
+
+    @property
+    def fps(self) -> float:
+        """FPS gần đúng của upstream, tính lại mỗi `fps_log_interval_sec` giây."""
+        return self._fps
 
     # ── API công khai cho route ─────────────────────────────────────────────
     async def open_subscription(self) -> asyncio.Queue[bytes | None]:
@@ -157,6 +173,38 @@ class CameraStreamProxy:
             with contextlib.suppress(asyncio.QueueFull):
                 q.put_nowait(None)
 
+    def _reset_fps_counter(self) -> None:
+        self._frame_count = 0
+        self._fps_window_start = time.monotonic()
+        self._prev_chunk_last_byte = b""
+
+    def _track_fps(self, chunk: bytes) -> None:
+        """Đếm số frame JPEG gần đúng trong `chunk` và log FPS định kỳ.
+
+        Đếm số marker JPEG End-Of-Image (0xFFD9) xuất hiện trong chunk, có xử lý
+        trường hợp marker bị chia đôi giữa 2 chunk liên tiếp (byte 0xFF ở cuối
+        chunk trước + byte 0xD9 ở đầu chunk này).
+        """
+        if not chunk:
+            return
+
+        frame_count_in_chunk = chunk.count(_JPEG_EOI_MARKER)
+        if self._prev_chunk_last_byte == b"\xff" and chunk[:1] == b"\xd9":
+            frame_count_in_chunk += 1
+        self._frame_count += frame_count_in_chunk
+        self._prev_chunk_last_byte = chunk[-1:]
+
+        now = time.monotonic()
+        elapsed = now - self._fps_window_start
+        if elapsed >= self._fps_log_interval_sec:
+            self._fps = self._frame_count / elapsed if elapsed > 0 else 0.0
+            logger.info(
+                "Camera upstream FPS: %.1f (%d frames / %.1fs, viewers=%d)",
+                self._fps, self._frame_count, elapsed, self.viewer_count,
+            )
+            self._frame_count = 0
+            self._fps_window_start = now
+
     async def _run_upstream(self) -> None:
         """Vòng lặp giữ đúng 1 kết nối upstream, tự reconnect khi lỗi."""
         timeout = httpx.Timeout(
@@ -178,11 +226,13 @@ class CameraStreamProxy:
                         self._connected = True
                         self._last_error = None
                         self._content_type_ready.set()
+                        self._reset_fps_counter()
                         logger.info("Camera upstream connected: %s", self.stream_url)
                         async for chunk in resp.aiter_bytes(self._chunk_size):
                             if not self._subscribers or self._stopping:
                                 break
                             if chunk:
+                                self._track_fps(chunk)
                                 self._broadcast(chunk)
                 except asyncio.CancelledError:
                     raise
@@ -197,5 +247,6 @@ class CameraStreamProxy:
                 await asyncio.sleep(self._reconnect_interval_sec)
         finally:
             self._connected = False
+            self._fps = 0.0
             self._content_type_ready.set()  # giải phóng mọi subscriber đang chờ startup
             self._broadcast_end()
