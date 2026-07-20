@@ -448,9 +448,27 @@ curl -X POST http://localhost:8000/config/alarms/reset -H "X-API-Key: your_api_k
 ### Profiles
 
 Profiles store per-user signal display whitelists in `config/profiles.json`. The first profile created becomes the active profile automatically.
+All mutating APIs now enforce the selected profile's `permission`. Send `X-Profile-Name` on write requests; if omitted, the backend falls back to the active profile.
+When `X-Client-Id` is provided, the backend resolves active profile by client session first, then falls back to global active profile.
+Frontend uses per-tab client identity via session storage and sends `X-Client-Id` automatically.
+For single-signal read/write endpoints, permission or profile-scope violations return `403` with a structured `detail` object including `code`, `profile_name`, `required_permission`, and `signal_name`.
+For bulk reads/writes and WebSocket subscribe, the backend returns `warnings` and skips unauthorized signals instead of failing the whole operation.
+
+`system.json` profile runtime settings:
+
+```json
+{
+  "profiles": {
+    "profiles_path": "config/profiles.json",
+    "default_profile_permission": ["read"],
+    "session_online_ttl_seconds": 600,
+    "session_history_limit": 50
+  }
+}
+```
 
 #### `GET /api/profiles`
-List all profiles and the current active profile name.
+List all profiles and resolved active profile for the current client context.
 
 ```bash
 curl http://localhost:8000/api/profiles -H "X-API-Key: your_api_key"
@@ -460,10 +478,73 @@ Response:
 ```json
 {
   "profiles": [
-    {"name": "default", "signals": ["EngineSpeed", "CoolantTemp"], "description": "Default view", "section_id": "a1b2c3d4e5f6"}
+    {"name": "default", "signals": ["EngineSpeed", "CoolantTemp"], "permission": ["full"], "description": "Default view", "section_id": "a1b2c3d4e5f6"}
   ],
   "total": 1,
-  "active": "default"
+  "active": "default",
+  "global_active": "default",
+  "client_id": "tab-client-id"
+}
+```
+
+#### `PUT /api/profile/active`
+Set active profile for caller context:
+- With `X-Client-Id`: update that client session only.
+- Without `X-Client-Id`: update global active profile.
+
+```bash
+curl -X PUT http://localhost:8000/api/profile/active \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Profile-Name: admin" \
+  -H "X-Client-Id: client-a" \
+  -d '{"name": "driver"}'
+```
+
+Response:
+```json
+{
+  "active": "driver",
+  "global_active": "admin",
+  "client_id": "client-a",
+  "warnings": []
+}
+```
+
+#### `POST /api/profile/heartbeat`
+Refresh client session heartbeat (`last_seen`) and keep session online.
+
+```bash
+curl -X POST http://localhost:8000/api/profile/heartbeat \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Client-Id: client-a"
+```
+
+#### `GET /api/profile/sessions`
+List client sessions with active profile and online/offline status derived from TTL.
+
+```bash
+curl http://localhost:8000/api/profile/sessions \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Profile-Name: admin"
+```
+
+Response:
+```json
+{
+  "sessions": [
+    {
+      "client_id": "client-a",
+      "active": "driver",
+      "updated_at": 1720000000.0,
+      "last_seen": 1720000030.0,
+      "status": "online"
+    }
+  ],
+  "total": 1,
+  "global_active": "admin",
+  "ttl_seconds": 600,
+  "server_time": 1720000035.0
 }
 ```
 
@@ -476,7 +557,8 @@ Get a profile by name. Omit `name` to get the active profile.
 curl -X POST http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "FuelLevel"], "description": "Driver view"}'
+  -H "X-Profile-Name: admin" \
+  -d '{"name": "driver", "signals": ["EngineSpeed", "FuelLevel"], "permission": ["read", "write", "full"], "description": "Driver view"}'
 ```
 
 #### `PUT /api/profile` — Update profile (optimistic lock)
@@ -487,7 +569,8 @@ Requires the `section_id` returned by the last GET. Returns `409 Conflict` if th
 curl -X PUT http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "BatteryVoltage"], "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
+  -H "X-Profile-Name: admin" \
+  -d '{"name": "driver", "signals": ["EngineSpeed", "BatteryVoltage"], "permission": ["read", "write"], "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
 ```
 
 #### `DELETE /api/profile/{name}` — Delete profile (204)

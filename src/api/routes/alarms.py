@@ -5,8 +5,16 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from src.api.models import AlarmListResponse, AlarmResponse
+from src.api.routes.profiles import build_access_warning, require_profile_permission
 
 router = APIRouter()
+
+
+def _alarm_error(code: str, message: str, *, alarm_id: int | None = None) -> dict:
+    payload = build_access_warning(code, message)
+    if alarm_id is not None:
+        payload["alarm_id"] = alarm_id
+    return payload
 
 
 def _to_response(r) -> AlarmResponse:
@@ -54,7 +62,8 @@ async def get_alarm(alarm_id: int, request: Request):
     alarm = await repo.get_alarm_by_id(alarm_id)
     if not alarm:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Alarm {alarm_id} not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_alarm_error("alarm_not_found", f"Alarm {alarm_id} not found", alarm_id=alarm_id),
         )
     return _to_response(alarm)
 
@@ -63,21 +72,25 @@ async def get_alarm(alarm_id: int, request: Request):
     "/{alarm_id}/acknowledge", status_code=status.HTTP_200_OK, summary="Acknowledge an alarm"
 )
 async def acknowledge_alarm(alarm_id: int, request: Request):
+    require_profile_permission(request, "write")
     repo = request.app.state.repo
     updated = await repo.acknowledge_alarm(alarm_id)
     if not updated:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Already acknowledged or not found"
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_alarm_error("alarm_acknowledge_conflict", "Already acknowledged or not found", alarm_id=alarm_id),
         )
     return {"alarm_id": alarm_id, "acknowledged": True}
 
 
 @router.post("/{alarm_id}/resolve", status_code=status.HTTP_200_OK, summary="Resolve an alarm")
 async def resolve_alarm(alarm_id: int, request: Request):
+    require_profile_permission(request, "write")
     repo = request.app.state.repo
     updated = await repo.resolve_alarm(alarm_id)
     if not updated:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Already resolved or not found"
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_alarm_error("alarm_resolve_conflict", "Already resolved or not found", alarm_id=alarm_id),
         )
     return {"alarm_id": alarm_id, "resolved": True}

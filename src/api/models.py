@@ -31,11 +31,23 @@ class SignalValueResponse(BaseModel):
     timestamp: float = Field(..., description="Unix timestamp (giây) khi đọc được giá trị")
 
 
+class AccessWarning(BaseModel):
+    """Thông tin cảnh báo/quyền truy cập cho thao tác theo profile."""
+
+    code: str = Field(..., description="Mã cảnh báo hoặc lỗi truy cập")
+    message: str = Field(..., description="Mô tả ngắn gọn cho frontend")
+    profile_name: str | None = Field(None, description="Tên profile đang được áp dụng")
+    required_permission: str | None = Field(None, description="Quyền bắt buộc cho thao tác")
+    signal_name: str | None = Field(None, description="Tên signal bị ảnh hưởng nếu là single-signal warning")
+    signals: list[str] = Field(default_factory=list, description="Danh sách signal bị bỏ qua trong batch")
+
+
 class SignalListResponse(BaseModel):
     """Danh sách giá trị tín hiệu trả về từ API."""
 
     items: list[SignalValueResponse] = Field(..., description="Danh sách các tín hiệu")
     total: int = Field(..., description="Tổng số tín hiệu trong danh sách")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo quyền truy cập nếu có")
 
 
 class WriteSignalRequest(BaseModel):
@@ -88,6 +100,7 @@ class SignalMetadataListResponse(BaseModel):
 
     signals_info: list[SignalMetadata] = Field(..., description="Danh sách metadata tín hiệu")
     total: int = Field(..., description="Tổng số tín hiệu")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo quyền truy cập nếu có")
 
 
 # ── Model subscribe request (WS command) ──────────────────────────────────
@@ -245,11 +258,18 @@ class SystemMetricsResponse(BaseModel):
 # ── Profile models ──────────────────────────────────────────────────────────
 
 
+ProfilePermission = Literal["read", "write", "full"]
+
+
 class ProfileCreate(BaseModel):
     """Yêu cầu tạo profile mới — POST /api/profile."""
 
     name: str = Field(..., description="Tên profile (duy nhất)")
     signals: list[str] = Field(default_factory=list, description="Danh sách tên signal trong profile")
+    permission: list[ProfilePermission] = Field(
+        default_factory=lambda: ["read"],
+        description="Quyền thao tác của profile: read, write, full",
+    )
     description: str | None = Field(None, description="Mô tả ngắn về profile")
 
 
@@ -258,6 +278,10 @@ class ProfileUpdate(BaseModel):
 
     name: str = Field(..., description="Tên profile cần cập nhật")
     signals: list[str] = Field(..., description="Danh sách tên signal mới")
+    permission: list[ProfilePermission] = Field(
+        default_factory=lambda: ["read"],
+        description="Quyền thao tác của profile: read, write, full",
+    )
     description: str | None = Field(None, description="Mô tả ngắn")
     section_id: str = Field(
         ...,
@@ -265,11 +289,18 @@ class ProfileUpdate(BaseModel):
     )
 
 
+class ProfileSetActiveRequest(BaseModel):
+    """Yêu cầu đổi active profile trên server."""
+
+    name: str = Field(..., description="Tên profile sẽ trở thành active")
+
+
 class ProfileResponse(BaseModel):
     """Thông tin một profile."""
 
     name: str = Field(..., description="Tên profile")
     signals: list[str] = Field(..., description="Danh sách tên signal")
+    permission: list[ProfilePermission] = Field(..., description="Quyền thao tác của profile")
     description: str | None = Field(None, description="Mô tả")
     section_id: str = Field(..., description="Hash dùng cho optimistic locking")
 
@@ -280,6 +311,46 @@ class ProfilesResponse(BaseModel):
     profiles: list[ProfileResponse]
     total: int
     active: str | None = Field(None, description="Tên profile đang active")
+    global_active: str | None = Field(None, description="Tên active profile ở mức global")
+    client_id: str | None = Field(None, description="Client ID nếu request có gửi X-Client-Id")
+
+
+class ActiveProfileResponse(BaseModel):
+    """Kết quả đổi active profile."""
+
+    active: str = Field(..., description="Tên profile đang active sau khi cập nhật")
+    global_active: str | None = Field(None, description="Tên active profile ở mức global")
+    client_id: str | None = Field(None, description="Client ID nếu cập nhật theo session client")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo nếu trạng thái không thay đổi")
+
+
+class ClientProfileSession(BaseModel):
+    """Phiên profile hiện tại của một client."""
+
+    client_id: str = Field(..., description="Client ID từ header X-Client-Id")
+    active: str = Field(..., description="Tên profile active cho client này")
+    updated_at: float = Field(..., description="Unix timestamp lần cập nhật gần nhất")
+    last_seen: float = Field(..., description="Unix timestamp heartbeat gần nhất")
+    status: Literal["online", "offline"] = Field(..., description="Trạng thái online/offline theo TTL")
+
+
+class ProfileSessionsResponse(BaseModel):
+    """Danh sách session active profile theo từng client."""
+
+    sessions: list[ClientProfileSession] = Field(default_factory=list, description="Danh sách map client -> active profile")
+    total: int = Field(..., description="Tổng số session client")
+    global_active: str | None = Field(None, description="Active profile mặc định ở mức global")
+    ttl_seconds: int = Field(..., description="TTL dùng để đánh giá online/offline")
+    server_time: float = Field(..., description="Unix timestamp hiện tại trên server")
+
+
+class ProfileHeartbeatResponse(BaseModel):
+    """Kết quả cập nhật heartbeat cho client session."""
+
+    client_id: str = Field(..., description="Client ID đã được heartbeat")
+    active: str | None = Field(None, description="Profile đang active cho client hoặc fallback global")
+    last_seen: float = Field(..., description="Unix timestamp heartbeat mới nhất")
+    ttl_seconds: int = Field(..., description="TTL session hiện hành")
 
 
 # ── System info model ────────────────────────────────────────────────────────

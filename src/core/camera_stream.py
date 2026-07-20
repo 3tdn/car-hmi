@@ -237,6 +237,8 @@ class CameraStreamProxy:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
+                    if self._stopping:
+                        break
                     self._last_error = str(exc)
                     logger.warning("Camera upstream error (%s): %s", self.stream_url, exc)
                 finally:

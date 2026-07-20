@@ -1,0 +1,56 @@
+{
+  "active": "Front",
+  "profiles": {
+    "driver2": {
+      "signals": [
+        "HMI_FL_OccupantAge",
+        "ARS_FL_InjuryRiskAdaptive",
+        "ARS_FL_InjuryRiskNonAdaptive",
+        "ARS_FL_TimeToFireAirbag",
+        "ARS_FL_TimeToFireSeatbelt"
+      ],
+      "permission": [
+        "full"
+      ],
+      "description": "Driver view",
+      "created_at": 1784553677.52822
+    },
+    "Front": {
+      "signals": [
+        "ABL_FL_ActivationLevelStatus",
+        "ABL_FL_ActivationPhase",
+        "ABL_FL_RetractRequest",
+        "ABL_FL_S0SensorStatus",
+        "ABL_FL_S0SensorStatus_bool",
+        "ABL_FR_ActivationLevelStatus",
+        "ABL_FR_ActivationPhase",
+        "ABL_FR_RetractRequest",
+        "ABL_FR_S0SensorStatus",
+        "ABL_FR_S0SensorStatus_bool"
+      ],
+      "permission": [
+        "read"
+      ],
+      "description": "all seat front",
+      "created_at": 1784558274.4145112
+    },
+    "test1": {
+      "signals": [
+        "ABL_FL_ActivationLevelStatus",
+        "ABL_FL_ActivationPhase",
+        "ABL_FL_RetractRequest",
+        "ABL_FL_S0SensorStatus",
+        "ABL_FL_S0SensorStatus_bool",
+        "ABL_FR_ActivationLevelStatus",
+        "ABL_FR_ActivationPhase",
+        "ABL_FR_RetractRequest",
+        "ABL_FR_S0SensorStatus"
+      ],
+      "permission": [
+        "read"
+      ],
+      "description": "e",
+      "created_at": 1784561415.813459
+    }
+  }
+}

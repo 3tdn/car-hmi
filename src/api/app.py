@@ -42,6 +42,7 @@ def create_app(
         version="0.1.0",
         description="Real-time CAN bus signal monitoring and control API",
     )
+    app.state.shutting_down = False
 
     # CORS
     app.add_middleware(
