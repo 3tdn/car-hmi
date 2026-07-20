@@ -154,7 +154,7 @@ body {
 
 .profile-signal-tools {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: end;
 }

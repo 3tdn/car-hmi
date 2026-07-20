@@ -77,6 +77,7 @@ class SignalMetadata(BaseModel):
 
     signal_name: str = Field(..., description="Tên định danh duy nhất của tín hiệu")
     std_name: str | None = Field(None, description="Tên chuẩn hóa theo sync_dict (nếu có)")
+    tag: list[str] | None = Field(None, description="Các tag suy ra từ tên signal hoặc cấu hình DBC")
     unit: str | None = Field(None, description="Đơn vị đo lường")
     min_value: float | None = Field(None, description="Giá trị tối thiểu hợp lệ")
     max_value: float | None = Field(None, description="Giá trị tối đa hợp lệ")

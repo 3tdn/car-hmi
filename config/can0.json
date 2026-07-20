@@ -7,20 +7,140 @@
         "CAR_PC"
       ],
       "signals": {
-        "Generic_SeatFunctionEnable": {
-          "start_bit": null,
-          "length": 5,
+        "Generic_FL_SeatFunctionEnable": {
+          "start_bit": 0,
+          "length": 1,
           "byte_order": "little_endian",
           "is_signed": false,
           "factor": 1,
           "offset": 0,
           "minimum": 0,
-          "maximum": 31,
+          "maximum": 1,
           "unit": null,
-          "description": "Bit Encoding for manual component request by HMI (like ACR_Retract, ABL_Retract, ISB Overwrite) | Signalvalues: 1 = Seat FL enable\n2 = Seat FR enable\n4 = Seat R1 enable\n8 = Seat R2 enable\n16 = Seat RR enable",
-          "states": [],
+          "description": "Seat FL enable manual component request by HMI",
+          "states": [
+            {
+              "value": 0,
+              "description": "Disable"
+            },
+            {
+              "value": 1,
+              "description": "Enable"
+            }
+          ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "FL"
+          ]
+        },
+        "Generic_FR_SeatFunctionEnable": {
+          "start_bit": 1,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "description": "Seat FR enable manual component request by HMI",
+          "states": [
+            {
+              "value": 0,
+              "description": "Disable"
+            },
+            {
+              "value": 1,
+              "description": "Enable"
+            }
+          ],
+          "RX": true,
+          "TX": true,
+          "tag": [
+            "FR"
+          ]
+        },
+        "Generic_RL1_SeatFunctionEnable": {
+          "start_bit": 2,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "description": "Seat R1 enable manual component request by HMI",
+          "states": [
+            {
+              "value": 0,
+              "description": "Disable"
+            },
+            {
+              "value": 1,
+              "description": "Enable"
+            }
+          ],
+          "RX": true,
+          "TX": true,
+          "tag": [
+            "RL1"
+          ]
+        },
+        "Generic_RL2_SeatFunctionEnable": {
+          "start_bit": 3,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "description": "Seat R2 enable manual component request by HMI",
+          "states": [
+            {
+              "value": 0,
+              "description": "Disable"
+            },
+            {
+              "value": 1,
+              "description": "Enable"
+            }
+          ],
+          "RX": true,
+          "TX": true,
+          "tag": [
+            "RL2"
+          ]
+        },
+        "Generic_RR1_SeatFunctionEnable": {
+          "start_bit": 4,
+          "length": 1,
+          "byte_order": "little_endian",
+          "is_signed": false,
+          "factor": 1,
+          "offset": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "unit": null,
+          "description": "Seat RR1 enable manual component request by HMI",
+          "states": [
+            {
+              "value": 0,
+              "description": "Disable"
+            },
+            {
+              "value": 1,
+              "description": "Enable"
+            }
+          ],
+          "RX": true,
+          "TX": true,
+          "tag": [
+            "RR1"
+          ]
         }
       }
     },
@@ -57,7 +177,10 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HMI"
+          ]
         },
         "HMI_FL_OccupantAge_years": {
           "start_bit": 3,
@@ -72,7 +195,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HMI",
+            "FL"
+          ]
         },
         "HMI_FR_OccupantAge_years": {
           "start_bit": 10,
@@ -87,7 +214,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HMI",
+            "FR"
+          ]
         },
         "HMI_CrashImpactTrigger": {
           "start_bit": 17,
@@ -102,7 +233,10 @@
           "description": "Trigger bit that the crash happens right now",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HMI"
+          ]
         }
       }
     },
@@ -163,7 +297,11 @@
           "description": "Calulated Injurity Risk based on the Adaptive Restrain Parameter",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FL"
+          ]
         },
         "ARS_FL_InjuryRiskNonAdaptive": {
           "start_bit": 8,
@@ -178,7 +316,11 @@
           "description": "Calulated Injurity Risk by Adaptive Restraint Algo based on non adaptive restraint system parameter",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FL"
+          ]
         },
         "ARS_FR_InjuryRiskAdaptive": {
           "start_bit": 16,
@@ -193,7 +335,11 @@
           "description": "Calulated Injurity Risk based on the Adaptive Restrain Parameter",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FR"
+          ]
         },
         "ARS_FR_InjuryRiskNonAdaptive": {
           "start_bit": 24,
@@ -208,7 +354,11 @@
           "description": "Calulated Injurity Risk by Adaptive Restraint Algo based on non adaptive restraint system parameter",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FR"
+          ]
         }
       }
     },
@@ -232,7 +382,11 @@
           "description": "Trigger signal from active restraint system",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "MSLL"
+          ]
         }
       }
     },
@@ -256,7 +410,11 @@
           "description": "ARS TimeToFire for Airbag Vent",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FL"
+          ]
         },
         "ARS_FL_TimeToFireSeatbelt": {
           "start_bit": 8,
@@ -271,7 +429,11 @@
           "description": "ARS TimeToFire for Seatbelt Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FL"
+          ]
         },
         "ARS_FR_TimeToFireAirbag": {
           "start_bit": 16,
@@ -286,7 +448,11 @@
           "description": "ARS TimeToFire for Airbag Vent",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FR"
+          ]
         },
         "ARS_FR_TimeToFireSeatbelt": {
           "start_bit": 24,
@@ -301,7 +467,11 @@
           "description": "ARS TimeToFire for Seatbelt Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ARS",
+            "FR"
+          ]
         }
       }
     },
@@ -335,7 +505,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantClassification": {
           "start_bit": 2,
@@ -363,7 +537,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OutOfPosition": {
           "start_bit": 5,
@@ -378,7 +556,11 @@
           "description": "DMS Out Of for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantWeightMean_kg": {
           "start_bit": 17,
@@ -393,7 +575,11 @@
           "description": "DMS Occupant for Weight Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantWeightStd_kg": {
           "start_bit": 25,
@@ -408,7 +594,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantHeightMean_cm": {
           "start_bit": 33,
@@ -423,7 +613,11 @@
           "description": "DMS Occupant for Lenght Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantHeightStd_cm": {
           "start_bit": 41,
@@ -438,7 +632,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_SeatbeltMisuse_bool": {
           "start_bit": 49,
@@ -453,7 +651,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantGender": {
           "start_bit": 50,
@@ -468,7 +670,11 @@
           "description": "DMS Torso for Angle Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         },
         "OMS_FL_OccupantPresence_bool": {
           "start_bit": 52,
@@ -483,7 +689,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FL"
+          ]
         }
       }
     },
@@ -521,7 +731,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OutOfPosition": {
           "start_bit": 3,
@@ -536,7 +750,11 @@
           "description": "OMS Out Of for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantWeightMean_kg": {
           "start_bit": 15,
@@ -551,7 +769,11 @@
           "description": "OMS Occupant for Weight Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantWeightStd_kg": {
           "start_bit": 23,
@@ -566,7 +788,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantHeightMean_cm": {
           "start_bit": 31,
@@ -581,7 +807,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantHeightStd_cm": {
           "start_bit": 39,
@@ -596,7 +826,11 @@
           "description": "OMS Occupant for Lenght Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_ChildSeatDetected_bool": {
           "start_bit": 47,
@@ -611,7 +845,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_SeatbeltMisuse_bool": {
           "start_bit": 48,
@@ -626,7 +864,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantGender": {
           "start_bit": 49,
@@ -641,7 +883,11 @@
           "description": "OMS Torso for Angle Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         },
         "OMS_FR_OccupantPresence_bool": {
           "start_bit": 51,
@@ -656,7 +902,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "FR"
+          ]
         }
       }
     },
@@ -689,7 +939,10 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SMA"
+          ]
         }
       }
     },
@@ -747,7 +1000,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ABL",
+            "FL"
+          ]
         },
         "ABL_FR_RetractRequest": {
           "start_bit": 8,
@@ -795,7 +1052,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ABL",
+            "FR"
+          ]
         },
         "ABL_RL1_RetractRequest": {
           "start_bit": 16,
@@ -843,7 +1104,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ABL",
+            "RL1"
+          ]
         },
         "ABL_RL2_RetractRequest": {
           "start_bit": 24,
@@ -891,7 +1156,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ABL",
+            "RL2"
+          ]
         },
         "ABL_RR1_RetractRequest": {
           "start_bit": 32,
@@ -939,7 +1208,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ABL",
+            "RR1"
+          ]
         }
       }
     },
@@ -972,7 +1245,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FL"
+          ]
         },
         "ABL_FL_ActivationLevelStatus": {
           "start_bit": 1,
@@ -1088,7 +1365,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FL"
+          ]
         },
         "ABL_FL_ActivationPhase": {
           "start_bit": 9,
@@ -1152,7 +1433,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FL"
+          ]
         }
       }
     },
@@ -1185,7 +1470,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FR"
+          ]
         },
         "ABL_FR_ActivationLevelStatus": {
           "start_bit": 1,
@@ -1301,7 +1590,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FR"
+          ]
         },
         "ABL_FR_ActivationPhase": {
           "start_bit": 9,
@@ -1365,7 +1658,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "FR"
+          ]
         }
       }
     },
@@ -1398,7 +1695,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL1"
+          ]
         },
         "ABL_RL1_ActivationLevelStatus": {
           "start_bit": 1,
@@ -1413,7 +1714,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL1"
+          ]
         },
         "ABL_RL1_ActivationPhase": {
           "start_bit": 9,
@@ -1477,7 +1782,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL1"
+          ]
         }
       }
     },
@@ -1510,7 +1819,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL2"
+          ]
         },
         "ABL_RL2_ActivationLevelStatus": {
           "start_bit": 1,
@@ -1525,7 +1838,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL2"
+          ]
         },
         "ABL_RL2_ActivationPhase": {
           "start_bit": 9,
@@ -1589,7 +1906,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RL2"
+          ]
         }
       }
     },
@@ -1622,7 +1943,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RR1"
+          ]
         },
         "ABL_RR1_ActivationLevelStatus": {
           "start_bit": 1,
@@ -1738,7 +2063,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RR1"
+          ]
         },
         "ABL_RR1_ActivationPhase": {
           "start_bit": 9,
@@ -1802,7 +2131,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ABL",
+            "RR1"
+          ]
         }
       }
     },
@@ -1896,7 +2229,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ACR",
+            "FL"
+          ]
         },
         "ACR_FR_RetractRequest": {
           "start_bit": 8,
@@ -1980,7 +2317,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ACR",
+            "FR"
+          ]
         },
         "ACR_RL1_RetractRequest": {
           "start_bit": 16,
@@ -2064,7 +2405,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ACR",
+            "RL1"
+          ]
         },
         "ACR_RL2_RetractRequest": {
           "start_bit": 24,
@@ -2148,7 +2493,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ACR",
+            "RL2"
+          ]
         },
         "ACR_RR1_RetractRequest": {
           "start_bit": 32,
@@ -2232,7 +2581,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ACR",
+            "RR1"
+          ]
         }
       }
     },
@@ -2365,7 +2718,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FL"
+          ]
         },
         "ACR_FL_ActivationPhase": {
           "start_bit": 8,
@@ -2380,7 +2737,11 @@
           "description": "FL ACR Actuator Execution Phase for Status Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FL"
+          ]
         },
         "ACR_FL_SpoolFasterClutch": {
           "start_bit": 16,
@@ -2395,7 +2756,11 @@
           "description": "FL ACR Motor for Speed Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FL"
+          ]
         }
       }
     },
@@ -2528,7 +2893,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FR"
+          ]
         },
         "ACR_FR_ActivationPhase": {
           "start_bit": 8,
@@ -2543,7 +2912,11 @@
           "description": "FR ACR Actuator Execution Phase for Status Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FR"
+          ]
         },
         "ACR_FR_SpoolFasterClutch": {
           "start_bit": 16,
@@ -2558,7 +2931,11 @@
           "description": "FR ACR Motor for Speed Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "FR"
+          ]
         }
       }
     },
@@ -2582,7 +2959,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL1"
+          ]
         },
         "ACR_RL1_ActivationPhase": {
           "start_bit": 8,
@@ -2597,7 +2978,11 @@
           "description": "RL1 ACR Actuator Execution Phase for Status Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL1"
+          ]
         },
         "ACR_RL1_SpoolFasterClutch": {
           "start_bit": 16,
@@ -2612,7 +2997,11 @@
           "description": "RL1 ACR Motor for Speed Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL1"
+          ]
         }
       }
     },
@@ -2636,7 +3025,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL2"
+          ]
         },
         "ACR_RL2_ActivationPhase": {
           "start_bit": 8,
@@ -2651,7 +3044,11 @@
           "description": "R2 ACR Actuator Execution Phase for Status Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL2"
+          ]
         },
         "ACR_RL2_SpoolFasterClutch": {
           "start_bit": 16,
@@ -2666,7 +3063,11 @@
           "description": "R2 ACR Motor for Speed Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RL2"
+          ]
         }
       }
     },
@@ -2799,7 +3200,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RR1"
+          ]
         },
         "ACR_RR1_ActivationPhase": {
           "start_bit": 8,
@@ -2814,7 +3219,11 @@
           "description": "RR1 ACR Actuator Execution Phase for Status Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RR1"
+          ]
         },
         "ACR_RR1_SpoolFasterClutch": {
           "start_bit": 16,
@@ -2829,7 +3238,11 @@
           "description": "RR1 ACR Motor for Speed Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ACR",
+            "RR1"
+          ]
         }
       }
     },
@@ -2862,7 +3275,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "BSW",
+            "FL"
+          ]
         },
         "BSW_FR_BuckleStatus": {
           "start_bit": 1,
@@ -2886,7 +3303,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "BSW",
+            "FR"
+          ]
         },
         "BSW_RL1_BuckleStatus": {
           "start_bit": 2,
@@ -2910,7 +3331,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "BSW",
+            "RL1"
+          ]
         },
         "BSW_RL2_BuckleStatus": {
           "start_bit": 3,
@@ -2934,7 +3359,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "BSW",
+            "RL2"
+          ]
         },
         "BSW_RR1_BuckleStatus": {
           "start_bit": 4,
@@ -2958,7 +3387,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "BSW",
+            "RR1"
+          ]
         }
       }
     },
@@ -2992,7 +3425,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ELK",
+            "FL"
+          ]
         },
         "ELK_FR_LockingRequest": {
           "start_bit": 1,
@@ -3016,7 +3453,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ELK",
+            "FR"
+          ]
         },
         "ELK_RL1_LockingRequest": {
           "start_bit": 2,
@@ -3040,7 +3481,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ELK",
+            "RL1"
+          ]
         },
         "ELK_RL2_LockingRequest": {
           "start_bit": 3,
@@ -3064,7 +3509,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ELK",
+            "RL2"
+          ]
         },
         "ELK_RR1_LockingRequest": {
           "start_bit": 4,
@@ -3088,7 +3537,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ELK",
+            "RR1"
+          ]
         }
       }
     },
@@ -3122,7 +3575,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ELK",
+            "FL"
+          ]
         },
         "ELK_FR_LockingStatus": {
           "start_bit": 2,
@@ -3146,7 +3603,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ELK",
+            "FR"
+          ]
         },
         "ELK_RL1_LockingStatus": {
           "start_bit": 4,
@@ -3170,7 +3631,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ELK",
+            "RL1"
+          ]
         },
         "ELK_RL2_LockingStatus": {
           "start_bit": 6,
@@ -3194,7 +3659,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ELK",
+            "RL2"
+          ]
         },
         "ELK_RR1_LockingStatus": {
           "start_bit": 8,
@@ -3218,7 +3687,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "ELK",
+            "RR1"
+          ]
         }
       }
     },
@@ -3398,7 +3871,11 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_ColorBlue_byte": {
           "start_bit": 8,
@@ -3413,7 +3890,11 @@
           "description": "Intensity for Color Blue on FL Buckle",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_ColorRed_byte": {
           "start_bit": 16,
@@ -3428,7 +3909,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_Intensity_perc": {
           "start_bit": 24,
@@ -3443,7 +3928,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_Normalization_bool": {
           "start_bit": 31,
@@ -3458,7 +3947,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_Transitionspeed_nibble": {
           "start_bit": 32,
@@ -3473,7 +3966,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_GroupOrModule_bool": {
           "start_bit": 36,
@@ -3488,7 +3985,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_AddressByte0_byte": {
           "start_bit": 37,
@@ -3503,7 +4004,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         },
         "ISB_FL_AddressByte1_byte": {
           "start_bit": 45,
@@ -3518,7 +4023,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FL"
+          ]
         }
       }
     },
@@ -3543,7 +4052,11 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_ColorBlue": {
           "start_bit": 8,
@@ -3558,7 +4071,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_ColorRed": {
           "start_bit": 16,
@@ -3573,7 +4090,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_Intensity_perc": {
           "start_bit": 24,
@@ -3588,7 +4109,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_Normalization": {
           "start_bit": 31,
@@ -3603,7 +4128,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_Transitionspeed": {
           "start_bit": 32,
@@ -3618,7 +4147,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_GroupOrModule": {
           "start_bit": 36,
@@ -3633,7 +4166,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_AddressByte0": {
           "start_bit": 37,
@@ -3648,7 +4185,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         },
         "ISB_FR_AddressByte1": {
           "start_bit": 45,
@@ -3663,7 +4204,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "FR"
+          ]
         }
       }
     },
@@ -3688,7 +4233,11 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_ColorBlue": {
           "start_bit": 8,
@@ -3703,7 +4252,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_ColorRed": {
           "start_bit": 16,
@@ -3718,7 +4271,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_Intensity": {
           "start_bit": 24,
@@ -3733,7 +4290,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_Normalization": {
           "start_bit": 31,
@@ -3748,7 +4309,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_Transitionspeed": {
           "start_bit": 32,
@@ -3763,7 +4328,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_GroupOrModule": {
           "start_bit": 36,
@@ -3778,7 +4347,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_AddressByte0": {
           "start_bit": 37,
@@ -3793,7 +4366,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         },
         "ISB_RL1_AddressByte1": {
           "start_bit": 45,
@@ -3808,7 +4385,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL1"
+          ]
         }
       }
     },
@@ -3833,7 +4414,11 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_ColorBlue": {
           "start_bit": 8,
@@ -3848,7 +4433,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_ColorRed": {
           "start_bit": 16,
@@ -3863,7 +4452,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_Intensity": {
           "start_bit": 24,
@@ -3878,7 +4471,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_Normalization": {
           "start_bit": 31,
@@ -3893,7 +4490,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_Transitionspeed": {
           "start_bit": 32,
@@ -3908,7 +4509,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_GroupOrModule": {
           "start_bit": 36,
@@ -3923,7 +4528,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_AddressByte0": {
           "start_bit": 37,
@@ -3938,7 +4547,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         },
         "ISB_RL2_AddressByte1": {
           "start_bit": 45,
@@ -3953,7 +4566,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RL2"
+          ]
         }
       }
     },
@@ -3978,7 +4595,11 @@
           "description": "Color Code for ISB with RGB and Intensity requested by HMI",
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_ColorBlue": {
           "start_bit": 8,
@@ -3993,7 +4614,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_ColorRed": {
           "start_bit": 16,
@@ -4008,7 +4633,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_Intensity": {
           "start_bit": 24,
@@ -4023,7 +4652,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_Normalization": {
           "start_bit": 31,
@@ -4038,7 +4671,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_Transitionspeed": {
           "start_bit": 32,
@@ -4053,7 +4690,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_GroupOrModule": {
           "start_bit": 36,
@@ -4068,7 +4709,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_AddressByte0": {
           "start_bit": 37,
@@ -4083,7 +4728,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         },
         "ISB_RR1_AddressByte1": {
           "start_bit": 45,
@@ -4098,7 +4747,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "ISB",
+            "RR1"
+          ]
         }
       }
     },
@@ -4123,7 +4776,11 @@
           "description": "Webbing Payout measured by ACR spool rotation",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FL"
+          ]
         },
         "WMS_FL_SpoolAngle_deg": {
           "start_bit": 13,
@@ -4138,7 +4795,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FL"
+          ]
         },
         "WMS_FL_SensorStatus_bool": {
           "start_bit": 27,
@@ -4153,7 +4814,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FL"
+          ]
         }
       }
     },
@@ -4178,7 +4843,11 @@
           "description": "Webbing Payout measured by ACR spool rotation",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FR"
+          ]
         },
         "WMS_FR_SpoolAngle": {
           "start_bit": 13,
@@ -4193,7 +4862,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FR"
+          ]
         },
         "WMS_FR_SensorStatus": {
           "start_bit": 27,
@@ -4208,7 +4881,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "FR"
+          ]
         }
       }
     },
@@ -4233,7 +4910,11 @@
           "description": "Webbing Payout measured by ACR spool rotation",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL1"
+          ]
         },
         "WMS_RL1_SpoolAngle": {
           "start_bit": 13,
@@ -4248,7 +4929,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL1"
+          ]
         },
         "WMS_RL1_SensorStatus": {
           "start_bit": 27,
@@ -4263,7 +4948,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL1"
+          ]
         }
       }
     },
@@ -4288,7 +4977,11 @@
           "description": "Webbing Payout measured by ACR spool rotation",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL2"
+          ]
         },
         "WMS_RL2_SpoolAngle": {
           "start_bit": 13,
@@ -4303,7 +4996,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL2"
+          ]
         },
         "WMS_RL2_SensorStatus": {
           "start_bit": 27,
@@ -4318,7 +5015,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RL2"
+          ]
         }
       }
     },
@@ -4343,7 +5044,11 @@
           "description": "Webbing Payout measured by ACR spool rotation",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RR1"
+          ]
         },
         "WMS_RR1_SpoolAngle": {
           "start_bit": 13,
@@ -4358,7 +5063,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RR1"
+          ]
         },
         "WMS_RR1_SensorStatus": {
           "start_bit": 27,
@@ -4373,7 +5082,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "WMS",
+            "RR1"
+          ]
         }
       }
     },
@@ -4397,7 +5110,11 @@
           "description": "FL Seat x-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FL"
+          ]
         },
         "SPS_FL_SeatDirectionZ": {
           "start_bit": 12,
@@ -4412,7 +5129,11 @@
           "description": "FL Seat z-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FL"
+          ]
         },
         "SPS_FL_SeatBackRestPosition": {
           "start_bit": 24,
@@ -4427,7 +5148,11 @@
           "description": "FL Seat BackRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FL"
+          ]
         },
         "SPS_FL_FootRestPosition": {
           "start_bit": 36,
@@ -4442,7 +5167,11 @@
           "description": "FL Seat FootRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FL"
+          ]
         },
         "SPS_FL_HeadRestPosition": {
           "start_bit": 48,
@@ -4457,7 +5186,11 @@
           "description": "FL Seat HeadRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FL"
+          ]
         }
       }
     },
@@ -4481,7 +5214,11 @@
           "description": "FR Seat x-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FR"
+          ]
         },
         "SPS_FR_SeatDirectionZ": {
           "start_bit": 12,
@@ -4496,7 +5233,11 @@
           "description": "FR Seat z-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FR"
+          ]
         },
         "SPS_FR_SeatBackRestPosition": {
           "start_bit": 24,
@@ -4511,7 +5252,11 @@
           "description": "FR Seat BackRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FR"
+          ]
         },
         "SPS_FR_FootRestPosition": {
           "start_bit": 36,
@@ -4526,7 +5271,11 @@
           "description": "FR Seat FootRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FR"
+          ]
         },
         "SPS_FR_HeadRestPosition": {
           "start_bit": 48,
@@ -4541,7 +5290,11 @@
           "description": "FR Seat HeadRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "FR"
+          ]
         }
       }
     },
@@ -4576,7 +5329,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OutOfPosition": {
           "start_bit": 3,
@@ -4591,7 +5348,11 @@
           "description": "OMS Out Of for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantWeightMean_kg": {
           "start_bit": 15,
@@ -4606,7 +5367,11 @@
           "description": "OMS Occupant for Weight Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantWeightStd_kg": {
           "start_bit": 23,
@@ -4621,7 +5386,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantHeightMean_cm": {
           "start_bit": 31,
@@ -4636,7 +5405,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantHeightStd_cm": {
           "start_bit": 39,
@@ -4651,7 +5424,11 @@
           "description": "OMS Occupant for Lenght Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_ChildSeatDetected_bool": {
           "start_bit": 47,
@@ -4666,7 +5443,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_SeatbeltMisuse_bool": {
           "start_bit": 48,
@@ -4681,7 +5462,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantGender": {
           "start_bit": 49,
@@ -4696,7 +5481,11 @@
           "description": "OMS Torso for Angle Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         },
         "OMS_RL1_OccupantPresence_bool": {
           "start_bit": 51,
@@ -4711,7 +5500,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL1"
+          ]
         }
       }
     },
@@ -4746,7 +5539,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OutOfPosition": {
           "start_bit": 3,
@@ -4761,7 +5558,11 @@
           "description": "OMS Out Of for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantWeightMean_kg": {
           "start_bit": 15,
@@ -4776,7 +5577,11 @@
           "description": "OMS Occupant for Weight Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantWeightStd_kg": {
           "start_bit": 23,
@@ -4791,7 +5596,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantHeightMean_cm": {
           "start_bit": 31,
@@ -4806,7 +5615,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantHeightStd_cm": {
           "start_bit": 39,
@@ -4821,7 +5634,11 @@
           "description": "OMS Occupant for Lenght Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_ChildSeatDetected_bool": {
           "start_bit": 47,
@@ -4836,7 +5653,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_SeatbeltMisuse_bool": {
           "start_bit": 48,
@@ -4851,7 +5672,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantGender": {
           "start_bit": 49,
@@ -4866,7 +5691,11 @@
           "description": "OMS Torso for Angle Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         },
         "OMS_RR1_OccupantPresence_bool": {
           "start_bit": 51,
@@ -4881,7 +5710,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RR1"
+          ]
         }
       }
     },
@@ -4903,7 +5736,11 @@
           "description": "RR1 Seat x-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RR1"
+          ]
         },
         "SPS_RR1_SeatDirectionZ": {
           "start_bit": 12,
@@ -4918,7 +5755,11 @@
           "description": "RR1 Seat z-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RR1"
+          ]
         },
         "SPS_RR1_SeatBackRestPosition": {
           "start_bit": 24,
@@ -4933,7 +5774,11 @@
           "description": "RR1 Seat BackRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RR1"
+          ]
         },
         "SPS_RR1_FootRestPosition": {
           "start_bit": 36,
@@ -4948,7 +5793,11 @@
           "description": "RR1 Seat FootRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RR1"
+          ]
         },
         "SPS_RR1_HeadRestPosition": {
           "start_bit": 48,
@@ -4963,7 +5812,11 @@
           "description": "RR1 Seat HeadRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RR1"
+          ]
         }
       }
     },
@@ -4985,7 +5838,11 @@
           "description": "RL2 Seat x-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL2"
+          ]
         },
         "SPS_RL2_SeatDirectionZ": {
           "start_bit": 12,
@@ -5000,7 +5857,11 @@
           "description": "RL2 Seat z-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL2"
+          ]
         },
         "SPS_RL2_SeatBackRestPosition": {
           "start_bit": 24,
@@ -5015,7 +5876,11 @@
           "description": "RL2 Seat BackRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL2"
+          ]
         },
         "SPS_RL2_FootRestPosition": {
           "start_bit": 36,
@@ -5030,7 +5895,11 @@
           "description": "RL2 Seat FootRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL2"
+          ]
         },
         "SPS_RL2_HeadRestPosition": {
           "start_bit": 48,
@@ -5045,7 +5914,11 @@
           "description": "RL2 Seat HeadRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL2"
+          ]
         }
       }
     },
@@ -5067,7 +5940,11 @@
           "description": "RL1 Seat x-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL1"
+          ]
         },
         "SPS_RL1_SeatDirectionZ": {
           "start_bit": 12,
@@ -5082,7 +5959,11 @@
           "description": "RL1 Seat z-for Direction Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL1"
+          ]
         },
         "SPS_RL1_SeatBackRestPosition": {
           "start_bit": 24,
@@ -5097,7 +5978,11 @@
           "description": "RL1 Seat BackRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL1"
+          ]
         },
         "SPS_RL1_FootRestPosition": {
           "start_bit": 36,
@@ -5112,7 +5997,11 @@
           "description": "RL1 Seat FootRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL1"
+          ]
         },
         "SPS_RL1_HeadRestPosition": {
           "start_bit": 48,
@@ -5127,7 +6016,11 @@
           "description": "RL1 Seat HeadRest for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "SPS",
+            "RL1"
+          ]
         }
       }
     },
@@ -5162,7 +6055,11 @@
             }
           ],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OutOfPosition": {
           "start_bit": 3,
@@ -5177,7 +6074,11 @@
           "description": "OMS Out Of for Position Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantWeightMean_kg": {
           "start_bit": 15,
@@ -5192,7 +6093,11 @@
           "description": "OMS Occupant for Weight Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantWeightStd_kg": {
           "start_bit": 23,
@@ -5207,7 +6112,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantHeightMean_cm": {
           "start_bit": 31,
@@ -5222,7 +6131,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantHeightStd_cm": {
           "start_bit": 39,
@@ -5237,7 +6150,11 @@
           "description": "OMS Occupant for Lenght Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_ChildSeatDetected_bool": {
           "start_bit": 47,
@@ -5252,7 +6169,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_SeatbeltMisuse_bool": {
           "start_bit": 48,
@@ -5267,7 +6188,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantGender": {
           "start_bit": 49,
@@ -5282,7 +6207,11 @@
           "description": "OMS Torso for Angle Actuator",
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         },
         "OMS_RL2_OccupantPresence_bool": {
           "start_bit": 51,
@@ -5297,7 +6226,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "OMS",
+            "RL2"
+          ]
         }
       }
     },
@@ -5319,7 +6252,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "VEH",
+            "FL"
+          ]
         },
         "VEH_FR_DoorStatus": {
           "start_bit": 1,
@@ -5334,7 +6271,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "VEH",
+            "FR"
+          ]
         },
         "VEH_RL_DoorStatus": {
           "start_bit": 2,
@@ -5349,7 +6290,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "VEH",
+            "RL"
+          ]
         },
         "VEH_RR_DoorStatus": {
           "start_bit": 3,
@@ -5364,7 +6309,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": false
+          "TX": false,
+          "tag": [
+            "VEH",
+            "RR"
+          ]
         }
       }
     },
@@ -5401,7 +6350,11 @@
             }
           ],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HMI",
+            "SEAL"
+          ]
         }
       }
     },
@@ -5426,7 +6379,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "FR"
+          ]
         },
         "HB_PowerOut_RL1": {
           "start_bit": 8,
@@ -5441,7 +6398,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL1"
+          ]
         },
         "HB_PowerOut_RL2": {
           "start_bit": 16,
@@ -5456,7 +6417,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL2"
+          ]
         },
         "HB_PowerOut_RR1": {
           "start_bit": 24,
@@ -5471,7 +6436,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RR1"
+          ]
         }
       }
     },
@@ -5496,7 +6465,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "FR"
+          ]
         },
         "HB_Request_RL1": {
           "start_bit": 2,
@@ -5511,7 +6484,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL1"
+          ]
         },
         "HB_Request_RL2": {
           "start_bit": 4,
@@ -5526,7 +6503,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL2"
+          ]
         },
         "HB_Request_RR1": {
           "start_bit": 6,
@@ -5541,7 +6522,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RR1"
+          ]
         },
         "HB_IncarTemp_dgradC": {
           "start_bit": 8,
@@ -5556,7 +6541,10 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB"
+          ]
         }
       }
     },
@@ -5586,7 +6574,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "FR"
+          ]
         },
         "HB_TempOut_RL1": {
           "start_bit": 16,
@@ -5601,7 +6593,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL1"
+          ]
         },
         "HB_TempOut_RL2": {
           "start_bit": 32,
@@ -5616,7 +6612,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RL2"
+          ]
         },
         "HB_TempOut_RR1": {
           "start_bit": 48,
@@ -5631,7 +6631,11 @@
           "description": null,
           "states": [],
           "RX": true,
-          "TX": true
+          "TX": true,
+          "tag": [
+            "HB",
+            "RR1"
+          ]
         }
       }
     }

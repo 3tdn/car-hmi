@@ -303,6 +303,28 @@ function getKnownSignalNames() {
   return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
 
+function getKnownSignalTags() {
+  const tags = new Set();
+  signalMetadataCache.forEach((meta, signalName) => {
+    const metaTags = Array.isArray(meta?.tag) && meta.tag.length
+      ? meta.tag
+      : signalName.split('_').filter((part) => /^[A-Z]+$/.test(part));
+    metaTags.forEach((tag) => {
+      if (tag) tags.add(tag);
+    });
+  });
+  return Array.from(tags).sort((a, b) => a.localeCompare(b));
+}
+
+function getSignalsForTag(tag) {
+  if (!tag) return [];
+  return Array.from(signalMetadataCache.values())
+    .filter((meta) => Array.isArray(meta?.tag) && meta.tag.includes(tag))
+    .map((meta) => meta.signal_name)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+}
+
 function ensureProfileManagerModal() {
   let modal = document.getElementById('profile-manager-modal');
   if (modal) return modal;
@@ -349,6 +371,11 @@ function ensureProfileManagerModal() {
               <select id="profile-signal-select"></select>
             </label>
             <button id="profile-add-signal-btn" class="btn">Add Signal</button>
+            <label class="profile-signal-tools__picker">
+              <span>Known tag</span>
+              <select id="profile-tag-select"></select>
+            </label>
+            <button id="profile-add-tag-btn" class="btn">Add Tag</button>
           </div>
           <label class="profile-signal-editor">
             <span>Signals</span>
@@ -372,6 +399,7 @@ function ensureProfileManagerModal() {
     renderProfileManager();
   });
   modal.querySelector('#profile-add-signal-btn').addEventListener('click', addSelectedSignalToProfileForm);
+  modal.querySelector('#profile-add-tag-btn').addEventListener('click', addSelectedTagToProfileForm);
   modal.querySelector('#profile-save-btn').addEventListener('click', saveProfileFromModal);
   modal.querySelector('#profile-delete-btn').addEventListener('click', deleteProfileFromModal);
   modal.querySelector('#profile-form-signals').addEventListener('input', renderProfileSignalPicker);
@@ -467,12 +495,22 @@ function renderProfileSignalPicker() {
     : '<option value="">No more known signals</option>';
 }
 
+function renderProfileTagPicker() {
+  const select = document.getElementById('profile-tag-select');
+  if (!select) return;
+  const options = getKnownSignalTags();
+  select.innerHTML = options.length
+    ? options.map((tag) => `<option value="${tag}">${tag}</option>`).join('')
+    : '<option value="">No known tags</option>';
+}
+
 function renderProfileManager() {
   ensureProfileManagerModal();
   renderProfileList();
   renderProfileSessionSummary();
   fillProfileForm(profileModalState.mode === 'edit' ? getEditingProfile() : null);
   renderProfileSignalPicker();
+  renderProfileTagPicker();
   const deleteBtn = document.getElementById('profile-delete-btn');
   if (deleteBtn) deleteBtn.style.display = profileModalState.mode === 'edit' ? 'inline-flex' : 'none';
 }
@@ -528,6 +566,17 @@ function addSelectedSignalToProfileForm() {
   if (!signals.includes(select.value)) signals.push(select.value);
   writeSignalsToForm(signals);
   renderProfileSignalPicker();
+}
+
+function addSelectedTagToProfileForm() {
+  const select = document.getElementById('profile-tag-select');
+  if (!select || !select.value) return;
+  const tag = select.value;
+  const signals = new Set(readSignalsFromForm());
+  getSignalsForTag(tag).forEach((signalName) => signals.add(signalName));
+  writeSignalsToForm(Array.from(signals).sort((a, b) => a.localeCompare(b)));
+  renderProfileSignalPicker();
+  renderProfileTagPicker();
 }
 
 async function openProfileManagementModal() {

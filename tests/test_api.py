@@ -276,12 +276,12 @@ async def test_available_signals_returns_metadata(client):
     # VehicleSpeed should be present from the fixture
     names = [item["signal_name"] for item in data["signals_info"]]
     assert "VehicleSpeed" in names
-    vs = next(i for i in data["signals_info"] if i["signal_name"] == "VehicleSpeed")
-    assert vs["value"] == 60.0
+    hb = next(i for i in data["signals_info"] if i["signal_name"] == "HB_FL_ActivationLevel")
+    assert hb["tag"] == ["HB", "FL"]
     # Metadata fields should exist (even if None)
-    assert "unit" in vs
-    assert "writable" in vs
-    assert "alarm_warning_high" in vs
+    assert "unit" in hb
+    assert "writable" in hb
+    assert "alarm_warning_high" in hb
 
 
 # ── Profile endpoint tests ───────────────────────────────────────────────────

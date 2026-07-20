@@ -30,6 +30,10 @@ router = APIRouter()
 ws_router = APIRouter()
 
 
+def _infer_signal_tags(signal_name: str) -> list[str]:
+    return [part for part in signal_name.split("_") if part.isalpha() and part.isupper()]
+
+
 def _batch_access_context(request: Request, required: str) -> tuple[str | None, dict | None, list[dict]]:
     try:
         profile_name, profile, _ = get_profile_context(
@@ -144,6 +148,7 @@ async def list_available_signals(request: Request):
                     "unit": sig_data.get("unit") or None,
                     "writable": bool(sig_data.get("TX", False)),
                     "states": sig_data.get("states") or None,
+                    "tag": sig_data.get("tag") or _infer_signal_tags(sig_name) or None,
                 })
 
     # Load alarm configs
@@ -169,6 +174,7 @@ async def list_available_signals(request: Request):
                 signal_name=name,
                 std_name=std_name,
                 unit=sig_cfg.get("unit") or (getattr(sv, "unit", None) if sv else None),
+                tag=sig_cfg.get("tag"),
                 min_value=sig_cfg.get("min_value"),
                 max_value=sig_cfg.get("max_value"),
                 writable=sig_cfg.get("writable", False),
