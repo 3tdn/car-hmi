@@ -433,11 +433,26 @@ class ClientProfileSession(BaseModel):
     status: Literal["online", "offline"] = Field(..., description="Trạng thái online/offline theo TTL")
 
 
+class ProfileSessionProfileStat(BaseModel):
+    """Thống kê số session theo từng profile active."""
+
+    profile_name: str = Field(..., description="Tên profile đang được session kích hoạt")
+    total: int = Field(..., description="Tổng số session đang active profile này")
+    online: int = Field(..., description="Số session online của profile này")
+    offline: int = Field(..., description="Số session offline của profile này")
+
+
 class ProfileSessionsResponse(BaseModel):
     """Danh sách session active profile theo từng client."""
 
     sessions: list[ClientProfileSession] = Field(default_factory=list, description="Danh sách map client -> active profile")
     total: int = Field(..., description="Tổng số session client")
+    online_total: int = Field(0, description="Tổng số session đang online")
+    offline_total: int = Field(0, description="Tổng số session đang offline")
+    by_profile: list[ProfileSessionProfileStat] = Field(
+        default_factory=list,
+        description="Thống kê số session active theo từng profile",
+    )
     global_active: str | None = Field(None, description="Active profile mặc định ở mức global")
     ttl_seconds: int = Field(..., description="TTL dùng để đánh giá online/offline")
     server_time: float = Field(..., description="Unix timestamp hiện tại trên server")

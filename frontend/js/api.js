@@ -13,6 +13,7 @@
  *   GET  /api/profiles               → listProfiles()
  *   GET  /api/profile[?name=x]       → fetchProfile(name?)
  *   GET  /api/profile/sessions       → listProfileSessions()
+ *   POST /api/profile/offline        → markProfileSessionOffline()
  *   PUT  /api/profile/active         → setActiveProfile(name)
  *   POST /api/profile                → createProfile(body)
  *   PUT  /api/profile                → updateProfile(body)   [optimistic lock: section_id]
@@ -260,6 +261,17 @@ async function listProfileSessions(options = {}) {
  */
 async function heartbeatProfileSession() {
   return _fetchJson(`${API_BASE}/api/profile/heartbeat`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+/**
+ * Đánh dấu session profile của client là offline ngay lập tức.
+ * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
+ */
+async function markProfileSessionOffline() {
+  return _fetchJson(`${API_BASE}/api/profile/offline`, {
     method: "POST",
     headers: _headers(),
   });

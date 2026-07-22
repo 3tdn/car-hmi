@@ -22,6 +22,7 @@ from src.api.models import (
     ClientProfileSession,
     ProfileCreate,
     ProfileHeartbeatResponse,
+    ProfileSessionProfileStat,
     ProfileResponse,
     ProfileSessionsResponse,
     ProfileSetActiveRequest,
@@ -283,6 +284,26 @@ def _touch_client_session(data: dict[str, Any], client_id: str, *, active: str |
     return state
 
 
+def _mark_client_session_offline(data: dict[str, Any], client_id: str, *, now: float | None = None) -> dict[str, Any]:
+    """Đánh dấu session offline ngay lập tức bằng cách đẩy last_seen ra ngoài TTL."""
+    timestamp = now if now is not None else time.time()
+    sessions = _client_sessions(data)
+    state = sessions.get(client_id)
+    if not isinstance(state, dict):
+        state = {}
+
+    active = state.get("active")
+    if not active:
+        active = _resolve_target_profile(data, profile_name=None, client_id=client_id)
+        if active:
+            state["active"] = active
+
+    state["updated_at"] = timestamp
+    state["last_seen"] = timestamp - float(SESSION_ONLINE_TTL_SECONDS + 1)
+    sessions[client_id] = state
+    return state
+
+
 def _is_dev_mode(request: Request) -> bool:
     return str(request.headers.get(DEV_MODE_HEADER, "")).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -498,21 +519,66 @@ async def list_profile_sessions(request: Request):
         _save(data)
     sessions = _client_sessions(data)
 
-    items = [
-        ClientProfileSession(
-            client_id=client_id,
-            active=state.get("active"),
-            updated_at=float(state.get("updated_at", 0)),
-            last_seen=_session_last_seen(state),
-            status="online" if _session_is_online(state, now=now) else "offline",
+    items: list[ClientProfileSession] = []
+    online_total = 0
+    offline_total = 0
+    stats_by_profile: dict[str, dict[str, int]] = {}
+
+    for client_id, state in sessions.items():
+        if not isinstance(state, dict):
+            continue
+        active = state.get("active")
+        if not active:
+            continue
+
+        is_online = _session_is_online(state, now=now)
+        session_status = "online" if is_online else "offline"
+        if is_online:
+            online_total += 1
+        else:
+            offline_total += 1
+
+        profile_stat = stats_by_profile.setdefault(
+            active,
+            {"total": 0, "online": 0, "offline": 0},
         )
-        for client_id, state in sessions.items()
-        if isinstance(state, dict) and state.get("active")
+        profile_stat["total"] += 1
+        if is_online:
+            profile_stat["online"] += 1
+        else:
+            profile_stat["offline"] += 1
+
+        items.append(
+            ClientProfileSession(
+                client_id=client_id,
+                active=active,
+                updated_at=float(state.get("updated_at", 0)),
+                last_seen=_session_last_seen(state),
+                status=session_status,
+            )
+        )
+
+    by_profile = [
+        ProfileSessionProfileStat(
+            profile_name=profile_name,
+            total=stat["total"],
+            online=stat["online"],
+            offline=stat["offline"],
+        )
+        for profile_name, stat in sorted(
+            stats_by_profile.items(),
+            key=lambda item: item[1]["total"],
+            reverse=True,
+        )
     ]
+
     items.sort(key=lambda item: item.updated_at, reverse=True)
     return ProfileSessionsResponse(
         sessions=items,
         total=len(items),
+        online_total=online_total,
+        offline_total=offline_total,
+        by_profile=by_profile,
         global_active=data.get("active"),
         ttl_seconds=SESSION_ONLINE_TTL_SECONDS,
         server_time=now,
@@ -543,6 +609,38 @@ async def profile_heartbeat(request: Request):
 
     active = _resolve_target_profile(data, profile_name=None, client_id=client_id)
     state = _touch_client_session(data, client_id, active=active, now=now)
+    _save(data)
+    return ProfileHeartbeatResponse(
+        client_id=client_id,
+        active=state.get("active"),
+        last_seen=_session_last_seen(state),
+        ttl_seconds=SESSION_ONLINE_TTL_SECONDS,
+    )
+
+
+@router.post(
+    "/profile/offline",
+    response_model=ProfileHeartbeatResponse,
+    summary="Mark client profile session offline",
+)
+async def profile_offline(request: Request):
+    """Đánh dấu session client offline ngay khi frontend mất realtime connection."""
+    client_id = _normalized_client_id(request.headers.get(CLIENT_ID_HEADER))
+    if not client_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=build_access_warning(
+                "client_id_required",
+                f"Header '{CLIENT_ID_HEADER}' is required for offline update",
+            ),
+        )
+
+    data = _load()
+    now = time.time()
+    if _cleanup_sessions(data, now=now):
+        _save(data)
+
+    state = _mark_client_session_offline(data, client_id, now=now)
     _save(data)
     return ProfileHeartbeatResponse(
         client_id=client_id,

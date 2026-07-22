@@ -12,10 +12,15 @@ const FRONTEND_MODE = (window.FRONTEND_MODE || 'dev').toLowerCase();
 let currentProfile = null;
 let availableProfiles = [];
 let profileSessions = [];
+let profileSessionStats = [];
+let profileSessionStatsByName = new Map();
+let profileSessionsOnlineTotal = 0;
+let profileSessionsOfflineTotal = 0;
 let permissionNoticeTimer = null;
 let profileModalState = { mode: 'create', name: null, sectionId: null };
 let pendingDangerAction = { key: null, expiresAt: 0 };
 let profileHeartbeatTimer = null;
+let realtimeDisconnected = false;
 
 // Whitelist of signals to show in `user` mode (provided by user request).
 const USER_SIGNAL_WHITELIST = [
@@ -285,9 +290,16 @@ function renderProfileSelector() {
   const select = wrap.querySelector('#profile-select');
   const chip = wrap.querySelector('#profile-permission-chip');
   if (!select || !chip) return;
+
+  const formatProfileLabel = (profileName) => {
+    const stat = profileSessionStatsByName.get(profileName);
+    if (!stat) return profileName;
+    return `${profileName} (${stat.online}/${stat.total})`;
+  };
+
   select.innerHTML = availableProfiles.map((profile) => {
     const selected = currentProfile?.name === profile.name ? ' selected' : '';
-    return `<option value="${profile.name}"${selected}>${profile.name}</option>`;
+    return `<option value="${profile.name}"${selected}>${formatProfileLabel(profile.name)}</option>`;
   }).join('');
   chip.textContent = currentProfile ? (currentProfile.permission || []).join(', ') : 'No profile';
   chip.className = `profile-permission-chip ${hasProfilePermission('full') ? 'profile-permission-chip--full' : hasProfilePermission('write') ? 'profile-permission-chip--write' : 'profile-permission-chip--read'}`;
@@ -464,12 +476,19 @@ function fillProfileForm(profile) {
 function renderProfileList() {
   const list = document.getElementById('profile-list');
   if (!list) return;
+
+  const formatProfileLabel = (profileName) => {
+    const stat = profileSessionStatsByName.get(profileName);
+    if (!stat) return profileName;
+    return `${profileName} (${stat.online}/${stat.total})`;
+  };
+
   list.innerHTML = availableProfiles.map((profile) => {
     const isSelected = profile.name === profileModalState.name;
     const isCurrent = profile.name === currentProfile?.name;
     return `
       <button class="profile-list__item ${isSelected ? 'profile-list__item--selected' : ''}" data-profile-name="${profile.name}">
-        <span class="profile-list__name">${profile.name}</span>
+        <span class="profile-list__name">${formatProfileLabel(profile.name)}</span>
         <span class="profile-list__meta">${(profile.permission || []).join(', ')}${isCurrent ? ' • active' : ''}</span>
       </button>
     `;
@@ -519,8 +538,16 @@ async function refreshProfileSessions() {
   try {
     const sessionsData = await listProfileSessions({ devMode: FRONTEND_MODE === 'dev' });
     profileSessions = sessionsData.sessions || [];
+    profileSessionStats = sessionsData.by_profile || [];
+    profileSessionStatsByName = new Map(profileSessionStats.map((item) => [item.profile_name, item]));
+    profileSessionsOnlineTotal = Number(sessionsData.online_total || 0);
+    profileSessionsOfflineTotal = Number(sessionsData.offline_total || 0);
   } catch (error) {
     profileSessions = [];
+    profileSessionStats = [];
+    profileSessionStatsByName = new Map();
+    profileSessionsOnlineTotal = 0;
+    profileSessionsOfflineTotal = 0;
     showPermissionWarnings(normalizeWarnings(error.payload || error), 'profile-sessions');
   }
 }
@@ -535,6 +562,12 @@ function renderProfileSessionSummary() {
     ? `Client ${clientId} -> ${ownSession.active}`
     : `Client ${clientId || 'unknown'} -> global fallback`;
 
+  const activeProfileName = currentProfile?.name || getProfileName() || '';
+  const activeProfileStat = activeProfileName ? profileSessionStatsByName.get(activeProfileName) : null;
+  const activeProfileText = activeProfileStat
+    ? `${activeProfileName}: ${activeProfileStat.online}/${activeProfileStat.total} devices online`
+    : (activeProfileName ? `${activeProfileName}: 0 devices` : 'No active profile');
+
   const others = profileSessions
     .filter((session) => session.client_id !== clientId)
     .slice(0, 5)
@@ -542,10 +575,13 @@ function renderProfileSessionSummary() {
     .join(' | ');
   const othersText = others || 'No other client sessions';
 
-  el.textContent = `${ownText}. Others: ${othersText}`;
+  el.textContent = `${ownText}. Devices online: ${profileSessionsOnlineTotal}/${profileSessions.length} (offline: ${profileSessionsOfflineTotal}). ${activeProfileText}. Others: ${othersText}`;
 }
 
 async function sendProfileHeartbeat() {
+  // Fallback heartbeat: cho phép khi chưa từng xác nhận mất kết nối realtime.
+  // Khi đã nhận event disconnect, dừng heartbeat để tránh giữ session online sai.
+  if (!isRealtimeConnected() && realtimeDisconnected) return;
   try {
     await heartbeatProfileSession();
   } catch (error) {
@@ -672,6 +708,7 @@ async function refreshProfileContext() {
     const selected = profilesData.active || getProfileName() || availableProfiles[0]?.name || '';
     if (selected) setProfileName(selected);
     currentProfile = selected ? await fetchProfile(selected) : null;
+    await refreshProfileSessions();
     renderProfileSelector();
   } catch (error) {
     currentProfile = null;
@@ -983,6 +1020,34 @@ async function loadSnapshot() {
 
 /** @type {{ ws: WebSocket, subscribe: function, unsubscribe: function } | null} */
 let subConn = null;
+/** @type {WebSocket | null} */
+let legacySock = null;
+
+function isRealtimeConnected() {
+  if (subConn?.ws && subConn.ws.readyState === WebSocket.OPEN) return true;
+  if (legacySock && legacySock.readyState === WebSocket.OPEN) return true;
+  return false;
+}
+
+async function handleRealtimeDisconnect() {
+  try {
+    await markProfileSessionOffline();
+  } catch (error) {
+    console.debug('profile offline update failed', error?.message || error);
+  }
+
+  try {
+    await refreshProfileSessions();
+    renderProfileSelector();
+    const modal = document.getElementById('profile-manager-modal');
+    if (modal && modal.style.display === 'block') {
+      renderProfileList();
+      renderProfileSessionSummary();
+    }
+  } catch (error) {
+    console.debug('profile session refresh after disconnect failed', error?.message || error);
+  }
+}
 
 function connect() {
   clearTimeout(reconnectTimer);
@@ -990,9 +1055,14 @@ function connect() {
   if (subConn?.ws && subConn.ws.readyState <= WebSocket.OPEN) {
     try { subConn.ws.close(); } catch (e) {}
   }
+  if (legacySock && legacySock.readyState <= WebSocket.OPEN) {
+    try { legacySock.close(); } catch (e) {}
+    legacySock = null;
+  }
 
   try {
     subConn = openSubscriptionWS(handleMessage, () => {
+      realtimeDisconnected = false;
       badge.textContent   = "Connected";
       badge.className     = "badge badge--connected";
       statusText.textContent = "Live — subscribe protocol active";
@@ -1019,7 +1089,9 @@ function connect() {
       badge.textContent   = "Disconnected";
       badge.className     = "badge badge--disconnected";
       statusText.textContent = "Reconnecting in 5 s…";
+      realtimeDisconnected = true;
       subConn = null;
+      void handleRealtimeDisconnect();
       reconnectTimer = setTimeout(connect, 5000);
     });
 
@@ -1035,9 +1107,11 @@ function connect() {
 
 function connectLegacy() {
   clearTimeout(reconnectTimer);
-  const sock = openWebSocket("all", handleMessage);
+  legacySock = openWebSocket("all", handleMessage);
+  const sock = legacySock;
 
   sock.addEventListener("open", () => {
+    realtimeDisconnected = false;
     badge.textContent   = "Connected";
     badge.className     = "badge badge--connected";
     statusText.textContent = "Live — receiving data via WebSocket (legacy)";
@@ -1047,6 +1121,9 @@ function connectLegacy() {
     badge.textContent   = "Disconnected";
     badge.className     = "badge badge--disconnected";
     statusText.textContent = "Reconnecting in 5 s…";
+    realtimeDisconnected = true;
+    legacySock = null;
+    void handleRealtimeDisconnect();
     reconnectTimer = setTimeout(connect, 5000);
   });
 
@@ -1101,6 +1178,11 @@ function handleMessage(msg) {
   startMetricsPolling();
   initCameraStream();
 })();
+
+window.addEventListener('beforeunload', () => {
+  // Best-effort: fire and forget so backend can reduce online count quickly.
+  void markProfileSessionOffline();
+});
 
 // ── Camera Stream ───────────────────────────────────────────────────────────
 

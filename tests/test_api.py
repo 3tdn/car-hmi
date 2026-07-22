@@ -585,11 +585,18 @@ async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_pat
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
+    assert data["online_total"] == 2
+    assert data["offline_total"] == 0
     assert data["sessions"][0]["client_id"] == "client-a"
     assert data["sessions"][0]["active"] == "viewer"
     assert data["sessions"][0]["status"] == "online"
     assert "last_seen" in data["sessions"][0]
     assert data["ttl_seconds"] > 0
+    by_profile = {item["profile_name"]: item for item in data["by_profile"]}
+    assert by_profile["viewer"]["total"] == 1
+    assert by_profile["viewer"]["online"] == 1
+    assert by_profile["viewer"]["offline"] == 0
+    assert by_profile["admin"]["total"] == 1
 
 
 @pytest.mark.asyncio
@@ -662,6 +669,57 @@ async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
+    """POST /api/profile/offline đánh dấu session offline ngay."""
+    import src.api.routes.profiles as profile_routes
+
+    monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 30)
+
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+    now = time.time()
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            }
+        },
+        client_sessions={
+            "client-a": {"active": "admin", "updated_at": now, "last_seen": now}
+        },
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/profile/offline",
+            headers={"X-API-Key": "test-key", "X-Client-Id": "client-a"},
+        )
+
+        sessions_resp = await c.get(
+            "/api/profile/sessions",
+            headers={"X-API-Key": "test-key", "X-Profile-Name": "admin"},
+        )
+
+    assert resp.status_code == 200
+    offline_payload = resp.json()
+    assert offline_payload["client_id"] == "client-a"
+
+    assert sessions_resp.status_code == 200
+    sessions_data = sessions_resp.json()
+    by_client = {item["client_id"]: item for item in sessions_data["sessions"]}
+    assert by_client["client-a"]["status"] == "offline"
+
+
+@pytest.mark.asyncio
 async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatch, tmp_path):
     """Không prune theo timeout; chỉ trim session offline nằm ngoài top 50 mới nhất."""
     import src.api.routes.profiles as profile_routes
@@ -708,6 +766,8 @@ async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatc
     assert resp.status_code == 200
     payload = resp.json()
     assert payload["total"] == 51
+    assert payload["online_total"] == 51
+    assert payload["offline_total"] == 0
     by_client = {item["client_id"]: item for item in payload["sessions"]}
     assert by_client["fresh-client"]["status"] == "online"
     assert "offline-client" not in by_client
@@ -753,8 +813,14 @@ async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp
 
     assert resp.status_code == 200
     payload = resp.json()
+    assert payload["online_total"] == 1
+    assert payload["offline_total"] == 1
     by_client = {item["client_id"]: item for item in payload["sessions"]}
     assert by_client["offline-client"]["status"] == "offline"
+    by_profile = {item["profile_name"]: item for item in payload["by_profile"]}
+    assert by_profile["admin"]["total"] == 2
+    assert by_profile["admin"]["online"] == 1
+    assert by_profile["admin"]["offline"] == 1
 
 
 @pytest.mark.asyncio
