@@ -1216,6 +1216,7 @@ async def test_legacy_create_second_profile_without_profile_header(monkeypatch, 
         },
     )
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
 
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")
@@ -1232,6 +1233,39 @@ async def test_legacy_create_second_profile_without_profile_header(monkeypatch, 
 
     assert resp.status_code == 201
     assert resp.json()["name"] == "viewer"
+
+
+@pytest.mark.asyncio
+async def test_legacy_mutation_without_headers_denied_by_default(monkeypatch, tmp_path):
+    """Legacy mutate request bị chặn mặc định khi đã có profile."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.put(
+            "/api/profile/active",
+            headers={"X-API-Key": "test-key"},
+            json={"name": "admin"},
+        )
+
+    assert resp.status_code == 403
+    detail = resp.json()["detail"]
+    assert detail["code"] == "profile_headers_required"
 
 
 @pytest.mark.asyncio
@@ -1252,6 +1286,7 @@ async def test_legacy_update_profile_without_permission_field(monkeypatch, tmp_p
         },
     )
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
 
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")
@@ -1308,6 +1343,7 @@ async def test_legacy_delete_profile_without_profile_header(monkeypatch, tmp_pat
     )
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
 
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")
@@ -1348,6 +1384,7 @@ async def test_legacy_set_active_profile_without_profile_header(monkeypatch, tmp
     )
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
 
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")

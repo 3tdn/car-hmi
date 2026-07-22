@@ -449,6 +449,7 @@ curl -X POST http://localhost:8000/config/alarms/reset -H "X-API-Key: your_api_k
 
 Profiles store per-user signal display whitelists in `config/profiles.json`. The first profile created becomes the active profile automatically.
 All mutating APIs now enforce the selected profile's `permission`. Send `X-Profile-Name` on write requests; if omitted, the backend falls back to the active profile.
+Legacy mutation requests without profile headers are disabled by default (except bootstrap when no profile exists yet). Set `profiles.allow_legacy_profile_mutations=true` only for temporary migration.
 When `X-Client-Id` is provided, the backend resolves active profile by client session first, then falls back to global active profile.
 Frontend uses per-tab client identity via session storage and sends `X-Client-Id` automatically.
 For single-signal read/write endpoints, permission or profile-scope violations return `403` with a structured `detail` object including `code`, `profile_name`, `required_permission`, and `signal_name`.
@@ -461,6 +462,7 @@ For bulk reads/writes and WebSocket subscribe, the backend returns `warnings` an
   "profiles": {
     "profiles_path": "config/profiles.json",
     "default_profile_permission": ["read"],
+    "allow_legacy_profile_mutations": false,
     "session_online_ttl_seconds": 600,
     "session_history_limit": 50
   }
