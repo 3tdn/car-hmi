@@ -278,6 +278,24 @@ def _is_dev_mode(request: Request) -> bool:
     return str(request.headers.get(DEV_MODE_HEADER, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
+# ── BEGIN LEGACY COMPAT — Xoá sau khi tất cả frontend đã cập nhật sang profile API mới ──────────
+
+
+def _is_legacy_request(request: Request) -> bool:
+    """Trả True nếu request không gửi X-Profile-Name và X-Client-Id.
+
+    Đây là dấu hiệu của frontend cũ (trước khi có profile permission system).
+    Khi đó, các thao tác mutate được cho phép chỉ cần X-API-Key (như API cũ).
+    """
+    return (
+        not request.headers.get(PROFILE_HEADER)
+        and not request.headers.get(CLIENT_ID_HEADER)
+    )
+
+
+# ── END LEGACY COMPAT ─────────────────────────────────────────────────────────────────────────────
+
+
 def build_access_warning(
     code: str,
     message: str,
@@ -530,8 +548,10 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
 )
 async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
     """Đổi profile active trên server để các client khác cùng nhìn thấy trạng thái mới."""
-    if not _is_dev_mode(request):
+    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
+    if not _is_dev_mode(request) and not _is_legacy_request(request):
         require_profile_permission(request, "full")
+    # END LEGACY COMPAT
 
     data = _load()
     if _cleanup_sessions(data):
@@ -586,7 +606,10 @@ async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
 )
 async def create_profile(body: ProfileCreate, request: Request):
     """Tạo profile mới. Profile đầu tiên sẽ được đặt làm active tự động."""
-    _, _ = require_profile_permission(request, "full", allow_bootstrap=True)
+    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
+    if not _is_legacy_request(request):
+        _, _ = require_profile_permission(request, "full", allow_bootstrap=True)
+    # END LEGACY COMPAT
     data = _load()
     profiles = data.setdefault("profiles", {})
     if body.name in profiles:
@@ -617,7 +640,10 @@ async def update_profile(body: ProfileUpdate, request: Request):
 
     Nếu section_id không khớp → HTTP 409 → client cần GET lại và thử lại.
     """
-    require_profile_permission(request, "full")
+    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
+    if not _is_legacy_request(request):
+        require_profile_permission(request, "full")
+    # END LEGACY COMPAT
     data = _load()
     profiles = data.get("profiles", {})
     if body.name not in profiles:
@@ -632,7 +658,10 @@ async def update_profile(body: ProfileUpdate, request: Request):
             detail="section_id không khớp — vui lòng GET lại profile và thử lại",
         )
     p["signals"] = body.signals
-    p["permission"] = body.permission
+    # BEGIN LEGACY COMPAT: nếu frontend cũ không gửi permission, giữ nguyên giá trị cũ.
+    if body.permission is not None:
+        p["permission"] = body.permission
+    # END LEGACY COMPAT
     p["description"] = body.description
     _save(data)
     return _to_response(body.name, p)
@@ -645,7 +674,10 @@ async def update_profile(body: ProfileUpdate, request: Request):
 )
 async def delete_profile(name: str, request: Request):
     """Xóa profile theo tên. Nếu là active profile, active sẽ chuyển sang profile tiếp theo."""
-    require_profile_permission(request, "full")
+    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
+    if not _is_legacy_request(request):
+        require_profile_permission(request, "full")
+    # END LEGACY COMPAT
     data = _load()
     if name not in data.get("profiles", {}):
         raise HTTPException(

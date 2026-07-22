@@ -279,10 +279,13 @@ class ProfileUpdate(BaseModel):
 
     name: str = Field(..., description="Tên profile cần cập nhật")
     signals: list[str] = Field(..., description="Danh sách tên signal mới")
-    permission: list[ProfilePermission] = Field(
-        default_factory=lambda: ["read"],
-        description="Quyền thao tác của profile: read, write, full",
+    # BEGIN LEGACY COMPAT: permission là optional để frontend cũ (chưa có permission field) vẫn hoạt động.
+    # Nếu không gửi → giữ nguyên giá trị cũ. Xoá khi tất cả frontend đã cập nhật.
+    permission: list[ProfilePermission] | None = Field(
+        None,
+        description="Quyền thao tác của profile: read, write, full (bỏ trống để giữ nguyên giá trị cũ)",
     )
+    # END LEGACY COMPAT
     description: str | None = Field(None, description="Mô tả ngắn")
     section_id: str = Field(
         ...,
