@@ -24,8 +24,8 @@ from src.api.models import (
     ProfileHeartbeatResponse,
     ProfileResponse,
     ProfileSessionsResponse,
-    ProfilesResponse,
     ProfileSetActiveRequest,
+    ProfilesResponse,
     ProfileUpdate,
 )
 
