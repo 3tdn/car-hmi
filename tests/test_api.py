@@ -1165,3 +1165,244 @@ def test_ws_subscribe_signal_payload_format():
             assert sig["name"] == "VehicleSpeed"
             assert sig["std_name"] == "VehicleSpeed"
             assert sig["value"] == 23.0
+
+
+# ── BEGIN LEGACY COMPAT TESTS — Xoá sau khi tất cả frontend đã cập nhật sang profile API mới ────
+
+
+@pytest.mark.asyncio
+async def test_legacy_create_profile_without_profile_header(monkeypatch, tmp_path):
+    """Frontend cũ: POST /api/profile không có X-Profile-Name và không có permission field."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/profile",
+            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
+            json={
+                "name": "driver",
+                "signals": ["VehicleSpeed", "FuelLevel"],
+                "description": "Driver view",
+                # permission không gửi — frontend cũ
+            },
+        )
+
+    assert resp.status_code == 201
+    created = resp.json()
+    assert created["name"] == "driver"
+    assert "permission" in created
+
+
+@pytest.mark.asyncio
+async def test_legacy_create_second_profile_without_profile_header(monkeypatch, tmp_path):
+    """Frontend cũ: POST /api/profile không có X-Profile-Name khi profiles đã tồn tại."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/profile",
+            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
+            json={
+                "name": "viewer",
+                "signals": ["VehicleSpeed"],
+                "description": "Viewer",
+            },
+        )
+
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "viewer"
+
+
+@pytest.mark.asyncio
+async def test_legacy_update_profile_without_permission_field(monkeypatch, tmp_path):
+    """Frontend cũ: PUT /api/profile không có X-Profile-Name và không có permission field."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="driver",
+        profiles={
+            "driver": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["write"],
+                "description": "Driver",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        # Lấy section_id trước
+        get_resp = await c.get("/api/profile?name=driver", headers={"X-API-Key": "test-key"})
+        assert get_resp.status_code == 200
+        section_id = get_resp.json()["section_id"]
+        old_permission = get_resp.json()["permission"]
+
+        # Update không có X-Profile-Name và không có permission field
+        resp = await c.put(
+            "/api/profile",
+            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
+            json={
+                "name": "driver",
+                "signals": ["VehicleSpeed", "FuelLevel"],
+                "description": "Updated driver",
+                "section_id": section_id,
+                # permission không gửi — frontend cũ
+            },
+        )
+
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert updated["signals"] == ["VehicleSpeed", "FuelLevel"]
+    # permission phải giữ nguyên giá trị cũ
+    assert updated["permission"] == old_permission
+
+
+@pytest.mark.asyncio
+async def test_legacy_delete_profile_without_profile_header(monkeypatch, tmp_path):
+    """Frontend cũ: DELETE /api/profile/{name} không có X-Profile-Name."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            },
+            "viewer": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["read"],
+                "description": "Viewer",
+            },
+        },
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.delete(
+            "/api/profile/viewer",
+            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
+        )
+
+    assert resp.status_code == 204
+    saved = json.loads(profiles_path.read_text(encoding="utf-8"))
+    assert "viewer" not in saved["profiles"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_set_active_profile_without_profile_header(monkeypatch, tmp_path):
+    """Frontend cũ: PUT /api/profile/active không có X-Profile-Name."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            },
+            "viewer": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["read"],
+                "description": "Viewer",
+            },
+        },
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.put(
+            "/api/profile/active",
+            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
+            json={"name": "viewer"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["active"] == "viewer"
+
+
+@pytest.mark.asyncio
+async def test_legacy_update_profile_with_permission_field_still_updates(monkeypatch, tmp_path):
+    """Frontend mới với permission field vẫn cập nhật permission bình thường."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": ["VehicleSpeed"],
+                "permission": ["full"],
+                "description": "Admin",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        get_resp = await c.get("/api/profile?name=admin", headers={"X-API-Key": "test-key"})
+        section_id = get_resp.json()["section_id"]
+
+        resp = await c.put(
+            "/api/profile",
+            headers={"X-API-Key": "test-key", "X-Profile-Name": "admin"},
+            json={
+                "name": "admin",
+                "signals": ["VehicleSpeed", "FuelLevel"],
+                "permission": ["read", "write"],
+                "description": "Updated admin",
+                "section_id": section_id,
+            },
+        )
+
+    assert resp.status_code == 200
+    updated = resp.json()
+    assert updated["permission"] == ["read", "write"]
+
+
+# ── END LEGACY COMPAT TESTS ───────────────────────────────────────────────────────────────────────
