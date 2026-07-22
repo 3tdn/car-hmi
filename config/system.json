@@ -37,6 +37,7 @@
   "profiles": {
     "profiles_path": "config/profiles.json",
     "sessions_path": "data/profile_sessions.json",
+    "allow_legacy_profile_mutations": false,
     "default_profile_permission": [
       "read"
     ],

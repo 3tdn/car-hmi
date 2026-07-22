@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
+import re
+from typing import Literal, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── Model camera stream ────────────────────────────────────────────────────
 
@@ -260,6 +261,44 @@ class SystemMetricsResponse(BaseModel):
 
 
 ProfilePermission = Literal["read", "write", "full"]
+_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
+_PROFILE_PERMISSION_ORDER = ("read", "write", "full")
+
+
+def _normalize_profile_name(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("Profile name must not be empty")
+    if not _PROFILE_NAME_PATTERN.fullmatch(normalized):
+        raise ValueError("Profile name contains unsupported characters")
+    return normalized
+
+
+def _normalize_profile_signals(values: list[str]) -> list[str]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for item in values:
+        signal = item.strip()
+        if not signal or signal in seen:
+            continue
+        seen.add(signal)
+        unique.append(signal)
+    return unique
+
+
+def _normalize_profile_permissions(values: list[ProfilePermission]) -> list[ProfilePermission]:
+    if not values:
+        raise ValueError("At least one permission is required")
+
+    ordered: list[ProfilePermission] = []
+    seen: set[str] = set()
+    for permission in _PROFILE_PERMISSION_ORDER:
+        if permission in values and permission not in seen:
+            ordered.append(cast(ProfilePermission, permission))
+            seen.add(permission)
+    if "full" in seen:
+        return ["full"]
+    return ordered
 
 
 class ProfileCreate(BaseModel):
@@ -272,6 +311,29 @@ class ProfileCreate(BaseModel):
         description="Quyền thao tác của profile: read, write, full",
     )
     description: str | None = Field(None, description="Mô tả ngắn về profile")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_profile_name(value)
+
+    @field_validator("signals")
+    @classmethod
+    def validate_signals(cls, value: list[str]) -> list[str]:
+        return _normalize_profile_signals(value)
+
+    @field_validator("permission")
+    @classmethod
+    def validate_permission(cls, value: list[ProfilePermission]) -> list[ProfilePermission]:
+        return _normalize_profile_permissions(value)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class ProfileUpdate(BaseModel):
@@ -291,6 +353,39 @@ class ProfileUpdate(BaseModel):
         ...,
         description="section_id hiện tại (lấy từ GET /api/profile). Dùng để tránh ghi đè đồng thời — 409 nếu mismatch.",
     )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_profile_name(value)
+
+    @field_validator("signals")
+    @classmethod
+    def validate_signals(cls, value: list[str]) -> list[str]:
+        return _normalize_profile_signals(value)
+
+    @field_validator("permission")
+    @classmethod
+    def validate_permission(cls, value: list[ProfilePermission] | None) -> list[ProfilePermission] | None:
+        if value is None:
+            return None
+        return _normalize_profile_permissions(value)
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("section_id")
+    @classmethod
+    def validate_section_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) != 12:
+            raise ValueError("section_id must have exactly 12 characters")
+        return normalized
 
 
 class ProfileSetActiveRequest(BaseModel):

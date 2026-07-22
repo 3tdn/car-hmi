@@ -24,21 +24,22 @@ from src.api.models import (
     ProfileHeartbeatResponse,
     ProfileResponse,
     ProfileSessionsResponse,
-    ProfilesResponse,
     ProfileSetActiveRequest,
+    ProfilesResponse,
     ProfileUpdate,
 )
 
 router = APIRouter()
 
 
-def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int]:
+def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int, bool]:
     """Đọc runtime settings cho profile/session từ config/system.json."""
     fallback_path = Path("config/profiles.json")
     fallback_sessions_path = Path("data/profile_sessions.json")
     fallback_permission = ["read"]
     fallback_ttl = 600
     fallback_limit = 50
+    fallback_allow_legacy = False
 
     try:
         from src.core.config_manager import read_config
@@ -75,10 +76,12 @@ def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int]:
         history_limit = fallback_limit
     history_limit = max(1, history_limit)
 
-    return profiles_path, sessions_path, permission, ttl_seconds, history_limit
+    allow_legacy = bool(cfg.get("allow_legacy_profile_mutations", fallback_allow_legacy))
+
+    return profiles_path, sessions_path, permission, ttl_seconds, history_limit, allow_legacy
 
 
-PROFILES_PATH, PROFILE_SESSIONS_PATH, DEFAULT_PROFILE_PERMISSION, SESSION_ONLINE_TTL_SECONDS, SESSION_HISTORY_LIMIT = _load_profile_runtime_settings()
+PROFILES_PATH, PROFILE_SESSIONS_PATH, DEFAULT_PROFILE_PERMISSION, SESSION_ONLINE_TTL_SECONDS, SESSION_HISTORY_LIMIT, ALLOW_LEGACY_PROFILE_MUTATIONS = _load_profile_runtime_settings()
 PROFILE_HEADER = "X-Profile-Name"
 DEV_MODE_HEADER = "X-Dev-Mode"
 CLIENT_ID_HEADER = "X-Client-Id"
@@ -91,7 +94,10 @@ PermissionScope = Literal["read", "write", "full"]
 def _load_profiles() -> dict[str, Any]:
     if not PROFILES_PATH.exists():
         return {"active": None, "profiles": {}}
-    data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"active": None, "profiles": {}}
     if not isinstance(data, dict):
         data = {}
     if not isinstance(data.get("profiles"), dict):
@@ -102,7 +108,10 @@ def _load_profiles() -> dict[str, Any]:
 def _load_client_sessions() -> dict[str, dict[str, Any]]:
     if not PROFILE_SESSIONS_PATH.exists():
         return {}
-    data = json.loads(PROFILE_SESSIONS_PATH.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(PROFILE_SESSIONS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
     if isinstance(data, dict):
         sessions = data.get("client_sessions", data)
         if isinstance(sessions, dict):
@@ -426,6 +435,28 @@ def require_profile_permission(
     return resolved_name, profile
 
 
+def _require_profile_mutation_permission(request: Request, *, allow_bootstrap: bool = False) -> None:
+    if _is_dev_mode(request):
+        return
+
+    if _is_legacy_request(request):
+        if ALLOW_LEGACY_PROFILE_MUTATIONS:
+            return
+        if allow_bootstrap:
+            data = _load()
+            if not data.get("profiles"):
+                return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=build_access_warning(
+                "profile_headers_required",
+                f"Legacy profile mutation is disabled; send '{PROFILE_HEADER}' (or '{CLIENT_ID_HEADER}')",
+            ),
+        )
+
+    require_profile_permission(request, "full", allow_bootstrap=allow_bootstrap)
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -534,10 +565,23 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
     client_id = _normalized_client_id(request.headers.get(CLIENT_ID_HEADER))
     target = _resolve_target_profile(data, profile_name=name, client_id=client_id)
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không có active profile")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=build_access_warning(
+                "profile_not_selected",
+                "Không có active profile",
+            ),
+        )
     p = data.get("profiles", {}).get(target)
     if p is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Profile '{target}' không tìm thấy")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=build_access_warning(
+                "profile_not_found",
+                f"Profile '{target}' không tìm thấy",
+                profile_name=target,
+            ),
+        )
     return _to_response(target, p)
 
 
@@ -548,10 +592,7 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
 )
 async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
     """Đổi profile active trên server để các client khác cùng nhìn thấy trạng thái mới."""
-    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
-    if not _is_dev_mode(request) and not _is_legacy_request(request):
-        require_profile_permission(request, "full")
-    # END LEGACY COMPAT
+    _require_profile_mutation_permission(request)
 
     data = _load()
     if _cleanup_sessions(data):
@@ -606,16 +647,17 @@ async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
 )
 async def create_profile(body: ProfileCreate, request: Request):
     """Tạo profile mới. Profile đầu tiên sẽ được đặt làm active tự động."""
-    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
-    if not _is_legacy_request(request):
-        _, _ = require_profile_permission(request, "full", allow_bootstrap=True)
-    # END LEGACY COMPAT
+    _require_profile_mutation_permission(request, allow_bootstrap=True)
     data = _load()
     profiles = data.setdefault("profiles", {})
     if body.name in profiles:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Profile '{body.name}' đã tồn tại",
+            detail=build_access_warning(
+                "profile_already_exists",
+                f"Profile '{body.name}' đã tồn tại",
+                profile_name=body.name,
+            ),
         )
     p: dict[str, Any] = {
         "signals": body.signals,
@@ -640,22 +682,27 @@ async def update_profile(body: ProfileUpdate, request: Request):
 
     Nếu section_id không khớp → HTTP 409 → client cần GET lại và thử lại.
     """
-    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
-    if not _is_legacy_request(request):
-        require_profile_permission(request, "full")
-    # END LEGACY COMPAT
+    _require_profile_mutation_permission(request)
     data = _load()
     profiles = data.get("profiles", {})
     if body.name not in profiles:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Profile '{body.name}' không tìm thấy",
+            detail=build_access_warning(
+                "profile_not_found",
+                f"Profile '{body.name}' không tìm thấy",
+                profile_name=body.name,
+            ),
         )
     p = profiles[body.name]
     if _section_id(p) != body.section_id:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="section_id không khớp — vui lòng GET lại profile và thử lại",
+            detail=build_access_warning(
+                "profile_section_mismatch",
+                "section_id không khớp — vui lòng GET lại profile và thử lại",
+                profile_name=body.name,
+            ),
         )
     p["signals"] = body.signals
     # BEGIN LEGACY COMPAT: nếu frontend cũ không gửi permission, giữ nguyên giá trị cũ.
@@ -674,15 +721,16 @@ async def update_profile(body: ProfileUpdate, request: Request):
 )
 async def delete_profile(name: str, request: Request):
     """Xóa profile theo tên. Nếu là active profile, active sẽ chuyển sang profile tiếp theo."""
-    # BEGIN LEGACY COMPAT: bỏ qua kiểm tra permission nếu frontend cũ không gửi profile headers.
-    if not _is_legacy_request(request):
-        require_profile_permission(request, "full")
-    # END LEGACY COMPAT
+    _require_profile_mutation_permission(request)
     data = _load()
     if name not in data.get("profiles", {}):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Profile '{name}' không tìm thấy",
+            detail=build_access_warning(
+                "profile_not_found",
+                f"Profile '{name}' không tìm thấy",
+                profile_name=name,
+            ),
         )
     del data["profiles"][name]
     if data.get("active") == name:
