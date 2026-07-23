@@ -170,6 +170,10 @@ Alarm thresholds are defined separately in `config/alarms.json` (per-signal `war
 | POST    | `/api/profile`                    | Create a new profile                                            |
 | PUT     | `/api/profile`                    | Update a profile (optimistic locking via `section_id`)          |
 | DELETE  | `/api/profile/{name}`             | Delete a profile                                                |
+| PUT     | `/api/profile/active`             | Set active profile globally or per client session               |
+| GET     | `/api/profile/sessions`           | List client profile sessions with online/offline status         |
+| POST    | `/api/profile/heartbeat`          | Refresh client profile session heartbeat                        |
+| POST    | `/api/profile/offline`            | Mark a client profile session offline immediately               |
 | GET     | `/system/info` · `/api/info`      | Project & system overview (uptime, bus/db status, signal count) |
 | GET     | `/system/health`                  | Liveness probe (bus + DB status, uptime)                        |
 | GET     | `/system/ready`                   | Readiness probe (for container / systemd)                       |

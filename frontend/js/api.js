@@ -12,9 +12,10 @@
  *   GET  /api/info                   → fetchSystemInfo()
  *   GET  /api/profiles               → listProfiles()
  *   GET  /api/profile[?name=x]       → fetchProfile(name?)
- *   GET  /api/profile/sessions       → listProfileSessions()
- *   POST /api/profile/offline        → markProfileSessionOffline()
  *   PUT  /api/profile/active         → setActiveProfile(name)
+ *   GET  /api/profile/sessions       → listProfileSessions()
+ *   POST /api/profile/heartbeat      → heartbeatProfileSession()
+ *   POST /api/profile/offline        → markProfileSessionOffline()
  *   POST /api/profile                → createProfile(body)
  *   PUT  /api/profile                → updateProfile(body)   [optimistic lock: section_id]
  *   DELETE /api/profile/{name}       → deleteProfile(name)
@@ -41,6 +42,11 @@
  *   - Backend maps signal_name ↔ std_name from config/signal_std_name.json
  *   - Frontend can read/write using either name; backend resolves transparently
  *   - API responses include std_name field when available
+ *
+ * Profile session headers:
+ *   - X-Client-Id is attached automatically (persisted in sessionStorage)
+ *   - /api/profile/heartbeat and /api/profile/offline require X-Client-Id
+ *   - /api/profile/active with X-Client-Id sets active profile for that client only
  */
 
 // ── Signal Name Registry (std_name support) ─────────────────────────────────
