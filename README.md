@@ -451,9 +451,8 @@ curl -X POST http://localhost:8000/config/alarms/reset -H "X-API-Key: your_api_k
 
 ### Profiles
 
-Profiles store per-user signal display whitelists in `config/profiles.json`. The first profile created becomes the active profile automatically.
-All mutating APIs now enforce the selected profile's `permission`. Send `X-Profile-Name` on write requests; if omitted, the backend falls back to the active profile.
-Legacy mutation requests without profile headers are disabled by default (except bootstrap when no profile exists yet). Set `profiles.allow_legacy_profile_mutations=true` only for temporary migration.
+Profiles store per-user signal display whitelists in `config/profiles.json`. Each signal carries its own permission (`read`/`write`/`full`). The first profile created becomes the active profile automatically.
+All mutating APIs now enforce the selected profile's permission scope. Send `X-Profile-Name` on write requests; if omitted, the backend falls back to the active profile.
 When `X-Client-Id` is provided, the backend resolves active profile by client session first, then falls back to global active profile.
 Frontend uses per-tab client identity via session storage and sends `X-Client-Id` automatically.
 For single-signal read/write endpoints, permission or profile-scope violations return `403` with a structured `detail` object including `code`, `profile_name`, `required_permission`, and `signal_name`.
@@ -466,7 +465,6 @@ For bulk reads/writes and WebSocket subscribe, the backend returns `warnings` an
   "profiles": {
     "profiles_path": "config/profiles.json",
     "default_profile_permission": ["read"],
-    "allow_legacy_profile_mutations": false,
     "session_online_ttl_seconds": 600,
     "session_history_limit": 50
   }
@@ -484,7 +482,15 @@ Response:
 ```json
 {
   "profiles": [
-    {"name": "default", "signals": ["EngineSpeed", "CoolantTemp"], "permission": ["full"], "description": "Default view", "section_id": "a1b2c3d4e5f6"}
+    {
+      "name": "default",
+      "signals": [
+        {"name": "EngineSpeed", "permission": ["read"]},
+        {"name": "CoolantTemp", "permission": ["full"]}
+      ],
+      "description": "Default view",
+      "section_id": "a1b2c3d4e5f6"
+    }
   ],
   "total": 1,
   "active": "default",
@@ -564,7 +570,7 @@ curl -X POST http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
   -H "X-Profile-Name: admin" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "FuelLevel"], "permission": ["read", "write", "full"], "description": "Driver view"}'
+  -d '{"name": "driver", "signals": [{"name": "EngineSpeed", "permission": ["read"]}, {"name": "FuelLevel", "permission": ["read", "write"]}], "description": "Driver view"}'
 ```
 
 #### `PUT /api/profile` — Update profile (optimistic lock)
@@ -576,7 +582,7 @@ curl -X PUT http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
   -H "X-Profile-Name: admin" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "BatteryVoltage"], "permission": ["read", "write"], "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
+  -d '{"name": "driver", "signals": [{"name": "EngineSpeed", "permission": ["read"]}, {"name": "BatteryVoltage", "permission": ["read", "write"]}], "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
 ```
 
 #### `DELETE /api/profile/{name}` — Delete profile (204)

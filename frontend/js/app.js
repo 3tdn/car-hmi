@@ -147,8 +147,54 @@ function isSignalAllowed(name, std_name) {
   return USER_SIGNAL_WHITELIST.includes(name) || USER_SIGNAL_WHITELIST.includes(std_name);
 }
 
+function normalizePermissionList(rawPermissions) {
+  const raw = Array.isArray(rawPermissions) ? rawPermissions : [];
+  const normalized = [];
+  if (raw.includes('full')) return ['full'];
+  if (raw.includes('read')) normalized.push('read');
+  if (raw.includes('write')) normalized.push('write');
+  return normalized.length ? normalized : ['read'];
+}
+
+function summarizeProfilePermissions(profile) {
+  const signals = Array.isArray(profile?.signals) ? profile.signals : [];
+  const union = new Set();
+  signals.forEach((item) => {
+    const permission = normalizePermissionList(item?.permission || []);
+    permission.forEach((p) => union.add(p));
+  });
+  return normalizePermissionList(Array.from(union));
+}
+
+function getProfileSignals() {
+  if (!Array.isArray(currentProfile?.signals)) return [];
+  return currentProfile.signals
+    .map((item) => {
+      if (!item) return null;
+      const name = String(item.name || '').trim();
+      if (!name) return null;
+      return { name, permission: normalizePermissionList(item.permission) };
+    })
+    .filter(Boolean);
+}
+
+function getSignalPermissions(signalName, stdName) {
+  const signals = getProfileSignals();
+  const permissionUnion = new Set();
+  signals.forEach((item) => {
+    if (item.name === signalName || (!!stdName && item.name === stdName)) {
+      normalizePermissionList(item.permission).forEach((permission) => permissionUnion.add(permission));
+    }
+  });
+  return Array.from(permissionUnion);
+}
+
 function getProfilePermissions() {
-  return currentProfile?.permission || [];
+  const union = new Set();
+  getProfileSignals().forEach((item) => {
+    normalizePermissionList(item.permission).forEach((permission) => union.add(permission));
+  });
+  return normalizePermissionList(Array.from(union));
 }
 
 function hasProfilePermission(required) {
@@ -159,23 +205,25 @@ function hasProfilePermission(required) {
 
 function isSignalInProfileScope(signalName, stdName) {
   if (!currentProfile) return true;
-  const allowed = new Set(currentProfile.signals || []);
+  const allowed = new Set(getProfileSignals().map((item) => item.name));
   return allowed.has(signalName) || (!!stdName && allowed.has(stdName));
 }
 
 function getSignalAccessState(signalName, stdName, writable) {
-  const canRead = hasProfilePermission('read') && isSignalInProfileScope(signalName, stdName);
-  const canWrite = writable && hasProfilePermission('write') && isSignalInProfileScope(signalName, stdName);
+  const signalPermissions = new Set(getSignalPermissions(signalName, stdName));
+  const inScope = isSignalInProfileScope(signalName, stdName);
+  const canRead = inScope && (signalPermissions.has('read') || signalPermissions.has('full'));
+  const canWrite = writable && inScope && (signalPermissions.has('write') || signalPermissions.has('full'));
   let reason = '';
   let required = null;
-  if (!isSignalInProfileScope(signalName, stdName)) {
+  if (!inScope) {
     reason = 'Signal nằm ngoài phạm vi profile hiện tại';
     required = 'read/write';
-  } else if (!hasProfilePermission('read')) {
-    reason = 'Profile hiện tại thiếu quyền read';
+  } else if (!canRead) {
+    reason = 'Signal hiện tại thiếu quyền read';
     required = 'read';
   } else if (writable && !canWrite) {
-    reason = 'Profile hiện tại thiếu quyền write';
+    reason = 'Signal hiện tại thiếu quyền write';
     required = 'write';
   }
   return { canRead, canWrite, reason, required };
@@ -301,7 +349,7 @@ function renderProfileSelector() {
     const selected = currentProfile?.name === profile.name ? ' selected' : '';
     return `<option value="${profile.name}"${selected}>${formatProfileLabel(profile.name)}</option>`;
   }).join('');
-  chip.textContent = currentProfile ? (currentProfile.permission || []).join(', ') : 'No profile';
+  chip.textContent = currentProfile ? getProfilePermissions().join(', ') : 'No profile';
   chip.className = `profile-permission-chip ${hasProfilePermission('full') ? 'profile-permission-chip--full' : hasProfilePermission('write') ? 'profile-permission-chip--write' : 'profile-permission-chip--read'}`;
 }
 
@@ -310,7 +358,7 @@ function getKnownSignalNames() {
     ...Array.from(signalMetadataCache.keys()),
     ...Array.from(signalUnits.keys()),
     ...USER_SIGNAL_WHITELIST,
-    ...(currentProfile?.signals || []),
+    ...getProfileSignals().map((item) => item.name),
   ]);
   return Array.from(names).filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
@@ -372,7 +420,7 @@ function ensureProfileManagerModal() {
             </label>
           </div>
           <div class="profile-permission-group">
-            <span>Permissions</span>
+            <span>Default permission for new signals</span>
             <label><input type="checkbox" value="read" data-permission> read</label>
             <label><input type="checkbox" value="write" data-permission> write</label>
             <label><input type="checkbox" value="full" data-permission> full</label>
@@ -426,17 +474,35 @@ function closeProfileManagementModal() {
 function readSignalsFromForm() {
   const textarea = document.getElementById('profile-form-signals');
   if (!textarea) return [];
-  return Array.from(new Set(
-    textarea.value
-      .split(/[,\n]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  ));
+  const defaultPermission = normalizePermissionList(getProfileFormPermissions());
+  const parsed = new Map();
+
+  textarea.value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const [nameRaw, permissionRaw] = line.split('|').map((part) => (part || '').trim());
+      if (!nameRaw) return;
+      const linePermission = permissionRaw
+        ? normalizePermissionList(permissionRaw.split(',').map((item) => item.trim()).filter(Boolean))
+        : defaultPermission;
+      parsed.set(nameRaw, { name: nameRaw, permission: linePermission });
+    });
+
+  return Array.from(parsed.values());
 }
 
 function writeSignalsToForm(signals) {
   const textarea = document.getElementById('profile-form-signals');
-  if (textarea) textarea.value = (signals || []).join('\n');
+  if (!textarea) return;
+  const lines = (signals || []).map((item) => {
+    const name = String(item?.name || '').trim();
+    if (!name) return '';
+    const permission = normalizePermissionList(item.permission).join(',');
+    return `${name} | ${permission}`;
+  }).filter(Boolean);
+  textarea.value = lines.join('\n');
 }
 
 function getProfileFormPermissions() {
@@ -463,7 +529,7 @@ function fillProfileForm(profile) {
     nameInput.disabled = isEdit;
   }
   if (descInput) descInput.value = profile?.description || '';
-  setProfileFormPermissions(profile?.permission || ['read']);
+  setProfileFormPermissions(profile ? summarizeProfilePermissions(profile) : ['read']);
   writeSignalsToForm(profile?.signals || []);
   const meta = document.getElementById('profile-form-meta');
   if (meta) {
@@ -486,10 +552,11 @@ function renderProfileList() {
   list.innerHTML = availableProfiles.map((profile) => {
     const isSelected = profile.name === profileModalState.name;
     const isCurrent = profile.name === currentProfile?.name;
+    const profilePermissions = summarizeProfilePermissions(profile);
     return `
       <button class="profile-list__item ${isSelected ? 'profile-list__item--selected' : ''}" data-profile-name="${profile.name}">
         <span class="profile-list__name">${formatProfileLabel(profile.name)}</span>
-        <span class="profile-list__meta">${(profile.permission || []).join(', ')}${isCurrent ? ' • active' : ''}</span>
+        <span class="profile-list__meta">${profilePermissions.join(', ')}${isCurrent ? ' • active' : ''}</span>
       </button>
     `;
   }).join('');
@@ -507,7 +574,7 @@ function renderProfileList() {
 function renderProfileSignalPicker() {
   const select = document.getElementById('profile-signal-select');
   if (!select) return;
-  const currentSignals = new Set(readSignalsFromForm());
+  const currentSignals = new Set(readSignalsFromForm().map((item) => item.name));
   const options = getKnownSignalNames().filter((name) => !currentSignals.has(name));
   select.innerHTML = options.length
     ? options.map((name) => `<option value="${name}">${name}</option>`).join('')
@@ -599,7 +666,9 @@ function addSelectedSignalToProfileForm() {
   const select = document.getElementById('profile-signal-select');
   if (!select || !select.value) return;
   const signals = readSignalsFromForm();
-  if (!signals.includes(select.value)) signals.push(select.value);
+  if (!signals.some((item) => item.name === select.value)) {
+    signals.push({ name: select.value, permission: normalizePermissionList(getProfileFormPermissions()) });
+  }
   writeSignalsToForm(signals);
   renderProfileSignalPicker();
 }
@@ -608,9 +677,14 @@ function addSelectedTagToProfileForm() {
   const select = document.getElementById('profile-tag-select');
   if (!select || !select.value) return;
   const tag = select.value;
-  const signals = new Set(readSignalsFromForm());
-  getSignalsForTag(tag).forEach((signalName) => signals.add(signalName));
-  writeSignalsToForm(Array.from(signals).sort((a, b) => a.localeCompare(b)));
+  const current = readSignalsFromForm();
+  const byName = new Map(current.map((item) => [item.name, item]));
+  getSignalsForTag(tag).forEach((signalName) => {
+    if (!byName.has(signalName)) {
+      byName.set(signalName, { name: signalName, permission: normalizePermissionList(getProfileFormPermissions()) });
+    }
+  });
+  writeSignalsToForm(Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name)));
   renderProfileSignalPicker();
   renderProfileTagPicker();
 }
@@ -629,15 +703,14 @@ async function openProfileManagementModal() {
 async function saveProfileFromModal() {
   const name = document.getElementById('profile-form-name')?.value?.trim();
   const description = document.getElementById('profile-form-description')?.value?.trim() || null;
-  const permission = getProfileFormPermissions();
   const signals = readSignalsFromForm();
 
   if (!name) {
     showPermissionWarnings([{ code: 'profile_name_required', message: 'Profile name is required' }], 'profile');
     return;
   }
-  if (!permission.length) {
-    showPermissionWarnings([{ code: 'profile_permission_required', message: 'Select at least one permission' }], 'profile');
+  if (!signals.length) {
+    showPermissionWarnings([{ code: 'profile_signal_required', message: 'Add at least one signal entry' }], 'profile');
     return;
   }
 
@@ -647,12 +720,11 @@ async function saveProfileFromModal() {
       await updateProfile({
         name: existing.name,
         signals,
-        permission,
         description,
         section_id: existing.section_id,
       });
     } else {
-      await createProfile({ name, signals, permission, description });
+      await createProfile({ name, signals, description });
       profileModalState = { mode: 'edit', name, sectionId: null };
     }
     await refreshProfileContext();

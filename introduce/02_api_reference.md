@@ -59,7 +59,7 @@ Ghi chu hanh vi quyen truy cap:
 **POST /signals/batch_update** request:
 ```json
 {
-  " ": [
+  "signals": [
     {"signal_name": "VehicleSpeed", "value": 80.0},
     {"signal_name": "FuelLevel", "value": 25.0}
   ]
@@ -138,7 +138,19 @@ Chi tiet quan trong:
 - `PUT /api/profile` bat buoc `section_id` dung voi state hien tai; sai thi `409 profile_section_mismatch`.
 - Neu gui `X-Client-Id`, `PUT /api/profile/active` chi doi active cho client do, khong doi `global_active`.
 - Heartbeat/offline yeu cau `X-Client-Id`, neu thieu se tra `400 client_id_required`.
-- Legacy mutate request (khong co `X-Profile-Name` va `X-Client-Id`) co the bi chan voi `403 profile_headers_required` tuy config.
+- Profile schema moi: moi signal co permission rieng trong `signals[]`.
+
+Vi du payload tao/cap nhat profile:
+```json
+{
+  "name": "driver",
+  "signals": [
+    {"name": "VehicleSpeed", "permission": ["read"]},
+    {"name": "FuelLevel", "permission": ["read", "write"]}
+  ],
+  "description": "Driver view"
+}
+```
 
 ---
 

@@ -95,11 +95,11 @@ async def list_signals(request: Request):
         )
         for name, sv in snapshot.items()
         if profile is None
-        or profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None])
+        or profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None], required="read")
     ]
     if profile is not None:
         for name in snapshot:
-            if not profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None]):
+            if not profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None], required="read"):
                 skipped.append(name)
         _append_filtered_warning(warnings, profile_name, "read", skipped)
     return SignalListResponse(items=items, total=len(items), warnings=warnings)
@@ -165,7 +165,7 @@ async def list_available_signals(request: Request):
         sig_cfg = signal_configs.get(name, {})
         alm_cfg = alarm_configs.get(name, {})
         std_name = sig_cfg.get("std_name") if "std_name" in sig_cfg else (mapper.get_std_name(name) if mapper else None)
-        can_read = profile is None or profile_allows_signal(profile, name, [std_name])
+        can_read = profile is None or profile_allows_signal(profile, name, [std_name], required="read")
         if profile is not None and not can_read:
             skipped.append(name)
 
@@ -330,13 +330,13 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
     if profile is not None:
         skipped = [
             name for name in resolved
-            if not profile_allows_signal(profile, name, sorted(aliases.get(name, set())))
+            if not profile_allows_signal(profile, name, sorted(aliases.get(name, set())), required="write")
         ]
         _append_filtered_warning(warnings, profile_name, "write", skipped)
         resolved = {
             name: value
             for name, value in resolved.items()
-            if profile_allows_signal(profile, name, sorted(aliases.get(name, set())))
+            if profile_allows_signal(profile, name, sorted(aliases.get(name, set())), required="write")
         }
 
     if not resolved:

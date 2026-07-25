@@ -3,54 +3,681 @@
   "profiles": {
     "driver2": {
       "signals": [
-        "HMI_FL_OccupantAge",
-        "ARS_FL_InjuryRiskAdaptive",
-        "ARS_FL_InjuryRiskNonAdaptive",
-        "ARS_FL_TimeToFireAirbag",
-        "ARS_FL_TimeToFireSeatbelt"
-      ],
-      "permission": [
-        "full"
+        {
+          "name": "HMI_FL_OccupantAge",
+          "permission": [
+            "full"
+          ]
+        },
+        {
+          "name": "ARS_FL_InjuryRiskAdaptive",
+          "permission": [
+            "full"
+          ]
+        },
+        {
+          "name": "ARS_FL_InjuryRiskNonAdaptive",
+          "permission": [
+            "full"
+          ]
+        },
+        {
+          "name": "ARS_FL_TimeToFireAirbag",
+          "permission": [
+            "full"
+          ]
+        },
+        {
+          "name": "ARS_FL_TimeToFireSeatbelt",
+          "permission": [
+            "full"
+          ]
+        }
       ],
       "description": "Driver view",
       "created_at": 1784553677.52822
     },
     "Front": {
       "signals": [
-        "ABL_FL_ActivationLevelStatus",
-        "ABL_FL_ActivationPhase",
-        "ABL_FL_RetractRequest",
-        "ABL_FL_S0SensorStatus",
-        "ABL_FL_S0SensorStatus_bool",
-        "ABL_FR_ActivationLevelStatus",
-        "ABL_FR_ActivationPhase",
-        "ABL_FR_RetractRequest",
-        "ABL_FR_S0SensorStatus",
-        "ABL_FR_S0SensorStatus_bool"
-      ],
-      "permission": [
-        "read"
+        {
+          "name": "ABL_FL_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_S0SensorStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_S0SensorStatus_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_S0SensorStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_S0SensorStatus_bool",
+          "permission": [
+            "read"
+          ]
+        }
       ],
       "description": "all seat front",
       "created_at": 1784558274.4145112
     },
     "test1": {
       "signals": [
-        "ABL_FL_ActivationLevelStatus",
-        "ABL_FL_ActivationPhase",
-        "ABL_FL_RetractRequest",
-        "ABL_FL_S0SensorStatus",
-        "ABL_FL_S0SensorStatus_bool",
-        "ABL_FR_ActivationLevelStatus",
-        "ABL_FR_ActivationPhase",
-        "ABL_FR_RetractRequest",
-        "ABL_FR_S0SensorStatus"
-      ],
-      "permission": [
-        "read"
+        {
+          "name": "ABL_FL_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_S0SensorStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FL_S0SensorStatus_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_FR_S0SensorStatus",
+          "permission": [
+            "read"
+          ]
+        }
       ],
       "description": "e",
       "created_at": 1784561415.813459
+    },
+    "Test2": {
+      "signals": [
+        {
+          "name": "ABL_RL1_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_S0SensorStatus_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_SpoolFasterClutch",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "BSW_RL1_BuckleStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ELK_RL1_LockingRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ELK_RL1_LockingStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "Generic_RL1_SeatFunctionEnable",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_PowerOut_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_Request_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_TempOut_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_AddressByte0",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_AddressByte1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorBlue",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorGreen",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorRed",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_GroupOrModule",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Intensity",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Normalization",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Transitionspeed",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_ChildSeatDetected_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantClassification",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantGender",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantHeightMean_cm",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantHeightStd_cm",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantPresence_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantWeightMean_kg",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantWeightStd_kg",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OutOfPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_SeatbeltMisuse_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_FootRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_HeadRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatBackRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatDirectionX",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatDirectionZ",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_SensorStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_SpoolAngle",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_WebbingMovement",
+          "permission": [
+            "read"
+          ]
+        }
+      ],
+      "description": "RL1",
+      "created_at": 1784966511.747315
+    },
+    "test4": {
+      "signals": [
+        {
+          "name": "ABL_RL1_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ABL_RL1_S0SensorStatus_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_ActivationLevelStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_ActivationPhase",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_RetractRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ACR_RL1_SpoolFasterClutch",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "BSW_RL1_BuckleStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ELK_RL1_LockingRequest",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ELK_RL1_LockingStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "Generic_RL1_SeatFunctionEnable",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_PowerOut_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_Request_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "HB_TempOut_RL1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_AddressByte0",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_AddressByte1",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorBlue",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorGreen",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_ColorRed",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_GroupOrModule",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Intensity",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Normalization",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "ISB_RL1_Transitionspeed",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_ChildSeatDetected_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantClassification",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantGender",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantHeightMean_cm",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantHeightStd_cm",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantPresence_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantWeightMean_kg",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OccupantWeightStd_kg",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_OutOfPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "OMS_RL1_SeatbeltMisuse_bool",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_FootRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_HeadRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatBackRestPosition",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatDirectionX",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "SPS_RL1_SeatDirectionZ",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_SensorStatus",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_SpoolAngle",
+          "permission": [
+            "read"
+          ]
+        },
+        {
+          "name": "WMS_RL1_WebbingMovement",
+          "permission": [
+            "read"
+          ]
+        }
+      ],
+      "description": "rl1",
+      "created_at": 1784966854.615648
     }
   }
 }

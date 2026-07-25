@@ -274,18 +274,6 @@ def _normalize_profile_name(value: str) -> str:
     return normalized
 
 
-def _normalize_profile_signals(values: list[str]) -> list[str]:
-    unique: list[str] = []
-    seen: set[str] = set()
-    for item in values:
-        signal = item.strip()
-        if not signal or signal in seen:
-            continue
-        seen.add(signal)
-        unique.append(signal)
-    return unique
-
-
 def _normalize_profile_permissions(values: list[ProfilePermission]) -> list[ProfilePermission]:
     if not values:
         raise ValueError("At least one permission is required")
@@ -305,11 +293,7 @@ class ProfileCreate(BaseModel):
     """Yêu cầu tạo profile mới — POST /api/profile."""
 
     name: str = Field(..., description="Tên profile (duy nhất)")
-    signals: list[str] = Field(default_factory=list, description="Danh sách tên signal trong profile")
-    permission: list[ProfilePermission] = Field(
-        default_factory=lambda: ["read"],
-        description="Quyền thao tác của profile: read, write, full",
-    )
+    signals: list["ProfileSignal"] = Field(default_factory=list, description="Danh sách signal và permission riêng cho từng signal")
     description: str | None = Field(None, description="Mô tả ngắn về profile")
 
     @field_validator("name")
@@ -319,13 +303,11 @@ class ProfileCreate(BaseModel):
 
     @field_validator("signals")
     @classmethod
-    def validate_signals(cls, value: list[str]) -> list[str]:
-        return _normalize_profile_signals(value)
-
-    @field_validator("permission")
-    @classmethod
-    def validate_permission(cls, value: list[ProfilePermission]) -> list[ProfilePermission]:
-        return _normalize_profile_permissions(value)
+    def validate_signals(cls, value: list["ProfileSignal"]) -> list["ProfileSignal"]:
+        unique: dict[str, ProfileSignal] = {}
+        for item in value:
+            unique[item.name] = item
+        return list(unique.values())
 
     @field_validator("description")
     @classmethod
@@ -335,19 +317,11 @@ class ProfileCreate(BaseModel):
         normalized = value.strip()
         return normalized or None
 
-
 class ProfileUpdate(BaseModel):
     """Yêu cầu cập nhật profile (optimistic lock) — PUT /api/profile."""
 
     name: str = Field(..., description="Tên profile cần cập nhật")
-    signals: list[str] = Field(..., description="Danh sách tên signal mới")
-    # BEGIN LEGACY COMPAT: permission là optional để frontend cũ (chưa có permission field) vẫn hoạt động.
-    # Nếu không gửi → giữ nguyên giá trị cũ. Xoá khi tất cả frontend đã cập nhật.
-    permission: list[ProfilePermission] | None = Field(
-        None,
-        description="Quyền thao tác của profile: read, write, full (bỏ trống để giữ nguyên giá trị cũ)",
-    )
-    # END LEGACY COMPAT
+    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
     description: str | None = Field(None, description="Mô tả ngắn")
     section_id: str = Field(
         ...,
@@ -361,15 +335,11 @@ class ProfileUpdate(BaseModel):
 
     @field_validator("signals")
     @classmethod
-    def validate_signals(cls, value: list[str]) -> list[str]:
-        return _normalize_profile_signals(value)
-
-    @field_validator("permission")
-    @classmethod
-    def validate_permission(cls, value: list[ProfilePermission] | None) -> list[ProfilePermission] | None:
-        if value is None:
-            return None
-        return _normalize_profile_permissions(value)
+    def validate_signals(cls, value: list["ProfileSignal"]) -> list["ProfileSignal"]:
+        unique: dict[str, ProfileSignal] = {}
+        for item in value:
+            unique[item.name] = item
+        return list(unique.values())
 
     @field_validator("description")
     @classmethod
@@ -387,7 +357,6 @@ class ProfileUpdate(BaseModel):
             raise ValueError("section_id must have exactly 12 characters")
         return normalized
 
-
 class ProfileSetActiveRequest(BaseModel):
     """Yêu cầu đổi active profile trên server."""
 
@@ -398,10 +367,32 @@ class ProfileResponse(BaseModel):
     """Thông tin một profile."""
 
     name: str = Field(..., description="Tên profile")
-    signals: list[str] = Field(..., description="Danh sách tên signal")
-    permission: list[ProfilePermission] = Field(..., description="Quyền thao tác của profile")
+    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
     description: str | None = Field(None, description="Mô tả")
     section_id: str = Field(..., description="Hash dùng cho optimistic locking")
+
+
+class ProfileSignal(BaseModel):
+    """Signal scope trong profile với permission riêng cho signal."""
+
+    name: str = Field(..., description="Tên signal")
+    permission: list[ProfilePermission] = Field(
+        default_factory=lambda: ["read"],
+        description="Quyền cho signal: read, write, full",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Signal name must not be empty")
+        return normalized
+
+    @field_validator("permission")
+    @classmethod
+    def validate_permission(cls, value: list[ProfilePermission]) -> list[ProfilePermission]:
+        return _normalize_profile_permissions(value)
 
 
 class ProfilesResponse(BaseModel):

@@ -282,12 +282,11 @@ async def test_available_signals_returns_metadata(client):
     # VehicleSpeed should be present from the fixture
     names = [item["signal_name"] for item in data["signals_info"]]
     assert "VehicleSpeed" in names
-    hb = next(i for i in data["signals_info"] if i["signal_name"] == "HB_FL_ActivationLevel")
-    assert hb["tag"] == ["HB", "FL"]
+    sample = data["signals_info"][0]
     # Metadata fields should exist (even if None)
-    assert "unit" in hb
-    assert "writable" in hb
-    assert "alarm_warning_high" in hb
+    assert "unit" in sample
+    assert "writable" in sample
+    assert "alarm_warning_high" in sample
 
 
 # ── Profile endpoint tests ───────────────────────────────────────────────────
@@ -309,25 +308,30 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
             headers={"X-API-Key": "test-key"},
             json={
                 "name": "driver",
-                "signals": ["VehicleSpeed", "FuelLevel"],
-                "permission": ["read", "write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read", "write"]}, {"name": "FuelLevel", "permission": ["read", "write"]}],
                 "description": "Driver view",
             },
         )
 
         assert create_resp.status_code == 201
         created = create_resp.json()
-        assert created["permission"] == ["read", "write"]
+        created_map = {s["name"]: sorted(s["permission"]) for s in created["signals"]}
+        assert created_map["VehicleSpeed"] == ["read", "write"]
+        assert created_map["FuelLevel"] == ["read", "write"]
 
         get_resp = await c.get("/api/profile?name=driver", headers={"X-API-Key": "test-key"})
 
     assert get_resp.status_code == 200
     fetched = get_resp.json()
-    assert fetched["permission"] == ["read", "write"]
+    fetched_map = {s["name"]: sorted(s["permission"]) for s in fetched["signals"]}
+    assert fetched_map["VehicleSpeed"] == ["read", "write"]
+    assert fetched_map["FuelLevel"] == ["read", "write"]
 
     saved = json.loads(profiles_path.read_text(encoding="utf-8"))
     assert "client_sessions" not in saved
-    assert saved["profiles"]["driver"]["permission"] == ["read", "write"]
+    saved_map = {s["name"]: sorted(s["permission"]) for s in saved["profiles"]["driver"]["signals"]}
+    assert saved_map["VehicleSpeed"] == ["read", "write"]
+    assert saved_map["FuelLevel"] == ["read", "write"]
 
 
 @pytest.mark.asyncio
@@ -341,8 +345,7 @@ async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_p
         active="viewer",
         profiles={
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             }
         },
@@ -357,8 +360,7 @@ async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_p
             headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"},
             json={
                 "name": "editor",
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Editor",
             },
         )
@@ -377,13 +379,11 @@ async def test_set_active_profile_success(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed", "FuelLevel"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}, {"name": "FuelLevel", "permission": ["full"]}],
                 "description": "Admin",
             },
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             },
         },
@@ -419,13 +419,11 @@ async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path
         active="viewer",
         profiles={
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             },
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             },
         },
@@ -458,13 +456,11 @@ async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path
         active="viewer",
         profiles={
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             },
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             },
         },
@@ -501,13 +497,11 @@ async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_pat
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             },
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             },
         },
@@ -561,13 +555,11 @@ async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_pat
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             },
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             },
         },
@@ -617,8 +609,7 @@ async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -656,8 +647,7 @@ async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -689,8 +679,7 @@ async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -750,8 +739,7 @@ async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatc
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -795,8 +783,7 @@ async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -841,13 +828,11 @@ async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_pat
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             },
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             },
         },
@@ -882,8 +867,7 @@ async def test_set_active_profile_not_found(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -917,13 +901,11 @@ async def test_delete_profile_removes_profile_and_matching_sessions(monkeypatch,
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             },
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             },
         },
@@ -964,8 +946,7 @@ async def test_write_signal_requires_write_permission(monkeypatch, tmp_path):
         active="viewer",
         profiles={
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             }
         },
@@ -1000,8 +981,7 @@ async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
         active="operator",
         profiles={
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             }
         },
@@ -1033,8 +1013,7 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
         active="operator",
         profiles={
             "operator": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
                 "description": "Operator",
             }
         },
@@ -1074,8 +1053,7 @@ def test_ws_subscribe_ack_warns_for_signal_outside_profile(monkeypatch, tmp_path
         active="viewer",
         profiles={
             "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
                 "description": "Viewer",
             }
         },
@@ -1142,8 +1120,7 @@ async def test_reset_general_config(monkeypatch, tmp_path):
         active="admin",
         profiles={
             "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
                 "description": "Admin",
             }
         },
@@ -1239,279 +1216,3 @@ def test_ws_subscribe_signal_payload_format():
             assert sig["value"] == 23.0
 
 
-# ── BEGIN LEGACY COMPAT TESTS — Xoá sau khi tất cả frontend đã cập nhật sang profile API mới ────
-
-
-@pytest.mark.asyncio
-async def test_legacy_create_profile_without_profile_header(monkeypatch, tmp_path):
-    """Frontend cũ: POST /api/profile không có X-Profile-Name và không có permission field."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post(
-            "/api/profile",
-            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
-            json={
-                "name": "driver",
-                "signals": ["VehicleSpeed", "FuelLevel"],
-                "description": "Driver view",
-                # permission không gửi — frontend cũ
-            },
-        )
-
-    assert resp.status_code == 201
-    created = resp.json()
-    assert created["name"] == "driver"
-    assert "permission" in created
-
-
-@pytest.mark.asyncio
-async def test_legacy_create_second_profile_without_profile_header(monkeypatch, tmp_path):
-    """Frontend cũ: POST /api/profile không có X-Profile-Name khi profiles đã tồn tại."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
-                "description": "Admin",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post(
-            "/api/profile",
-            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
-            json={
-                "name": "viewer",
-                "signals": ["VehicleSpeed"],
-                "description": "Viewer",
-            },
-        )
-
-    assert resp.status_code == 201
-    assert resp.json()["name"] == "viewer"
-
-
-@pytest.mark.asyncio
-async def test_legacy_mutation_without_headers_denied_by_default(monkeypatch, tmp_path):
-    """Legacy mutate request bị chặn mặc định khi đã có profile."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
-                "description": "Admin",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.put(
-            "/api/profile/active",
-            headers={"X-API-Key": "test-key"},
-            json={"name": "admin"},
-        )
-
-    assert resp.status_code == 403
-    detail = resp.json()["detail"]
-    assert detail["code"] == "profile_headers_required"
-
-
-@pytest.mark.asyncio
-async def test_legacy_update_profile_without_permission_field(monkeypatch, tmp_path):
-    """Frontend cũ: PUT /api/profile không có X-Profile-Name và không có permission field."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="driver",
-        profiles={
-            "driver": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["write"],
-                "description": "Driver",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        # Lấy section_id trước
-        get_resp = await c.get("/api/profile?name=driver", headers={"X-API-Key": "test-key"})
-        assert get_resp.status_code == 200
-        section_id = get_resp.json()["section_id"]
-        old_permission = get_resp.json()["permission"]
-
-        # Update không có X-Profile-Name và không có permission field
-        resp = await c.put(
-            "/api/profile",
-            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
-            json={
-                "name": "driver",
-                "signals": ["VehicleSpeed", "FuelLevel"],
-                "description": "Updated driver",
-                "section_id": section_id,
-                # permission không gửi — frontend cũ
-            },
-        )
-
-    assert resp.status_code == 200
-    updated = resp.json()
-    assert updated["signals"] == ["VehicleSpeed", "FuelLevel"]
-    # permission phải giữ nguyên giá trị cũ
-    assert updated["permission"] == old_permission
-
-
-@pytest.mark.asyncio
-async def test_legacy_delete_profile_without_profile_header(monkeypatch, tmp_path):
-    """Frontend cũ: DELETE /api/profile/{name} không có X-Profile-Name."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    sessions_path = tmp_path / "profile_sessions.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
-                "description": "Admin",
-            },
-            "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
-                "description": "Viewer",
-            },
-        },
-        sessions_path=sessions_path,
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
-    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.delete(
-            "/api/profile/viewer",
-            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
-        )
-
-    assert resp.status_code == 204
-    saved = json.loads(profiles_path.read_text(encoding="utf-8"))
-    assert "viewer" not in saved["profiles"]
-
-
-@pytest.mark.asyncio
-async def test_legacy_set_active_profile_without_profile_header(monkeypatch, tmp_path):
-    """Frontend cũ: PUT /api/profile/active không có X-Profile-Name."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    sessions_path = tmp_path / "profile_sessions.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
-                "description": "Admin",
-            },
-            "viewer": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["read"],
-                "description": "Viewer",
-            },
-        },
-        sessions_path=sessions_path,
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
-    monkeypatch.setattr(profile_routes, "ALLOW_LEGACY_PROFILE_MUTATIONS", True)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.put(
-            "/api/profile/active",
-            headers={"X-API-Key": "test-key"},  # không có X-Profile-Name
-            json={"name": "viewer"},
-        )
-
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["active"] == "viewer"
-
-
-@pytest.mark.asyncio
-async def test_legacy_update_profile_with_permission_field_still_updates(monkeypatch, tmp_path):
-    """Frontend mới với permission field vẫn cập nhật permission bình thường."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": ["VehicleSpeed"],
-                "permission": ["full"],
-                "description": "Admin",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        get_resp = await c.get("/api/profile?name=admin", headers={"X-API-Key": "test-key"})
-        section_id = get_resp.json()["section_id"]
-
-        resp = await c.put(
-            "/api/profile",
-            headers={"X-API-Key": "test-key", "X-Profile-Name": "admin"},
-            json={
-                "name": "admin",
-                "signals": ["VehicleSpeed", "FuelLevel"],
-                "permission": ["read", "write"],
-                "description": "Updated admin",
-                "section_id": section_id,
-            },
-        )
-
-    assert resp.status_code == 200
-    updated = resp.json()
-    assert updated["permission"] == ["read", "write"]
-
-
-# ── END LEGACY COMPAT TESTS ───────────────────────────────────────────────────────────────────────

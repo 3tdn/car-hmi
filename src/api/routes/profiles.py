@@ -22,6 +22,7 @@ from src.api.models import (
     ClientProfileSession,
     ProfileCreate,
     ProfileHeartbeatResponse,
+    ProfileSignal,
     ProfileSessionProfileStat,
     ProfileResponse,
     ProfileSessionsResponse,
@@ -33,14 +34,13 @@ from src.api.models import (
 router = APIRouter()
 
 
-def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int, bool]:
+def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int]:
     """Đọc runtime settings cho profile/session từ config/system.json."""
     fallback_path = Path("config/profiles.json")
     fallback_sessions_path = Path("data/profile_sessions.json")
     fallback_permission = ["read"]
     fallback_ttl = 600
     fallback_limit = 50
-    fallback_allow_legacy = False
 
     try:
         from src.core.config_manager import read_config
@@ -77,16 +77,15 @@ def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int, b
         history_limit = fallback_limit
     history_limit = max(1, history_limit)
 
-    allow_legacy = bool(cfg.get("allow_legacy_profile_mutations", fallback_allow_legacy))
-
-    return profiles_path, sessions_path, permission, ttl_seconds, history_limit, allow_legacy
+    return profiles_path, sessions_path, permission, ttl_seconds, history_limit
 
 
-PROFILES_PATH, PROFILE_SESSIONS_PATH, DEFAULT_PROFILE_PERMISSION, SESSION_ONLINE_TTL_SECONDS, SESSION_HISTORY_LIMIT, ALLOW_LEGACY_PROFILE_MUTATIONS = _load_profile_runtime_settings()
+PROFILES_PATH, PROFILE_SESSIONS_PATH, DEFAULT_PROFILE_PERMISSION, SESSION_ONLINE_TTL_SECONDS, SESSION_HISTORY_LIMIT = _load_profile_runtime_settings()
 PROFILE_HEADER = "X-Profile-Name"
 DEV_MODE_HEADER = "X-Dev-Mode"
 CLIENT_ID_HEADER = "X-Client-Id"
 PermissionScope = Literal["read", "write", "full"]
+PERMISSION_ORDER: tuple[PermissionScope, ...] = ("read", "write", "full")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -103,7 +102,76 @@ def _load_profiles() -> dict[str, Any]:
         data = {}
     if not isinstance(data.get("profiles"), dict):
         data["profiles"] = {}
+
+    changed = False
+    normalized_profiles: dict[str, dict[str, Any]] = {}
+    for name, raw_profile in data["profiles"].items():
+        if not isinstance(raw_profile, dict):
+            raw_profile = {}
+            changed = True
+        normalized = _normalize_profile(raw_profile)
+        normalized_profiles[name] = normalized
+        if normalized != raw_profile:
+            changed = True
+
+    if changed:
+        data["profiles"] = normalized_profiles
+        _save_profiles(data)
     return data
+
+
+def _normalize_permissions(raw: Any, *, fallback: list[PermissionScope] | None = None) -> list[PermissionScope]:
+    values: list[str] = []
+    if isinstance(raw, list):
+        values = [str(item).strip().lower() for item in raw if str(item).strip()]
+
+    selected: list[PermissionScope] = []
+    for permission in PERMISSION_ORDER:
+        if permission in values and permission not in selected:
+            selected.append(permission)
+
+    if "full" in selected:
+        return ["full"]
+    if selected:
+        return selected
+    if fallback:
+        return fallback
+    return ["read"]
+
+
+def _normalize_profile_signals(raw_signals: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_signals, list):
+        return []
+
+    merged: dict[str, list[PermissionScope]] = {}
+    for item in raw_signals:
+        if not isinstance(item, dict):
+            continue
+
+        signal_name = str(item.get("name", "")).strip()
+        signal_permission = _normalize_permissions(item.get("permission"), fallback=["read"])
+
+        if not signal_name:
+            continue
+
+        if signal_name in merged:
+            union_raw = list(merged[signal_name]) + list(signal_permission)
+            merged[signal_name] = _normalize_permissions(union_raw, fallback=legacy_permission)
+        else:
+            merged[signal_name] = list(signal_permission)
+
+    return [
+        {"name": signal_name, "permission": permission}
+        for signal_name, permission in merged.items()
+    ]
+
+
+def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "signals": _normalize_profile_signals(profile.get("signals", [])),
+        "description": profile.get("description"),
+        "created_at": profile.get("created_at", time.time()),
+    }
 
 
 def _load_client_sessions() -> dict[str, dict[str, Any]]:
@@ -166,8 +234,7 @@ def _section_id(profile: dict) -> str:
 def _to_response(name: str, p: dict) -> ProfileResponse:
     return ProfileResponse(
         name=name,
-        signals=p.get("signals", []),
-        permission=p.get("permission", DEFAULT_PROFILE_PERMISSION),
+        signals=[ProfileSignal(name=item["name"], permission=item["permission"]) for item in p.get("signals", [])],
         description=p.get("description"),
         section_id=_section_id(p),
     )
@@ -308,24 +375,6 @@ def _is_dev_mode(request: Request) -> bool:
     return str(request.headers.get(DEV_MODE_HEADER, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
-# ── BEGIN LEGACY COMPAT — Xoá sau khi tất cả frontend đã cập nhật sang profile API mới ──────────
-
-
-def _is_legacy_request(request: Request) -> bool:
-    """Trả True nếu request không gửi X-Profile-Name và X-Client-Id.
-
-    Đây là dấu hiệu của frontend cũ (trước khi có profile permission system).
-    Khi đó, các thao tác mutate được cho phép chỉ cần X-API-Key (như API cũ).
-    """
-    return (
-        not request.headers.get(PROFILE_HEADER)
-        and not request.headers.get(CLIENT_ID_HEADER)
-    )
-
-
-# ── END LEGACY COMPAT ─────────────────────────────────────────────────────────────────────────────
-
-
 def build_access_warning(
     code: str,
     message: str,
@@ -389,7 +438,12 @@ def get_profile_context(
 
 
 def profile_has_permission(profile: dict[str, Any], required: PermissionScope) -> bool:
-    permissions = set(profile.get("permission", DEFAULT_PROFILE_PERMISSION))
+    permissions = set()
+    for item in profile.get("signals", []):
+        if not isinstance(item, dict):
+            continue
+        for permission in item.get("permission", []):
+            permissions.add(permission)
     if "full" in permissions:
         return True
     return required in permissions
@@ -399,14 +453,40 @@ def profile_allows_signal(
     profile: dict[str, Any],
     signal_name: str,
     alternates: list[str] | tuple[str, ...] | None = None,
+    required: PermissionScope | None = None,
 ) -> bool:
-    allowed_signals = set(profile.get("signals", []))
-    if not allowed_signals:
-        return False
     candidates = {signal_name}
     if alternates:
         candidates.update(name for name in alternates if name)
-    return bool(allowed_signals.intersection(candidates))
+
+    for item in profile.get("signals", []):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name", "")).strip()
+        if not name or name not in candidates:
+            continue
+        if required is None:
+            return True
+        perms = set(item.get("permission", []))
+        if "full" in perms or required in perms:
+            return True
+    return False
+
+
+def profile_signal_names(profile: dict[str, Any], *, required: PermissionScope | None = None) -> list[str]:
+    names: list[str] = []
+    for item in profile.get("signals", []):
+        if not isinstance(item, dict):
+            continue
+        signal_name = str(item.get("name", "")).strip()
+        if not signal_name:
+            continue
+        if required is not None:
+            perms = set(item.get("permission", []))
+            if "full" not in perms and required not in perms:
+                continue
+        names.append(signal_name)
+    return names
 
 
 def require_profile_permission(
@@ -441,7 +521,7 @@ def require_profile_permission(
             ),
         )
 
-    if signal_name is not None and not profile_allows_signal(profile, signal_name, alternates):
+    if signal_name is not None and not profile_allows_signal(profile, signal_name, alternates, required=required):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=build_access_warning(
@@ -459,21 +539,6 @@ def require_profile_permission(
 def _require_profile_mutation_permission(request: Request, *, allow_bootstrap: bool = False) -> None:
     if _is_dev_mode(request):
         return
-
-    if _is_legacy_request(request):
-        if ALLOW_LEGACY_PROFILE_MUTATIONS:
-            return
-        if allow_bootstrap:
-            data = _load()
-            if not data.get("profiles"):
-                return
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=build_access_warning(
-                "profile_headers_required",
-                f"Legacy profile mutation is disabled; send '{PROFILE_HEADER}' (or '{CLIENT_ID_HEADER}')",
-            ),
-        )
 
     require_profile_permission(request, "full", allow_bootstrap=allow_bootstrap)
 
@@ -758,8 +823,7 @@ async def create_profile(body: ProfileCreate, request: Request):
             ),
         )
     p: dict[str, Any] = {
-        "signals": body.signals,
-        "permission": body.permission,
+        "signals": [{"name": item.name, "permission": item.permission} for item in body.signals],
         "description": body.description,
         "created_at": time.time(),
     }
@@ -802,11 +866,7 @@ async def update_profile(body: ProfileUpdate, request: Request):
                 profile_name=body.name,
             ),
         )
-    p["signals"] = body.signals
-    # BEGIN LEGACY COMPAT: nếu frontend cũ không gửi permission, giữ nguyên giá trị cũ.
-    if body.permission is not None:
-        p["permission"] = body.permission
-    # END LEGACY COMPAT
+    p["signals"] = [{"name": item.name, "permission": item.permission} for item in body.signals]
     p["description"] = body.description
     _save(data)
     return _to_response(body.name, p)

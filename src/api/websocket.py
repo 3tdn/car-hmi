@@ -20,6 +20,7 @@ from src.api.routes.profiles import (
     get_profile_context,
     profile_allows_signal,
     profile_has_permission,
+    profile_signal_names,
 )
 from src.core.signal_name_mapper import SignalNameMapper
 
@@ -212,7 +213,7 @@ class ConnectionManager:
                             accepted_channels.append("*")
                         else:
                             allowed: list[str] = []
-                            for signal_name in profile.get("signals", []):
+                            for signal_name in profile_signal_names(profile, required="read"):
                                 canonical = self._mapper.resolve(signal_name)
                                 sub.signal_names.add(canonical)
                                 allowed.append(canonical)
@@ -232,7 +233,7 @@ class ConnectionManager:
                         # Resolve std_name -> canonical signal_name before storing
                         canonical = self._mapper.resolve(ch)
                         std_name = self._mapper.get_std_name(canonical) or ch
-                        if profile is not None and not profile_allows_signal(profile, canonical, [ch, std_name]):
+                        if profile is not None and not profile_allows_signal(profile, canonical, [ch, std_name], required="read"):
                             warnings.append(
                                 build_access_warning(
                                     "profile_signal_denied",
