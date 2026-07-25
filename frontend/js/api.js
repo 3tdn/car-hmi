@@ -285,7 +285,7 @@ async function markProfileSessionOffline() {
 
 /**
  * Tạo profile mới.
- * @param {{name:string, signals:Array<{name:string, permission:string[]}>, description?:string}} body
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string}} body
  * @returns {Promise<Object>}
  */
 async function createProfile(body) {
@@ -299,7 +299,7 @@ async function createProfile(body) {
 /**
  * Cập nhật profile (yêu cầu section_id để tránh xung đột đồng thời).
  * Nếu section_id mismatch → lỗi 409 → gọi fetchProfile() lại rồi thử lại.
- * @param {{name:string, signals:Array<{name:string, permission:string[]}>, description?:string, section_id:string}} body
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string, section_id:string}} body
  * @returns {Promise<Object>}
  */
 async function updateProfile(body) {

@@ -156,7 +156,7 @@ def _normalize_profile_signals(raw_signals: Any) -> list[dict[str, Any]]:
 
         if signal_name in merged:
             union_raw = list(merged[signal_name]) + list(signal_permission)
-            merged[signal_name] = _normalize_permissions(union_raw, fallback=legacy_permission)
+            merged[signal_name] = _normalize_permissions(union_raw, fallback=["read"])
         else:
             merged[signal_name] = list(signal_permission)
 
@@ -169,6 +169,7 @@ def _normalize_profile_signals(raw_signals: Any) -> list[dict[str, Any]]:
 def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
     return {
         "signals": _normalize_profile_signals(profile.get("signals", [])),
+        "exinfo": dict(profile.get("exinfo") or {}) if isinstance(profile.get("exinfo"), dict) else {},
         "description": profile.get("description"),
         "created_at": profile.get("created_at", time.time()),
     }
@@ -235,6 +236,7 @@ def _to_response(name: str, p: dict) -> ProfileResponse:
     return ProfileResponse(
         name=name,
         signals=[ProfileSignal(name=item["name"], permission=item["permission"]) for item in p.get("signals", [])],
+        exinfo=dict(p.get("exinfo") or {}) if isinstance(p.get("exinfo"), dict) else {},
         description=p.get("description"),
         section_id=_section_id(p),
     )
@@ -824,6 +826,7 @@ async def create_profile(body: ProfileCreate, request: Request):
         )
     p: dict[str, Any] = {
         "signals": [{"name": item.name, "permission": item.permission} for item in body.signals],
+        "exinfo": dict(body.exinfo or {}),
         "description": body.description,
         "created_at": time.time(),
     }
@@ -868,6 +871,8 @@ async def update_profile(body: ProfileUpdate, request: Request):
         )
     p["signals"] = [{"name": item.name, "permission": item.permission} for item in body.signals]
     p["description"] = body.description
+    if body.exinfo is not None:
+        p["exinfo"] = dict(body.exinfo)
     _save(data)
     return _to_response(body.name, p)
 

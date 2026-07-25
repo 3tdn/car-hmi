@@ -419,6 +419,10 @@ function ensureProfileManagerModal() {
               <input id="profile-form-description" type="text" />
             </label>
           </div>
+          <label class="profile-signal-editor">
+            <span>Exinfo JSON</span>
+            <textarea id="profile-form-exinfo" rows="6" placeholder='{"role":"dev","color":"#22c55e"}'></textarea>
+          </label>
           <div class="profile-permission-group">
             <span>Default permission for new signals</span>
             <label><input type="checkbox" value="read" data-permission> read</label>
@@ -505,6 +509,22 @@ function writeSignalsToForm(signals) {
   textarea.value = lines.join('\n');
 }
 
+function readProfileExinfoFromForm() {
+  const textarea = document.getElementById('profile-form-exinfo');
+  if (!textarea) return undefined;
+  const raw = textarea.value.trim();
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('exinfo must be a JSON object');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error('Exinfo must be valid JSON object');
+  }
+}
+
 function getProfileFormPermissions() {
   return Array.from(document.querySelectorAll('#profile-manager-modal [data-permission]:checked')).map((el) => el.value);
 }
@@ -529,6 +549,10 @@ function fillProfileForm(profile) {
     nameInput.disabled = isEdit;
   }
   if (descInput) descInput.value = profile?.description || '';
+  const exinfoInput = document.getElementById('profile-form-exinfo');
+  if (exinfoInput) {
+    exinfoInput.value = profile?.exinfo ? JSON.stringify(profile.exinfo, null, 2) : '';
+  }
   setProfileFormPermissions(profile ? summarizeProfilePermissions(profile) : ['read']);
   writeSignalsToForm(profile?.signals || []);
   const meta = document.getElementById('profile-form-meta');
@@ -704,6 +728,7 @@ async function saveProfileFromModal() {
   const name = document.getElementById('profile-form-name')?.value?.trim();
   const description = document.getElementById('profile-form-description')?.value?.trim() || null;
   const signals = readSignalsFromForm();
+  let exinfo;
 
   if (!name) {
     showPermissionWarnings([{ code: 'profile_name_required', message: 'Profile name is required' }], 'profile');
@@ -715,16 +740,27 @@ async function saveProfileFromModal() {
   }
 
   try {
+    exinfo = readProfileExinfoFromForm();
+  } catch (error) {
+    showPermissionWarnings([{ code: 'profile_exinfo_invalid', message: error.message }], 'profile');
+    return;
+  }
+
+  try {
     if (profileModalState.mode === 'edit') {
       const existing = await fetchProfile(profileModalState.name);
-      await updateProfile({
+      const payload = {
         name: existing.name,
         signals,
         description,
         section_id: existing.section_id,
-      });
+      };
+      if (exinfo !== undefined) payload.exinfo = exinfo;
+      await updateProfile(payload);
     } else {
-      await createProfile({ name, signals, description });
+      const payload = { name, signals, description };
+      if (exinfo !== undefined) payload.exinfo = exinfo;
+      await createProfile(payload);
       profileModalState = { mode: 'edit', name, sectionId: null };
     }
     await refreshProfileContext();

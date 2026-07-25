@@ -139,6 +139,7 @@ Chi tiet quan trong:
 - Neu gui `X-Client-Id`, `PUT /api/profile/active` chi doi active cho client do, khong doi `global_active`.
 - Heartbeat/offline yeu cau `X-Client-Id`, neu thieu se tra `400 client_id_required`.
 - Profile schema moi: moi signal co permission rieng trong `signals[]`.
+- `exinfo` la object tu do, frontend co the luu metadata rieng; neu khong gui trong PUT thi backend giu gia tri cu.
 
 Vi du payload tao/cap nhat profile:
 ```json
@@ -148,6 +149,7 @@ Vi du payload tao/cap nhat profile:
     {"name": "VehicleSpeed", "permission": ["read"]},
     {"name": "FuelLevel", "permission": ["read", "write"]}
   ],
+  "exinfo": {"role": "dev", "color": "#22c55e"},
   "description": "Driver view"
 }
 ```

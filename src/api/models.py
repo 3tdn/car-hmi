@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -294,6 +294,7 @@ class ProfileCreate(BaseModel):
 
     name: str = Field(..., description="Tên profile (duy nhất)")
     signals: list["ProfileSignal"] = Field(default_factory=list, description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
     description: str | None = Field(None, description="Mô tả ngắn về profile")
 
     @field_validator("name")
@@ -322,6 +323,7 @@ class ProfileUpdate(BaseModel):
 
     name: str = Field(..., description="Tên profile cần cập nhật")
     signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] | None = Field(None, description="Dữ liệu tùy ý dành cho frontend (bỏ trống để giữ nguyên)")
     description: str | None = Field(None, description="Mô tả ngắn")
     section_id: str = Field(
         ...,
@@ -368,6 +370,7 @@ class ProfileResponse(BaseModel):
 
     name: str = Field(..., description="Tên profile")
     signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
     description: str | None = Field(None, description="Mô tả")
     section_id: str = Field(..., description="Hash dùng cho optimistic locking")
 
@@ -486,3 +489,9 @@ class UpdateProcessorConfigRequest(BaseModel):
 
     max_queue_size: int | None = Field(None, description="Kích thước hàng đợi mới")
     queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Chính sách xử lý khi hàng đợi đầy")
+
+
+ProfileCreate.model_rebuild()
+ProfileUpdate.model_rebuild()
+ProfileResponse.model_rebuild()
+ProfileSignal.model_rebuild()
