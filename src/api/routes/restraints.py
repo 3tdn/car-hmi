@@ -63,11 +63,12 @@ router = APIRouter()
 MEDIA_DIR = Path(__file__).resolve().parents[3] / "media"
 
 # ---------------------------------------------------------------------------
-# Video filename schema: {percentile}p_{seat_position}_{velocity}_{seatbelt}.ext
-# velocity is the crash speed in km/h: 35 | 40 | 50 | 56
+# Video filename schema: {percentile}p_{seat_position}_{velocity}{kmh?}_{seatbelt}.ext
+# velocity is the crash speed in km/h: 35 | 40 | 50 | 56 (with or without "kmh" suffix)
+# seatbelt can be: SLL | CLL | MSLL | SLL_MSLL (combined SLL/MSLL)
 # ---------------------------------------------------------------------------
 _FILENAME_PATTERN = re.compile(
-    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)_(?P<seatbelt>\w+)\.\w+$",
+    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)kmh?_(?P<seatbelt>[\w_]+)\.\w+$",
     re.IGNORECASE,
 )
 
@@ -88,17 +89,6 @@ def _weight_to_percentile(weight_kg: float) -> int:
 # ---------------------------------------------------------------------------
 # Valid velocity values used in filenames
 _VALID_VELOCITIES = {35, 40, 50, 56}
-
-# OLC code → velocity (for HMI inputs that still use OLC notation)
-_OLC_TO_VELOCITY: dict[str, int] = {
-    "OLC16": 35,
-    "OLC18": 40,
-    "OLC26": 50,
-    "OLC33": 56,
-}
-
-# Valid OLC values (for direct OLC input)
-_VALID_OLC = set(_OLC_TO_VELOCITY.keys())
 
 # ---------------------------------------------------------------------------
 # Seat → seat_position zone
@@ -195,25 +185,31 @@ def _score_match(
     """Score how well a video matches the query. Higher = better match.
 
     Scoring breakdown:
-        +3.0  seatbelt system exact match
+        +3.0  seatbelt system exact match (including SLL_MSLL matching SLL/MSLL)
         +2.0  percentile exact match
+        +1.5  velocity exact match (required - no partial score)
         +1.0  seat_position zone match
-        +0–1  velocity proximity (1.0 if exact, decreasing with distance)
     """
     score = 0.0
 
-    if video["seatbelt"].upper() == target_seatbelt.upper():
+    # Check seatbelt match: exact match OR video has SLL_MSLL and target is SLL/MSLL
+    video_seatbelt = video["seatbelt"].upper()
+    target_seatbelt_upper = target_seatbelt.upper()
+    
+    if video_seatbelt == target_seatbelt_upper:
+        score += 3.0
+    elif video_seatbelt == "SLL_MSLL" and target_seatbelt_upper in {"SLL", "MSLL"}:
         score += 3.0
 
     if video["percentile"] == target_percentile:
         score += 2.0
 
+    # Velocity must be exact match (no partial scoring)
+    if video["velocity"] == target_velocity:
+        score += 1.5
+
     if video["seat_position"] == preferred_position:
         score += 1.0
-
-    # velocity proximity: normalise by max possible distance (|56-35| = 21)
-    vel_diff = abs(video["velocity"] - target_velocity)
-    score += max(0.0, 1.0 - vel_diff / 21.0)
 
     return round(score, 3)
 
@@ -237,7 +233,7 @@ async def match_restraint(
     request: Request,
     weight: float = Query(..., description="Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)"),
     height: float = Query(..., description="Occupant height in cm (recorded for reference)"),
-    crash_severity: str = Query(..., description="Crash severity as OLC code (OLC16/OLC18/OLC26/OLC33) or velocity (35/40/50/56 km/h)"),
+    crash_severity: int = Query(..., description="Crash velocity in km/h (35, 40, 50, or 56)"),
     seatbelt_system: str = Query(..., description="Seatbelt system: SLL | CLL | MSLL"),
     seat: str = Query("fl", description="Seat identifier: fl (front-left) | fr (front-right)"),
     seat_x_mm: float | None = Query(
@@ -267,26 +263,15 @@ async def match_restraint(
     # ── 1. Derive percentile from weight ────────────────────────────────────
     derived_percentile = _weight_to_percentile(weight)
 
-    # ── 2. Resolve target velocity from crash_severity input ───────────────────
-    # Accepts: direct velocity int (35/40/50/56) OR OLC code (OLC16/OLC18/OLC26/OLC33)
-    cs_upper = crash_severity.strip().upper()
-    if cs_upper in _VALID_OLC:
-        target_velocity = _OLC_TO_VELOCITY[cs_upper]
-    else:
-        try:
-            target_velocity = int(float(crash_severity))
-        except ValueError:
-            raise HTTPException(
-                status_code=422,
-                detail=f"crash_severity '{crash_severity}' not recognised. "
-                       f"Use velocity 35/40/50/56 or OLC code OLC16/OLC18/OLC26/OLC33.",
-            )
-        if target_velocity not in _VALID_VELOCITIES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Velocity {target_velocity} km/h is not supported. "
-                       f"Use one of: {sorted(_VALID_VELOCITIES)} km/h.",
-            )
+    # ── 2. Validate target velocity ───────────────────────────────────────────
+    # Accept direct velocity values (35, 40, 50, 56 km/h)
+    target_velocity = int(crash_severity)
+    if target_velocity not in _VALID_VELOCITIES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Velocity {target_velocity} km/h is not supported. "
+                   f"Use one of: {sorted(_VALID_VELOCITIES)} km/h.",
+        )
 
     # ── 3. Validate seatbelt_system ──────────────────────────────────────────
     seatbelt_upper = seatbelt_system.strip().upper()
