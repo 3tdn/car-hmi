@@ -58,3 +58,4 @@ site/
 
 # VS Code settings
 .vscode
+.local/
