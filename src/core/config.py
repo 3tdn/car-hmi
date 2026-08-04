@@ -187,6 +187,14 @@ class LoggingConfig(BaseModel):
     # Số file log cũ giữ lại sau khi rotate (can-hmi.log.1 … can-hmi.log.N)
 
 
+class BackupConfig(BaseModel):
+    """Cấu hình backup cho các file cấu hình."""
+
+    enabled: bool = True
+    retention_count: int = 20
+    directory: str = "config/backups"
+
+
 class AppConfig(BaseModel):
     """Cấu hình tổng thể ứng dụng CAN-HMI — tổng hợp tất cả các nhóm cấu hình."""
 
@@ -212,6 +220,8 @@ class AppConfig(BaseModel):
     # Cấu hình watchdog
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     # Cấu hình logging
+    backup: BackupConfig = Field(default_factory=BackupConfig)
+    # Cấu hình backup file config
 
     @field_validator("can")
     @classmethod

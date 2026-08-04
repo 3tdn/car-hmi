@@ -2,14 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request, status, Body
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request, status, Body, UploadFile, File
+from fastapi.responses import FileResponse
 
 from src.api.models import (
+    BackupListResponse,
+    CANInfoResponse,
+    ConfigReloadStatusResponse,
+    DBCGenerateRequest,
+    DBCUploadResponse,
     SignalConfigResponse,
     UpdateSignalConfigRequest,
     ProcessorConfigResponse,
     UpdateProcessorConfigRequest,
 )
+from src.core.config import load_config
+from src.core.config_manager import read_config
 from src.storage.repository import SignalConfigRecord
 import yaml
 
@@ -107,28 +117,20 @@ async def get_general_config():
 
 @router.patch("/general", summary="Patch application config (partial)")
 async def patch_general_config(body: dict, request: Request):
-    from src.core.config_manager import update_config_partial
-
+    manager = request.app.state.config_manager
     try:
-        update_config_partial(body, path="config/system.json")
-    except (ValueError, OSError) as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    # try to reload validated config
-    from src.core.config import load_config
-
-    try:
+        status_info = await manager.patch_general_config(body, runtime=getattr(request.app.state, "runner", None))
         cfg = load_config("config/system.json")
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    return cfg.model_dump()
+    except (ValueError, OSError, TypeError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"config": cfg.model_dump(), "reload": status_info}
 
 
 @router.post("/general/reset", summary="Reset application config to defaults")
 async def reset_general_config(request: Request):
-    from src.core.config_manager import write_default_bus
-
-    default = write_default_bus(path="config/system.json")
-    return {"ok": True, "default": default}
+    manager = request.app.state.config_manager
+    result = await manager.reset_general_config(runtime=getattr(request.app.state, "runner", None))
+    return {"ok": result["ok"], "default": result["config"], "reload": result}
 
 
 @router.get("/alarms", summary="Get alarms config (raw YAML as JSON)")
@@ -141,18 +143,19 @@ async def get_alarms_config():
 
 @router.post("/alarms", summary="Update alarms config (JSON body)")
 async def post_alarms_config(body: dict, request: Request):
-    from src.core.config_manager import write_alarms
-
-    write_alarms(body)
-    return {"ok": True}
+    manager = request.app.state.config_manager
+    try:
+        result = await manager.replace_alarms_config(body, runtime=getattr(request.app.state, "runner", None))
+    except (ValueError, OSError, TypeError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"ok": result["ok"], "reload": result}
 
 
 @router.post("/alarms/reset", summary="Reset alarms config to empty default")
 async def reset_alarms_config(request: Request):
-    from src.core.config_manager import write_default_alarms
-
-    written = write_default_alarms(path="config/alarms.json")
-    return {"ok": True, "written": written}
+    manager = request.app.state.config_manager
+    result = await manager.reset_alarms_config(runtime=getattr(request.app.state, "runner", None))
+    return {"ok": result["ok"], "written": result["written"], "reload": result}
 
 
 @router.post("/processor", response_model=ProcessorConfigResponse, summary="Update processor config")
@@ -186,3 +189,114 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
 
     cfg = load_config("config/system.json")
     return ProcessorConfigResponse(max_queue_size=cfg.processor.max_queue_size, queue_policy=cfg.processor.queue_policy)
+
+
+@router.get("/backups", response_model=BackupListResponse, summary="List config backups")
+async def list_backups(request: Request) -> BackupListResponse:
+    items = request.app.state.backup_manager.list_backups()
+    return BackupListResponse(items=[item.__dict__ for item in items], total=len(items))
+
+
+@router.post("/backups/create", response_model=dict, summary="Create manual config backup")
+async def create_backup(request: Request):
+    manager = request.app.state.backup_manager
+    record = manager.create_backup("config/system.json", creator="manual")
+    return {"ok": True, "backup": record.__dict__}
+
+
+@router.post("/backups/restore/{backup_id}", response_model=dict, summary="Restore a config backup")
+async def restore_backup(backup_id: str, request: Request):
+    manager = request.app.state.config_manager
+    try:
+        result = await manager.restore_backup(backup_id, runtime=getattr(request.app.state, "runner", None))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"ok": result["ok"], "reload": result}
+
+
+@router.delete("/backups/{backup_id}", response_model=dict, summary="Delete a config backup")
+async def delete_backup(backup_id: str, request: Request):
+    deleted = request.app.state.backup_manager.delete_backup(backup_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Backup '{backup_id}' not found")
+    return {"ok": True}
+
+
+@router.get("/backups/{backup_id}/download", summary="Download a config backup")
+async def download_backup(backup_id: str, request: Request):
+    record = request.app.state.backup_manager.get_backup(backup_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Backup '{backup_id}' not found")
+    return FileResponse(record.file_path, filename=record.file_name, media_type="application/json")
+
+
+@router.get("/can_info", response_model=CANInfoResponse, summary="Get CAN interface runtime information")
+async def get_can_info(request: Request) -> CANInfoResponse:
+    interfaces = []
+    cfg = read_config("config/system.json")
+    for ch in cfg.get("can", []):
+        name = ch.get("channel", "unknown")
+        state = "DOWN"
+        connected = False
+        rx_packets = None
+        tx_packets = None
+        try:
+            stats_path = Path("/sys/class/net") / name / "statistics"
+            operstate_path = Path("/sys/class/net") / name / "operstate"
+            if operstate_path.exists():
+                state = operstate_path.read_text(encoding="utf-8").strip().upper()
+                connected = state == "UP"
+            if stats_path.exists():
+                rx_file = stats_path / "rx_packets"
+                tx_file = stats_path / "tx_packets"
+                if rx_file.exists():
+                    rx_packets = int(rx_file.read_text(encoding="utf-8").strip())
+                if tx_file.exists():
+                    tx_packets = int(tx_file.read_text(encoding="utf-8").strip())
+        except Exception:
+            pass
+        interfaces.append(
+            {
+                "name": name,
+                "connected": connected,
+                "state": state,
+                "bitrate": ch.get("bitrate"),
+                "driver": ch.get("interface"),
+                "hardware": "virtual" if ch.get("interface") == "virtual" else "unknown",
+                "rx_packets": rx_packets,
+                "tx_packets": tx_packets,
+                "supported_bitrates": [125000, 250000, 500000, 1000000],
+            }
+        )
+    return CANInfoResponse(interfaces=interfaces)
+
+
+@router.post("/dbc/upload", response_model=DBCUploadResponse, summary="Upload and parse a DBC file")
+async def upload_dbc(request: Request, file: UploadFile = File(...)) -> DBCUploadResponse:
+    job = request.app.state.dbc_job_manager.create_job(file.filename or "upload.dbc", await file.read())
+    return DBCUploadResponse(
+        id=job["id"],
+        dbc_name=job["dbc_name"],
+        created_at=job["created_at"],
+        messages=job["messages"],
+        unsupported=job["unsupported"],
+        errors=job["errors"],
+        warnings=job["warnings"],
+    )
+
+
+@router.get("/dbc/parse_result/{job_id}", response_model=dict, summary="Get DBC parse result")
+async def get_dbc_parse_result(job_id: str, request: Request):
+    try:
+        return request.app.state.dbc_job_manager.get_job(job_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/dbc/generate_config", response_model=dict, summary="Generate can json from parsed DBC job")
+async def generate_dbc_config(body: DBCGenerateRequest, request: Request):
+    try:
+        result = request.app.state.dbc_job_manager.generate_config(body.id, body.output_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"ok": True, "result": result}

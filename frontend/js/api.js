@@ -456,3 +456,58 @@ async function fetchCameraStatus() {
   return resp.json();
 }
 
+async function fetchCanInfo() {
+  const resp = await fetch(`${API_BASE}/config/can_info`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /config/can_info → ${resp.status}`);
+  return resp.json();
+}
+
+async function listConfigBackups() {
+  const resp = await fetch(`${API_BASE}/config/backups`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /config/backups → ${resp.status}`);
+  return resp.json();
+}
+
+async function createConfigBackup() {
+  const resp = await fetch(`${API_BASE}/config/backups/create`, { method: "POST", headers: _headers() });
+  if (!resp.ok) throw new Error(`POST /config/backups/create → ${resp.status}`);
+  return resp.json();
+}
+
+async function restoreConfigBackup(id) {
+  const resp = await fetch(`${API_BASE}/config/backups/restore/${encodeURIComponent(id)}`, { method: "POST", headers: _headers() });
+  if (!resp.ok) throw new Error(`POST /config/backups/restore/${id} → ${resp.status}`);
+  return resp.json();
+}
+
+async function deleteConfigBackup(id) {
+  const resp = await fetch(`${API_BASE}/config/backups/${encodeURIComponent(id)}`, { method: "DELETE", headers: _headers() });
+  if (!resp.ok) throw new Error(`DELETE /config/backups/${id} → ${resp.status}`);
+  return resp.json();
+}
+
+async function uploadDbcFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers = {};
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const resp = await fetch(`${API_BASE}/config/dbc/upload`, { method: "POST", headers, body: formData });
+  if (!resp.ok) throw new Error(`POST /config/dbc/upload → ${resp.status}`);
+  return resp.json();
+}
+
+async function fetchDbcParseResult(id) {
+  const resp = await fetch(`${API_BASE}/config/dbc/parse_result/${encodeURIComponent(id)}`, { headers: _headers() });
+  if (!resp.ok) throw new Error(`GET /config/dbc/parse_result/${id} → ${resp.status}`);
+  return resp.json();
+}
+
+async function generateDbcConfig(id, output_path) {
+  const resp = await fetch(`${API_BASE}/config/dbc/generate_config`, {
+    method: "POST",
+    headers: _headers(),
+    body: JSON.stringify({ id, output_path }),
+  });
+  if (!resp.ok) throw new Error(`POST /config/dbc/generate_config → ${resp.status}`);
+  return resp.json();
+}

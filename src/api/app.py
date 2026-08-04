@@ -23,7 +23,7 @@ from src.api.routes import (
 )
 from src.api.websocket import ConnectionManager
 from src.core.camera_stream import CameraStreamProxy
-from src.core.config_manager import read_config
+from src.core.config_manager import DBCJobManager, read_config
 from src.core.signal_name_mapper import SignalNameMapper
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ def create_app(
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
 
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
+    app.state.dbc_job_manager = DBCJobManager()
 
     # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
     # cho phép 1 kết nối đồng thời (mutex phía nguồn).

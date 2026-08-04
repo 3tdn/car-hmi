@@ -310,3 +310,60 @@ class UpdateProcessorConfigRequest(BaseModel):
 
     max_queue_size: int | None = Field(None, description="Kích thước hàng đợi mới")
     queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Chính sách xử lý khi hàng đợi đầy")
+
+
+class ConfigReloadStatusResponse(BaseModel):
+    ok: bool
+    reload_version: int
+    target: str
+    applied: list[str]
+    skipped: list[str]
+    restart_required: list[str]
+    errors: list[str]
+
+
+class BackupRecordResponse(BaseModel):
+    backup_id: str
+    file_name: str
+    file_path: str
+    target_path: str
+    created_at: float
+    creator: str
+    config_version: str
+    size_bytes: int
+
+
+class BackupListResponse(BaseModel):
+    items: list[BackupRecordResponse]
+    total: int
+
+
+class CANInterfaceInfoResponse(BaseModel):
+    name: str
+    connected: bool
+    state: str
+    bitrate: int | None = None
+    driver: str | None = None
+    hardware: str | None = None
+    rx_packets: int | None = None
+    tx_packets: int | None = None
+    supported_bitrates: list[int] | None = None
+
+
+class CANInfoResponse(BaseModel):
+    interfaces: list[CANInterfaceInfoResponse]
+
+
+class DBCUploadResponse(BaseModel):
+    id: str
+    dbc_name: str
+    created_at: float
+    messages: int
+    unsupported: list[str]
+    errors: list[str]
+    warnings: list[str]
+
+
+class DBCGenerateRequest(BaseModel):
+    id: str
+    output_path: str = Field("config/can_generated.json")

@@ -401,6 +401,7 @@
         <h3>General Settings (config/system.json)</h3>
         <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
         <div style="margin-top:8px;text-align:right;">
+          <button id="settings-backups">Backups</button>
           <button id="settings-reset">Reset</button>
           <button id="settings-cancel">Cancel</button>
           <button id="settings-save">Save</button>
@@ -425,6 +426,38 @@
       </div>
     `;
     document.body.appendChild(alarmsModal);
+
+    const adminModal = document.createElement('div');
+    adminModal.id = 'admin-modal';
+    adminModal.style.display = 'none';
+    adminModal.innerHTML = `
+      <div class="modal-backdrop"></div>
+      <div class="modal">
+        <h3>Config Admin</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <h4>CAN Info</h4>
+            <pre id="can-info-view" style="height:220px;overflow:auto;"></pre>
+          </div>
+          <div>
+            <h4>Backups</h4>
+            <button id="backup-create">Create Backup</button>
+            <div id="backup-list" style="max-height:220px;overflow:auto;"></div>
+          </div>
+          <div style="grid-column:1 / span 2;">
+            <h4>DBC Upload / Generate</h4>
+            <input type="file" id="dbc-file" accept=".dbc" />
+            <button id="dbc-upload-btn">Upload</button>
+            <button id="dbc-generate-btn">Generate config/can_generated.json</button>
+            <pre id="dbc-report-view" style="height:200px;overflow:auto;"></pre>
+          </div>
+        </div>
+        <div style="margin-top:8px;text-align:right;">
+          <button id="admin-close">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(adminModal);
 
     // Wire buttons
     document.getElementById('btn-settings').addEventListener('click', async () => {
@@ -458,6 +491,10 @@
         alert('Config updated (on-disk). API attempted live apply where possible.');
       } catch (e) { alert('Save failed: '+e); }
     });
+    document.getElementById('settings-backups').addEventListener('click', async () => {
+      adminModal.style.display = 'block';
+      await refreshAdminPanels();
+    });
 
     document.getElementById('btn-alarms').addEventListener('click', async () => {
       const editor = document.getElementById('alarms-editor');
@@ -489,6 +526,56 @@
         alarmsModal.style.display = 'none';
         alert('Alarms config updated.');
       } catch (e) { alert('Save failed: '+e); }
+    });
+
+    let currentDbcJobId = null;
+    async function refreshAdminPanels() {
+      try {
+        document.getElementById('can-info-view').textContent = JSON.stringify(await fetchCanInfo(), null, 2);
+      } catch (e) {
+        document.getElementById('can-info-view').textContent = 'Failed to load CAN info: ' + e;
+      }
+      try {
+        const backups = await listConfigBackups();
+        document.getElementById('backup-list').innerHTML = backups.items.map(item => `
+          <div style="border:1px solid var(--border);padding:6px;margin:4px 0;">
+            <div><strong>${item.file_name}</strong></div>
+            <div>${new Date(item.created_at * 1000).toLocaleString()} — ${item.creator}</div>
+            <button data-restore="${item.backup_id}">Restore</button>
+            <button data-delete="${item.backup_id}">Delete</button>
+            <a href="${API_BASE}/config/backups/${item.backup_id}/download" target="_blank">Download</a>
+          </div>
+        `).join('');
+        document.querySelectorAll('[data-restore]').forEach(btn => btn.onclick = async () => {
+          if (!confirm('Restore this backup?')) return;
+          await restoreConfigBackup(btn.dataset.restore);
+          await refreshAdminPanels();
+        });
+        document.querySelectorAll('[data-delete]').forEach(btn => btn.onclick = async () => {
+          if (!confirm('Delete this backup?')) return;
+          await deleteConfigBackup(btn.dataset.delete);
+          await refreshAdminPanels();
+        });
+      } catch (e) {
+        document.getElementById('backup-list').textContent = 'Failed to load backups: ' + e;
+      }
+    }
+    document.getElementById('admin-close').addEventListener('click', () => adminModal.style.display = 'none');
+    document.getElementById('backup-create').addEventListener('click', async () => {
+      await createConfigBackup();
+      await refreshAdminPanels();
+    });
+    document.getElementById('dbc-upload-btn').addEventListener('click', async () => {
+      const file = document.getElementById('dbc-file').files[0];
+      if (!file) return alert('Select a DBC file first.');
+      const result = await uploadDbcFile(file);
+      currentDbcJobId = result.id;
+      document.getElementById('dbc-report-view').textContent = JSON.stringify(result, null, 2);
+    });
+    document.getElementById('dbc-generate-btn').addEventListener('click', async () => {
+      if (!currentDbcJobId) return alert('Upload a DBC file first.');
+      const result = await generateDbcConfig(currentDbcJobId, 'config/can_generated.json');
+      document.getElementById('dbc-report-view').textContent = JSON.stringify(result, null, 2);
     });
   </script>
 </body>

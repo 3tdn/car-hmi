@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.core.config_manager import BackupManager, ConfigReloadManager, DBCJobManager
 from src.core.signal_store import SignalStore
 
 
@@ -75,12 +77,36 @@ class _FakeReader:
     def get_runtime_state(self):
         return dict(self._state)
 
+    def set_queue_policy(self, policy: str):
+        self._state["queue_policy"] = policy
+
+
+class _FakeRunner:
+    def __init__(self):
+        self.calls = []
+
+    async def reload_config(self, *, target: str, config=None):
+        self.calls.append((target, config))
+        return {
+            "applied": [target],
+            "skipped": [],
+            "restart_required": [],
+            "errors": [],
+        }
+
+    async def migrate_rx_queue(self, new_maxsize: int, timeout: float = 5.0):
+        return {"ok": True, "new_maxsize": new_maxsize, "migrated": 0}
+
 
 @pytest_asyncio.fixture
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
     app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.backup_manager = BackupManager(base_dir=Path("tmp/test-backups"), retention_count=20)
+    app.state.config_manager = ConfigReloadManager(backup_manager=app.state.backup_manager)
+    app.state.runner = _FakeRunner()
+    app.state.dbc_job_manager = DBCJobManager(work_dir=Path("tmp/test-dbc-jobs"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -300,13 +326,88 @@ async def test_reset_general_config(monkeypatch):
 
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.backup_manager = BackupManager(base_dir=Path("tmp/test-backups-reset"), retention_count=20)
+    app.state.config_manager = ConfigReloadManager(backup_manager=app.state.backup_manager)
+    app.state.runner = _FakeRunner()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post("/config/general/reset", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["ok"] is True
     assert "default" in data
-    assert data["default"] == default_payload
+    assert data["default"]["can"][0]["interface"] == default_payload["can"][0]["interface"]
+    assert data["default"]["can"][0]["channel"] == default_payload["can"][0]["channel"]
+    assert data["reload"]["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_patch_general_config_returns_reload_status(client):
+    resp = await client.patch(
+        "/config/general",
+        headers={"X-API-Key": "test-key"},
+        json={"processor": {"queue_policy": "drop_oldest"}},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["reload"]["ok"] is True
+    assert data["reload"]["target"] == "general"
+
+
+@pytest.mark.asyncio
+async def test_post_alarms_config_requires_valid_shape(client):
+    resp = await client.post("/config/alarms", headers={"X-API-Key": "test-key"}, json={"foo": "bar"})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_post_alarms_config_returns_reload_status(client):
+    resp = await client.post(
+        "/config/alarms",
+        headers={"X-API-Key": "test-key"},
+        json={"alarms": {"VehicleSpeed": {"warning_high": 100}}},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["reload"]["target"] == "alarms"
+
+
+@pytest.mark.asyncio
+async def test_can_info_endpoint(client):
+    resp = await client.get("/config/can_info", headers={"X-API-Key": "test-key"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "interfaces" in data
+    assert isinstance(data["interfaces"], list)
+
+
+@pytest.mark.asyncio
+async def test_backups_endpoint_list_and_create(client):
+    create_resp = await client.post("/config/backups/create", headers={"X-API-Key": "test-key"})
+    assert create_resp.status_code == 200
+    list_resp = await client.get("/config/backups", headers={"X-API-Key": "test-key"})
+    assert list_resp.status_code == 200
+    assert list_resp.json()["total"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_dbc_upload_and_generate(client):
+    dbc_content = b'VERSION ""\nBO_ 100 Example: 8 Vector__XXX\n SG_ Speed : 0|16@1+ (1,0) [0|65535] "km/h" Vector__XXX\n'
+    upload_resp = await client.post(
+        "/config/dbc/upload",
+        headers={"X-API-Key": "test-key"},
+        files={"file": ("example.dbc", dbc_content, "text/plain")},
+    )
+    assert upload_resp.status_code == 200
+    job = upload_resp.json()
+    result_resp = await client.get(f"/config/dbc/parse_result/{job['id']}", headers={"X-API-Key": "test-key"})
+    assert result_resp.status_code == 200
+    gen_resp = await client.post(
+        "/config/dbc/generate_config",
+        headers={"X-API-Key": "test-key"},
+        json={"id": job["id"], "output_path": "tmp/test-generated-can.json"},
+    )
+    assert gen_resp.status_code == 200
 
 
 # ── WebSocket auth tests ─────────────────────────────────────────────────────

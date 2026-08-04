@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from src.core.config import AppConfig, CANConfig, load_config
+from src.core.config_manager import BackupManager, ConfigReloadManager, write_alarms
 from src.core.signal_store import SignalStore
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -108,6 +110,23 @@ def test_load_config_custom(tmp_path):
     assert cfg.api.port == 9000
     assert cfg.reader.frequency_piority == pytest.approx(0.0)
     assert cfg.reader.only_send_signal_update is True
+
+
+def test_backup_manager_create_list_restore_delete(tmp_path):
+    source = tmp_path / "system.json"
+    source.write_text('{"a":1}', encoding="utf-8")
+    manager = BackupManager(base_dir=tmp_path / "backups", retention_count=3)
+    record = manager.create_backup(source, creator="test")
+    assert manager.get_backup(record.backup_id) is not None
+    source.write_text('{"a":2}', encoding="utf-8")
+    manager.restore_backup(record.backup_id)
+    assert json.loads(source.read_text(encoding="utf-8"))["a"] == 1
+    assert manager.delete_backup(record.backup_id) is True
+
+
+def test_write_alarms_validates_shape(tmp_path):
+    with pytest.raises(ValueError):
+        write_alarms({"foo": "bar"}, tmp_path / "alarms.json")
 
 
 # ── SignalStore ───────────────────────────────────────────────────────────────

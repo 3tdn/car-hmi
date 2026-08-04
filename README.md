@@ -708,6 +708,27 @@ The web dashboard includes `Settings` and `Alarms` buttons in the header. Use th
 Notes:
 - The modal editors send JSON to the backend endpoints under `/config/*`. The backend persists changes to disk and attempts a live apply where supported.
 - Always backup `config/system.json` if you have customized critical paths (`can_json_path`, `sqlite_path`) before resetting.
+- Config mutations now create automatic backups under `config/backups/` and return structured reload status.
+- Runtime reload is coordinated through a centralized reload manager; hot-reloadable sections are applied automatically, while non-hot sections are reported as restart-required.
+
+## Config backup, reload, CAN info, and DBC tools
+
+- `GET /config/backups` — list config backups
+- `POST /config/backups/create` — create manual backup
+- `POST /config/backups/restore/{id}` — restore backup and trigger runtime reload
+- `DELETE /config/backups/{id}` — delete backup
+- `GET /config/can_info` — inspect CAN interface state, bitrate, driver, and packet counters
+- `POST /config/dbc/upload` — upload and parse a DBC file
+- `GET /config/dbc/parse_result/{id}` — view parsing/validation report
+- `POST /config/dbc/generate_config` — generate `can*.json` from uploaded DBC
+
+Reload sequence:
+1. validate request payload
+2. create automatic backup
+3. atomically replace target config file
+4. acquire runtime reload lock
+5. apply hot-reloadable sections
+6. return applied/skipped/restart-required/error status
 
 ## Frontend Modes
 

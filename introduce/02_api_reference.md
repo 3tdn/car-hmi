@@ -134,6 +134,15 @@ Response `202 Accepted`:
 | `GET` | `/config/alarms` | Cấu hình ngưỡng cảnh báo (raw YAML → JSON) |
 | `POST` | `/config/alarms` | Cập nhật toàn bộ alarms config |
 | `POST` | `/config/alarms/reset` | Reset alarms config về rỗng |
+| `GET` | `/config/backups` | Danh sách backup cấu hình |
+| `POST` | `/config/backups/create` | Tạo backup thủ công |
+| `POST` | `/config/backups/restore/{id}` | Khôi phục backup và reload runtime |
+| `DELETE` | `/config/backups/{id}` | Xóa backup |
+| `GET` | `/config/backups/{id}/download` | Tải backup |
+| `GET` | `/config/can_info` | Thông tin phần cứng/trạng thái CAN |
+| `POST` | `/config/dbc/upload` | Upload + parse DBC |
+| `GET` | `/config/dbc/parse_result/{id}` | Báo cáo parse DBC |
+| `POST` | `/config/dbc/generate_config` | Tạo can json từ DBC |
 
 **PATCH /config/signal/{name}** — request body (tất cả optional):
 ```json
@@ -151,6 +160,22 @@ Response `202 Accepted`:
 {"max_queue_size": 5000, "queue_policy": "drop_oldest"}
 ```
 > Lưu ý: thay đổi `max_queue_size` sẽ trigger **live queue migration** (không restart app).
+
+**PATCH /config/general** và **POST /config/alarms** trả thêm trạng thái reload:
+```json
+{
+  "config": {},
+  "reload": {
+    "ok": true,
+    "reload_version": 3,
+    "target": "general",
+    "applied": ["processor.queue_policy"],
+    "skipped": [],
+    "restart_required": ["can", "api.port"],
+    "errors": []
+  }
+}
+```
 
 ---
 

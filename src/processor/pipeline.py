@@ -57,6 +57,32 @@ class SignalPipeline:
     def add_stage(self, stage: ProcessingStage) -> None:
         self._stages.append(stage)
 
+    def replace_alarm_stage(self, alarm_configs: list) -> None:
+        from src.processor.alarms import AlarmChecker
+
+        self._stages = [stage for stage in self._stages if not isinstance(stage, AlarmChecker)]
+        if alarm_configs:
+            checker = AlarmChecker(alarm_configs)
+            self._stages.append(checker)
+        logger.info("Reloaded alarm stages (%d configs)", len(alarm_configs))
+
+    def set_runtime_config(
+        self,
+        *,
+        queue_policy: str | None = None,
+        batch_drain_size: int | None = None,
+        batch_size: int | None = None,
+        batch_interval_sec: float | None = None,
+    ) -> None:
+        if queue_policy is not None:
+            self._policy = queue_policy
+        if batch_drain_size is not None and batch_drain_size > 0:
+            self._batch_drain_size = batch_drain_size
+        if batch_size is not None and batch_size > 0:
+            self._batch_size = batch_size
+        if batch_interval_sec is not None and batch_interval_sec > 0:
+            self._batch_interval = batch_interval_sec
+
     async def start(self) -> None:
         self._running = True
         logger.info("Signal pipeline started (%d stages)", len(self._stages))

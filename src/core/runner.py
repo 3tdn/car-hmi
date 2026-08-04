@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from src.core.config import AppConfig, load_config
+from src.core.config_manager import BackupManager, ConfigReloadManager
 from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,12 @@ class AppRunner:
         self._ws_manager = None
         self._start_time: float = 0.0
         self._uvicorn_server = None
+        self._config_reload_lock = asyncio.Lock()
+        self._backup_manager = BackupManager(
+            base_dir=self.config.backup.directory,
+            retention_count=self.config.backup.retention_count,
+        )
+        self._config_manager = ConfigReloadManager(backup_manager=self._backup_manager)
 
     async def start(self) -> None:
         """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
@@ -407,6 +414,8 @@ class AppRunner:
         app.state.runner = self
         app.state.writer = self._writer_router
         app.state.rx_queue = self._rx_queue
+        app.state.config_manager = self._config_manager
+        app.state.backup_manager = self._backup_manager
         self._ws_manager = app.state.ws_manager
         self._ws_manager.set_only_send_signal_update(self.config.reader.only_send_signal_update)
 
@@ -470,6 +479,91 @@ class AppRunner:
                 raise RuntimeError(f"API server exited with code {exc.code}") from exc
 
         return _serve_safe
+
+    async def reload_config(self, *, target: str, config: AppConfig | None = None) -> dict:
+        async with self._config_reload_lock:
+            applied: list[str] = []
+            skipped: list[str] = []
+            restart_required: list[str] = []
+            errors: list[str] = []
+            if target == "alarms":
+                try:
+                    alarm_configs = self._load_alarm_configs()
+                    self._pipeline.replace_alarm_stage(alarm_configs)
+                    applied.append("alarms")
+                except Exception as exc:
+                    errors.append(f"alarms: {exc}")
+                return {
+                    "applied": applied,
+                    "skipped": skipped,
+                    "restart_required": restart_required,
+                    "errors": errors,
+                }
+
+            cfg = config or load_config("config/system.json")
+            self.config = cfg
+            try:
+                for reader in self._readers:
+                    reader.set_queue_policy(cfg.processor.queue_policy)
+                applied.append("processor.queue_policy")
+            except Exception as exc:
+                errors.append(f"processor.queue_policy: {exc}")
+            try:
+                migrated = await self.migrate_rx_queue(int(cfg.processor.max_queue_size), timeout=5.0)
+                if migrated.get("ok"):
+                    applied.append("processor.max_queue_size")
+                else:
+                    errors.append(f"processor.max_queue_size: {migrated}")
+            except Exception as exc:
+                errors.append(f"processor.max_queue_size: {exc}")
+
+            try:
+                if self._ws_manager is not None:
+                    self._ws_manager.set_only_send_signal_update(cfg.reader.only_send_signal_update)
+                applied.append("reader.only_send_signal_update")
+            except Exception as exc:
+                errors.append(f"reader.only_send_signal_update: {exc}")
+
+            self._pipeline.set_runtime_config(
+                queue_policy=cfg.processor.queue_policy,
+                batch_drain_size=cfg.processor.batch_drain_size,
+                batch_size=cfg.storage.batch_size,
+                batch_interval_sec=cfg.storage.batch_interval_sec,
+            )
+            applied.extend(
+                [
+                    "processor.batch_drain_size",
+                    "storage.batch_size",
+                    "storage.batch_interval_sec",
+                ]
+            )
+
+            try:
+                alarm_configs = self._load_alarm_configs()
+                self._pipeline.replace_alarm_stage(alarm_configs)
+                applied.append("alarms")
+            except Exception as exc:
+                errors.append(f"alarms: {exc}")
+
+            restart_required.extend(
+                [
+                    "can",
+                    "api.host",
+                    "api.port",
+                    "storage.sqlite_path",
+                    "simulator",
+                    "camera",
+                    "writer",
+                    "logging",
+                ]
+            )
+            logger.info("Runtime reload applied=%s restart_required=%s errors=%s", applied, restart_required, errors)
+            return {
+                "applied": applied,
+                "skipped": skipped,
+                "restart_required": restart_required,
+                "errors": errors,
+            }
 
     async def migrate_rx_queue(self, new_maxsize: int, timeout: float = 5.0) -> dict:
         """Migrate the runtime RX queue to a new maxsize.
