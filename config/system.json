@@ -5,7 +5,12 @@
       "channel": "vcan0",
       "bitrate": 500000,
       "can_json_path": "config/can0.json",
-      "can_db_files": ["db/candb/p_v2.dbc"]
+      "can_db_files": [
+        "db/candb/p_v2.dbc"
+      ],
+      "can_db_dirs": [],
+      "a2l_dirs": [],
+      "can_db_format": "auto"
     }
   ],
   "simulator": {
@@ -60,13 +65,8 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
-  "alarms": {
-    "enabled": false,
-    "config_path": "config/alarms.json",
-    "check_interval_sec": 0.5
-  },
   "reader": {
-    "frequency_piority": 1,
+    "frequency_piority": 1.0,
     "only_send_signal_update": true,
     "stale_threshold_sec": 30.0
   },
@@ -91,5 +91,10 @@
     "file_path": "logs/can-hmi.log",
     "max_size_mb": 50,
     "backup_count": 5
+  },
+  "backup": {
+    "enabled": true,
+    "retention_count": 20,
+    "directory": "config/backups"
   }
 }

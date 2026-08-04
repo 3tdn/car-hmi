@@ -44,6 +44,27 @@ class SimulatorConfig(BaseModel):
     # File JSON chứa danh sách message simulator sẽ phát (thường dùng can.json tổng hợp)
 
 
+class AdaptiveRestraintConfig(BaseModel):
+    """Cấu hình dữ liệu cho module adaptive restraint."""
+
+    db_path: str = "db/adaptive_restraint_db/synthetic_data_out_gui.db"
+    csv_path: str = "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
+
+
+class AdapConfig(BaseModel):
+    """Cấu hình simulator phụ trợ cho adaptive pipeline."""
+
+    enabled: bool = True
+    default_cycle_ms: int = 10
+    can_json_path: str = "config/can0.json"
+
+
+class SignalMappingConfig(BaseModel):
+    """Cấu hình ánh xạ tên tín hiệu chuẩn (std_name)."""
+
+    sync_dict: str = "config/signal_std_name.json"
+
+
 class APIConfig(BaseModel):
     """Cấu hình REST API và WebSocket server (FastAPI / Uvicorn)."""
 
@@ -202,6 +223,10 @@ class AppConfig(BaseModel):
     # Danh sách kênh CAN; mỗi phần tử là một bus độc lập (vcan0, vcan1, can0, …)
     simulator: SimulatorConfig = Field(default_factory=SimulatorConfig)
     # Cấu hình CAN simulator nội bộ
+    adaptive_restraint: AdaptiveRestraintConfig = Field(default_factory=AdaptiveRestraintConfig)
+    # Cấu hình nguồn dữ liệu cho adaptive restraint
+    adap: AdapConfig = Field(default_factory=AdapConfig)
+    # Cấu hình simulator/phát dữ liệu cho adaptive flow
     api: APIConfig = Field(default_factory=APIConfig)
     # Cấu hình REST API / WebSocket
     camera: CameraConfig = Field(default_factory=CameraConfig)
@@ -218,6 +243,8 @@ class AppConfig(BaseModel):
     # Cấu hình tắt ứng dụng
     supervisor: SupervisorConfig = Field(default_factory=SupervisorConfig)
     # Cấu hình watchdog
+    signal: SignalMappingConfig = Field(default_factory=SignalMappingConfig)
+    # Cấu hình mapping signal_name <-> std_name
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     # Cấu hình logging
     backup: BackupConfig = Field(default_factory=BackupConfig)

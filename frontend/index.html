@@ -397,14 +397,188 @@
     settingsModal.style.display = 'none';
     settingsModal.innerHTML = `
       <div class="modal-backdrop"></div>
-      <div class="modal">
+      <div class="modal settings-modal">
         <h3>General Settings (config/system.json)</h3>
-        <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
-        <div style="margin-top:8px;text-align:right;">
-          <button id="settings-backups">Backups</button>
-          <button id="settings-reset">Reset</button>
-          <button id="settings-cancel">Cancel</button>
-          <button id="settings-save">Save</button>
+        <p class="settings-intro">Configure key runtime options with guided fields. Changes are persisted to disk and live-applied where supported.</p>
+        <div id="settings-status" class="settings-status">Ready</div>
+        <div id="settings-form" class="settings-grid">
+          <section class="settings-section">
+            <h4>API</h4>
+            <div class="settings-field">
+              <label for="cfg-api-host">Host</label>
+              <input id="cfg-api-host" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-api-port">Port</label>
+              <input id="cfg-api-port" type="number" min="1" max="65535" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-api-key">API Key</label>
+              <input id="cfg-api-key" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-api-cors">CORS Origins (comma-separated)</label>
+              <input id="cfg-api-cors" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Processor</h4>
+            <div class="settings-field">
+              <label for="cfg-processor-max-queue">Max Queue Size</label>
+              <input id="cfg-processor-max-queue" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-processor-policy">Queue Policy</label>
+              <select id="cfg-processor-policy">
+                <option value="reject">reject</option>
+                <option value="drop_oldest">drop_oldest</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-processor-rate">Max Update Rate (Hz)</label>
+              <input id="cfg-processor-rate" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-processor-drain">Batch Drain Size</label>
+              <input id="cfg-processor-drain" type="number" min="1" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Storage</h4>
+            <div class="settings-field">
+              <label for="cfg-storage-engine">Engine</label>
+              <input id="cfg-storage-engine" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-storage-path">SQLite Path</label>
+              <input id="cfg-storage-path" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-storage-batch-size">Batch Size</label>
+              <input id="cfg-storage-batch-size" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-storage-batch-interval">Batch Interval (sec)</label>
+              <input id="cfg-storage-batch-interval" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-storage-retention-days">Retention Days</label>
+              <input id="cfg-storage-retention-days" type="number" min="0" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Simulator</h4>
+            <div class="settings-checkbox">
+              <input id="cfg-sim-enabled" type="checkbox" />
+              <span>Enabled</span>
+            </div>
+            <div class="settings-checkbox">
+              <input id="cfg-sim-random" type="checkbox" />
+              <span>Random Mode</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-sim-cycle">Default Cycle (ms)</label>
+              <input id="cfg-sim-cycle" type="number" min="1" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Signal Mapping</h4>
+            <div class="settings-field">
+              <label for="cfg-signal-sync-dict">sync_dict Path</label>
+              <input id="cfg-signal-sync-dict" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Adaptive Stream (adap)</h4>
+            <div class="settings-checkbox">
+              <input id="cfg-adap-enabled" type="checkbox" />
+              <span>Enabled</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-adap-cycle">Default Cycle (ms)</label>
+              <input id="cfg-adap-cycle" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-adap-can-json">CAN JSON Path</label>
+              <input id="cfg-adap-can-json" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Adaptive Restraint</h4>
+            <div class="settings-field">
+              <label for="cfg-ar-db-path">DB Path</label>
+              <input id="cfg-ar-db-path" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-ar-csv-path">CSV Path</label>
+              <input id="cfg-ar-csv-path" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Camera</h4>
+            <div class="settings-checkbox">
+              <input id="cfg-camera-enabled" type="checkbox" />
+              <span>Enabled</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-url">Stream URL</label>
+              <input id="cfg-camera-url" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-timeout">Read Timeout (sec)</label>
+              <input id="cfg-camera-timeout" type="number" min="0" step="0.1" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Backup</h4>
+            <div class="settings-checkbox">
+              <input id="cfg-backup-enabled" type="checkbox" />
+              <span>Enabled</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-backup-retention">Retention Count</label>
+              <input id="cfg-backup-retention" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-backup-directory">Directory</label>
+              <input id="cfg-backup-directory" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Runtime</h4>
+            <div class="settings-checkbox">
+              <input id="cfg-reader-only-updates" type="checkbox" />
+              <span>Only Send Signal Update</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-shutdown-timeout">Shutdown Timeout (sec)</label>
+              <input id="cfg-shutdown-timeout" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-logging-level">Logging Level</label>
+              <select id="cfg-logging-level">
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+            </div>
+          </section>
+        </div>
+        <div class="settings-actions">
+          <button id="settings-backups" class="btn btn-secondary">Backups</button>
+          <button id="settings-reset" class="btn btn-danger">Reset</button>
+          <button id="settings-cancel" class="btn btn-secondary">Cancel</button>
+          <button id="settings-save" class="btn">Save</button>
         </div>
       </div>
     `;
@@ -460,36 +634,192 @@
     document.body.appendChild(adminModal);
 
     // Wire buttons
+    function setSettingsStatus(message, type = 'info') {
+      const statusEl = document.getElementById('settings-status');
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      if (type === 'error') {
+        statusEl.style.borderColor = 'rgba(218, 54, 51, 0.45)';
+        statusEl.style.background = 'rgba(218, 54, 51, 0.14)';
+        statusEl.style.color = '#ffb3b3';
+      } else if (type === 'ok') {
+        statusEl.style.borderColor = 'rgba(63, 185, 80, 0.45)';
+        statusEl.style.background = 'rgba(63, 185, 80, 0.14)';
+        statusEl.style.color = '#a9f0b5';
+      } else {
+        statusEl.style.borderColor = 'rgba(31, 111, 235, 0.35)';
+        statusEl.style.background = 'rgba(31, 111, 235, 0.12)';
+        statusEl.style.color = '#9cc2ff';
+      }
+    }
+
+    function valueOrFallback(value, fallback) {
+      return value ?? fallback;
+    }
+
+    function setGeneralFormValues(cfg) {
+      document.getElementById('cfg-api-host').value = valueOrFallback(cfg?.api?.host, '0.0.0.0');
+      document.getElementById('cfg-api-port').value = valueOrFallback(cfg?.api?.port, 8000);
+      document.getElementById('cfg-api-key').value = valueOrFallback(cfg?.api?.api_key, '');
+      document.getElementById('cfg-api-cors').value = (cfg?.api?.cors_origins || []).join(', ');
+
+      document.getElementById('cfg-processor-max-queue').value = valueOrFallback(cfg?.processor?.max_queue_size, 10000);
+      document.getElementById('cfg-processor-policy').value = valueOrFallback(cfg?.processor?.queue_policy, 'reject');
+      document.getElementById('cfg-processor-rate').value = valueOrFallback(cfg?.processor?.max_update_rate_hz, 10.0);
+      document.getElementById('cfg-processor-drain').value = valueOrFallback(cfg?.processor?.batch_drain_size, 200);
+
+      document.getElementById('cfg-storage-engine').value = valueOrFallback(cfg?.storage?.engine, 'sqlite');
+      document.getElementById('cfg-storage-path').value = valueOrFallback(cfg?.storage?.sqlite_path, 'data/signals.db');
+      document.getElementById('cfg-storage-batch-size').value = valueOrFallback(cfg?.storage?.batch_size, 100);
+      document.getElementById('cfg-storage-batch-interval').value = valueOrFallback(cfg?.storage?.batch_interval_sec, 2.0);
+      document.getElementById('cfg-storage-retention-days').value = valueOrFallback(cfg?.storage?.retention_days, 30);
+
+      document.getElementById('cfg-sim-enabled').checked = Boolean(cfg?.simulator?.enabled);
+      document.getElementById('cfg-sim-random').checked = Boolean(cfg?.simulator?.random_mode);
+      document.getElementById('cfg-sim-cycle').value = valueOrFallback(cfg?.simulator?.default_cycle_ms, 50);
+
+      document.getElementById('cfg-signal-sync-dict').value = valueOrFallback(cfg?.signal?.sync_dict, 'config/signal_std_name.json');
+
+      document.getElementById('cfg-adap-enabled').checked = Boolean(cfg?.adap?.enabled);
+      document.getElementById('cfg-adap-cycle').value = valueOrFallback(cfg?.adap?.default_cycle_ms, 10);
+      document.getElementById('cfg-adap-can-json').value = valueOrFallback(cfg?.adap?.can_json_path, 'config/can0.json');
+
+      document.getElementById('cfg-ar-db-path').value = valueOrFallback(cfg?.adaptive_restraint?.db_path, 'db/adaptive_restraint_db/synthetic_data_out_gui.db');
+      document.getElementById('cfg-ar-csv-path').value = valueOrFallback(cfg?.adaptive_restraint?.csv_path, 'db/adaptive_restraint_db/synthetic_data_out_gui.csv');
+
+      document.getElementById('cfg-camera-enabled').checked = Boolean(cfg?.camera?.enabled);
+      document.getElementById('cfg-camera-url').value = valueOrFallback(cfg?.camera?.stream_url, '');
+      document.getElementById('cfg-camera-timeout').value = valueOrFallback(cfg?.camera?.read_timeout_sec, 10.0);
+
+      document.getElementById('cfg-backup-enabled').checked = Boolean(cfg?.backup?.enabled);
+      document.getElementById('cfg-backup-retention').value = valueOrFallback(cfg?.backup?.retention_count, 20);
+      document.getElementById('cfg-backup-directory').value = valueOrFallback(cfg?.backup?.directory, 'config/backups');
+
+      document.getElementById('cfg-reader-only-updates').checked = Boolean(cfg?.reader?.only_send_signal_update);
+      document.getElementById('cfg-shutdown-timeout').value = valueOrFallback(cfg?.shutdown?.timeout_sec, 10);
+      document.getElementById('cfg-logging-level').value = valueOrFallback(cfg?.logging?.level, 'INFO');
+    }
+
+    function toInt(id, fallback) {
+      const parsed = parseInt(document.getElementById(id).value, 10);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function toFloat(id, fallback) {
+      const parsed = parseFloat(document.getElementById(id).value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function collectGeneralSettingsPatch() {
+      const corsRaw = document.getElementById('cfg-api-cors').value || '';
+      const corsOrigins = corsRaw
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      return {
+        api: {
+          host: document.getElementById('cfg-api-host').value.trim() || '0.0.0.0',
+          port: toInt('cfg-api-port', 8000),
+          api_key: document.getElementById('cfg-api-key').value,
+          cors_origins: corsOrigins,
+        },
+        processor: {
+          max_queue_size: toInt('cfg-processor-max-queue', 10000),
+          queue_policy: document.getElementById('cfg-processor-policy').value,
+          max_update_rate_hz: toFloat('cfg-processor-rate', 10.0),
+          batch_drain_size: toInt('cfg-processor-drain', 200),
+        },
+        storage: {
+          engine: document.getElementById('cfg-storage-engine').value.trim() || 'sqlite',
+          sqlite_path: document.getElementById('cfg-storage-path').value.trim() || 'data/signals.db',
+          batch_size: toInt('cfg-storage-batch-size', 100),
+          batch_interval_sec: toFloat('cfg-storage-batch-interval', 2.0),
+          retention_days: toInt('cfg-storage-retention-days', 30),
+        },
+        simulator: {
+          enabled: document.getElementById('cfg-sim-enabled').checked,
+          random_mode: document.getElementById('cfg-sim-random').checked,
+          default_cycle_ms: toInt('cfg-sim-cycle', 50),
+        },
+        signal: {
+          sync_dict: document.getElementById('cfg-signal-sync-dict').value.trim() || 'config/signal_std_name.json',
+        },
+        adap: {
+          enabled: document.getElementById('cfg-adap-enabled').checked,
+          default_cycle_ms: toInt('cfg-adap-cycle', 10),
+          can_json_path: document.getElementById('cfg-adap-can-json').value.trim() || 'config/can0.json',
+        },
+        adaptive_restraint: {
+          db_path: document.getElementById('cfg-ar-db-path').value.trim() || 'db/adaptive_restraint_db/synthetic_data_out_gui.db',
+          csv_path: document.getElementById('cfg-ar-csv-path').value.trim() || 'db/adaptive_restraint_db/synthetic_data_out_gui.csv',
+        },
+        camera: {
+          enabled: document.getElementById('cfg-camera-enabled').checked,
+          stream_url: document.getElementById('cfg-camera-url').value.trim(),
+          read_timeout_sec: toFloat('cfg-camera-timeout', 10.0),
+        },
+        backup: {
+          enabled: document.getElementById('cfg-backup-enabled').checked,
+          retention_count: toInt('cfg-backup-retention', 20),
+          directory: document.getElementById('cfg-backup-directory').value.trim() || 'config/backups',
+        },
+        reader: {
+          only_send_signal_update: document.getElementById('cfg-reader-only-updates').checked,
+        },
+        shutdown: {
+          timeout_sec: toInt('cfg-shutdown-timeout', 10),
+        },
+        logging: {
+          level: document.getElementById('cfg-logging-level').value,
+        },
+      };
+    }
+
     document.getElementById('btn-settings').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
-      editor.value = '';
+      setSettingsStatus('Loading current configuration...');
       try {
         const resp = await fetch(`${API_BASE}/config/general`);
+        if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
         const json = await resp.json();
-        editor.value = JSON.stringify(json, null, 2);
-      } catch (e) { editor.value = 'Failed to load config: '+e; }
+        setGeneralFormValues(json);
+        setSettingsStatus('Configuration loaded. Ready to edit.', 'ok');
+      } catch (e) {
+        setSettingsStatus('Failed to load config: ' + e, 'error');
+      }
       settingsModal.style.display = 'block';
     });
     document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
     document.getElementById('settings-reset').addEventListener('click', async () => {
       if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
       try {
+        setSettingsStatus('Resetting to default configuration...');
         const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
         if (!resp.ok) throw new Error(resp.statusText);
         const json = await resp.json();
-        document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
+        setGeneralFormValues(json.default || {});
+        setSettingsStatus('Default configuration restored.', 'ok');
         alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
-      } catch (e) { alert('Reset failed: '+e); }
+      } catch (e) {
+        setSettingsStatus('Reset failed: ' + e, 'error');
+        alert('Reset failed: '+e);
+      }
     });
     document.getElementById('settings-save').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
       try {
-        const body = JSON.parse(editor.value);
+        setSettingsStatus('Saving configuration...');
+        const body = collectGeneralSettingsPatch();
         const resp = await fetch(`${API_BASE}/config/general`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
         if (!resp.ok) throw new Error(resp.statusText);
+        const result = await resp.json();
+        if (result?.config) setGeneralFormValues(result.config);
+        setSettingsStatus('Configuration saved and applied.', 'ok');
         settingsModal.style.display = 'none';
         alert('Config updated (on-disk). API attempted live apply where possible.');
-      } catch (e) { alert('Save failed: '+e); }
+      } catch (e) {
+        setSettingsStatus('Save failed: ' + e, 'error');
+        alert('Save failed: '+e);
+      }
     });
     document.getElementById('settings-backups').addEventListener('click', async () => {
       adminModal.style.display = 'block';
