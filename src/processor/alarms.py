@@ -1,4 +1,4 @@
-"""Giai đoạn phát hiện cảnh báo — kiểm tra giá trị tín hiệu so với ngưỡng cấu hình."""
+"""Alarm detection stage — check signal values against configured thresholds."""
 
 from __future__ import annotations
 
@@ -31,18 +31,18 @@ class Alarm:
 
 
 class AlarmChecker(ProcessingStage):
-    """Kiểm tra từng giá trị tín hiệu so với ngưỡng cảnh báo.
+    """Check each signal value against the configured alarm thresholds.
 
-    Phát ra đối tượng Alarm tới các handler đã đăng ký (v.d. SignalStore, Storage).
+    Emits Alarm objects to any registered handlers (for example, SignalStore, Storage).
     """
 
     def __init__(self, configs: list[AlarmConfig]) -> None:
         self._configs = {c.signal: c for c in configs}
         self._alarm_handlers: list = []
-        # Theo dõi trạng thái cảnh báo hiện tại cho mỗi tín hiệu để chỉ phát
-        # khi có thay đổi (ví dụ: none -> warning, warning -> critical,
+        # Track the current alarm state for each signal and only emit when it changes
+        # (for example: none -> warning, warning -> critical,
         # critical -> none, ...)
-        # Lưu dạng: signal -> (level: str, threshold: float)
+        # Stored as: signal -> (level: str, threshold: float)
         self._last_state: dict[str, tuple[str, float] | None] = {}
 
     def add_alarm_handler(self, handler) -> None:
@@ -53,14 +53,14 @@ class AlarmChecker(ProcessingStage):
             cfg = self._configs.get(name)
             if cfg is None:
                 continue
-            # Tính trạng thái cảnh báo hiện tại (None hoặc (level, threshold))
+            # Evaluate the current alarm state (None or (level, threshold))
             current = self._eval_state(cfg, value)
             last = self._last_state.get(name)
-            # Nếu trạng thái thay đổi, phát ra một Alarm (hoặc thông tin giải quyết)
+            # If the state changed, emit an Alarm (or a clear/reset notification)
             if current != last:
                 self._last_state[name] = current
                 if current is None:
-                    # Trạng thái chuyển về bình thường — phát thông tin giải quyết
+                    # The condition returned to normal — emit a clear/resolved notification
                     ts = time.time()
                     alarm = Alarm(
                         name,
@@ -83,19 +83,19 @@ class AlarmChecker(ProcessingStage):
                     )
                 for handler in self._alarm_handlers:
                     await handler(alarm)
-        return signals  # pass-through: không sửa đổi giá trị
+        return signals  # pass-through: does not modify the values
 
     def _check(self, cfg: AlarmConfig, name: str, value: float) -> Alarm | None:
-        # Đã thay thế bởi _eval_state; giữ để tương thích nhưng không dùng nữa.
+        # Replaced by _eval_state; kept for compatibility but no longer used.
         return None
 
     def _eval_state(self, cfg: AlarmConfig, value: float) -> tuple[str, float] | None:
-        """Đánh giá trạng thái cảnh báo hiện tại theo cấu hình.
+        """Evaluate the current alarm state based on the configured thresholds.
 
-        Trả về None nếu không có cảnh báo, hoặc (level, threshold) nếu đang ở
-        trạng thái cảnh báo (ví dụ ('warning', 50.0) hoặc ('critical', 100.0)).
+        Returns None if there is no active alarm, or (level, threshold) when an
+        alarm is active (for example ('warning', 50.0) or ('critical', 100.0)).
         """
-        # Ưu tiên cảnh báo critical trước warning
+        # Prioritize critical warnings before warning-level checks
         if cfg.critical_high is not None and value >= cfg.critical_high:
             return ("critical", cfg.critical_high)
         if cfg.critical_low is not None and value <= cfg.critical_low:

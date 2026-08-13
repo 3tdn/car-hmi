@@ -1,6 +1,6 @@
-"""Quản lý cấu hình runtime (đọc/ghi config JSON cho processor).
+"""Runtime configuration manager (read/write JSON config for the processor).
 
-Đây là helper tối thiểu để cập nhật `processor` trong `config/system.json`.
+This is the minimal helper used to update `processor` in `config/system.json`.
 """
 from __future__ import annotations
 

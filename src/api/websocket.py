@@ -1,8 +1,8 @@
-"""Quản lý kết nối WebSocket để push tín hiệu và cảnh báo thời gian thực.
+"""WebSocket connection manager for pushing real-time signals and alerts.
 
-Hỗ trợ:
-- Topic-based subscription cũ (backward-compat): /ws/signals, /ws/alarms, /ws/all
-- Per-signal subscription mới: /ws/subscribe — client gửi JSON command để chọn kênh
+Supports:
+- Legacy topic-based subscription (backward-compat): /ws/signals, /ws/alarms, /ws/all
+- New per-signal subscription: /ws/subscribe — client sends a JSON command to select channels
 """
 
 from __future__ import annotations
@@ -34,15 +34,15 @@ class SubscriptionTopic(str, Enum):
 
 
 class _ClientSubscription:
-    """State riêng cho 1 WS connection dùng giao thức subscribe mới."""
+    """State for a single WS connection using the new subscribe protocol."""
 
     __slots__ = ("signal_names", "subscribe_alarms", "subscribe_metrics", "once_channels", "min_interval_s", "profile_name")
 
     def __init__(self) -> None:
-        self.signal_names: set[str] = set()  # rỗng = không nhận signal nào; "*" = tất cả
+        self.signal_names: set[str] = set()  # empty = receive no signals; "*" = all
         self.subscribe_alarms: bool = False
         self.subscribe_metrics: bool = False
-        # Channels đã yêu cầu mode "once" — sẽ bị gỡ sau khi gửi lần đầu
+        # Channels requested in "once" mode — they will be removed after the first send
         self.once_channels: set[str] = set()
 
         # If > 0, minimum seconds between sends to this connection (client-requested)
@@ -56,7 +56,7 @@ class _ClientSubscription:
 
 
 class ConnectionManager:
-    """Quản lý các kết nối WebSocket đang hoạt động và phát sóng fan-out."""
+    """Manage active WebSocket connections and fan-out broadcast delivery."""
 
     def __init__(self, signal_name_mapper: SignalNameMapper | None = None) -> None:
         # Legacy topic-based connections
@@ -86,7 +86,7 @@ class ConnectionManager:
         await ws.accept()
         async with self._lock:
             self._connections[ws] = topics or {SubscriptionTopic.ALL}
-        logger.debug("WS đã kết nối (legacy) — tổng số: %d", len(self._connections))
+        logger.debug("WS connected (legacy) — total: %d", len(self._connections))
 
     async def disconnect(self, ws: WebSocket) -> None:
         async with self._lock:
@@ -96,10 +96,10 @@ class ConnectionManager:
             stale_rate_keys = [key for key in self._last_sent if key[0] is ws]
             for key in stale_rate_keys:
                 self._last_sent.pop(key, None)
-        logger.debug("WS đã ngắt kết nối — tổng số: %d", len(self._connections) + len(self._subscriptions))
+        logger.debug("WS disconnected — total: %d", len(self._connections) + len(self._subscriptions))
 
     async def close_all(self) -> None:
-        """Đóng toàn bộ kết nối WebSocket đang mở khi ứng dụng shutdown."""
+        """Close all open WebSocket connections during application shutdown."""
         current_task = asyncio.current_task()
         async with self._lock:
             sockets = list(self._connections) + list(self._subscriptions)
@@ -122,21 +122,21 @@ class ConnectionManager:
     # ── New subscribe-based connect ──────────────────────────────────────────
 
     async def connect_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
-        """Accept WS connection cho giao thức subscribe mới."""
+        """Accept a WS connection for the new subscribe protocol."""
         await ws.accept()
         async with self._lock:
             sub = _ClientSubscription()
             sub.profile_name = profile_name
             self._subscriptions[ws] = sub
-        logger.debug("WS subscribe đã kết nối — tổng số: %d", len(self._subscriptions))
+        logger.debug("WS subscribe connected — total: %d", len(self._subscriptions))
 
     def _get_sub(self, ws: WebSocket) -> _ClientSubscription | None:
         return self._subscriptions.get(ws)
 
     async def process_subscribe_command(self, ws: WebSocket, data: dict) -> None:
-        """Xử lý lệnh subscribe/unsubscribe từ client.
+        """Handle subscribe/unsubscribe commands from the client.
 
-        Chấp nhận cả 2 định dạng:
+        Supports both formats:
         - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
         - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
         """
@@ -535,20 +535,20 @@ class ConnectionManager:
     # ── Handle loops ─────────────────────────────────────────────────────────
 
     async def handle(self, ws: WebSocket, topics: set[SubscriptionTopic] | None = None) -> None:
-        """Legacy handler: giữ kết nối sống cho /ws/signals, /ws/alarms, /ws/all."""
+        """Legacy handler: keep the connection alive for /ws/signals, /ws/alarms, and /ws/all."""
         await self.connect(ws, topics)
         try:
             while True:
                 await ws.receive_text()
         except WebSocketDisconnect:
-            logger.debug("WebSocket ngắt kết nối sạch sẽ")
+            logger.debug("WebSocket disconnected cleanly")
         except Exception:
             logger.exception("WebSocket handler error")
         finally:
             await self.disconnect(ws)
 
     async def handle_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
-        """Handler cho /ws/subscribe — nhận lệnh subscribe/unsubscribe từ client."""
+        """Handler for /ws/subscribe — receives subscribe/unsubscribe commands from the client."""
         await self.connect_subscribe(ws, profile_name=profile_name)
         try:
             while True:
@@ -563,7 +563,7 @@ class ConnectionManager:
                 else:
                     await self.process_subscribe_command(ws, data)
         except WebSocketDisconnect:
-            logger.debug("WS subscribe ngắt kết nối")
+            logger.debug("WS subscribe disconnected")
         except Exception:
             logger.exception("WS subscribe handler error")
         finally:

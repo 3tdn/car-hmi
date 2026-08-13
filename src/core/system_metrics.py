@@ -1,4 +1,4 @@
-"""Thu thập thông tin tài nguyên hệ thống CarPC (CPU, RAM, disk, queue, …)."""
+"""Collect CarPC system resource information (CPU, RAM, disk, queue, ...)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import psutil
 
 @dataclass
 class SystemMetrics:
-    """Snapshot thông tin tài nguyên hệ thống tại một thời điểm."""
+    """Snapshot of system resource information at one point in time."""
 
     timestamp: float = 0.0
 
@@ -58,12 +58,12 @@ class SystemMetrics:
     net_packets_recv: int = 0
 
     # ── Application-specific ─────────────────────────────────────────────────
-    queue_size: int = 0  # asyncio.Queue hiện tại
+    queue_size: int = 0  # current asyncio.Queue size
     queue_maxsize: int = 0
     queue_usage_percent: float = 0.0
     heap_allocated_mb: float = 0.0  # Python heap (sys.getsizeof approximation)
-    gc_objects: int = 0  # Số object theo dõi bởi garbage collector
-    asyncio_tasks: int = 0  # Số task đang chạy
+    gc_objects: int = 0  # Number of objects tracked by the garbage collector
+    asyncio_tasks: int = 0  # Number of running tasks
     uptime_seconds: float = 0.0
     python_version: str = ""
     platform: str = ""
@@ -79,7 +79,7 @@ def collect_system_metrics(
     rx_queue: asyncio.Queue | None = None,
     start_time: float = 0.0,
 ) -> SystemMetrics:
-    """Thu thập snapshot tài nguyên hệ thống. Non-blocking, gọi được từ async context."""
+    """Collect a snapshot of system resources. Non-blocking and safe to call from an async context."""
     import gc
     import platform
 
@@ -174,7 +174,7 @@ def collect_system_metrics(
 
 
 def metrics_to_dict(m: SystemMetrics) -> dict:
-    """Chuyển SystemMetrics thành dict phẳng phục vụ JSON response."""
+    """Convert SystemMetrics to a flat dict for JSON responses."""
     from dataclasses import asdict
 
     return asdict(m)

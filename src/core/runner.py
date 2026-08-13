@@ -1,4 +1,4 @@
-"""Bộ điều phối ứng dụng — khởi tạo và phối hợp tất cả các thành phần."""
+"""Application coordinator — initializes and orchestrates all system components."""
 
 from __future__ import annotations
 
@@ -76,20 +76,20 @@ def _db_total_size(db_path: "Path") -> int:
 
 
 class AppRunner:
-    """Bộ điều phối: khởi tạo và chạy tất cả các thành phần của hệ thống.
+    """Coordinator that initializes and runs all system components.
 
-    Thứ tự khởi động
-    ------------------
-    1. Ghi log
-    2. Tải cơ sở dữ liệu CAN  (quét DBC / CANdb)
-    3. Lưu trữ             (khởi tạo schema SQLite)
-    4. Bus CAN              (mở giao diện)
-    5. CAN Reader           (giải mã → hàng đợi)
-    6. CAN Writer           (mã hóa → bus)
-    7. Signal Pipeline      (lọc → cảnh báo → store → DB)
-    8. CAN Simulator        (tùy chọn, chế độ dev)
-    9. FastAPI server       (REST + WebSocket)
-    10. Watchdog            (giám sát sức khỏe)
+    Startup order
+    -------------
+    1. Logging
+    2. Load CAN database (scan DBC / CANdb)
+    3. Storage (initialize SQLite schema)
+    4. CAN bus (open interface)
+    5. CAN Reader (decode → queue)
+    6. CAN Writer (encode → bus)
+    7. Signal Pipeline (filter → alarm → store → DB)
+    8. CAN Simulator (optional, dev mode)
+    9. FastAPI server (REST + WebSocket)
+    10. Watchdog (system health monitoring)
     """
 
     def __init__(self, config: AppConfig) -> None:
@@ -97,7 +97,7 @@ class AppRunner:
         self.store = SignalStore()
         self._shutting_down = False
         self._tasks: list[asyncio.Task] = []
-        # Tham chiếu đến các thành phần (khởi tạo trong start())
+        # Component references (created in start())
         self._pipeline = None
         self._readers: list = []
         self._writers: list = []
@@ -117,7 +117,7 @@ class AppRunner:
         self._uvicorn_server = None
 
     async def start(self) -> None:
-        """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
+        """Start all components and block until shutdown."""
         _setup_logging(self.config)
         for logger_name in ("uvicorn.error", "starlette", "uvicorn.lifespan.on"):
             logging.getLogger(logger_name).addFilter(self._shutdown_noise_filter)

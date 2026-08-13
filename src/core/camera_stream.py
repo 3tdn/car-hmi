@@ -1,28 +1,28 @@
-"""Proxy MJPEG camera stream — dùng 1 kết nối upstream, fan-out cho nhiều client.
+"""Proxy MJPEG camera stream — use a single upstream connection and fan-out to many clients.
 
-Bối cảnh
---------
-Camera (qua CarPC) phát MJPEG stream tại một URL cố định, ví dụ::
+Context
+-------
+The camera (via CarPC) streams MJPEG from a fixed URL, for example::
 
     http://192.168.2.119:8080/stream
 
-MJPG server phía nguồn chỉ cho phép **DUY NHẤT 1 kết nối đồng thời** — có
-mutex ở phía server nguồn nên nếu 2 client cùng mở kết nối trực tiếp tới
-camera, kết nối thứ 2 sẽ bị từ chối/treo.
+The upstream MJPG server allows only **ONE simultaneous connection** — there is
+mutex behavior on the source server, so if two clients open direct connections
+to the camera, the second one is rejected or hangs.
 
-Trong khi đó, HMI cần cho phép nhiều thiết bị đầu cuối (mỗi thiết bị là 1
-user) cùng xem stream cùng lúc. Giải pháp: CarPC (backend) mở **đúng 1**
-kết nối tới camera, đọc byte-stream MJPEG và fan-out (broadcast) cho nhiều
-client tải dữ liệu qua HTTP tới CarPC — mỗi client không đụng tới camera
-trực tiếp nên không vi phạm giới hạn 1-connection của camera.
+Meanwhile, the HMI must allow many end devices (each device is one user) to view
+the stream at the same time. Solution: CarPC (backend) opens **exactly one**
+connection to the camera, reads the MJPEG byte stream, and fan-outs (broadcasts)
+that data to many clients over HTTP to CarPC — each client does not touch the
+camera directly, so it does not violate the one-connection limit.
 
-`CameraStreamProxy` chịu trách nhiệm:
-    * Mở/giữ 1 kết nối upstream duy nhất (khởi động khi có client đầu tiên,
-      dừng khi client cuối cùng rời đi).
-    * Tự động reconnect khi upstream lỗi/rớt kết nối.
-    * Fan-out các chunk byte nhận được cho tất cả subscriber đang mở.
-    * Bỏ (drop) chunk cũ nếu 1 client quá chậm để không làm nghẽn broadcast
-      cho các client khác.
+`CameraStreamProxy` is responsible for:
+    * Opening/maintaining a single upstream connection (start when the first client arrives,
+      stop when the last client leaves).
+    * Automatically reconnecting when the upstream fails or drops.
+    * Fan-out received byte chunks to all currently open subscribers.
+    * Dropping stale chunks if one client is too slow to avoid blocking the broadcast
+      for other clients.
 """
 
 from __future__ import annotations
@@ -74,14 +74,14 @@ class CameraStreamProxy:
         self._last_error: str | None = None
         self._stopping = False
 
-        # Đếm FPS gần đúng dựa trên marker JPEG EOI (0xFFD9) — chỉ dùng để log/giám
-        # sát, không ảnh hưởng tới dữ liệu relay cho client.
+        # Approximate FPS based on the JPEG EOI marker (0xFFD9) — used only for logging/
+        # monitoring, and does not affect the relay data sent to clients.
         self._fps: float = 0.0
         self._frame_count = 0
         self._fps_window_start = time.monotonic()
         self._prev_chunk_last_byte = b""
 
-    # ── Trạng thái ─────────────────────────────────────────────────────────
+    # ── Status ─────────────────────────────────────────────────────────
     @property
     def viewer_count(self) -> int:
         return len(self._subscribers)
@@ -100,16 +100,16 @@ class CameraStreamProxy:
 
     @property
     def fps(self) -> float:
-        """FPS gần đúng của upstream, tính lại mỗi `fps_log_interval_sec` giây."""
+        """Approximate upstream FPS, recalculated every `fps_log_interval_sec` seconds."""
         return self._fps
 
-    # ── API công khai cho route ─────────────────────────────────────────────
+    # ── Public route API ─────────────────────────────────────────────
     async def open_subscription(self) -> asyncio.Queue[bytes | None]:
-        """Đăng ký 1 client mới; khởi động upstream nếu cần rồi trả về queue.
+        """Register a new client; start the upstream if needed and then return the queue.
 
-        Chờ tối đa `startup_wait_sec` để xác định Content-Type/boundary thật
-        từ upstream (đảm bảo header trả cho client khớp với dữ liệu thực tế).
-        Nếu upstream đã kết nối sẵn (có subscriber khác), trả về ngay.
+        Wait up to `startup_wait_sec` to confirm the real Content-Type/boundary from the
+        upstream (so the header returned to the client matches the actual data stream).
+        If the upstream is already connected (from another subscriber), return immediately.
         """
         queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=self._subscriber_queue_size)
         async with self._lock:
@@ -128,18 +128,18 @@ class CameraStreamProxy:
         return queue
 
     async def stream_queue(self, queue: asyncio.Queue[bytes | None]) -> AsyncIterator[bytes]:
-        """Async generator phát các chunk byte cho 1 client đã đăng ký."""
+        """Async generator that emits byte chunks to a subscribed client."""
         try:
             while True:
                 chunk = await queue.get()
-                if chunk is None:  # sentinel — upstream đã dừng
+                if chunk is None:  # sentinel — upstream has stopped
                     break
                 yield chunk
         finally:
             await self._remove_subscriber(queue)
 
     async def aclose(self) -> None:
-        """Dừng hẳn upstream task — gọi khi ứng dụng shutdown."""
+        """Stop the upstream task completely — called on application shutdown."""
         self._stopping = True
         task = self._upstream_task
         if task is not None:
@@ -148,7 +148,7 @@ class CameraStreamProxy:
                 await task
             self._upstream_task = None
 
-    # ── Nội bộ ───────────────────────────────────────────────────────────────
+    # ── Internal helpers ─────────────────────────────────────────────────────
     async def _remove_subscriber(self, queue: asyncio.Queue[bytes | None]) -> None:
         async with self._lock:
             self._subscribers.discard(queue)

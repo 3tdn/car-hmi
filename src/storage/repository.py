@@ -1,4 +1,4 @@
-"""Giao diện repository và cài đặt SQLite."""
+"""Repository interface and SQLite implementation."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class SignalConfigRecord:
 
 
 class ISignalRepository(ABC):
-    """Hợp đồng cho tất cả thao tác lưu trữ tín hiệu / cảnh báo."""
+    """Contract for all signal / alarm storage operations."""
 
     @abstractmethod
     async def insert_signal(self, record: SignalRecord) -> None: ...
@@ -106,12 +106,12 @@ class ISignalRepository(ABC):
 
 
 class SQLiteRepository(ISignalRepository):
-    """Cài đặt async SQLite của ISignalRepository."""
+    """Async SQLite implementation of ISignalRepository."""
 
     def __init__(self, conn: aiosqlite.Connection) -> None:
         self._conn = conn
 
-    # ── Thao tác tín hiệu ─────────────────────────────────────────────────────
+    # ── Signal operations ─────────────────────────────────────────────────────
 
     async def insert_signal(self, record: SignalRecord) -> None:
         await self._conn.execute(
@@ -163,12 +163,12 @@ class SQLiteRepository(ISignalRepository):
         return deleted
 
     async def trim_to_size(self, current_size: int, max_bytes: int, batch_size: int = 5_000) -> int:
-        """Xóa các bản ghi signal_log cũ nhất theo tỷ lệ để đưa DB về dưới max_bytes sau VACUUM.
+        """Delete the oldest signal_log rows proportionally to bring the DB under max_bytes before VACUUM.
 
-        Thuật toán: ước lượng số row cần xóa = total_rows x (excess / current_size),
-        xóa theo batch rồi trả về tổng số row đã xóa.
+        Algorithm: estimate rows to delete = total_rows x (excess / current_size),
+        delete in batches, and return the total number of rows deleted.
         """
-        target = int(max_bytes * 0.85)  # target 85% để tránh cleanup liên tục
+        target = int(max_bytes * 0.85)  # target 85% to avoid continuous cleanup churn
         async with self._conn.execute("SELECT COUNT(*) FROM signal_log") as cur:
             total_rows = (await cur.fetchone())[0]
         if total_rows == 0:
@@ -192,11 +192,11 @@ class SQLiteRepository(ISignalRepository):
         return total_deleted
 
     async def vacuum(self) -> None:
-        """Checkpoint WAL rồi VACUUM để thu hồi các freed pages và thu nhỏ file DB."""
+        """Checkpoint WAL and VACUUM to reclaim freed pages and shrink the DB file."""
         await self._conn.commit()
 
-        # DB có thể đang bận vì pipeline ghi liên tục. Retry ngắn rồi bỏ qua chu kỳ
-        # hiện tại để tránh log traceback lặp lại và ảnh hưởng runtime.
+        # The DB may be busy because the pipeline is writing continuously. Retry briefly,
+        # then skip the current cycle to avoid repeated traceback logs and runtime impact.
         retries = 3
         for attempt in range(1, retries + 1):
             try:
@@ -215,7 +215,7 @@ class SQLiteRepository(ISignalRepository):
                     return
                 raise
 
-    # ── Thao tác cảnh báo ──────────────────────────────────────────────────────
+    # ── Alarm operations ──────────────────────────────────────────────────────
 
     async def insert_alarm(self, alarm: AlarmRecord) -> int:
         cur = await self._conn.execute(
