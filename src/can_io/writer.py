@@ -57,6 +57,12 @@ class CANWriter:
         self._sent_count = 0
 
         # Periodic mode config
+        self._set_writer_config(writer_config)
+
+        # Quản lý periodic tasks: msg_id → asyncio.Task
+        self._periodic_tasks: dict[int, asyncio.Task] = {}
+
+    def _set_writer_config(self, writer_config: "WriterConfig | None") -> None:
         if writer_config is not None:
             self._periodic_mode = writer_config.periodic_mode
             self._periodic_time_step_ms = writer_config.periodic_time_step
@@ -66,8 +72,13 @@ class CANWriter:
             self._periodic_time_step_ms = 20
             self._periodic_duration_ms = 10000
 
-        # Quản lý periodic tasks: msg_id → asyncio.Task
-        self._periodic_tasks: dict[int, asyncio.Task] = {}
+    def apply_runtime_config(self, writer_config: "WriterConfig | None") -> None:
+        """Update periodic writer behavior without recreating the writer instance."""
+        self._set_writer_config(writer_config)
+        for msg_id, task in list(self._periodic_tasks.items()):
+            if task is not None and not task.done():
+                task.cancel()
+                self._periodic_tasks.pop(msg_id, None)
 
     async def send_signal(self, name: str, value: float) -> None:
         """Mã hóa một tín hiệu và truyền khung CAN tương ứng.

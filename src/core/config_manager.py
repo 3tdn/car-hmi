@@ -15,13 +15,14 @@ from pathlib import Path
 from typing import Any
 
 from src.core.config import AppConfig, CANConfig, load_config
+from src.core.paths import (
+    DEFAULT_ALARMS_PATH,
+    DEFAULT_BACKUP_DIR,
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_DBC_WORK_DIR,
+)
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_CONFIG_PATH = Path("config/system.json")
-DEFAULT_ALARMS_PATH = Path("config/alarms.json")
-DEFAULT_BACKUP_DIR = Path("config/backups")
-DEFAULT_DBC_WORK_DIR = Path("tmp/dbc_jobs")
 _VALID_QUEUE_POLICIES = {"drop_oldest", "reject"}
 
 
@@ -88,21 +89,32 @@ def update_config_partial(update: dict[str, Any], path: str | Path | None = None
 
 def write_default_bus(path: str | Path | None = None) -> dict[str, Any]:
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    default_can = CANConfig(can_db_dirs=["db/can_db/"])
-    cfg = AppConfig(can=[default_can])
-    default = cfg.model_dump()
+    backup_path = Path(__file__).resolve().parents[1] / "config" / "system_bk.json"
+    if backup_path.exists():
+        default = json.loads(backup_path.read_text(encoding="utf-8")) or {}
+    else:
+        default_can = CANConfig(can_db_dirs=["db/can_db/"])
+        cfg = AppConfig(can=[default_can])
+        default = cfg.model_dump()
     write_config(default, p)
     return default
 
 
 def write_default_alarms(path: str | Path | None = None) -> dict[str, Any]:
     p = Path(path) if path else DEFAULT_ALARMS_PATH
+    signals: list[str] = []
     try:
         from src.can_io.parser import DatabaseLoader
 
+        cfg = AppConfig.model_validate(read_config(DEFAULT_CONFIG_PATH))
         loader = DatabaseLoader()
-        loader.load("config/can.json")
-        signals = list(loader.signals.keys())
+        for can_cfg in cfg.can:
+            try:
+                loader.load(can_cfg.can_json_path)
+                signals = list(loader.signals.keys())
+                break
+            except Exception:
+                continue
     except Exception:
         signals = []
 

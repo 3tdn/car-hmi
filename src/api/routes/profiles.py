@@ -11,16 +11,16 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.api.models import ProfileCreate, ProfileResponse, ProfilesResponse, ProfileUpdate
+from src.core.paths import DEFAULT_PROFILES_PATH
 
 router = APIRouter()
 
-PROFILES_PATH = Path("config/profiles.json")
+PROFILES_PATH = DEFAULT_PROFILES_PATH
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

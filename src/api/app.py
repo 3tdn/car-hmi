@@ -64,13 +64,49 @@ def create_app(
     signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
     app.state.signal_name_mapper = signal_name_mapper
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
+    app.state.config_snapshot = _cfg
+    app.state.signal_catalog = {}
+    app.state.alarm_snapshot = {"alarms": {}}
+
+    # Seed runtime metadata snapshots from the current config so request handlers
+    # can avoid repeated disk reads for signal metadata and alarms.
+    try:
+        import json
+        from pathlib import Path
+
+        for ch in _cfg.get("can", []):
+            can_json_path = Path(ch.get("can_json_path", ""))
+            if not can_json_path.exists():
+                continue
+            ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
+            for msg_data in ch_raw.get("messages", {}).values():
+                for sig_name, sig_data in msg_data.get("signals", {}).items():
+                    app.state.signal_catalog.setdefault(
+                        sig_name,
+                        {
+                            "min_value": sig_data.get("minimum"),
+                            "max_value": sig_data.get("maximum"),
+                            "unit": sig_data.get("unit") or None,
+                            "writable": bool(sig_data.get("TX", False)),
+                            "states": sig_data.get("states") or None,
+                        },
+                    )
+    except Exception:
+        logger.debug("Failed to build runtime signal catalog from config", exc_info=True)
+
+    try:
+        from src.core.config_manager import read_alarms
+
+        app.state.alarm_snapshot = read_alarms()
+    except Exception:
+        logger.debug("Failed to load runtime alarms snapshot", exc_info=True)
 
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
     app.state.dbc_job_manager = DBCJobManager()
 
     # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
     # cho phép 1 kết nối đồng thời (mutex phía nguồn).
-    _cam_cfg = read_config().get("camera", {})
+    _cam_cfg = app.state.config_snapshot.get("camera", {})
     if _cam_cfg.get("enabled", False):
         camera_proxy = CameraStreamProxy(
             stream_url=_cam_cfg.get("stream_url", "http://192.168.2.119:8080/stream"),

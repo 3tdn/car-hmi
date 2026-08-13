@@ -401,6 +401,7 @@
         <h3>General Settings (config/system.json)</h3>
         <p class="settings-intro">Configure key runtime options with guided fields. Changes are persisted to disk and live-applied where supported.</p>
         <div id="settings-status" class="settings-status">Ready</div>
+        <div id="settings-runtime-notes" style="display:none; margin-top:8px; padding:8px 10px; border:1px solid rgba(31, 111, 235, 0.28); border-radius:6px; background:rgba(31, 111, 235, 0.08); color:#dcecff; font-size:0.95em;"></div>
         <div id="settings-form" class="settings-grid">
           <section class="settings-section">
             <h4>API</h4>
@@ -420,6 +421,14 @@
               <label for="cfg-api-cors">CORS Origins (comma-separated)</label>
               <input id="cfg-api-cors" type="text" />
             </div>
+            <div class="settings-field">
+              <label for="cfg-api-ws-heartbeat">WS Heartbeat Interval (sec)</label>
+              <input id="cfg-api-ws-heartbeat" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-api-ws-metrics">WS Metrics Interval (sec)</label>
+              <input id="cfg-api-ws-metrics" type="number" min="0" step="0.1" />
+            </div>
           </section>
 
           <section class="settings-section">
@@ -434,6 +443,10 @@
                 <option value="reject">reject</option>
                 <option value="drop_oldest">drop_oldest</option>
               </select>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-processor-smoothing">Smoothing Window</label>
+              <input id="cfg-processor-smoothing" type="number" min="1" />
             </div>
             <div class="settings-field">
               <label for="cfg-processor-rate">Max Update Rate (Hz)</label>
@@ -467,6 +480,10 @@
               <label for="cfg-storage-retention-days">Retention Days</label>
               <input id="cfg-storage-retention-days" type="number" min="0" />
             </div>
+            <div class="settings-field">
+              <label for="cfg-storage-max-disk-mb">Max Disk (MB)</label>
+              <input id="cfg-storage-max-disk-mb" type="number" min="0" />
+            </div>
           </section>
 
           <section class="settings-section">
@@ -483,6 +500,94 @@
               <label for="cfg-sim-cycle">Default Cycle (ms)</label>
               <input id="cfg-sim-cycle" type="number" min="1" />
             </div>
+            <div class="settings-field">
+              <label for="cfg-sim-can-json">CAN JSON Path</label>
+              <input id="cfg-sim-can-json" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>CAN Interface</h4>
+            <div class="settings-field">
+              <label for="cfg-can-interface">Interface</label>
+              <input id="cfg-can-interface" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-channel">Channel</label>
+              <input id="cfg-can-channel" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-bitrate">Bitrate</label>
+              <input id="cfg-can-bitrate" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-json-path">CAN JSON Path</label>
+              <input id="cfg-can-json-path" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-db-files">DBC Files (comma-separated)</label>
+              <input id="cfg-can-db-files" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-db-dirs">CAN DB Dirs (comma-separated)</label>
+              <input id="cfg-can-db-dirs" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-a2l-dirs">A2L Dirs (comma-separated)</label>
+              <input id="cfg-a2l-dirs" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-can-db-format">CAN DB Format</label>
+              <input id="cfg-can-db-format" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Writer</h4>
+            <div class="settings-field">
+              <label for="cfg-writer-rate-limit">Rate Limit / sec</label>
+              <input id="cfg-writer-rate-limit" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-writer-burst">Burst</label>
+              <input id="cfg-writer-burst" type="number" min="1" />
+            </div>
+            <div class="settings-checkbox">
+              <input id="cfg-writer-periodic" type="checkbox" />
+              <span>Periodic Mode</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-writer-periodic-step">Periodic Time Step</label>
+              <input id="cfg-writer-periodic-step" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-writer-periodic-duration">Periodic Duration</label>
+              <input id="cfg-writer-periodic-duration" type="number" min="1" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Reader</h4>
+            <div class="settings-field">
+              <label for="cfg-reader-frequency-priority">Frequency Priority</label>
+              <input id="cfg-reader-frequency-priority" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-checkbox">
+              <input id="cfg-reader-only-updates" type="checkbox" />
+              <span>Only Send Signal Update</span>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-reader-stale-threshold">Stale Threshold (sec)</label>
+              <input id="cfg-reader-stale-threshold" type="number" min="0" step="0.1" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Supervisor</h4>
+            <div class="settings-field">
+              <label for="cfg-supervisor-watchdog">Watchdog Interval (sec)</label>
+              <input id="cfg-supervisor-watchdog" type="number" min="1" />
+            </div>
           </section>
 
           <section class="settings-section">
@@ -490,6 +595,31 @@
             <div class="settings-field">
               <label for="cfg-signal-sync-dict">sync_dict Path</label>
               <input id="cfg-signal-sync-dict" type="text" />
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h4>Logging</h4>
+            <div class="settings-field">
+              <label for="cfg-logging-level">Level</label>
+              <select id="cfg-logging-level">
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+            </div>
+            <div class="settings-field">
+              <label for="cfg-logging-file-path">File Path</label>
+              <input id="cfg-logging-file-path" type="text" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-logging-max-size">Max Size (MB)</label>
+              <input id="cfg-logging-max-size" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-logging-backup-count">Backup Count</label>
+              <input id="cfg-logging-backup-count" type="number" min="1" />
             </div>
           </section>
 
@@ -532,8 +662,32 @@
               <input id="cfg-camera-url" type="text" />
             </div>
             <div class="settings-field">
+              <label for="cfg-camera-reconnect">Reconnect Interval (sec)</label>
+              <input id="cfg-camera-reconnect" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-connect-timeout">Connect Timeout (sec)</label>
+              <input id="cfg-camera-connect-timeout" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
               <label for="cfg-camera-timeout">Read Timeout (sec)</label>
               <input id="cfg-camera-timeout" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-chunk-size">Chunk Size</label>
+              <input id="cfg-camera-chunk-size" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-subscriber-queue">Subscriber Queue Size</label>
+              <input id="cfg-camera-subscriber-queue" type="number" min="1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-startup-wait">Startup Wait (sec)</label>
+              <input id="cfg-camera-startup-wait" type="number" min="0" step="0.1" />
+            </div>
+            <div class="settings-field">
+              <label for="cfg-camera-fps-log-interval">FPS Log Interval (sec)</label>
+              <input id="cfg-camera-fps-log-interval" type="number" min="0" step="0.1" />
             </div>
           </section>
 
@@ -555,22 +709,9 @@
 
           <section class="settings-section">
             <h4>Runtime</h4>
-            <div class="settings-checkbox">
-              <input id="cfg-reader-only-updates" type="checkbox" />
-              <span>Only Send Signal Update</span>
-            </div>
             <div class="settings-field">
               <label for="cfg-shutdown-timeout">Shutdown Timeout (sec)</label>
               <input id="cfg-shutdown-timeout" type="number" min="1" />
-            </div>
-            <div class="settings-field">
-              <label for="cfg-logging-level">Logging Level</label>
-              <select id="cfg-logging-level">
-                <option value="DEBUG">DEBUG</option>
-                <option value="INFO">INFO</option>
-                <option value="WARNING">WARNING</option>
-                <option value="ERROR">ERROR</option>
-              </select>
             </div>
           </section>
         </div>
@@ -657,14 +798,40 @@
       return value ?? fallback;
     }
 
+    function renderSettingsRuntimeNotes(notes) {
+      const notesEl = document.getElementById('settings-runtime-notes');
+      if (!notesEl) return;
+      const appliedLive = Array.isArray(notes?.applied_live) ? notes.applied_live : [];
+      const requiresRestart = Array.isArray(notes?.requires_restart) ? notes.requires_restart : [];
+      if (!appliedLive.length && !requiresRestart.length) {
+        notesEl.style.display = 'none';
+        notesEl.textContent = '';
+        return;
+      }
+
+      const fragments = [];
+      if (appliedLive.length) {
+        fragments.push(`Applied live: ${appliedLive.join(', ')}`);
+      }
+      if (requiresRestart.length) {
+        fragments.push(`Requires restart: ${requiresRestart.join(', ')}`);
+      }
+
+      notesEl.textContent = fragments.join(' | ');
+      notesEl.style.display = 'block';
+    }
+
     function setGeneralFormValues(cfg) {
       document.getElementById('cfg-api-host').value = valueOrFallback(cfg?.api?.host, '0.0.0.0');
       document.getElementById('cfg-api-port').value = valueOrFallback(cfg?.api?.port, 8000);
       document.getElementById('cfg-api-key').value = valueOrFallback(cfg?.api?.api_key, '');
       document.getElementById('cfg-api-cors').value = (cfg?.api?.cors_origins || []).join(', ');
+      document.getElementById('cfg-api-ws-heartbeat').value = valueOrFallback(cfg?.api?.ws_heartbeat_interval_sec, 0.5);
+      document.getElementById('cfg-api-ws-metrics').value = valueOrFallback(cfg?.api?.ws_metrics_interval_sec, 0.3);
 
       document.getElementById('cfg-processor-max-queue').value = valueOrFallback(cfg?.processor?.max_queue_size, 10000);
       document.getElementById('cfg-processor-policy').value = valueOrFallback(cfg?.processor?.queue_policy, 'reject');
+      document.getElementById('cfg-processor-smoothing').value = valueOrFallback(cfg?.processor?.smoothing_window, 5);
       document.getElementById('cfg-processor-rate').value = valueOrFallback(cfg?.processor?.max_update_rate_hz, 10.0);
       document.getElementById('cfg-processor-drain').value = valueOrFallback(cfg?.processor?.batch_drain_size, 200);
 
@@ -673,12 +840,41 @@
       document.getElementById('cfg-storage-batch-size').value = valueOrFallback(cfg?.storage?.batch_size, 100);
       document.getElementById('cfg-storage-batch-interval').value = valueOrFallback(cfg?.storage?.batch_interval_sec, 2.0);
       document.getElementById('cfg-storage-retention-days').value = valueOrFallback(cfg?.storage?.retention_days, 30);
+      document.getElementById('cfg-storage-max-disk-mb').value = valueOrFallback(cfg?.storage?.max_disk_mb, 2048);
 
       document.getElementById('cfg-sim-enabled').checked = Boolean(cfg?.simulator?.enabled);
       document.getElementById('cfg-sim-random').checked = Boolean(cfg?.simulator?.random_mode);
       document.getElementById('cfg-sim-cycle').value = valueOrFallback(cfg?.simulator?.default_cycle_ms, 50);
+      document.getElementById('cfg-sim-can-json').value = valueOrFallback(cfg?.simulator?.can_json_path, 'config/can0.json');
+
+      const canConfig = Array.isArray(cfg?.can) && cfg.can.length > 0 ? cfg.can[0] : {};
+      document.getElementById('cfg-can-interface').value = valueOrFallback(canConfig?.interface, 'virtual');
+      document.getElementById('cfg-can-channel').value = valueOrFallback(canConfig?.channel, 'vcan0');
+      document.getElementById('cfg-can-bitrate').value = valueOrFallback(canConfig?.bitrate, 500000);
+      document.getElementById('cfg-can-json-path').value = valueOrFallback(canConfig?.can_json_path, 'config/can0.json');
+      document.getElementById('cfg-can-db-files').value = (canConfig?.can_db_files || []).join(', ');
+      document.getElementById('cfg-can-db-dirs').value = (canConfig?.can_db_dirs || []).join(', ');
+      document.getElementById('cfg-a2l-dirs').value = (canConfig?.a2l_dirs || []).join(', ');
+      document.getElementById('cfg-can-db-format').value = valueOrFallback(canConfig?.can_db_format, 'auto');
+
+      document.getElementById('cfg-writer-rate-limit').value = valueOrFallback(cfg?.writer?.rate_limit_per_sec, 10);
+      document.getElementById('cfg-writer-burst').value = valueOrFallback(cfg?.writer?.burst, 5);
+      document.getElementById('cfg-writer-periodic').checked = Boolean(cfg?.writer?.periodic_mode);
+      document.getElementById('cfg-writer-periodic-step').value = valueOrFallback(cfg?.writer?.periodic_time_step, 20);
+      document.getElementById('cfg-writer-periodic-duration').value = valueOrFallback(cfg?.writer?.periodic_duration, 10000);
+
+      document.getElementById('cfg-reader-frequency-priority').value = valueOrFallback(cfg?.reader?.frequency_piority, 1.0);
+      document.getElementById('cfg-reader-only-updates').checked = Boolean(cfg?.reader?.only_send_signal_update);
+      document.getElementById('cfg-reader-stale-threshold').value = valueOrFallback(cfg?.reader?.stale_threshold_sec, 30.0);
+
+      document.getElementById('cfg-supervisor-watchdog').value = valueOrFallback(cfg?.supervisor?.watchdog_interval_sec, 5);
 
       document.getElementById('cfg-signal-sync-dict').value = valueOrFallback(cfg?.signal?.sync_dict, 'config/signal_std_name.json');
+
+      document.getElementById('cfg-logging-level').value = valueOrFallback(cfg?.logging?.level, 'INFO');
+      document.getElementById('cfg-logging-file-path').value = valueOrFallback(cfg?.logging?.file_path, 'logs/can-hmi.log');
+      document.getElementById('cfg-logging-max-size').value = valueOrFallback(cfg?.logging?.max_size_mb, 50);
+      document.getElementById('cfg-logging-backup-count').value = valueOrFallback(cfg?.logging?.backup_count, 5);
 
       document.getElementById('cfg-adap-enabled').checked = Boolean(cfg?.adap?.enabled);
       document.getElementById('cfg-adap-cycle').value = valueOrFallback(cfg?.adap?.default_cycle_ms, 10);
@@ -689,15 +885,19 @@
 
       document.getElementById('cfg-camera-enabled').checked = Boolean(cfg?.camera?.enabled);
       document.getElementById('cfg-camera-url').value = valueOrFallback(cfg?.camera?.stream_url, '');
+      document.getElementById('cfg-camera-reconnect').value = valueOrFallback(cfg?.camera?.reconnect_interval_sec, 3.0);
+      document.getElementById('cfg-camera-connect-timeout').value = valueOrFallback(cfg?.camera?.connect_timeout_sec, 5.0);
       document.getElementById('cfg-camera-timeout').value = valueOrFallback(cfg?.camera?.read_timeout_sec, 10.0);
+      document.getElementById('cfg-camera-chunk-size').value = valueOrFallback(cfg?.camera?.chunk_size, 4096);
+      document.getElementById('cfg-camera-subscriber-queue').value = valueOrFallback(cfg?.camera?.subscriber_queue_size, 64);
+      document.getElementById('cfg-camera-startup-wait').value = valueOrFallback(cfg?.camera?.startup_wait_sec, 5.0);
+      document.getElementById('cfg-camera-fps-log-interval').value = valueOrFallback(cfg?.camera?.fps_log_interval_sec, 5.0);
 
       document.getElementById('cfg-backup-enabled').checked = Boolean(cfg?.backup?.enabled);
       document.getElementById('cfg-backup-retention').value = valueOrFallback(cfg?.backup?.retention_count, 20);
       document.getElementById('cfg-backup-directory').value = valueOrFallback(cfg?.backup?.directory, 'config/backups');
 
-      document.getElementById('cfg-reader-only-updates').checked = Boolean(cfg?.reader?.only_send_signal_update);
       document.getElementById('cfg-shutdown-timeout').value = valueOrFallback(cfg?.shutdown?.timeout_sec, 10);
-      document.getElementById('cfg-logging-level').value = valueOrFallback(cfg?.logging?.level, 'INFO');
     }
 
     function toInt(id, fallback) {
@@ -708,6 +908,11 @@
     function toFloat(id, fallback) {
       const parsed = parseFloat(document.getElementById(id).value);
       return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function parseCsvList(id) {
+      const raw = document.getElementById(id).value || '';
+      return raw.split(',').map(s => s.trim()).filter(Boolean);
     }
 
     function collectGeneralSettingsPatch() {
@@ -723,10 +928,13 @@
           port: toInt('cfg-api-port', 8000),
           api_key: document.getElementById('cfg-api-key').value,
           cors_origins: corsOrigins,
+          ws_heartbeat_interval_sec: toFloat('cfg-api-ws-heartbeat', 0.5),
+          ws_metrics_interval_sec: toFloat('cfg-api-ws-metrics', 0.3),
         },
         processor: {
           max_queue_size: toInt('cfg-processor-max-queue', 10000),
           queue_policy: document.getElementById('cfg-processor-policy').value,
+          smoothing_window: toInt('cfg-processor-smoothing', 5),
           max_update_rate_hz: toFloat('cfg-processor-rate', 10.0),
           batch_drain_size: toInt('cfg-processor-drain', 200),
         },
@@ -736,11 +944,40 @@
           batch_size: toInt('cfg-storage-batch-size', 100),
           batch_interval_sec: toFloat('cfg-storage-batch-interval', 2.0),
           retention_days: toInt('cfg-storage-retention-days', 30),
+          max_disk_mb: toInt('cfg-storage-max-disk-mb', 2048),
         },
+        can: [
+          {
+            interface: document.getElementById('cfg-can-interface').value.trim() || 'virtual',
+            channel: document.getElementById('cfg-can-channel').value.trim() || 'vcan0',
+            bitrate: toInt('cfg-can-bitrate', 500000),
+            can_json_path: document.getElementById('cfg-can-json-path').value.trim() || 'config/can0.json',
+            can_db_files: parseCsvList('cfg-can-db-files'),
+            can_db_dirs: parseCsvList('cfg-can-db-dirs'),
+            a2l_dirs: parseCsvList('cfg-a2l-dirs'),
+            can_db_format: document.getElementById('cfg-can-db-format').value.trim() || 'auto',
+          },
+        ],
         simulator: {
           enabled: document.getElementById('cfg-sim-enabled').checked,
           random_mode: document.getElementById('cfg-sim-random').checked,
           default_cycle_ms: toInt('cfg-sim-cycle', 50),
+          can_json_path: document.getElementById('cfg-sim-can-json').value.trim() || 'config/can0.json',
+        },
+        writer: {
+          rate_limit_per_sec: toInt('cfg-writer-rate-limit', 10),
+          burst: toInt('cfg-writer-burst', 5),
+          periodic_mode: document.getElementById('cfg-writer-periodic').checked,
+          periodic_time_step: toInt('cfg-writer-periodic-step', 20),
+          periodic_duration: toInt('cfg-writer-periodic-duration', 10000),
+        },
+        reader: {
+          frequency_piority: toFloat('cfg-reader-frequency-priority', 1.0),
+          only_send_signal_update: document.getElementById('cfg-reader-only-updates').checked,
+          stale_threshold_sec: toFloat('cfg-reader-stale-threshold', 30.0),
+        },
+        supervisor: {
+          watchdog_interval_sec: toInt('cfg-supervisor-watchdog', 5),
         },
         signal: {
           sync_dict: document.getElementById('cfg-signal-sync-dict').value.trim() || 'config/signal_std_name.json',
@@ -757,21 +994,27 @@
         camera: {
           enabled: document.getElementById('cfg-camera-enabled').checked,
           stream_url: document.getElementById('cfg-camera-url').value.trim(),
+          reconnect_interval_sec: toFloat('cfg-camera-reconnect', 3.0),
+          connect_timeout_sec: toFloat('cfg-camera-connect-timeout', 5.0),
           read_timeout_sec: toFloat('cfg-camera-timeout', 10.0),
+          chunk_size: toInt('cfg-camera-chunk-size', 4096),
+          subscriber_queue_size: toInt('cfg-camera-subscriber-queue', 64),
+          startup_wait_sec: toFloat('cfg-camera-startup-wait', 5.0),
+          fps_log_interval_sec: toFloat('cfg-camera-fps-log-interval', 5.0),
         },
         backup: {
           enabled: document.getElementById('cfg-backup-enabled').checked,
           retention_count: toInt('cfg-backup-retention', 20),
           directory: document.getElementById('cfg-backup-directory').value.trim() || 'config/backups',
         },
-        reader: {
-          only_send_signal_update: document.getElementById('cfg-reader-only-updates').checked,
-        },
         shutdown: {
           timeout_sec: toInt('cfg-shutdown-timeout', 10),
         },
         logging: {
           level: document.getElementById('cfg-logging-level').value,
+          file_path: document.getElementById('cfg-logging-file-path').value.trim() || 'logs/can-hmi.log',
+          max_size_mb: toInt('cfg-logging-max-size', 50),
+          backup_count: toInt('cfg-logging-backup-count', 5),
         },
       };
     }
@@ -783,6 +1026,7 @@
         if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
         const json = await resp.json();
         setGeneralFormValues(json);
+        renderSettingsRuntimeNotes(json?.runtime_notes || {});
         setSettingsStatus('Configuration loaded. Ready to edit.', 'ok');
       } catch (e) {
         setSettingsStatus('Failed to load config: ' + e, 'error');
@@ -798,6 +1042,7 @@
         if (!resp.ok) throw new Error(resp.statusText);
         const json = await resp.json();
         setGeneralFormValues(json.default || {});
+        renderSettingsRuntimeNotes(json?.runtime_notes || {});
         setSettingsStatus('Default configuration restored.', 'ok');
         alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
       } catch (e) {
@@ -813,9 +1058,25 @@
         if (!resp.ok) throw new Error(resp.statusText);
         const result = await resp.json();
         if (result?.config) setGeneralFormValues(result.config);
-        setSettingsStatus('Configuration saved and applied.', 'ok');
+
+        const notes = result?.runtime_notes || {};
+        renderSettingsRuntimeNotes(notes);
+        const appliedLive = Array.isArray(notes.applied_live) ? notes.applied_live : [];
+        const requiresRestart = Array.isArray(notes.requires_restart) ? notes.requires_restart : [];
+        const noteText = [];
+        if (appliedLive.length) {
+          noteText.push(`Applied live: ${appliedLive.join(', ')}`);
+        }
+        if (requiresRestart.length) {
+          noteText.push(`Requires restart: ${requiresRestart.join(', ')}`);
+        }
+        if (!noteText.length) {
+          noteText.push('Saved to disk. No runtime notes were returned.');
+        }
+
+        setSettingsStatus(noteText.join(' | '), requiresRestart.length ? 'info' : 'ok');
         settingsModal.style.display = 'none';
-        alert('Config updated (on-disk). API attempted live apply where possible.');
+        alert(`Config updated (on-disk).\n${noteText.join('\n')}`);
       } catch (e) {
         setSettingsStatus('Save failed: ' + e, 'error');
         alert('Save failed: '+e);

@@ -57,31 +57,49 @@ async def list_available_signals(request: Request):
     import json
     from pathlib import Path
 
-    from src.core.config_manager import read_alarms, read_config
+    from src.core.config_manager import read_alarms
 
     store = request.app.state.store
     snapshot = await store.get_snapshot()
 
-    # Load signal configs from all can_json_path files listed in system.json
+    # Prefer runtime-backed config snapshots already loaded into app state.
+    # Fall back to file reads only when the app has not populated the snapshot yet.
     signal_configs: dict[str, dict] = {}
-    sys_cfg = read_config()
-    for ch in sys_cfg.get("can", []):
-        can_json_path = Path(ch.get("can_json_path", ""))
-        if not can_json_path.exists():
-            continue
-        ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
-        for msg_data in ch_raw.get("messages", {}).values():
-            for sig_name, sig_data in msg_data.get("signals", {}).items():
-                signal_configs.setdefault(sig_name, {
-                    "min_value": sig_data.get("minimum"),
-                    "max_value": sig_data.get("maximum"),
-                    "unit": sig_data.get("unit") or None,
-                    "writable": bool(sig_data.get("TX", False)),
-                    "states": sig_data.get("states") or None,
-                })
+    sys_cfg = getattr(request.app.state, "config_snapshot", {})
+    if not isinstance(sys_cfg, dict):
+        sys_cfg = {}
 
-    # Load alarm configs
-    alarm_raw = read_alarms()
+    runtime_signal_catalog = getattr(request.app.state, "signal_catalog", None)
+    if isinstance(runtime_signal_catalog, dict):
+        for sig_name, sig_data in runtime_signal_catalog.items():
+            signal_configs.setdefault(sig_name, {
+                "min_value": sig_data.get("min_value"),
+                "max_value": sig_data.get("max_value"),
+                "unit": sig_data.get("unit") or None,
+                "writable": bool(sig_data.get("writable", False)),
+                "states": sig_data.get("states") or None,
+            })
+
+    if not signal_configs:
+        for ch in sys_cfg.get("can", []):
+            can_json_path = Path(ch.get("can_json_path", ""))
+            if not can_json_path.exists():
+                continue
+            ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
+            for msg_data in ch_raw.get("messages", {}).values():
+                for sig_name, sig_data in msg_data.get("signals", {}).items():
+                    signal_configs.setdefault(sig_name, {
+                        "min_value": sig_data.get("minimum"),
+                        "max_value": sig_data.get("maximum"),
+                        "unit": sig_data.get("unit") or None,
+                        "writable": bool(sig_data.get("TX", False)),
+                        "states": sig_data.get("states") or None,
+                    })
+
+    # Load alarm configs from the runtime snapshot when available.
+    alarm_raw = getattr(request.app.state, "alarm_snapshot", None)
+    if not isinstance(alarm_raw, dict):
+        alarm_raw = read_alarms()
     alarm_configs = alarm_raw.get("alarms", {})
 
     items: list[SignalMetadata] = []

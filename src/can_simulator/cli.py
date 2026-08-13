@@ -10,13 +10,14 @@ import can
 
 from src.can_simulator.simulator import CANSimulator
 from src.core.config import load_config
+from src.core.paths import DEFAULT_CONFIG_PATH
 
 logger = logging.getLogger(__name__)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CAN-HMI Simulator")
-    parser.add_argument("--config", default="config/system.json")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)

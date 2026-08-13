@@ -82,17 +82,19 @@ class _FakeReader:
 
 
 class _FakeRunner:
-    def __init__(self):
+    def __init__(self, reload_result=None, config=None):
         self.calls = []
-
-    async def reload_config(self, *, target: str, config=None):
-        self.calls.append((target, config))
-        return {
-            "applied": [target],
+        self.reload_result = reload_result or {
+            "applied": ["general"],
             "skipped": [],
             "restart_required": [],
             "errors": [],
         }
+        self.config = config
+
+    async def reload_config(self, *, target: str, config=None):
+        self.calls.append((target, config))
+        return self.reload_result
 
     async def migrate_rx_queue(self, new_maxsize: int, timeout: float = 5.0):
         return {"ok": True, "new_maxsize": new_maxsize, "migrated": 0}
@@ -109,6 +111,130 @@ async def client():
     app.state.dbc_job_manager = DBCJobManager(work_dir=Path("tmp/test-dbc-jobs"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest.mark.asyncio
+async def test_processor_update_triggers_runtime_reload():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    runner = _FakeRunner()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.backup_manager = BackupManager(base_dir=Path("tmp/test-backups"), retention_count=20)
+    app.state.config_manager = ConfigReloadManager(backup_manager=app.state.backup_manager)
+    app.state.runner = runner
+
+    config_path = Path("config/system.json")
+    original = config_path.read_text(encoding="utf-8")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.post(
+                "/config/processor",
+                headers={"X-API-Key": "test-key"},
+                json={"max_queue_size": 123, "queue_policy": "reject"},
+            )
+        assert resp.status_code == 200
+        assert runner.calls
+        assert runner.calls[0][0] == "general"
+        assert runner.calls[0][1].processor.max_queue_size == 123
+        assert runner.calls[0][1].processor.queue_policy == "reject"
+    finally:
+        config_path.write_text(original, encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_general_config_patch_returns_runtime_notes(client):
+    resp = await client.patch(
+        "/config/general",
+        headers={"X-API-Key": "test-key"},
+        json={"processor": {"max_queue_size": 321}},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "runtime_notes" in data
+    assert "applied_live" in data["runtime_notes"]
+    assert "requires_restart" in data["runtime_notes"]
+    assert isinstance(data["runtime_notes"]["requires_restart"], list)
+
+
+@pytest.mark.asyncio
+async def test_general_config_patch_surfaces_restart_required_notes():
+    from src.core.config import load_config
+
+    store = SignalStore()
+    runner = _FakeRunner(
+        reload_result={
+            "applied": ["processor.queue_policy"],
+            "skipped": [],
+            "restart_required": ["api.port"],
+            "errors": [],
+        },
+        config=load_config("config/system.json"),
+    )
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.backup_manager = BackupManager(base_dir=Path("tmp/test-backups-runtime-notes"), retention_count=20)
+    app.state.config_manager = ConfigReloadManager(backup_manager=app.state.backup_manager)
+    app.state.runner = runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.patch(
+            "/config/general",
+            headers={"X-API-Key": "test-key"},
+            json={"api": {"port": 9999}},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["runtime_notes"]["applied_live"] == ["processor.queue_policy"]
+    assert data["runtime_notes"]["requires_restart"] == ["api.port"]
+
+
+@pytest.mark.asyncio
+async def test_get_general_config_prefers_runtime_config():
+    from src.core.config import load_config
+
+    store = SignalStore()
+    cfg = load_config("config/system.json")
+    cfg.api.port = 9090
+    cfg.processor.max_queue_size = 777
+    runner = _FakeRunner(config=cfg)
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.runner = runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get("/config/general", headers={"X-API-Key": "test-key"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["api"]["port"] == 9090
+    assert data["processor"]["max_queue_size"] == 777
+
+
+@pytest.mark.asyncio
+async def test_list_available_signals_uses_runtime_cache():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.config_snapshot = {"can": [{"can_json_path": "dummy.json"}]}
+    app.state.signal_catalog = {
+        "VehicleSpeed": {
+            "min_value": 0,
+            "max_value": 200,
+            "unit": "km/h",
+            "writable": True,
+            "states": None,
+        }
+    }
+    app.state.alarm_snapshot = {"alarms": {"VehicleSpeed": {"warning_high": 100}}}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get("/signals/available", headers={"X-API-Key": "test-key"})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    item = next(i for i in data["signals_info"] if i["signal_name"] == "VehicleSpeed")
+    assert item["unit"] == "km/h"
+    assert item["writable"] is True
+    assert item["alarm_warning_high"] == 100
 
 
 @pytest.mark.asyncio

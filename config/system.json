@@ -30,7 +30,7 @@
   },
   "api": {
     "host": "0.0.0.0",
-    "port": 8000,
+    "port": 9999,
     "api_key": "change-me-in-production",
     "ws_heartbeat_interval_sec": 0.5,
     "ws_metrics_interval_sec": 0.3,
@@ -61,7 +61,7 @@
   "processor": {
     "smoothing_window": 5,
     "max_update_rate_hz": 5000.0,
-    "max_queue_size": 10000,
+    "max_queue_size": 321,
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },

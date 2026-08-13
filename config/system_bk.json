@@ -5,18 +5,17 @@
       "channel": "vcan0",
       "bitrate": 500000,
       "can_json_path": "config/can0.json",
-      "can_db_files": ["db/candb/p_v2.dbc"]
-    },
-    {
-      "interface": "virtual",
-      "channel": "vcan1",
-      "bitrate": 500000,
-      "can_json_path": "config/can1.json",
-      "can_db_files": ["db/candb/m_dummy.dbc"]
+      "can_db_files": [
+        "db/candb/p_v2.dbc"
+      ],
+      "can_db_dirs": [],
+      "a2l_dirs": [],
+      "can_db_format": "auto"
     }
   ],
   "simulator": {
     "enabled": true,
+    "random_mode": false,
     "default_cycle_ms": 10,
     "can_json_path": "config/can0.json"
   },
@@ -40,6 +39,17 @@
       "http://localhost:5173"
     ]
   },
+  "camera": {
+    "enabled": true,
+    "stream_url": "http://192.168.2.119:8080/stream",
+    "reconnect_interval_sec": 3.0,
+    "connect_timeout_sec": 5.0,
+    "read_timeout_sec": 10.0,
+    "chunk_size": 4096,
+    "subscriber_queue_size": 64,
+    "startup_wait_sec": 5.0,
+    "fps_log_interval_sec": 5.0
+  },
   "storage": {
     "engine": "sqlite",
     "sqlite_path": "data/signals.db",
@@ -55,9 +65,17 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
+  "reader": {
+    "frequency_piority": 1.0,
+    "only_send_signal_update": true,
+    "stale_threshold_sec": 30.0
+  },
   "writer": {
     "rate_limit_per_sec": 10,
-    "burst": 5
+    "burst": 5,
+    "periodic_mode": true,
+    "periodic_time_step": 20,
+    "periodic_duration": 10000
   },
   "shutdown": {
     "timeout_sec": 10
@@ -65,10 +83,18 @@
   "supervisor": {
     "watchdog_interval_sec": 5
   },
+  "signal": {
+    "sync_dict": "config/signal_std_name.json"
+  },
   "logging": {
     "level": "INFO",
     "file_path": "logs/can-hmi.log",
     "max_size_mb": 50,
     "backup_count": 5
+  },
+  "backup": {
+    "enabled": true,
+    "retention_count": 20,
+    "directory": "config/backups"
   }
 }

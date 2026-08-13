@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status, Body, UploadFile, File
 from fastapi.responses import FileResponse
@@ -20,10 +21,20 @@ from src.api.models import (
 )
 from src.core.config import load_config
 from src.core.config_manager import read_config
+from src.core.paths import DEFAULT_CONFIG_PATH
 from src.storage.repository import SignalConfigRecord
 import yaml
 
 router = APIRouter()
+
+
+def _build_runtime_notes(result: dict[str, Any]) -> dict[str, list[str]]:
+    return {
+        "applied_live": result.get("applied", []),
+        "requires_restart": result.get("restart_required", []),
+        "skipped": result.get("skipped", []),
+        "errors": result.get("errors", []),
+    }
 
 
 @router.get("", summary="List all signal configurations")
@@ -100,18 +111,22 @@ async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest
 
 
 @router.get("/processor", response_model=ProcessorConfigResponse, summary="Get processor config")
-async def get_processor_config() -> ProcessorConfigResponse:
-    from src.core.config import load_config
-
-    cfg = load_config("config/system.json")
+async def get_processor_config(request: Request) -> ProcessorConfigResponse:
+    runner = getattr(request.app.state, "runner", None)
+    if runner is not None and getattr(runner, "config", None) is not None:
+        cfg = runner.config
+    else:
+        cfg = load_config(str(DEFAULT_CONFIG_PATH))
     return ProcessorConfigResponse(max_queue_size=cfg.processor.max_queue_size, queue_policy=cfg.processor.queue_policy)
 
 
 @router.get("/general", summary="Get full application config")
-async def get_general_config():
-    from src.core.config import load_config
-
-    cfg = load_config("config/system.json")
+async def get_general_config(request: Request):
+    runner = getattr(request.app.state, "runner", None)
+    if runner is not None and getattr(runner, "config", None) is not None:
+        cfg = runner.config
+    else:
+        cfg = load_config(str(DEFAULT_CONFIG_PATH))
     return cfg.model_dump()
 
 
@@ -120,17 +135,21 @@ async def patch_general_config(body: dict, request: Request):
     manager = request.app.state.config_manager
     try:
         status_info = await manager.patch_general_config(body, runtime=getattr(request.app.state, "runner", None))
-        cfg = load_config("config/system.json")
+        runner = getattr(request.app.state, "runner", None)
+        cfg = runner.config if runner is not None and getattr(runner, "config", None) is not None else load_config(str(DEFAULT_CONFIG_PATH))
     except (ValueError, OSError, TypeError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return {"config": cfg.model_dump(), "reload": status_info}
+
+    runtime_notes = _build_runtime_notes(status_info)
+    return {"config": cfg.model_dump(), "reload": status_info, "runtime_notes": runtime_notes}
 
 
 @router.post("/general/reset", summary="Reset application config to defaults")
 async def reset_general_config(request: Request):
     manager = request.app.state.config_manager
     result = await manager.reset_general_config(runtime=getattr(request.app.state, "runner", None))
-    return {"ok": result["ok"], "default": result["config"], "reload": result}
+    runtime_notes = _build_runtime_notes(result)
+    return {"ok": result["ok"], "default": result["config"], "reload": result, "runtime_notes": runtime_notes}
 
 
 @router.get("/alarms", summary="Get alarms config (raw YAML as JSON)")
@@ -165,29 +184,45 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
 
     # Update on-disk JSON first
     try:
-        update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path="config/system.json")
+        update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path=DEFAULT_CONFIG_PATH)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
-    # Try to apply to running components if available
-    readers = getattr(request.app.state, "readers", None)
-    pipeline = getattr(request.app.state, "pipeline", None)
-    if readers and body.queue_policy is not None:
-        for reader in readers:
-            try:
-                reader.set_queue_policy(body.queue_policy)
-            except Exception:
-                pass
-    # Attempt a best-effort migration of the runtime RX queue via the runner
+    cfg = load_config(str(DEFAULT_CONFIG_PATH))
+
+    # Apply the new processor settings to the running runtime when possible.
     runner = getattr(request.app.state, "runner", None)
-    if runner and body.max_queue_size is not None:
+    if runner is not None and hasattr(runner, "reload_config"):
         try:
-            # migrate_rx_queue will route new frames and drain the old queue into the new one
-            await runner.migrate_rx_queue(int(body.max_queue_size), timeout=5.0)
+            await runner.reload_config(target="general", config=cfg)
         except Exception:
             pass
+    else:
+        # Fallback for older deployments that only expose readers/pipeline directly.
+        readers = getattr(request.app.state, "readers", None)
+        if readers and body.queue_policy is not None:
+            for reader in readers:
+                try:
+                    reader.set_queue_policy(body.queue_policy)
+                except Exception:
+                    pass
+        pipeline = getattr(request.app.state, "pipeline", None)
+        if pipeline is not None and hasattr(pipeline, "set_runtime_config"):
+            try:
+                pipeline.set_runtime_config(
+                    queue_policy=cfg.processor.queue_policy,
+                    batch_drain_size=cfg.processor.batch_drain_size,
+                    batch_size=cfg.storage.batch_size,
+                    batch_interval_sec=cfg.storage.batch_interval_sec,
+                )
+            except Exception:
+                pass
+        if runner is not None and body.max_queue_size is not None and hasattr(runner, "migrate_rx_queue"):
+            try:
+                await runner.migrate_rx_queue(int(body.max_queue_size), timeout=5.0)
+            except Exception:
+                pass
 
-    cfg = load_config("config/system.json")
     return ProcessorConfigResponse(max_queue_size=cfg.processor.max_queue_size, queue_policy=cfg.processor.queue_policy)
 
 
@@ -200,7 +235,7 @@ async def list_backups(request: Request) -> BackupListResponse:
 @router.post("/backups/create", response_model=dict, summary="Create manual config backup")
 async def create_backup(request: Request):
     manager = request.app.state.backup_manager
-    record = manager.create_backup("config/system.json", creator="manual")
+    record = manager.create_backup(str(DEFAULT_CONFIG_PATH), creator="manual")
     return {"ok": True, "backup": record.__dict__}
 
 
@@ -233,7 +268,7 @@ async def download_backup(backup_id: str, request: Request):
 @router.get("/can_info", response_model=CANInfoResponse, summary="Get CAN interface runtime information")
 async def get_can_info(request: Request) -> CANInfoResponse:
     interfaces = []
-    cfg = read_config("config/system.json")
+    cfg = read_config(DEFAULT_CONFIG_PATH)
     for ch in cfg.get("can", []):
         name = ch.get("channel", "unknown")
         state = "DOWN"

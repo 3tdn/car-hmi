@@ -13,6 +13,7 @@ from pathlib import Path
 
 from src.core.config import AppConfig, load_config
 from src.core.config_manager import BackupManager, ConfigReloadManager
+from src.core.paths import DEFAULT_ALARMS_PATH, DEFAULT_CONFIG_PATH
 from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
@@ -301,7 +302,7 @@ class AppRunner:
 
         # Respect a top-level flag in system config to temporarily disable alarms
         try:
-            sys_cfg = load_config("config/system.json")
+            sys_cfg = load_config(str(DEFAULT_CONFIG_PATH))
             alarms_enabled = getattr(sys_cfg, "alarms", {}).get("enabled", True) if hasattr(sys_cfg, "alarms") else True
         except Exception:
             alarms_enabled = True
@@ -310,7 +311,7 @@ class AppRunner:
             logger.info("Alarms disabled via config/system.json — skipping alarm load")
             return []
 
-        alarm_path = Path("config/alarms.json")
+        alarm_path = DEFAULT_ALARMS_PATH
         if not alarm_path.exists():
             logger.warning("config/alarms.json not found — no alarm thresholds loaded")
             return []
@@ -500,7 +501,7 @@ class AppRunner:
                     "errors": errors,
                 }
 
-            cfg = config or load_config("config/system.json")
+            cfg = config or load_config(str(DEFAULT_CONFIG_PATH))
             self.config = cfg
             try:
                 for reader in self._readers:
@@ -523,6 +524,13 @@ class AppRunner:
                 applied.append("reader.only_send_signal_update")
             except Exception as exc:
                 errors.append(f"reader.only_send_signal_update: {exc}")
+
+            try:
+                for writer in self._writers:
+                    writer.apply_runtime_config(cfg.writer)
+                applied.append("writer")
+            except Exception as exc:
+                errors.append(f"writer: {exc}")
 
             self._pipeline.set_runtime_config(
                 queue_policy=cfg.processor.queue_policy,
@@ -806,8 +814,8 @@ def main() -> None:
     parser.add_argument(
         "--config",
         "-c",
-        default="config/system.json",
-        help="Path to configuration JSON file (default: config/system.json)",
+        default=str(DEFAULT_CONFIG_PATH),
+        help=f"Path to configuration JSON file (default: {DEFAULT_CONFIG_PATH})",
     )
     parser.add_argument(
         "--log-level",

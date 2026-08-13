@@ -8,6 +8,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.core.paths import (
+    RELATIVE_BACKUP_DIR,
+    RELATIVE_LOG_FILE_PATH,
+    RELATIVE_SQLITE_DB_PATH,
+)
+
 
 class CANConfig(BaseModel):
     """Cấu hình một kênh CAN bus."""
@@ -115,7 +121,7 @@ class StorageConfig(BaseModel):
 
     engine: Literal["sqlite", "timescaledb", "influxdb"] = "sqlite"
     # Backend lưu trữ: "sqlite" cho dev/embedded, "timescaledb"/"influxdb" cho production
-    sqlite_path: str = "data/signals.db"
+    sqlite_path: str = RELATIVE_SQLITE_DB_PATH
     # Đường dẫn file SQLite (chỉ dùng khi engine="sqlite")
     batch_size: int = 100
     # Số bản ghi tích luỹ trước khi flush xuống DB; tăng để giảm số lần write I/O
@@ -200,7 +206,7 @@ class LoggingConfig(BaseModel):
 
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     # Mức log tối thiểu được ghi; dùng "DEBUG" để trace chi tiết khi debug
-    file_path: str = "logs/can-hmi.log"
+    file_path: str = RELATIVE_LOG_FILE_PATH
     # Đường dẫn file log; thư mục sẽ được tạo tự động nếu chưa tồn tại
     max_size_mb: int = 50
     # Kích thước tối đa mỗi file log (MB) trước khi rotate sang file mới
@@ -213,7 +219,7 @@ class BackupConfig(BaseModel):
 
     enabled: bool = True
     retention_count: int = 20
-    directory: str = "config/backups"
+    directory: str = RELATIVE_BACKUP_DIR
 
 
 class AppConfig(BaseModel):

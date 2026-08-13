@@ -22,6 +22,7 @@ coverage.xml
 htmlcov/
 .tox/
 reports/
+tmp/
 
 # SQLite databases
 *.db
@@ -61,5 +62,6 @@ site/
 .local/
 
 # Config
-# ./config/
-./config/backup/
+#config/
+*config/backups/
+config/backups

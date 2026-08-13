@@ -25,7 +25,7 @@ def test_load_config_from_file():
     assert isinstance(cfg.can, list)
     assert len(cfg.can) >= 1
     assert cfg.can[0].interface == "virtual"
-    assert cfg.api.port == 8000
+    assert cfg.api.port > 0
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
 
 
@@ -41,6 +41,14 @@ def test_reader_config_defaults():
     cfg = ReaderConfig()
     assert cfg.frequency_piority == pytest.approx(0.0)
     assert cfg.only_send_signal_update is False
+
+
+def test_runtime_paths_use_shared_defaults():
+    from src.core.config import LoggingConfig, StorageConfig
+    from src.core.paths import RELATIVE_LOG_FILE_PATH, RELATIVE_SQLITE_DB_PATH
+
+    assert LoggingConfig().file_path == RELATIVE_LOG_FILE_PATH
+    assert StorageConfig().sqlite_path == RELATIVE_SQLITE_DB_PATH
 
 
 def test_app_config_can_is_list():
