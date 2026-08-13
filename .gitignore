@@ -58,3 +58,6 @@ site/
 
 # VS Code settings
 .vscode
+.local/*
+tmp/*
+config/backups/*
