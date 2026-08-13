@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
+import re
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── Model camera stream ────────────────────────────────────────────────────
 
@@ -31,11 +32,23 @@ class SignalValueResponse(BaseModel):
     timestamp: float = Field(..., description="Unix timestamp (giây) khi đọc được giá trị")
 
 
+class AccessWarning(BaseModel):
+    """Thông tin cảnh báo/quyền truy cập cho thao tác theo profile."""
+
+    code: str = Field(..., description="Mã cảnh báo hoặc lỗi truy cập")
+    message: str = Field(..., description="Mô tả ngắn gọn cho frontend")
+    profile_name: str | None = Field(None, description="Tên profile đang được áp dụng")
+    required_permission: str | None = Field(None, description="Quyền bắt buộc cho thao tác")
+    signal_name: str | None = Field(None, description="Tên signal bị ảnh hưởng nếu là single-signal warning")
+    signals: list[str] = Field(default_factory=list, description="Danh sách signal bị bỏ qua trong batch")
+
+
 class SignalListResponse(BaseModel):
     """Danh sách giá trị tín hiệu trả về từ API."""
 
     items: list[SignalValueResponse] = Field(..., description="Danh sách các tín hiệu")
     total: int = Field(..., description="Tổng số tín hiệu trong danh sách")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo quyền truy cập nếu có")
 
 
 class WriteSignalRequest(BaseModel):
@@ -65,6 +78,7 @@ class SignalMetadata(BaseModel):
 
     signal_name: str = Field(..., description="Tên định danh duy nhất của tín hiệu")
     std_name: str | None = Field(None, description="Tên chuẩn hóa theo sync_dict (nếu có)")
+    tag: list[str] | None = Field(None, description="Các tag suy ra từ tên signal hoặc cấu hình DBC")
     unit: str | None = Field(None, description="Đơn vị đo lường")
     min_value: float | None = Field(None, description="Giá trị tối thiểu hợp lệ")
     max_value: float | None = Field(None, description="Giá trị tối đa hợp lệ")
@@ -88,6 +102,7 @@ class SignalMetadataListResponse(BaseModel):
 
     signals_info: list[SignalMetadata] = Field(..., description="Danh sách metadata tín hiệu")
     total: int = Field(..., description="Tổng số tín hiệu")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo quyền truy cập nếu có")
 
 
 # ── Model subscribe request (WS command) ──────────────────────────────────
@@ -245,33 +260,142 @@ class SystemMetricsResponse(BaseModel):
 # ── Profile models ──────────────────────────────────────────────────────────
 
 
+ProfilePermission = Literal["read", "write", "full"]
+_PROFILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
+_PROFILE_PERMISSION_ORDER = ("read", "write", "full")
+
+
+def _normalize_profile_name(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("Profile name must not be empty")
+    if not _PROFILE_NAME_PATTERN.fullmatch(normalized):
+        raise ValueError("Profile name contains unsupported characters")
+    return normalized
+
+
+def _normalize_profile_permissions(values: list[ProfilePermission]) -> list[ProfilePermission]:
+    if not values:
+        raise ValueError("At least one permission is required")
+
+    ordered: list[ProfilePermission] = []
+    seen: set[str] = set()
+    for permission in _PROFILE_PERMISSION_ORDER:
+        if permission in values and permission not in seen:
+            ordered.append(cast(ProfilePermission, permission))
+            seen.add(permission)
+    if "full" in seen:
+        return ["full"]
+    return ordered
+
+
 class ProfileCreate(BaseModel):
     """Yêu cầu tạo profile mới — POST /api/profile."""
 
     name: str = Field(..., description="Tên profile (duy nhất)")
-    signals: list[str] = Field(default_factory=list, description="Danh sách tên signal trong profile")
+    signals: list["ProfileSignal"] = Field(default_factory=list, description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
     description: str | None = Field(None, description="Mô tả ngắn về profile")
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_profile_name(value)
+
+    @field_validator("signals")
+    @classmethod
+    def validate_signals(cls, value: list["ProfileSignal"]) -> list["ProfileSignal"]:
+        unique: dict[str, ProfileSignal] = {}
+        for item in value:
+            unique[item.name] = item
+        return list(unique.values())
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 class ProfileUpdate(BaseModel):
     """Yêu cầu cập nhật profile (optimistic lock) — PUT /api/profile."""
 
     name: str = Field(..., description="Tên profile cần cập nhật")
-    signals: list[str] = Field(..., description="Danh sách tên signal mới")
+    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] | None = Field(None, description="Dữ liệu tùy ý dành cho frontend (bỏ trống để giữ nguyên)")
     description: str | None = Field(None, description="Mô tả ngắn")
     section_id: str = Field(
         ...,
         description="section_id hiện tại (lấy từ GET /api/profile). Dùng để tránh ghi đè đồng thời — 409 nếu mismatch.",
     )
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return _normalize_profile_name(value)
+
+    @field_validator("signals")
+    @classmethod
+    def validate_signals(cls, value: list["ProfileSignal"]) -> list["ProfileSignal"]:
+        unique: dict[str, ProfileSignal] = {}
+        for item in value:
+            unique[item.name] = item
+        return list(unique.values())
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("section_id")
+    @classmethod
+    def validate_section_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) != 12:
+            raise ValueError("section_id must have exactly 12 characters")
+        return normalized
+
+class ProfileSetActiveRequest(BaseModel):
+    """Yêu cầu đổi active profile trên server."""
+
+    name: str = Field(..., description="Tên profile sẽ trở thành active")
+
 
 class ProfileResponse(BaseModel):
     """Thông tin một profile."""
 
     name: str = Field(..., description="Tên profile")
-    signals: list[str] = Field(..., description="Danh sách tên signal")
+    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
     description: str | None = Field(None, description="Mô tả")
     section_id: str = Field(..., description="Hash dùng cho optimistic locking")
+
+
+class ProfileSignal(BaseModel):
+    """Signal scope trong profile với permission riêng cho signal."""
+
+    name: str = Field(..., description="Tên signal")
+    permission: list[ProfilePermission] = Field(
+        default_factory=lambda: ["read"],
+        description="Quyền cho signal: read, write, full",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Signal name must not be empty")
+        return normalized
+
+    @field_validator("permission")
+    @classmethod
+    def validate_permission(cls, value: list[ProfilePermission]) -> list[ProfilePermission]:
+        return _normalize_profile_permissions(value)
 
 
 class ProfilesResponse(BaseModel):
@@ -280,6 +404,61 @@ class ProfilesResponse(BaseModel):
     profiles: list[ProfileResponse]
     total: int
     active: str | None = Field(None, description="Tên profile đang active")
+    global_active: str | None = Field(None, description="Tên active profile ở mức global")
+    client_id: str | None = Field(None, description="Client ID nếu request có gửi X-Client-Id")
+
+
+class ActiveProfileResponse(BaseModel):
+    """Kết quả đổi active profile."""
+
+    active: str = Field(..., description="Tên profile đang active sau khi cập nhật")
+    global_active: str | None = Field(None, description="Tên active profile ở mức global")
+    client_id: str | None = Field(None, description="Client ID nếu cập nhật theo session client")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo nếu trạng thái không thay đổi")
+
+
+class ClientProfileSession(BaseModel):
+    """Phiên profile hiện tại của một client."""
+
+    client_id: str = Field(..., description="Client ID từ header X-Client-Id")
+    active: str = Field(..., description="Tên profile active cho client này")
+    updated_at: float = Field(..., description="Unix timestamp lần cập nhật gần nhất")
+    last_seen: float = Field(..., description="Unix timestamp heartbeat gần nhất")
+    status: Literal["online", "offline"] = Field(..., description="Trạng thái online/offline theo TTL")
+
+
+class ProfileSessionProfileStat(BaseModel):
+    """Thống kê số session theo từng profile active."""
+
+    profile_name: str = Field(..., description="Tên profile đang được session kích hoạt")
+    total: int = Field(..., description="Tổng số session đang active profile này")
+    online: int = Field(..., description="Số session online của profile này")
+    offline: int = Field(..., description="Số session offline của profile này")
+
+
+class ProfileSessionsResponse(BaseModel):
+    """Danh sách session active profile theo từng client."""
+
+    sessions: list[ClientProfileSession] = Field(default_factory=list, description="Danh sách map client -> active profile")
+    total: int = Field(..., description="Tổng số session client")
+    online_total: int = Field(0, description="Tổng số session đang online")
+    offline_total: int = Field(0, description="Tổng số session đang offline")
+    by_profile: list[ProfileSessionProfileStat] = Field(
+        default_factory=list,
+        description="Thống kê số session active theo từng profile",
+    )
+    global_active: str | None = Field(None, description="Active profile mặc định ở mức global")
+    ttl_seconds: int = Field(..., description="TTL dùng để đánh giá online/offline")
+    server_time: float = Field(..., description="Unix timestamp hiện tại trên server")
+
+
+class ProfileHeartbeatResponse(BaseModel):
+    """Kết quả cập nhật heartbeat cho client session."""
+
+    client_id: str = Field(..., description="Client ID đã được heartbeat")
+    active: str | None = Field(None, description="Profile đang active cho client hoặc fallback global")
+    last_seen: float = Field(..., description="Unix timestamp heartbeat mới nhất")
+    ttl_seconds: int = Field(..., description="TTL session hiện hành")
 
 
 # ── System info model ────────────────────────────────────────────────────────
@@ -310,3 +489,9 @@ class UpdateProcessorConfigRequest(BaseModel):
 
     max_queue_size: int | None = Field(None, description="Kích thước hàng đợi mới")
     queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Chính sách xử lý khi hàng đợi đầy")
+
+
+ProfileCreate.model_rebuild()
+ProfileUpdate.model_rebuild()
+ProfileResponse.model_rebuild()
+ProfileSignal.model_rebuild()

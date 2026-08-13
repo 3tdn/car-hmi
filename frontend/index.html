@@ -10,6 +10,7 @@
   <header class="hmi-header">
     <h1>CAN-HMI Live Dashboard</h1>
     <div style="display:flex; gap:8px; margin-left:12px;">
+      <button id="btn-profiles" class="btn">Profiles</button>
       <button id="btn-settings" class="btn">Settings</button>
       <button id="btn-alarms" class="btn">Alarms</button>
       <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
@@ -431,64 +432,68 @@
       const editor = document.getElementById('settings-editor');
       editor.value = '';
       try {
-        const resp = await fetch(`${API_BASE}/config/general`);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/general`, { headers: _headers() });
         editor.value = JSON.stringify(json, null, 2);
       } catch (e) { editor.value = 'Failed to load config: '+e; }
       settingsModal.style.display = 'block';
     });
     document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
     document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('settings_reset', 'Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
       try {
-        const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/general/reset`, { method: 'POST', headers: _headers() });
         document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
-        alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
-      } catch (e) { alert('Reset failed: '+e); }
+        window.showUiNotice?.('Đã reset cấu hình chung về mặc định (file được ghi đè).', { source: 'settings', code: 'settings_reset_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
+        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_reset_failed' });
+      }
     });
     document.getElementById('settings-save').addEventListener('click', async () => {
       const editor = document.getElementById('settings-editor');
       try {
         const body = JSON.parse(editor.value);
-        const resp = await fetch(`${API_BASE}/config/general`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
+        await _fetchJson(`${API_BASE}/config/general`, { method: 'PATCH', headers: _headers(), body: JSON.stringify(body) });
         settingsModal.style.display = 'none';
-        alert('Config updated (on-disk). API attempted live apply where possible.');
-      } catch (e) { alert('Save failed: '+e); }
+        window.showUiNotice?.('Config updated (on-disk). API attempted live apply where possible.', { source: 'settings', code: 'settings_save_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
+        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_save_failed' });
+      }
     });
 
     document.getElementById('btn-alarms').addEventListener('click', async () => {
       const editor = document.getElementById('alarms-editor');
       editor.value = '';
       try {
-        const resp = await fetch(`${API_BASE}/config/alarms`);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/alarms`, { headers: _headers() });
         editor.value = JSON.stringify(json, null, 2);
       } catch (e) { editor.value = 'Failed to load alarms: '+e; }
       alarmsModal.style.display = 'block';
     });
     document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
     document.getElementById('alarms-reset').addEventListener('click', async () => {
-      if (!confirm('Reset alarms về mặc định (rỗng)?')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('alarms_reset', 'Reset alarms về mặc định (rỗng)?')) return;
       try {
-        const resp = await fetch(`${API_BASE}/config/alarms/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/alarms/reset`, { method: 'POST', headers: _headers() });
         document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
-        alert('Alarms đã được reset.');
-      } catch (e) { alert('Reset failed: '+e); }
+        window.showUiNotice?.('Alarms đã được reset.', { source: 'alarms', code: 'alarms_reset_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
+        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_reset_failed' });
+      }
     });
     document.getElementById('alarms-save').addEventListener('click', async () => {
       const editor = document.getElementById('alarms-editor');
       try {
         const body = JSON.parse(editor.value);
-        const resp = await fetch(`${API_BASE}/config/alarms`, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
+        await _fetchJson(`${API_BASE}/config/alarms`, { method: 'POST', headers: _headers(), body: JSON.stringify(body) });
         alarmsModal.style.display = 'none';
-        alert('Alarms config updated.');
-      } catch (e) { alert('Save failed: '+e); }
+        window.showUiNotice?.('Alarms config updated.', { source: 'alarms', code: 'alarms_save_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
+        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_save_failed' });
+      }
     });
   </script>
 </body>

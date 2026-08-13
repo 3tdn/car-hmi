@@ -155,7 +155,12 @@ function renderAlarm(alarm) {
         empty.textContent = "No active alarms";
         list.appendChild(empty);
       }
-    } catch(e) { console.error("ACK failed:", e); }
+    } catch(e) {
+      console.error("ACK failed:", e);
+      if (typeof showPermissionWarnings === "function" && typeof normalizeWarnings === "function") {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarm');
+      }
+    }
   });
   // Append new alarms and ensure we only keep the latest 3
   list.appendChild(li);

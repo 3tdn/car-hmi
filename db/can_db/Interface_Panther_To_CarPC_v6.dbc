@@ -62,25 +62,25 @@ BO_ 183 MON_OMS_RR1_Status: 7 Vector__XXX
  SG_ OMS_RR1_ChildSeatDetected_bool : 47|1@1+ (1,0) [0|1] "" Vector__XXX
 
 BO_ 191 STS_SPS_RR1_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RR1_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RR1_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RR1_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RR1_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RR1_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 190 STS_SPS_RL2_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL2_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL2_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL2_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL2_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL2_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 189 STS_SPS_RL1_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL1_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL1_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL1_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL1_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_RL1_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 182 MON_OMS_RL2_Status: 7 Vector__XXX
  SG_ OMS_RL2_SeatbeltMisuse_bool : 48|1@1+ (1,0) [0|1] "" Vector__XXX
@@ -383,21 +383,21 @@ CM_ SG_ 183 OMS_RR1_OccupantWeightMean_kg "OMS Occupant for Weight Actuator";
 CM_ SG_ 183 OMS_RR1_OccupantHeightStd_cm "OMS Occupant for Lenght Actuator";
 CM_ SG_ 183 OMS_RR1_OccupantGender "OMS Torso for Angle Actuator";
 CM_ SG_ 183 OMS_RR1_OccupantClassification "OMS Occupant for Classification Actuator | Signalvalues: 25%, 50%, 95% Occupant";
-CM_ SG_ 191 SPS_FR_HeadRestPosition "FR Seat HeadRest for Position Actuator | Signalvalues: mm";
-CM_ SG_ 191 SPS_FR_FootRestPosition "FR Seat FootRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 191 SPS_FR_SeatBackRestPosition "FR Seat BackRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 191 SPS_FR_SeatDirectionZ "FR Seat z-for Direction Actuator | Signalvalues: mm";
-CM_ SG_ 191 SPS_FR_SeatDirectionX "FR Seat x-for Direction Actuator | Signalvalues: mm";
-CM_ SG_ 190 SPS_FR_HeadRestPosition "FR Seat HeadRest for Position Actuator | Signalvalues: mm";
-CM_ SG_ 190 SPS_FR_FootRestPosition "FR Seat FootRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 190 SPS_FR_SeatBackRestPosition "FR Seat BackRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 190 SPS_FR_SeatDirectionZ "FR Seat z-for Direction Actuator | Signalvalues: mm";
-CM_ SG_ 190 SPS_FR_SeatDirectionX "FR Seat x-for Direction Actuator | Signalvalues: mm";
-CM_ SG_ 189 SPS_FR_HeadRestPosition "FR Seat HeadRest for Position Actuator | Signalvalues: mm";
-CM_ SG_ 189 SPS_FR_FootRestPosition "FR Seat FootRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 189 SPS_FR_SeatBackRestPosition "FR Seat BackRest for Position Actuator | Signalvalues: Deg";
-CM_ SG_ 189 SPS_FR_SeatDirectionZ "FR Seat z-for Direction Actuator | Signalvalues: mm";
-CM_ SG_ 189 SPS_FR_SeatDirectionX "FR Seat x-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 191 SPS_RR1_HeadRestPosition "RR1 Seat HeadRest for Position Actuator | Signalvalues: mm";
+CM_ SG_ 191 SPS_RR1_FootRestPosition "RR1 Seat FootRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 191 SPS_RR1_SeatBackRestPosition "RR1 Seat BackRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 191 SPS_RR1_SeatDirectionZ "RR1 Seat z-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 191 SPS_RR1_SeatDirectionX "RR1 Seat x-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 190 SPS_RL2_HeadRestPosition "RL2 Seat HeadRest for Position Actuator | Signalvalues: mm";
+CM_ SG_ 190 SPS_RL2_FootRestPosition "RL2 Seat FootRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 190 SPS_RL2_SeatBackRestPosition "RL2 Seat BackRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 190 SPS_RL2_SeatDirectionZ "RL2 Seat z-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 190 SPS_RL2_SeatDirectionX "RL2 Seat x-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 189 SPS_RL1_HeadRestPosition "RL1 Seat HeadRest for Position Actuator | Signalvalues: mm";
+CM_ SG_ 189 SPS_RL1_FootRestPosition "RL1 Seat FootRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 189 SPS_RL1_SeatBackRestPosition "RL1 Seat BackRest for Position Actuator | Signalvalues: Deg";
+CM_ SG_ 189 SPS_RL1_SeatDirectionZ "RL1 Seat z-for Direction Actuator | Signalvalues: mm";
+CM_ SG_ 189 SPS_RL1_SeatDirectionX "RL1 Seat x-for Direction Actuator | Signalvalues: mm";
 CM_ SG_ 182 OMS_RL2_OutOfPosition "OMS Out Of for Position Actuator";
 CM_ SG_ 182 OMS_RL2_OccupantWeightMean_kg "OMS Occupant for Weight Actuator";
 CM_ SG_ 182 OMS_RL2_OccupantHeightStd_cm "OMS Occupant for Lenght Actuator";

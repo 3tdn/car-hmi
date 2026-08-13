@@ -8,12 +8,20 @@ Hỗ trợ:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from src.api.routes.profiles import (
+    build_access_warning,
+    get_profile_context,
+    profile_allows_signal,
+    profile_has_permission,
+    profile_signal_names,
+)
 from src.core.signal_name_mapper import SignalNameMapper
 
 logger = logging.getLogger(__name__)
@@ -28,7 +36,7 @@ class SubscriptionTopic(str, Enum):
 class _ClientSubscription:
     """State riêng cho 1 WS connection dùng giao thức subscribe mới."""
 
-    __slots__ = ("signal_names", "subscribe_alarms", "subscribe_metrics", "once_channels", "min_interval_s")
+    __slots__ = ("signal_names", "subscribe_alarms", "subscribe_metrics", "once_channels", "min_interval_s", "profile_name")
 
     def __init__(self) -> None:
         self.signal_names: set[str] = set()  # rỗng = không nhận signal nào; "*" = tất cả
@@ -39,6 +47,7 @@ class _ClientSubscription:
 
         # If > 0, minimum seconds between sends to this connection (client-requested)
         self.min_interval_s: float = 0.0
+        self.profile_name: str | None = None
 
     def wants_signal(self, name: str) -> bool:
         if "*" in self.signal_names:
@@ -89,13 +98,36 @@ class ConnectionManager:
                 self._last_sent.pop(key, None)
         logger.debug("WS đã ngắt kết nối — tổng số: %d", len(self._connections) + len(self._subscriptions))
 
+    async def close_all(self) -> None:
+        """Đóng toàn bộ kết nối WebSocket đang mở khi ứng dụng shutdown."""
+        current_task = asyncio.current_task()
+        async with self._lock:
+            sockets = list(self._connections) + list(self._subscriptions)
+        for ws in sockets:
+            try:
+                await asyncio.shield(ws.close(code=1001))
+            except asyncio.CancelledError:
+                if current_task is not None:
+                    current_task.uncancel()
+            except Exception:
+                pass
+            try:
+                await asyncio.shield(self.disconnect(ws))
+            except asyncio.CancelledError:
+                if current_task is not None:
+                    current_task.uncancel()
+            except Exception:
+                pass
+
     # ── New subscribe-based connect ──────────────────────────────────────────
 
-    async def connect_subscribe(self, ws: WebSocket) -> None:
+    async def connect_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
         """Accept WS connection cho giao thức subscribe mới."""
         await ws.accept()
         async with self._lock:
-            self._subscriptions[ws] = _ClientSubscription()
+            sub = _ClientSubscription()
+            sub.profile_name = profile_name
+            self._subscriptions[ws] = sub
         logger.debug("WS subscribe đã kết nối — tổng số: %d", len(self._subscriptions))
 
     def _get_sub(self, ws: WebSocket) -> _ClientSubscription | None:
@@ -122,10 +154,35 @@ class ConnectionManager:
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
 
+        accepted_channels: list[str] = []
+        warnings: list[dict] = []
+
         async with self._lock:
             sub = self._get_sub(ws)
             if sub is None:
                 return
+
+            profile_name: str | None = None
+            profile: dict | None = None
+            try:
+                profile_name, profile, _ = get_profile_context(sub.profile_name, allow_bootstrap=True)
+            except Exception as exc:
+                detail = getattr(exc, "detail", None)
+                if isinstance(detail, dict):
+                    warnings.append(detail)
+                else:
+                    warnings.append(build_access_warning("profile_access_error", str(exc)))
+
+            has_read_permission = profile is None or profile_has_permission(profile, "read")
+            if profile is not None and not has_read_permission:
+                warnings.append(
+                    build_access_warning(
+                        "profile_permission_denied",
+                        f"Profile '{profile_name}' lacks 'read' permission",
+                        profile_name=profile_name,
+                        required_permission="read",
+                    )
+                )
 
             # Apply rate limit if provided
             try:
@@ -139,17 +196,64 @@ class ConnectionManager:
                 ch_lower = ch.lower()
                 if action == "subscribe":
                     if ch_lower == "alarms":
+                        if not has_read_permission:
+                            continue
                         sub.subscribe_alarms = True
+                        accepted_channels.append("alarms")
                     elif ch_lower == "metrics":
+                        if not has_read_permission:
+                            continue
                         sub.subscribe_metrics = True
+                        accepted_channels.append("metrics")
                     elif ch == "*":
-                        sub.signal_names.add("*")
+                        if not has_read_permission:
+                            continue
+                        if profile is None:
+                            sub.signal_names.add("*")
+                            accepted_channels.append("*")
+                        else:
+                            allowed: list[str] = []
+                            for signal_name in profile_signal_names(profile, required="read"):
+                                canonical = self._mapper.resolve(signal_name)
+                                sub.signal_names.add(canonical)
+                                allowed.append(canonical)
+                            accepted_channels.extend(allowed)
+                            warnings.append(
+                                build_access_warning(
+                                    "profile_signal_filtered",
+                                    f"Wildcard subscription limited to profile '{profile_name}' signals",
+                                    profile_name=profile_name,
+                                    required_permission="read",
+                                    signals=sorted(allowed),
+                                )
+                            )
                     else:
+                        if not has_read_permission:
+                            continue
                         # Resolve std_name -> canonical signal_name before storing
-                        sub.signal_names.add(self._mapper.resolve(ch))
+                        canonical = self._mapper.resolve(ch)
+                        std_name = self._mapper.get_std_name(canonical) or ch
+                        if profile is not None and not profile_allows_signal(profile, canonical, [ch, std_name], required="read"):
+                            warnings.append(
+                                build_access_warning(
+                                    "profile_signal_denied",
+                                    f"Signal '{canonical}' is outside profile '{profile_name}' scope",
+                                    profile_name=profile_name,
+                                    required_permission="read",
+                                    signal_name=canonical,
+                                )
+                            )
+                            continue
+                        sub.signal_names.add(canonical)
+                        accepted_channels.append(canonical)
 
                     if mode == "once":
-                        sub.once_channels.add(ch)
+                        if ch == "*":
+                            sub.once_channels.update(accepted_channels)
+                        elif ch in {"alarms", "metrics"}:
+                            sub.once_channels.add(ch)
+                        else:
+                            sub.once_channels.add(self._mapper.resolve(ch))
                 elif action == "unsubscribe":
                     if ch_lower == "alarms":
                         sub.subscribe_alarms = False
@@ -165,8 +269,9 @@ class ConnectionManager:
         ack_payload = json.dumps({
             "type": ack_type,
             "action": action,
-            "channels": channels,
-            "count": len(channels),
+            "channels": accepted_channels if action == "subscribe" else channels,
+            "count": len(accepted_channels if action == "subscribe" else channels),
+            "warnings": warnings,
         })
         try:
             await ws.send_text(ack_payload)
@@ -442,9 +547,9 @@ class ConnectionManager:
         finally:
             await self.disconnect(ws)
 
-    async def handle_subscribe(self, ws: WebSocket) -> None:
+    async def handle_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
         """Handler cho /ws/subscribe — nhận lệnh subscribe/unsubscribe từ client."""
-        await self.connect_subscribe(ws)
+        await self.connect_subscribe(ws, profile_name=profile_name)
         try:
             while True:
                 raw = await ws.receive_text()

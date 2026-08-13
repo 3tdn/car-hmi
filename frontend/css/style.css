@@ -53,6 +53,125 @@ body {
   background: var(--surface); border: 1px solid var(--border); padding: 12px; border-radius: 8px;
 }
 
+.modal-shell {
+  display: none;
+}
+
+.profile-manager-modal {
+  width: 980px;
+  max-width: 96vw;
+}
+
+.profile-manager-modal__header,
+.profile-manager-modal__actions,
+.profile-manager-sidebar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-manager-modal__body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.profile-manager-sidebar {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 12px;
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.profile-list__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.profile-list__item--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(31,111,235,.3);
+}
+
+.profile-list__name {
+  font-weight: 700;
+}
+
+.profile-list__meta,
+.profile-form-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-manager-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profile-form-grid label,
+.profile-signal-editor,
+.profile-signal-tools__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-form-grid input,
+.profile-signal-tools select,
+.profile-signal-editor textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.profile-signal-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.profile-permission-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-permission-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .hmi-header h1 { font-size: 18px; font-weight: 600; }
 
 .badge {
@@ -63,6 +182,68 @@ body {
 }
 .badge--connected    { background: var(--ok);   color: #000; }
 .badge--disconnected { background: var(--crit); color: #fff; }
+
+.permission-notice {
+  display: none;
+  margin: 8px 24px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(210,153,34,.45);
+  background: rgba(210,153,34,.12);
+  color: #f3d38a;
+  font-size: 12px;
+}
+
+.permission-notice--visible {
+  display: block;
+}
+
+.profile-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.profile-selector__label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.profile-selector select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.profile-permission-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.profile-permission-chip--read {
+  color: #f3d38a;
+  border-color: rgba(210,153,34,.45);
+  background: rgba(210,153,34,.12);
+}
+
+.profile-permission-chip--write {
+  color: #9bd2ff;
+  border-color: rgba(31,111,235,.45);
+  background: rgba(31,111,235,.12);
+}
+
+.profile-permission-chip--full {
+  color: #9de4ad;
+  border-color: rgba(63,185,80,.45);
+  background: rgba(63,185,80,.12);
+}
 
 /* ── Main grid ───────────────────────────────────────────────── */
 .hmi-grid {
@@ -186,6 +367,34 @@ body {
   font-size: 13px;
 }
 
+.signal-row--blocked-read {
+  background: rgba(210,153,34,.08);
+}
+
+.signal-row--blocked-read .signal-value,
+.signal-row--blocked-read .signal-name {
+  color: #f3d38a;
+}
+
+.signal-row--blocked-write .write-btn,
+.signal-row--blocked-write .write-select,
+.signal-row--blocked-write .write-input {
+  border-color: rgba(210,153,34,.65);
+  box-shadow: 0 0 0 1px rgba(210,153,34,.25);
+}
+
+.signal-access-indicator {
+  display: none;
+  margin-left: 8px;
+  color: var(--warn);
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.signal-access-indicator--visible {
+  display: inline-block;
+}
+
 .sparkline {
   display: block;
   width: 140px;
@@ -230,8 +439,18 @@ body {
   min-width: 36px;
   transition: background 0.2s;
 }
+.write-btn--warn {
+  background: rgba(210,153,34,.18);
+  color: #f3d38a;
+  border-color: rgba(210,153,34,.45);
+}
 .write-btn--ok  { background: var(--accent); color: #fff; }
 .write-btn--err { background: var(--crit);   color: #fff; }
+.btn--permission-warn {
+  background: rgba(210,153,34,.18);
+  color: #f3d38a;
+  border-color: rgba(210,153,34,.45);
+}
 .alarm-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .alarm-list__empty { color: var(--muted); font-style: italic; }
 

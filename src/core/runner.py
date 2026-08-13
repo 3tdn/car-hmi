@@ -17,6 +17,32 @@ from src.core.signal_store import SignalStore
 logger = logging.getLogger(__name__)
 
 
+class _ShutdownNoiseFilter(logging.Filter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.enabled = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not self.enabled:
+            return True
+
+        message = record.getMessage()
+        if "ASGI callable returned without completing response" in message:
+            return False
+
+        if record.name.startswith(("uvicorn", "starlette")) and record.exc_info:
+            exc_type, _, _ = record.exc_info
+            try:
+                import asyncio
+
+                if issubclass(exc_type, asyncio.CancelledError):
+                    return False
+            except Exception:
+                pass
+
+        return True
+
+
 def _setup_logging(cfg: AppConfig) -> None:
     log_cfg = cfg.logging
     level = getattr(logging, log_cfg.level, logging.INFO)
@@ -84,6 +110,8 @@ class AppRunner:
         self._bus_factories: list = []
         self._db_loaders: list = []
         self._fastapi_server = None
+        self._api_app = None
+        self._shutdown_noise_filter = _ShutdownNoiseFilter()
         self._ws_manager = None
         self._start_time: float = 0.0
         self._uvicorn_server = None
@@ -91,6 +119,8 @@ class AppRunner:
     async def start(self) -> None:
         """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
         _setup_logging(self.config)
+        for logger_name in ("uvicorn.error", "starlette", "uvicorn.lifespan.on"):
+            logging.getLogger(logger_name).addFilter(self._shutdown_noise_filter)
         logger.info("CAN-HMI starting up (config validated ✓)")
         self._start_time = time.time()
 
@@ -116,13 +146,23 @@ class AppRunner:
                 self.config.api.host,
                 self.config.api.port,
             )
-            results = await asyncio.gather(*self._tasks, return_exceptions=True)
+            # Take a stable snapshot because the watchdog may prune finished tasks
+            # from self._tasks while we are waiting here.
+            tasks = tuple(self._tasks)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             # Phát hiện lỗi nhiệm vụ nghiêm trọng và kích hoạt tắt
-            for task, result in zip(self._tasks, results, strict=True):
+            for task, result in zip(tasks, results):
                 if isinstance(result, Exception):
                     logger.error("Task '%s' failed: %s", task.get_name(), result)
             if any(isinstance(r, Exception) for r in results):
                 await self.shutdown()
+        except asyncio.CancelledError:
+            if not self._shutting_down:
+                try:
+                    await asyncio.shield(self.shutdown())
+                except asyncio.CancelledError:
+                    pass
+            return
         except Exception as exc:
             logger.critical("Fatal startup error: %s", exc, exc_info=True)
             await self.shutdown()
@@ -402,6 +442,7 @@ class AppRunner:
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
         )
+        self._api_app = app
         # Expose runtime objects so config endpoints can attempt to apply changes
         app.state.pipeline = self._pipeline
         app.state.runner = self
@@ -652,6 +693,19 @@ class AppRunner:
             reader.stop()
         if self._simulator:
             self._simulator.stop()
+        if self._api_app is not None:
+            camera_proxy = getattr(self._api_app.state, "camera_proxy", None)
+            if camera_proxy is not None:
+                try:
+                    await camera_proxy.aclose()
+                except Exception:
+                    logger.debug("Camera proxy close failed during shutdown", exc_info=True)
+            ws_manager = getattr(self._api_app.state, "ws_manager", None)
+            if ws_manager is not None and hasattr(ws_manager, "close_all"):
+                try:
+                    await ws_manager.close_all()
+                except Exception:
+                    logger.debug("WebSocket close-all failed during shutdown", exc_info=True)
         if self._pipeline:
             self._pipeline.stop()
             try:
@@ -662,22 +716,37 @@ class AppRunner:
         # Signal uvicorn to stop gracefully *before* cancelling its task so
         # the lifespan context manager has a chance to exit cleanly.
         if self._uvicorn_server is not None:
+            self._shutdown_noise_filter.enabled = True
+            if self._api_app is not None:
+                self._api_app.state.shutting_down = True
             self._uvicorn_server.handle_exit(sig=signal.SIGTERM, frame=None)
+            api_shutdown_timeout = float(self.config.shutdown.timeout_sec)
             # Wait for the API task to return on its own (uvicorn drains the
-            # lifespan queue and exits serve()). Only then cancel remaining
-            # tasks — this prevents the CancelledError traceback from Starlette.
+            # lifespan queue and exits serve()). If that does not happen within
+            # the configured shutdown window, ask uvicorn to force-exit rather
+            # than cancelling the API task directly.
             api_tasks = [t for t in self._tasks if t.get_name() == "api"]
             if api_tasks:
                 try:
-                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=5.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=api_shutdown_timeout)
+                except asyncio.TimeoutError:
+                    logger.warning("API shutdown timed out after %.1fs; forcing uvicorn exit", api_shutdown_timeout)
+                    self._uvicorn_server.force_exit = True
+                    try:
+                        await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=1.0)
+                    except asyncio.TimeoutError:
+                        logger.warning("API task still running after forced exit; continuing shutdown")
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
                     pass
 
         for task in self._tasks:
-            task.cancel()
+            if task.get_name() != "api":
+                task.cancel()
 
         if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+            await asyncio.gather(*(task for task in self._tasks if task.get_name() != "api"), return_exceptions=True)
 
         for bus in self._buses:
             try:
