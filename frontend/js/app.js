@@ -1024,6 +1024,8 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
 }
 
 function enqueueSignalUpdate(signalName, value, timestamp, std_name) {
+  // Dev Mode view B renders straight from the stream, bypassing the table filter.
+  window.onSignalStreamValue?.(signalName, value, timestamp);
   pendingSignalUpdates.set(signalName, {
     value,
     timestamp,
@@ -1092,6 +1094,7 @@ async function loadSnapshot() {
         row = createSignalRow(meta.signal_name, unit, !!meta.writable, meta.states || null);
       }
       if (meta.value != null && isSignalAllowed(meta.signal_name, meta.std_name)) {
+        window.onSignalStreamValue?.(meta.signal_name, meta.value, meta.timestamp || 0);
         updateWidget(meta.signal_name, meta.value);
         updateSignalRow(meta.signal_name, meta.value, meta.timestamp || 0, unit, !!meta.writable, meta.states || null);
       } else if (row) {
@@ -1107,6 +1110,7 @@ async function loadSnapshot() {
       if (warnings?.length) showPermissionWarnings(warnings, 'signals');
       items.forEach(({ signal_name, std_name, value, unit, timestamp }) => {
         if (!isSignalAllowed(signal_name, std_name)) return;
+        window.onSignalStreamValue?.(signal_name, value, timestamp || 0);
         updateWidget(signal_name, value);
         updateSignalRow(signal_name, value, timestamp, unit || "");
       });

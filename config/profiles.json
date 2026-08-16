@@ -34,6 +34,7 @@
           ]
         }
       ],
+      "exinfo": {},
       "description": "Driver view",
       "created_at": 1784553677.52822
     },
@@ -100,6 +101,7 @@
           ]
         }
       ],
+      "exinfo": {},
       "description": "all seat front",
       "created_at": 1784558274.4145112
     },
@@ -160,6 +162,7 @@
           ]
         }
       ],
+      "exinfo": {},
       "description": "e",
       "created_at": 1784561415.813459
     },
@@ -418,6 +421,7 @@
           ]
         }
       ],
+      "exinfo": {},
       "description": "RL1",
       "created_at": 1784966511.747315
     },
@@ -676,6 +680,7 @@
           ]
         }
       ],
+      "exinfo": {},
       "description": "rl1",
       "created_at": 1784966854.615648
     }

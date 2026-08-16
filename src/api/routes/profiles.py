@@ -377,6 +377,11 @@ def _is_dev_mode(request: Request) -> bool:
     return str(request.headers.get(DEV_MODE_HEADER, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def is_dev_mode(request: Request) -> bool:
+    """True when the request enables Dev Mode through the X-Dev-Mode header."""
+    return _is_dev_mode(request)
+
+
 def build_access_warning(
     code: str,
     message: str,
@@ -500,6 +505,9 @@ def require_profile_permission(
     allow_bootstrap: bool = False,
 ) -> tuple[str | None, dict[str, Any] | None]:
     """Đảm bảo request có profile đủ quyền cho thao tác ghi."""
+    if _is_dev_mode(request):
+        return None, None
+
     profile_name = request.headers.get(PROFILE_HEADER)
     client_id = _normalized_client_id(request.headers.get(CLIENT_ID_HEADER))
     resolved_name, profile, _ = get_profile_context(

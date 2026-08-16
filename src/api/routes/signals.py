@@ -20,14 +20,31 @@ from src.api.routes.profiles import (
     PROFILE_HEADER,
     build_access_warning,
     get_profile_context,
+    is_dev_mode,
     profile_allows_signal,
     profile_has_permission,
     require_profile_permission,
 )
 from src.api.websocket import ConnectionManager, SubscriptionTopic
+from src.core.devmode_locks import get_seat_lock_registry
 
 router = APIRouter()
 ws_router = APIRouter()
+
+
+def _write_owner(request: Request) -> str | None:
+    raw = request.headers.get(CLIENT_ID_HEADER)
+    return raw.strip()[:128] if raw and raw.strip() else None
+
+
+def _seat_lock_warning(signal_name: str, lock) -> dict:
+    return build_access_warning(
+        "devmode_seat_locked",
+        f"Seat '{lock.seat}' is reserved by another Dev Mode section for "
+        f"{lock.remaining_sec():.0f}s",
+        signal_name=signal_name,
+        required_permission="write",
+    )
 
 
 def _infer_signal_tags(signal_name: str) -> list[str]:
@@ -35,6 +52,8 @@ def _infer_signal_tags(signal_name: str) -> list[str]:
 
 
 def _batch_access_context(request: Request, required: str) -> tuple[str | None, dict | None, list[dict]]:
+    if is_dev_mode(request):
+        return None, None, []
     try:
         profile_name, profile, _ = get_profile_context(
             request.headers.get(PROFILE_HEADER),
@@ -278,6 +297,12 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
+    blocking = get_seat_lock_registry().blocking_lock(canonical, _write_owner(request))
+    if blocking is not None:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail=_seat_lock_warning(canonical, blocking),
+        )
     try:
         await writer.send_signal(canonical, body.value)
     except ValueError as exc:
@@ -338,6 +363,20 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
             for name, value in resolved.items()
             if profile_allows_signal(profile, name, sorted(aliases.get(name, set())), required="write")
         }
+
+    if not resolved:
+        return {"queued": [], "count": 0, "queued_at": time.time(), "errors": [], "warnings": warnings}
+
+    registry = get_seat_lock_registry()
+    owner = _write_owner(request)
+    allowed: dict[str, float] = {}
+    for name, value in resolved.items():
+        blocking = registry.blocking_lock(name, owner)
+        if blocking is None:
+            allowed[name] = value
+        else:
+            warnings.append(_seat_lock_warning(name, blocking))
+    resolved = allowed
 
     if not resolved:
         return {"queued": [], "count": 0, "queued_at": time.time(), "errors": [], "warnings": warnings}

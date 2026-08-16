@@ -350,13 +350,16 @@ async function fetchAvailableSignals() {
  * Hỗ trợ cả signal_name và std_name — backend resolve tự động.
  * @param {string} nameOrStdName  — signal_name hoặc std_name
  * @param {number} value
+ * @param {{devMode?:boolean}} [options]
  * @returns {Promise<{signal_name:string, value:number, queued_at:number}>}
  */
-async function writeSignal(nameOrStdName, value) {
+async function writeSignal(nameOrStdName, value, options = {}) {
   const canonical = resolveSignalName(nameOrStdName);
+  const headers = _headers();
+  if (options.devMode) headers["X-Dev-Mode"] = "true";
   return _fetchJson(`${API_BASE}/signals/${encodeURIComponent(canonical)}`, {
     method:  "PUT",
-    headers: _headers(),
+    headers,
     body:    JSON.stringify({ value }),
   });
 }
@@ -377,6 +380,64 @@ async function batchWriteSignals(writes) {
     method:  "POST",
     headers: _headers(),
     body:    JSON.stringify({ signals: resolved }),
+  });
+}
+
+// ── Dev Mode ─────────────────────────────────────────────────────────────────
+
+const _devHeaders = () => ({ ..._headers(), "X-Dev-Mode": "true" });
+
+/**
+ * Metadata used to build the Dev Mode view A tabs and state buttons.
+ * @returns {Promise<{seats:string[], families:Array<{signal_name:string, kind:string, states:Array}>, block_timeout_sec:number}>}
+ */
+async function fetchDevmodeCatalog() {
+  return _fetchJson(`${API_BASE}/api/devmode/catalog`, { headers: _devHeaders() });
+}
+
+/**
+ * Current Dev Mode seat lock state.
+ * @returns {Promise<{seats:Object, expires_at:string|null}>}
+ */
+async function fetchDevmodeStatus() {
+  return _fetchJson(`${API_BASE}/api/devmode/status`, { headers: _devHeaders() });
+}
+
+/**
+ * Tell the backend which seats are selected — it locks them for block_timeout_sec.
+ * @param {Object<string, boolean>} seats
+ * @param {number} [blockTimeoutSec]
+ */
+async function selectDevmodeSeats(seats, blockTimeoutSec) {
+  const body = { seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/seats/select`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/**
+ * Apply one signal family (ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request)
+ * to several seats at once.
+ */
+async function applyDevmodeSignal(signalName, value, seats, blockTimeoutSec) {
+  const body = { signal_name: signalName, value, seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/signals`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/** Leave Dev Mode — release every seat lock held by this section. */
+async function exitDevmode(options = {}) {
+  return _fetchJson(`${API_BASE}/api/devmode/exit`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    keepalive: !!options.keepalive,
   });
 }
 

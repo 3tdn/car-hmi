@@ -1003,6 +1003,42 @@ async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
+    """Dev Mode cho phép ghi signal ngoài scope của profile hiện tại."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="viewer",
+        profiles={
+            "viewer": {
+                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
+                "description": "Viewer",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.writer = _FakeWriter()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.put(
+            "/signals/VehicleSpeed",
+            headers={
+                "X-API-Key": "test-key",
+                "X-Profile-Name": "viewer",
+                "X-Dev-Mode": "true",
+            },
+            json={"value": 77.0},
+        )
+
+    assert resp.status_code == 202
+    assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
+
+
+@pytest.mark.asyncio
 async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tmp_path):
     """Batch write chỉ queue signal hợp lệ và trả warnings cho phần bị bỏ qua."""
     import src.api.routes.profiles as profile_routes

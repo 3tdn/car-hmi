@@ -96,6 +96,10 @@
   "signal": {
     "sync_dict": "config/signal_std_name.json"
   },
+  "devmode": {
+    "block_timeout_sec": 60,
+    "require_seat_connected": true
+  },
   "logging": {
     "level": "INFO",
     "file_path": "logs/can-hmi.log",

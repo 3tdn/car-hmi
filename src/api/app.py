@@ -16,6 +16,7 @@ from src.api.routes import (
     alarms,
     camera,
     config,
+    devmode,
     profiles,
     restraints,
     signals,
@@ -109,6 +110,7 @@ def create_app(
     app.include_router(system.router, prefix="/system", tags=["System"])
     app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
     app.include_router(camera.router, prefix="/api/camera", tags=["Camera"])
+    app.include_router(devmode.router, prefix="/api/devmode", tags=["Dev Mode"], dependencies=[auth_dep])
     # /api/info — thông tin hệ thống theo demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])
     # Profile management

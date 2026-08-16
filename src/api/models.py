@@ -491,6 +491,49 @@ class UpdateProcessorConfigRequest(BaseModel):
     queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Chính sách xử lý khi hàng đợi đầy")
 
 
+# ── Dev Mode models ──────────────────────────────────────────────────────────
+
+
+class DevModeSeatSelectRequest(BaseModel):
+    """Select/deselect seats in Dev Mode — POST /api/devmode/seats/select."""
+
+    seats: dict[str, bool] = Field(
+        ...,
+        description="Map seat_id → selected (fl, fr, rl1, rl2, rr1)",
+    )
+    block_timeout_sec: float | None = Field(
+        None,
+        ge=1,
+        le=3600,
+        allow_inf_nan=False,
+        description=(
+            "How long other sections stay blocked from writing the seat (seconds); "
+            "defaults to 60"
+        ),
+    )
+
+
+class DevModeSignalRequest(BaseModel):
+    """Apply one signal family to several seats at once — POST /api/devmode/signals."""
+
+    signal_name: str = Field(
+        ...,
+        description=(
+            "Signal family: ACR_RetractRequest | ABL_RetractRequest | "
+            "ISB_Color | HB_Request"
+        ),
+    )
+    value: float = Field(..., description="Value applied to every selected seat")
+    seats: dict[str, bool] = Field(..., description="Map seat_id → whether the value is applied")
+    block_timeout_sec: float | None = Field(
+        None,
+        ge=1,
+        le=3600,
+        allow_inf_nan=False,
+        description="Seat lock renewal duration (seconds); defaults to 60",
+    )
+
+
 ProfileCreate.model_rebuild()
 ProfileUpdate.model_rebuild()
 ProfileResponse.model_rebuild()
