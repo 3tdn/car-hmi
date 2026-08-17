@@ -23,7 +23,7 @@ const DEVMODE_COMPONENTS = [
     subtitle: seat.title,
     rows: [
       { label: "CAN",      signal: `COM_Status_Puma${seat.label}Can`,           kind: "com" },
-      { label: "Ethernet", signal: `COM_Status_Puma${seat.label}Ethernet_TBD`,  kind: "com" },
+      { label: "Ethernet", signal: `COM_Status_Puma${seat.label}Ethernet`,  kind: "com" },
       { label: "ELK",      signal: `ELK_${seat.label}_ActuatorStatus`,          kind: "elk" },
     ],
   })),
@@ -32,8 +32,8 @@ const DEVMODE_COMPONENTS = [
     title: "PANTHER",
     subtitle: "PANTHER computer",
     rows: [
-      { label: "CAN",      signal: "COM_Status_PumaCan_TBD",      kind: "com" },
-      { label: "Ethernet", signal: "COM_Status_PumaEthernet_TBD", kind: "com" },
+      { label: "CAN",      signal: "COM_Status_PantherCan",      kind: "com" },
+      { label: "Ethernet", signal: "COM_Status_PantherEthernet", kind: "com" },
     ],
   },
   {
@@ -41,17 +41,17 @@ const DEVMODE_COMPONENTS = [
     title: "NVIDIA JETSON",
     subtitle: "NVIDIA JETSON computer",
     rows: [
-      { label: "CAN",      signal: "COM_Status_NvidiaJetsonCan_TBD",      kind: "com" },
-      { label: "Ethernet", signal: "COM_Status_NvidiaJetsonEthernet_TBD", kind: "com" },
+      { label: "CAN",      signal: "COM_Status_NvidiaJetsonCan",      kind: "com" },
+      { label: "Ethernet", signal: "COM_Status_NvidiaJetsonEthernet", kind: "com" },
     ],
   },
 ];
 
 const ELK_STATE_TEXT = {
   0: { text: "Lock",                level: "ok" },
-  1: { text: "Unlock",              level: "ok" },
-  2: { text: "Failure at previous", level: "warn" },
-  3: { text: "Failure now",         level: "bad" },
+  1: { text: "Failure at previous", level: "warn" },
+  2: { text: "Failure now",         level: "bad" },
+  3: { text: "unknown",             level: "unknown" },
 };
 
 const devmodeState = {

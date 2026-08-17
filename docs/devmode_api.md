@@ -244,9 +244,9 @@ Ghế nào không có tín hiệu tương ứng trong DBC (ví dụ `HB_Request_
 Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới:
 - `ELK_FL_ActuatorStatus`, `ELK_FR_ActuatorStatus`, `ELK_RL1_ActuatorStatus`, `ELK_RL2_ActuatorStatus`, `ELK_RR1_ActuatorStatus`
 - `COM_Status_PumaFLCan`, `COM_Status_PumaFRCan`, `COM_Status_PumaRL1Can`, `COM_Status_PumaRL2Can`, `COM_Status_PumaRR1Can`
-- `COM_Status_PumaFLEthernet_TBD`, `COM_Status_PumaFREthernet_TBD`, `COM_Status_PumaRL1Ethernet_TBD`, `COM_Status_PumaRL2Ethernet_TBD`, `COM_Status_PumaRR1Ethernet_TBD`
-- `COM_Status_PumaCan_TBD`, `COM_Status_PumaEthernet_TBD`
-- `COM_Status_NvidiaJetsonCan_TBD`, `COM_Status_NvidiaJetsonEthernet_TBD`
+- `COM_Status_PumaFLEthernet`, `COM_Status_PumaFREthernet`, `COM_Status_PumaRL1Ethernet`, `COM_Status_PumaRL2Ethernet`, `COM_Status_PumaRR1Ethernet`
+- `COM_Status_PantherCan`, `COM_Status_PantherEthernet`
+- `COM_Status_NvidiaJetsonCan`, `COM_Status_NvidiaJetsonEthernet`
 - `ELK_ResetErrorFlags`: nếu cần gửi lệnh reset từ HMI/FE, dùng REST write signal đã có sẵn thay vì endpoint riêng
 
 ### API/WS hiện có để dùng
@@ -262,22 +262,19 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 
 - `status` và `can_communication` được suy ra từ các signal CAN đã có; không tạo endpoint riêng cho từng seat.
 - Signal connectivity bị thiếu hoặc không cập nhật trong `reader.stale_threshold_sec` được coi là `not_connected`.
-- Không có Ethernet status trong DBC v7; nếu không có tín hiệu CAN/heartbeat thì coi là `not_connected` hoặc fail theo timeout.
 - FE subscribe các signal ELK/CAN status qua WS hiện có, hoặc poll qua `GET /signals/{signal_name}` nếu cần.
-- `failure_detected` được suy ra từ dữ liệu signal hoặc timeout mất signal, không phải từ endpoint "trigger failure" mới.
-- Khi dữ liệu ELK bị thiếu hoặc stale, FE hiển thị `Status Unknown` thay vì `No Failure`.
+- `failure_detected` được suy ra từ dữ liệu signal hoặc timeout mất signal, hoặc ELK_*_ActuatorStatus có giá trị `1` hoặc `2`.
 - Nếu một ghế không connected hoặc ECU lỗi, FE đánh dấu `disabled` / `failure` dựa trên giá trị signal hoặc timeout.
-- Failure detection theo FE mới: `ELK_*_ActuatorStatus` với giá trị `-1`, `2`, `3` được coi là failure; nếu signal thiếu hoặc stale thì hiển thị `Status Unknown`.
+- unknown : `ELK_*_ActuatorStatus` với giá trị `3` sau khi nhấn reset và chưa nhận được phản hồi từ ECU, FE hiển thị `Status Unknown` (gray) cho ghế đó.
 
 ### Status mapping
 
 - `0`: CAN communication lost / disconnected - red
 - `1`: CAN communication OK / connected - green
-- `0`: ELK `lock` - green
-- `1`: ELK `unlock` - green
-- `2`: ELK `failure at previous` - yellow
-- `3`: ELK `failure now` - red
-- `-1`: ELK failure / invalid state - coi là failure
+- `0`: ELK `ok` - green
+- `1`: ELK `failure at previous` - yellow
+- `2`: ELK `failure now` - red
+- `3`: invalid state, wait response after reset - gray
 - missing hoặc stale signal: `Status Unknown` (không phải `No Failure`)
 
 ### Reset error flag
@@ -313,15 +310,15 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
     "COM_Status_PumaRL1Can",
     "COM_Status_PumaRL2Can",
     "COM_Status_PumaRR1Can",
-    "COM_Status_PumaFLEthernet_TBD",
-    "COM_Status_PumaFREthernet_TBD",
-    "COM_Status_PumaRL1Ethernet_TBD",
-    "COM_Status_PumaRL2Ethernet_TBD",
-    "COM_Status_PumaRR1Ethernet_TBD",
-    "COM_Status_PumaCan_TBD",
-    "COM_Status_PumaEthernet_TBD",
-    "COM_Status_NvidiaJetsonCan_TBD",
-    "COM_Status_NvidiaJetsonEthernet_TBD"
+    "COM_Status_PumaFLEthernet",
+    "COM_Status_PumaFREthernet",
+    "COM_Status_PumaRL1Ethernet",
+    "COM_Status_PumaRL2Ethernet",
+    "COM_Status_PumaRR1Ethernet",
+    "COM_Status_PantherCan",
+    "COM_Status_PantherEthernet",
+    "COM_Status_NvidiaJetsonCan",
+    "COM_Status_NvidiaJetsonEthernet"
   ],
   "rate_ms": 1000
 }
@@ -344,15 +341,15 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
     { "name": "COM_Status_PumaRL1Can", "std_name": "COM_Status_PumaRL1Can", "value": 0},
     { "name": "COM_Status_PumaRL2Can", "std_name": "COM_Status_PumaRL2Can", "value": 1},
     { "name": "COM_Status_PumaRR1Can", "std_name": "COM_Status_PumaRR1Can", "value": 0},
-    { "name": "COM_Status_PumaFLEthernet_TBD", "std_name": "COM_Status_PumaFLEthernet_TBD", "value": 1},
-    { "name": "COM_Status_PumaFREthernet_TBD", "std_name": "COM_Status_PumaFREthernet_TBD", "value": 1},
-    { "name": "COM_Status_PumaRL1Ethernet_TBD", "std_name": "COM_Status_PumaRL1Ethernet_TBD", "value": 0},
-    { "name": "COM_Status_PumaRL2Ethernet_TBD", "std_name": "COM_Status_PumaRL2Ethernet_TBD", "value": 1},
-    { "name": "COM_Status_PumaRR1Ethernet_TBD", "std_name": "COM_Status_PumaRR1Ethernet_TBD", "value": 0},
-    { "name": "COM_Status_PumaCan_TBD", "std_name": "COM_Status_PumaCan_TBD", "value": 1},
-    { "name": "COM_Status_PumaEthernet_TBD", "std_name": "COM_Status_PumaEthernet_TBD", "value": 1},
-    { "name": "COM_Status_NvidiaJetsonCan_TBD", "std_name": "COM_Status_NvidiaJetsonCan_TBD", "value": 0},
-    { "name": "COM_Status_NvidiaJetsonEthernet_TBD", "std_name": "COM_Status_NvidiaJetsonEthernet_TBD", "value": 1}
+    { "name": "COM_Status_PumaFLEthernet", "std_name": "COM_Status_PumaFLEthernet", "value": 1},
+    { "name": "COM_Status_PumaFREthernet", "std_name": "COM_Status_PumaFREthernet", "value": 1},
+    { "name": "COM_Status_PumaRL1Ethernet", "std_name": "COM_Status_PumaRL1Ethernet", "value": 0},
+    { "name": "COM_Status_PumaRL2Ethernet", "std_name": "COM_Status_PumaRL2Ethernet", "value": 1},
+    { "name": "COM_Status_PumaRR1Ethernet", "std_name": "COM_Status_PumaRR1Ethernet", "value": 0},
+    { "name": "COM_Status_PantherCan", "std_name": "COM_Status_PantherCan", "value": 1},
+    { "name": "COM_Status_PantherEthernet", "std_name": "COM_Status_PantherEthernet", "value": 1},
+    { "name": "COM_Status_NvidiaJetsonCan", "std_name": "COM_Status_NvidiaJetsonCan", "value": 0},
+    { "name": "COM_Status_NvidiaJetsonEthernet", "std_name": "COM_Status_NvidiaJetsonEthernet", "value": 1}
   ]
 }
 ```
@@ -360,13 +357,21 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 ### Note về value
 - `0`: CAN communication lost / disconnected - red
 - `1`: CAN communication OK / connected - green
-- `0`: ELK `lock` - OK - green
-- `1`: ELK `unlock` - OK - green
-- `2`: ELK `failure at previous` - NG - yellow
-- `3`: ELK `failure now` - NG - red
+- `0`: ELK `no failure` - green
+- `1`: ELK `failure at previous` - yellow
+- `2`: ELK `failure now` - red
+- `3`: invalid state, wait response after reset - gray
 
-> Không có Ethernet status trong DBC v7
-
+> Không có Ethernet và một số signal status trong DBC v7
+  COM_Status_PumaFLEthernet
+  COM_Status_PumaFREthernet
+  COM_Status_PumaRL1Ethernet
+  COM_Status_PumaRL2Ethernet
+  COM_Status_PumaRR1Ethernet
+  COM_Status_PantherCan
+  COM_Status_PantherEthernet
+  COM_Status_NvidiaJetsonCan
+  COM_Status_NvidiaJetsonEthernet
 ---
 
 ## 6. Tóm tắt API chính
