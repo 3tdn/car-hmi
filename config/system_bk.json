@@ -6,17 +6,11 @@
       "bitrate": 500000,
       "can_json_path": "config/can0.json",
       "can_db_files": ["db/candb/p_v2.dbc"]
-    },
-    {
-      "interface": "virtual",
-      "channel": "vcan1",
-      "bitrate": 500000,
-      "can_json_path": "config/can1.json",
-      "can_db_files": ["db/candb/m_dummy.dbc"]
     }
   ],
   "simulator": {
     "enabled": true,
+    "random_mode": false,
     "default_cycle_ms": 10,
     "can_json_path": "config/can0.json"
   },
@@ -40,6 +34,43 @@
       "http://localhost:5173"
     ]
   },
+  "profiles": {
+    "profiles_path": "config/profiles.json",
+    "sessions_path": "data/profile_sessions.json",
+    "allow_legacy_profile_mutations": false,
+    "default_profile_permission": [
+      "read"
+    ],
+    "session_online_ttl_seconds": 600,
+    "session_history_limit": 50
+  },
+  "camera": {
+    "enabled": true,
+    "stream_url": "http://192.168.2.119:8080/stream",
+    "reconnect_interval_sec": 3.0,
+    "connect_timeout_sec": 5.0,
+    "read_timeout_sec": 10.0,
+    "chunk_size": 4096,
+    "subscriber_queue_size": 64,
+    "startup_wait_sec": 5.0,
+    "fps_log_interval_sec": 5.0
+  },
+  "status_monitor": {
+    "enabled": true,
+    "interval_sec": 10.0,
+    "ping_timeout_sec": 1.5,
+    "targets": {
+      "COM_Status_PumaFLEthernet": "192.168.1.101",
+      "COM_Status_PumaFREthernet": "192.168.1.102",
+      "COM_Status_PumaRL1Ethernet": "192.168.1.103",
+      "COM_Status_PumaRL2Ethernet": "192.168.1.104",
+      "COM_Status_PumaRR1Ethernet": "192.168.1.105",
+      "COM_Status_PantherEthernet": "192.168.1.100",
+      "COM_Status_NvidiaJetsonEthernet": "192.168.2.119:8080",
+      "COM_Status_NvidiaJetsonCan": "OMS_FL_HandsOnWheel",
+      "COM_Status_PantherCan": "COM_Status_PumaFLCan"
+    }
+  },
   "storage": {
     "engine": "sqlite",
     "sqlite_path": "data/signals.db",
@@ -55,15 +86,35 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
+  "alarms": {
+    "enabled": false,
+    "config_path": "config/alarms.json",
+    "check_interval_sec": 0.5
+  },
+  "reader": {
+    "frequency_piority": 1,
+    "only_send_signal_update": true,
+    "stale_threshold_sec": 30.0
+  },
   "writer": {
     "rate_limit_per_sec": 10,
-    "burst": 5
+    "burst": 5,
+    "periodic_mode": true,
+    "periodic_time_step": 20,
+    "periodic_duration": 10000
   },
   "shutdown": {
     "timeout_sec": 10
   },
   "supervisor": {
     "watchdog_interval_sec": 5
+  },
+  "signal": {
+    "sync_dict": "config/signal_std_name.json"
+  },
+  "devmode": {
+    "block_timeout_sec": 60,
+    "require_seat_connected": true
   },
   "logging": {
     "level": "INFO",

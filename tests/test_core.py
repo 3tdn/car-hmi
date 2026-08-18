@@ -110,6 +110,50 @@ def test_load_config_custom(tmp_path):
     assert cfg.reader.only_send_signal_update is True
 
 
+def test_app_config_accepts_status_monitor_section():
+    cfg = AppConfig(
+        status_monitor={
+            "enabled": True,
+            "interval_sec": 10.0,
+            "ping_timeout_sec": 1.2,
+            "targets": {
+                "COM_Status_PumaFLEthernet": "192.168.1.101",
+            },
+        }
+    )
+    assert cfg.status_monitor.enabled is True
+    assert cfg.status_monitor.interval_sec == pytest.approx(10.0)
+    assert cfg.status_monitor.targets["COM_Status_PumaFLEthernet"] == "192.168.1.101"
+
+
+def test_extract_host_supports_raw_ip_host_port_and_url():
+    from src.core.runner import _extract_host
+
+    assert _extract_host("192.168.1.100") == "192.168.1.100"
+    assert _extract_host("192.168.2.119:8080") == "192.168.2.119"
+    assert _extract_host("http://192.168.2.119:8080/stream") == "192.168.2.119"
+
+
+def test_status_monitor_targets_split_ethernet_and_can_references():
+    from src.core.runner import AppRunner
+
+    cfg = AppConfig(
+        status_monitor={
+            "enabled": True,
+            "targets": {
+                "COM_Status_PumaFLEthernet": "192.168.1.101",
+                "COM_Status_PantherCan": "COM_Status_PumaFLCan",
+            },
+        }
+    )
+
+    runner = AppRunner(cfg)
+    ping_targets, can_refs = runner._build_status_targets()
+
+    assert ping_targets["COM_Status_PumaFLEthernet"] == "192.168.1.101"
+    assert can_refs["COM_Status_PantherCan"] == "COM_Status_PumaFLCan"
+
+
 # ── SignalStore ───────────────────────────────────────────────────────────────
 
 

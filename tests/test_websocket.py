@@ -414,3 +414,24 @@ async def test_subscribe_changed_only_mode(mgr):
     sig = payload["signals"][0]
     assert sig["name"] == "Speed"
     assert sig["value"] == 81.0
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_false_when_no_connections(mgr):
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is False
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_true_for_legacy_signals_topic(mgr):
+    ws = FakeWebSocket()
+    await mgr.connect(ws, {SubscriptionTopic.SIGNALS})
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is True
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_true_for_matching_subscribe_signal(mgr):
+    ws = FakeWebSocket()
+    await mgr.connect_subscribe(ws)
+    mgr._subscriptions[ws].signal_names.add("COM_Status_PumaFLEthernet")
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is True
+    assert await mgr.has_signal_interest({"COM_Status_PumaFREthernet"}) is False

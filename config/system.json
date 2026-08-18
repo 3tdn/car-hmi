@@ -55,6 +55,22 @@
     "startup_wait_sec": 5.0,
     "fps_log_interval_sec": 5.0
   },
+  "status_monitor": {
+    "enabled": true,
+    "interval_sec": 10.0,
+    "ping_timeout_sec": 1.5,
+    "targets": {
+      "COM_Status_PumaFLEthernet": "192.168.1.101",
+      "COM_Status_PumaFREthernet": "192.168.1.102",
+      "COM_Status_PumaRL1Ethernet": "192.168.1.103",
+      "COM_Status_PumaRL2Ethernet": "192.168.1.104",
+      "COM_Status_PumaRR1Ethernet": "192.168.1.105",
+      "COM_Status_PantherEthernet": "192.168.1.100",
+      "COM_Status_NvidiaJetsonEthernet": "192.168.2.119:8080",
+      "COM_Status_NvidiaJetsonCan": "OMS_FL_HandsOnWheel",
+      "COM_Status_PantherCan": "COM_Status_PumaFLCan"
+    }
+  },
   "storage": {
     "engine": "sqlite",
     "sqlite_path": "data/signals.db",

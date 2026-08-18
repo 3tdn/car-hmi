@@ -41,10 +41,10 @@ BO_ 3221225472 VECTOR__INDEPENDENT_SIG_MSG: 0 Vector__XXX
  SG_ Generic_SeatFunctionEnable : 0|5@1+ (1,0) [0|31] "" Vector__XXX
 
 BO_ 412 SBS_HB_State: 5 Vector__XXX
- SG_ HB_State_RR1 : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ HB_State_RR1 : 32|8@1+ (1,0) [0|255] "" Vector__XXX
  SG_ HB_State_RL2 : 24|8@1+ (1,0) [0|255] "" Vector__XXX
  SG_ HB_State_RL1 : 16|8@1+ (1,0) [0|255] "" Vector__XXX
- SG_ HB_State_FR : 8|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ HB_State_FR : 8|8@1+ (1,0) [0|255] "" Vector__XXX
  SG_ HB_State_FL : 0|8@1+ (1,0) [0|255] "" Vector__XXX
 
 BO_ 512 SYS_COM_Status: 1 PANTHER
@@ -119,25 +119,25 @@ BO_ 183 MON_OMS_RR1_Status: 7 Vector__XXX
  SG_ OMS_RR1_ChildSeatDetected_bool : 47|1@1+ (1,0) [0|1] "" Vector__XXX
 
 BO_ 191 STS_SPS_RR1_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 190 STS_SPS_RL2_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 189 STS_SPS_RL1_SeatPosition: 8 Vector__XXX
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|255] "" Vector__XXX
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] "" Vector__XXX
+ SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] "" Vector__XXX
 
 BO_ 182 MON_OMS_RL2_Status: 7 Vector__XXX
  SG_ OMS_RL2_SeatbeltMisuse_bool : 48|1@1+ (1,0) [0|1] "" Vector__XXX
@@ -289,7 +289,7 @@ BO_ 146 SBS_ELK_Activation: 1 PANTHER
 
 BO_ 408 SBS_ELK_Status: 4 PANTHER
  SG_ ELK_RR1_ActuatorStatus : 24|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ ELK_RL2_ActuatorStatus : 22|2@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ ELK_RL2_ActuatorStatus : 22|2@1+ (1,0) [0|3] "" Vector__XXX
  SG_ ELK_RL1_ActuatorStatus : 20|2@1+ (1,0) [0|3] "" Vector__XXX
  SG_ ELK_FR_ActuatorStatus : 18|2@1+ (1,0) [0|3] "" Vector__XXX
  SG_ ELK_FL_ActuatorStatus : 16|2@1+ (1,0) [0|3] "" Vector__XXX
@@ -376,41 +376,41 @@ BO_ 164 SBS_ISB_RR1_Request: 7 PANTHER
 BO_ 400 SBS_WMS_FL_Response: 4 PUMA_FL
  SG_ WMS_FL_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
  SG_ WMS_FL_SpoolAngle_deg : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
- SG_ WMS_FL_WebbingMovement : 0|13@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
+ SG_ WMS_FL_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
 
 BO_ 401 SBS_WMS_FR_Response: 4 PUMA_FR
  SG_ WMS_FR_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
- SG_ WMS_FR_SpoolAngle : 13|14@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
- SG_ WMS_FR_WebbingMovement : 0|13@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
+ SG_ WMS_FR_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_FR_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
 
 BO_ 402 SBS_WMS_RL1_Response: 4 PUMA_R1
  SG_ WMS_RL1_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
- SG_ WMS_RL1_SpoolAngle : 13|14@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
- SG_ WMS_RL1_WebbingMovement : 0|13@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
+ SG_ WMS_RL1_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RL1_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
 
 BO_ 403 SBS_WMS_RL2_Response: 4 PUMA_R2
  SG_ WMS_RL2_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
- SG_ WMS_RL2_SpoolAngle : 13|14@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
- SG_ WMS_RL2_WebbingMovement : 0|13@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
+ SG_ WMS_RL2_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RL2_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
 
 BO_ 404 SBS_WMS_RR1_Response: 4 PUMA_RR1
  SG_ WMS_RR1_SensorStatus : 27|3@1+ (1,0) [0|7] ""  PANTHER,CAR_PC
- SG_ WMS_RR1_SpoolAngle : 13|14@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
- SG_ WMS_RR1_WebbingMovement : 0|13@1+ (1,0) [0|255] ""  PANTHER,CAR_PC
+ SG_ WMS_RR1_SpoolAngle : 13|14@1+ (1,0) [0|16383] ""  PANTHER,CAR_PC
+ SG_ WMS_RR1_WebbingMovement : 0|13@1+ (1,0) [0|8191] ""  PANTHER,CAR_PC
 
 BO_ 187 STS_SPS_FL_SeatPosition: 8 PANTHER
- SG_ SPS_FL_HeadRestPosition : 48|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FL_FootRestPosition : 36|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FL_SeatBackRestPosition : 24|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FL_SeatDirectionZ : 12|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FL_SeatDirectionX : 0|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
+ SG_ SPS_FL_HeadRestPosition : 48|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_FootRestPosition : 36|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FL_SeatDirectionX : 0|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
 
 BO_ 188 STS_SPS_FR_SeatPosition: 8 PANTHER
- SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
- SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|255] ""  CAR_PC,SIMI
+ SG_ SPS_FR_HeadRestPosition : 48|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_FootRestPosition : 36|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatBackRestPosition : 24|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatDirectionZ : 12|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
+ SG_ SPS_FR_SeatDirectionX : 0|12@1+ (1,0) [0|4095] ""  CAR_PC,SIMI
 
 BO_TX_BU_ 179 : SIMI,PANTHER;
 BO_TX_BU_ 180 : SIMI,PANTHER;

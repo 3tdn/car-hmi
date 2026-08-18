@@ -80,6 +80,26 @@ class ConnectionManager:
         """
         self._only_send_signal_update = bool(enabled)
 
+    async def has_signal_interest(self, signal_names: set[str]) -> bool:
+        """Return True if any active WS connection is interested in the given signals."""
+        if not signal_names:
+            return False
+
+        async with self._lock:
+            # Legacy connections subscribed to SIGNALS/ALL receive all signal updates.
+            for topics in self._connections.values():
+                if SubscriptionTopic.SIGNALS in topics or SubscriptionTopic.ALL in topics:
+                    return True
+
+            # New subscribe connections can request specific signal names or wildcard '*'.
+            for sub in self._subscriptions.values():
+                if "*" in sub.signal_names:
+                    return True
+                if sub.signal_names.intersection(signal_names):
+                    return True
+
+        return False
+
     # ── Legacy connect/disconnect ────────────────────────────────────────────
 
     async def connect(self, ws: WebSocket, topics: set[SubscriptionTopic] | None = None) -> None:

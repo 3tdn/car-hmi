@@ -374,7 +374,17 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
   COM_Status_NvidiaJetsonEthernet
 ---
 
-## 6. Tóm tắt API chính
+## 6. SEAL AIRBAG
+- Nếu cần Inflate/Exflate airbag dùng signal có sẵn `SEAL_AirbagRequestInflate`/`SEAL_AirbagRequestExflate`
+qua `PUT /signals/SEAL_InflateAirbag` hoặc `PUT /signals/SEAL_ExflateAirbag` với payload:
+
+```json
+{ "value": 1 }
+```
+
+---
+
+## 7. Tóm tắt API chính
 
 - `GET /signals/available` => check xem signal đã có trong candb ko
 - `GET /signals/{signal_name}` => lấy giá trị hiện tại của 1 signal
@@ -383,7 +393,7 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 - `POST /signals/batch_update` => update giá trị của nhiều signal cùng lúc (nếu ko đùng các api POST /api/devmode/signals)
 - `WS /ws/signals`
 
-## 7. Tóm tắt View Dev Mode
+## 8. Tóm tắt View Dev Mode
 View dev-mode: (phân biệt giữa dev-mode và view user)
 Devmode có 2 view.
 view a:

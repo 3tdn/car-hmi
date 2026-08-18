@@ -3,7 +3,7 @@
 
 Usage:
   # Single directory (scans all *.dbc recursively)
-  python scripts/gen_can_json.py -d db/ --out config/can.json
+  python scripts/gen_can_json.py -d db/can_db/Interface_Panther_To_CarPC_v7.dbc --out config/can0.json
 
   # Multiple explicit DBC files
   python scripts/gen_can_json.py -d db/candb/filedbc1.dbc db/candb/filedbc2.dbc --out config/can.json

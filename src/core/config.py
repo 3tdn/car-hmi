@@ -89,6 +89,21 @@ class CameraConfig(BaseModel):
     # JPEG EOI 0xFFD9) — dùng để giám sát/chẩn đoán, không ảnh hưởng tới relay.
 
 
+class StatusMonitorConfig(BaseModel):
+    """Cấu hình monitor status cho các tín hiệu COM_Status_*."""
+
+    enabled: bool = False
+    # Bật/tắt monitor status monitor.
+    interval_sec: float = 10.0
+    # Chu kỳ ping định kỳ (giây).
+    ping_timeout_sec: float = 1.5
+    # Timeout tối đa cho mỗi lệnh ping (giây).
+    targets: dict[str, str] = Field(default_factory=dict)
+    # Map signal_name -> target.
+    # - Signal Ethernet: target là host/IP/URL để ping.
+    # - Signal CAN: target là tên tín hiệu tham chiếu để kiểm tra freshness.
+
+
 class StorageConfig(BaseModel):
     """Cấu hình lưu trữ dữ liệu tín hiệu lịch sử."""
 
@@ -198,6 +213,8 @@ class AppConfig(BaseModel):
     # Cấu hình REST API / WebSocket
     camera: CameraConfig = Field(default_factory=CameraConfig)
     # Cấu hình proxy camera stream (MJPEG)
+    status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
+    # Cấu hình monitor COM status (Ethernet + CAN reference)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     # Cấu hình lưu trữ dữ liệu lịch sử
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)
