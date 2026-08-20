@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Run tests helper for Linux/macOS
-# Usage: ./scripts/test_linux.sh
+# Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security]
 set -euo pipefail
+
+SUITE="${1:-all}"
 
 PY=python3
 if ! command -v "$PY" >/dev/null 2>&1; then
@@ -35,8 +37,25 @@ if ! pip show pytest-cov >/dev/null 2>&1; then
   pip install pytest-cov
 fi
 
+case "$SUITE" in
+  all) TARGET="tests" ;;
+  unit) TARGET="tests/1_unit_functions" ;;
+  functional) TARGET="tests/2_functional_tests" ;;
+  api) TARGET="tests/2_functional_tests/api" ;;
+  ws) TARGET="tests/2_functional_tests/websockets" ;;
+  integration) TARGET="tests/2_functional_tests/integration" ;;
+  security) TARGET="tests/4_security" ;;
+  *)
+    echo "Unknown suite: $SUITE" >&2
+    echo "Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security]" >&2
+    exit 1
+    ;;
+esac
+
+echo "Running pytest suite: $SUITE ($TARGET)"
+
 # Run pytest with coverage and produce HTML reports
-pytest -q --tb=short --cov=src --cov-fail-under=60 \
+pytest "$TARGET" -q --tb=short --cov=src --cov-fail-under=60 \
   --cov-report=html:reports/coverage_html \
   --cov-report=term-missing \
   --html=reports/report.html --self-contained-html

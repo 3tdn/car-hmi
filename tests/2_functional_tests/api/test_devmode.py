@@ -10,7 +10,27 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import create_app
 from src.core.devmode_locks import reset_seat_lock_registry
 from src.core.signal_store import SignalStore
-from tests.test_api import _FakeRepo, _FakeWriter
+
+
+class _FakeRepo:
+    async def query_signals(self, **_):
+        return []
+
+    async def query_alarms(self, **_):
+        return []
+
+
+class _FakeWriter:
+    def __init__(self):
+        self.writes: list[tuple[str, float]] = []
+
+    async def send_signal(self, signal_name, value):
+        self.writes.append((signal_name, value))
+
+    async def send_signals_batch(self, values):
+        for signal_name, value in values.items():
+            self.writes.append((signal_name, value))
+        return values, []
 
 
 @pytest.fixture(autouse=True)
