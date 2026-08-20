@@ -7,8 +7,11 @@ sections until it expires or the owning section leaves Dev Mode.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import time
+from contextlib import suppress
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -21,6 +24,7 @@ from src.api.routes.profiles import CLIENT_ID_HEADER
 from src.core.devmode_locks import SEAT_IDS, SeatLock, get_seat_lock_registry
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Signal family → real CAN signal name templates per seat ({seat} = FL/FR/RL1/RL2/RR1)
 SIGNAL_FAMILIES: dict[str, dict] = {
@@ -97,6 +101,58 @@ def _require_seat_connected() -> bool:
 
 def _registry():
     return get_seat_lock_registry(_default_timeout())
+
+
+async def _devmode_offline_cleanup_loop(app) -> None:
+    """Release locks of offline sessions while Dev Mode has active seat locks."""
+    interval = max(1.0, float(getattr(app.state, "devmode_cleanup_interval_sec", 5.0)))
+    while not getattr(app.state, "shutting_down", False):
+        now = time.time()
+        active_locks = _registry().active_locks(now)
+        if not active_locks:
+            break
+        try:
+            from src.api.routes import profiles as profile_routes
+
+            owner_ids = {lock.owner for lock in active_locks.values()}
+            released_clients = profile_routes.release_devmode_locks_for_offline_sessions(
+                now=now,
+                owner_ids=owner_ids,
+            )
+            if released_clients:
+                logger.info(
+                    "Released devmode locks for %d offline client session(s): %s",
+                    len(released_clients),
+                    ",".join(sorted(released_clients)),
+                )
+        except Exception:  # pragma: no cover - defensive guard for background loop
+            logger.exception("Devmode offline cleanup loop failed")
+        await asyncio.sleep(interval)
+
+    app.state.profile_session_cleanup_task = None
+
+
+def _ensure_devmode_cleanup_task(request: Request) -> None:
+    app = request.app
+    task = getattr(app.state, "profile_session_cleanup_task", None)
+    if task is not None and not task.done():
+        return
+    if not _registry().active_locks():
+        app.state.profile_session_cleanup_task = None
+        return
+    app.state.profile_session_cleanup_task = asyncio.create_task(_devmode_offline_cleanup_loop(app))
+
+
+async def _stop_devmode_cleanup_task_if_idle(request: Request) -> None:
+    if _registry().active_locks():
+        return
+    task = getattr(request.app.state, "profile_session_cleanup_task", None)
+    request.app.state.profile_session_cleanup_task = None
+    if task is None or task.done():
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
 
 
 def _require_owner(request: Request) -> str:
@@ -262,6 +318,10 @@ async def devmode_status(request: Request):
     owner = _require_owner(request)
     now = time.time()
     locks = _registry().active_locks(now)
+    if locks:
+        _ensure_devmode_cleanup_task(request)
+    else:
+        await _stop_devmode_cleanup_task_if_idle(request)
     connectivity = await _seat_connectivity(request)
     seats = {
         seat: {
@@ -314,6 +374,11 @@ async def select_seats(body: DevModeSeatSelectRequest, request: Request):
             detail={"applied": applied, "expires_at": None},
         )
 
+    if registry.active_locks(now):
+        _ensure_devmode_cleanup_task(request)
+    else:
+        await _stop_devmode_cleanup_task_if_idle(request)
+
     return {
         "applied": applied,
         "expires_at": _expires_at(granted) or _expires_at(list(registry.active_locks(now).values())),
@@ -323,6 +388,7 @@ async def select_seats(body: DevModeSeatSelectRequest, request: Request):
 @router.post("/exit", summary="Leave Dev Mode and release all seat locks of this section")
 async def exit_devmode(request: Request):
     released = _registry().release_owner(_require_owner(request))
+    await _stop_devmode_cleanup_task_if_idle(request)
     return {"released": sorted(released), "released_at": _iso_now()}
 
 
@@ -417,5 +483,10 @@ async def apply_devmode_signal(body: DevModeSignalRequest, request: Request):
             status_code=status.HTTP_409_CONFLICT,
             detail={"applied": applied, "expires_at": None},
         )
+
+    if registry.active_locks(now):
+        _ensure_devmode_cleanup_task(request)
+    else:
+        await _stop_devmode_cleanup_task_if_idle(request)
 
     return {"applied": applied, "expires_at": _expires_at(granted)}

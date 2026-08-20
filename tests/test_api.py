@@ -10,6 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
@@ -712,6 +713,205 @@ async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
     sessions_data = sessions_resp.json()
     by_client = {item["client_id"]: item for item in sessions_data["sessions"]}
     assert by_client["client-a"]["status"] == "offline"
+
+
+@pytest.mark.asyncio
+async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, tmp_path):
+    """POST /api/profile/offline phải nhả lock Dev Mode của cùng client ngay lập tức."""
+    import src.api.routes.profiles as profile_routes
+
+    reset_seat_lock_registry()
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+    now = time.time()
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
+                "description": "Admin",
+            }
+        },
+        client_sessions={
+            "client-a": {"active": "admin", "updated_at": now, "last_seen": now}
+        },
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    store = SignalStore()
+    await store.update("COM_Status_PumaFLCan", 1.0, timestamp=now)
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.writer = _FakeWriter()
+
+    owner_headers = {"X-API-Key": "test-key", "X-Client-Id": "client-a", "X-Dev-Mode": "true"}
+    intruder_headers = {"X-API-Key": "test-key", "X-Client-Id": "client-b", "X-Dev-Mode": "true"}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        lock_resp = await c.post(
+            "/api/devmode/seats/select",
+            headers=owner_headers,
+            json={"seats": {"fl": True}, "block_timeout_sec": 120},
+        )
+        assert lock_resp.status_code == 200
+
+        blocked = await c.put(
+            "/signals/ACR_FL_RetractRequest",
+            headers=intruder_headers,
+            json={"value": 5},
+        )
+        assert blocked.status_code == 423
+
+        offline_resp = await c.post(
+            "/api/profile/offline",
+            headers={"X-API-Key": "test-key", "X-Client-Id": "client-a"},
+        )
+        assert offline_resp.status_code == 200
+
+        after_offline = await c.put(
+            "/signals/ACR_FL_RetractRequest",
+            headers=intruder_headers,
+            json={"value": 5},
+        )
+
+    assert after_offline.status_code == 202
+    reset_seat_lock_registry()
+
+
+def test_release_devmode_locks_for_offline_sessions(monkeypatch, tmp_path):
+    """Cleanup helper chỉ xử lý owner đang giữ lock và nhả owner offline."""
+    import src.api.routes.profiles as profile_routes
+
+    reset_seat_lock_registry()
+    monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 30)
+    monkeypatch.setattr(profile_routes, "SESSION_HISTORY_LIMIT", 5000)
+
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+    now = time.time()
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
+                "description": "Admin",
+            }
+        },
+        client_sessions={
+            "client-offline": {"active": "admin", "updated_at": now - 120, "last_seen": now - 120},
+            "client-online": {"active": "admin", "updated_at": now, "last_seen": now},
+            "client-offline-unrelated": {
+                "active": "admin",
+                "updated_at": now - 120,
+                "last_seen": now - 120,
+            },
+        },
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    registry = get_seat_lock_registry()
+    registry.acquire("fl", "client-offline", timeout_sec=300, now=now)
+    registry.acquire("fr", "client-online", timeout_sec=300, now=now)
+    registry.acquire("rl1", "client-offline-unrelated", timeout_sec=300, now=now)
+
+    released_clients = profile_routes.release_devmode_locks_for_offline_sessions(
+        now=now,
+        owner_ids={"client-offline", "client-online"},
+    )
+
+    assert released_clients == ["client-offline"]
+    assert registry.lock_for_seat("fl", now=now) is None
+    assert registry.lock_for_seat("fr", now=now) is not None
+    assert registry.lock_for_seat("rl1", now=now) is not None
+    reset_seat_lock_registry()
+
+
+def test_release_devmode_locks_owner_filter_soak_quantifies_scan_reduction(monkeypatch, tmp_path):
+    """Soak test: with N lock owners and M sessions, owner-filter only inspects N sessions."""
+    import src.api.routes.profiles as profile_routes
+
+    reset_seat_lock_registry()
+    monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 30)
+    monkeypatch.setattr(profile_routes, "SESSION_HISTORY_LIMIT", 5000)
+
+    # Keep N small enough for CI speed, M large enough to show complexity gap.
+    owner_count = 5
+    session_count = 3000
+    now = time.time()
+
+    profiles_path = tmp_path / "profiles.json"
+    sessions_path = tmp_path / "profile_sessions.json"
+
+    client_sessions = {
+        f"owner-{i}": {
+            "active": "admin",
+            "updated_at": now - 120,
+            "last_seen": now - 120,
+        }
+        for i in range(owner_count)
+    }
+    for i in range(session_count - owner_count):
+        client_sessions[f"noise-{i}"] = {
+            "active": "admin",
+            "updated_at": now,
+            "last_seen": now,
+        }
+
+    _write_profiles(
+        profiles_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
+                "description": "Admin",
+            }
+        },
+        client_sessions=client_sessions,
+        sessions_path=sessions_path,
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
+
+    registry = get_seat_lock_registry()
+    seat_pool = ["fl", "fr", "rl1", "rl2", "rr1"]
+    for i in range(owner_count):
+        registry.acquire(seat_pool[i], f"owner-{i}", timeout_sec=300, now=now + i)
+
+    call_counter = {"count": 0}
+    original_session_is_online = profile_routes._session_is_online
+
+    def counted_session_is_online(state, *, now, ttl_seconds=None):
+        call_counter["count"] += 1
+        return original_session_is_online(state, now=now, ttl_seconds=ttl_seconds)
+
+    monkeypatch.setattr(profile_routes, "_session_is_online", counted_session_is_online)
+
+    call_counter["count"] = 0
+    profile_routes.release_devmode_locks_for_offline_sessions(now=now, owner_ids=None)
+    full_scan_checks = call_counter["count"]
+
+    # Recreate locks for the filtered-run measurement.
+    reset_seat_lock_registry()
+    registry = get_seat_lock_registry()
+    owner_ids = set()
+    for i in range(owner_count):
+        owner = f"owner-{i}"
+        owner_ids.add(owner)
+        registry.acquire(seat_pool[i], owner, timeout_sec=300, now=now + i)
+
+    call_counter["count"] = 0
+    profile_routes.release_devmode_locks_for_offline_sessions(now=now, owner_ids=owner_ids)
+    filtered_checks = call_counter["count"]
+
+    assert full_scan_checks >= session_count
+    assert filtered_checks == owner_count
+    assert full_scan_checks / max(1, filtered_checks) >= 100
+    reset_seat_lock_registry()
 
 
 @pytest.mark.asyncio

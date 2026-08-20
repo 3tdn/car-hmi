@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -30,8 +31,10 @@ from src.api.models import (
     ProfilesResponse,
     ProfileUpdate,
 )
+from src.core.devmode_locks import get_seat_lock_registry
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int]:
@@ -333,6 +336,55 @@ def _cleanup_sessions(data: dict[str, Any], *, now: float | None = None) -> bool
     removed_orphans = _cleanup_orphan_sessions(data)
     removed_overflow = _trim_sessions_over_capacity(data, now=now)
     return removed_orphans or removed_overflow
+
+
+def release_devmode_locks_for_offline_sessions(
+    *,
+    now: float | None = None,
+    owner_ids: set[str] | None = None,
+) -> list[str]:
+    """Release devmode locks for offline owners.
+
+    When ``owner_ids`` is provided, only those owners are checked.
+    """
+    timestamp = now if now is not None else time.time()
+    data = _load()
+    if _cleanup_sessions(data, now=timestamp):
+        _save(data)
+
+    sessions = _client_sessions(data)
+    registry = get_seat_lock_registry()
+    released_clients: list[str] = []
+
+    candidates: set[str]
+    if owner_ids is None:
+        candidates = {client_id for client_id in sessions if client_id}
+    else:
+        candidates = {str(client_id).strip() for client_id in owner_ids if str(client_id).strip()}
+
+    for client_id in candidates:
+        state = sessions.get(client_id)
+        if state is None:
+            # Session missing: treat as offline/orphan and release proactively.
+            released = registry.release_owner(client_id)
+            if released:
+                released_clients.append(client_id)
+            continue
+
+        if not isinstance(state, dict):
+            released = registry.release_owner(client_id)
+            if released:
+                released_clients.append(client_id)
+            continue
+
+        if _session_is_online(state, now=timestamp):
+            continue
+
+        released = registry.release_owner(client_id)
+        if released:
+            released_clients.append(client_id)
+
+    return sorted(released_clients)
 
 
 def _touch_client_session(data: dict[str, Any], client_id: str, *, active: str | None = None, now: float | None = None) -> dict[str, Any]:
@@ -717,6 +769,16 @@ async def profile_offline(request: Request):
 
     state = _mark_client_session_offline(data, client_id, now=now)
     _save(data)
+
+    released = get_seat_lock_registry().release_owner(client_id)
+    if released:
+        logger.info(
+            "Released %d devmode seat lock(s) for offline client '%s': %s",
+            len(released),
+            client_id,
+            ",".join(sorted(released)),
+        )
+
     return ProfileHeartbeatResponse(
         client_id=client_id,
         active=state.get("active"),

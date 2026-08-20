@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 import logging
 import time
 from pathlib import Path
@@ -63,11 +65,31 @@ def create_app(
     _cfg = read_config()
     _sig_cfg = _cfg.get("signal", {})
     _reader_cfg = _cfg.get("reader", {})
+    _profile_cfg = _cfg.get("profiles", {})
     signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
     app.state.signal_name_mapper = signal_name_mapper
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
+    app.state.profile_session_cleanup_task = None
+
+    try:
+        cleanup_interval_sec = max(1.0, float(_profile_cfg.get("session_cleanup_interval_sec", 5.0)))
+    except (TypeError, ValueError):
+        cleanup_interval_sec = 5.0
+    app.state.devmode_cleanup_interval_sec = cleanup_interval_sec
 
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
+
+    async def _stop_profile_session_cleanup_task() -> None:
+        app.state.shutting_down = True
+        task = app.state.profile_session_cleanup_task
+        app.state.profile_session_cleanup_task = None
+        if task is None:
+            return
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    app.router.on_shutdown.append(_stop_profile_session_cleanup_task)
 
     # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
     # cho phép 1 kết nối đồng thời (mutex phía nguồn).

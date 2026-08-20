@@ -273,3 +273,25 @@ async def test_timeout_must_be_between_one_second_and_one_hour():
 
     assert negative.status_code == 422
     assert excessive.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_devmode_cleanup_task_is_lazy_and_stops_when_no_lock():
+    app = await _build_app()
+    assert app.state.profile_session_cleanup_task is None
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        select_resp = await c.post(
+            "/api/devmode/seats/select",
+            headers=_headers("owner"),
+            json={"seats": {"fl": True}, "block_timeout_sec": 60},
+        )
+        assert select_resp.status_code == 200
+        task = app.state.profile_session_cleanup_task
+        assert task is not None
+        assert not task.done()
+
+        exit_resp = await c.post("/api/devmode/exit", headers=_headers("owner"))
+        assert exit_resp.status_code == 200
+
+    assert app.state.profile_session_cleanup_task is None
