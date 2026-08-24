@@ -51,36 +51,66 @@ class TestBitHelpers:
 
 
 class TestDatabaseLoader:
-    def test_load_can_json(self):
-        """Load config/can.json and verify messages/signals."""
-        can_json = Path("config/can.json")
-        if not can_json.exists():
-            pytest.skip("config/can.json not found")
+    @staticmethod
+    def _sample_can_json(tmp_path: Path) -> Path:
+        can_json = tmp_path / "can.json"
+        can_json.write_text(
+            json.dumps(
+                {
+                    "messages": {
+                        "ECM_EngineStatus1": {
+                            "id": 608,
+                            "size": 8,
+                            "signals": {
+                                "EngineSpeed": {
+                                    "start_bit": 0,
+                                    "length": 16,
+                                    "factor": 0.25,
+                                    "offset": 0,
+                                    "unit": "rpm",
+                                    "is_signed": False,
+                                    "byte_order": "little_endian",
+                                },
+                                "CoolantTemp": {
+                                    "start_bit": 16,
+                                    "length": 8,
+                                    "factor": 1.0,
+                                    "offset": -40,
+                                    "unit": "degC",
+                                    "is_signed": False,
+                                    "byte_order": "little_endian",
+                                },
+                            },
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        return can_json
+
+    def test_load_can_json(self, tmp_path):
+        """Load a deterministic can.json and verify messages/signals."""
+        can_json = self._sample_can_json(tmp_path)
         loader = DatabaseLoader()
         loader.load(str(can_json))
         assert len(loader.messages) > 0
         assert len(loader.signals) > 0
         assert "EngineSpeed" in loader.signals
 
-    def test_summary(self):
+    def test_summary(self, tmp_path):
         loader = DatabaseLoader()
-        from pathlib import Path
-        can_json = Path("config/can.json")
-        if not can_json.exists():
-            pytest.skip("config/can.json not found")
-        loader.load("config/can.json")
+        can_json = self._sample_can_json(tmp_path)
+        loader.load(str(can_json))
         s = loader.summary()
         assert "files loaded" in s
         assert "messages" in s
 
-    def test_decode_frame(self):
-        """Decode a real CAN frame using can.json."""
+    def test_decode_frame(self, tmp_path):
+        """Decode a frame using deterministic can.json."""
         loader = DatabaseLoader()
-        from pathlib import Path
-        can_json = Path("config/can.json")
-        if not can_json.exists():
-            pytest.skip("config/can.json not found")
-        loader.load("config/can.json")
+        can_json = self._sample_can_json(tmp_path)
+        loader.load(str(can_json))
 
         # msg_id=608 = ECM_EngineStatus1 = EngineSpeed at bit 0, 16 bits, factor=0.25
         # raw value 4000 → 4000 * 0.25 = 1000 rpm
@@ -92,25 +122,19 @@ class TestDatabaseLoader:
         assert "EngineSpeed" in decoded
         assert decoded["EngineSpeed"] == pytest.approx(1000.0)
 
-    def test_encode_signal(self):
+    def test_encode_signal(self, tmp_path):
         loader = DatabaseLoader()
-        from pathlib import Path
-        can_json = Path("config/can.json")
-        if not can_json.exists():
-            pytest.skip("config/can.json not found")
-        loader.load("config/can.json")
+        can_json = self._sample_can_json(tmp_path)
+        loader.load(str(can_json))
 
         msg = loader.encode_signal("EngineSpeed", 1000.0)
         assert msg is not None
         assert msg.arbitration_id == 608
 
-    def test_encode_message(self):
+    def test_encode_message(self, tmp_path):
         loader = DatabaseLoader()
-        from pathlib import Path
-        can_json = Path("config/can.json")
-        if not can_json.exists():
-            pytest.skip("config/can.json not found")
-        loader.load("config/can.json")
+        can_json = self._sample_can_json(tmp_path)
+        loader.load(str(can_json))
 
         msg = loader.encode_message(608, {"EngineSpeed": 1500.0, "CoolantTemp": 90.0})
         assert msg is not None

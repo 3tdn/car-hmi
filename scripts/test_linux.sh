@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run tests helper for Linux/macOS
-# Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security]
+# Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security|runtime]
 set -euo pipefail
 
 SUITE="${1:-all}"
@@ -45,14 +45,19 @@ case "$SUITE" in
   ws) TARGET="tests/2_functional_tests/websockets" ;;
   integration) TARGET="tests/2_functional_tests/integration" ;;
   security) TARGET="tests/4_security" ;;
+  runtime) TARGET="tests/2_functional_tests/runtime/test_runtime_smoke.py" ;;
   *)
     echo "Unknown suite: $SUITE" >&2
-    echo "Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security]" >&2
+    echo "Usage: ./scripts/test_linux.sh [all|unit|functional|api|ws|integration|security|runtime]" >&2
     exit 1
     ;;
 esac
 
 echo "Running pytest suite: $SUITE ($TARGET)"
+
+if [ "$SUITE" = "runtime" ]; then
+  export RUN_RUNTIME_SMOKE=1
+fi
 
 # Run pytest with coverage and produce HTML reports
 pytest "$TARGET" -q --tb=short --cov=src --cov-fail-under=60 \

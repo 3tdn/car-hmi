@@ -57,6 +57,7 @@ The project includes convenience scripts under the `scripts/` directory to prepa
 	- `scripts/run_linux.sh` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_linux.sh` — prepare `.venv`, install deps and run tests with coverage.
   - `scripts/perf_linux.sh` — run k6 performance script and save JSON report.
+  - `scripts/runtime_smoke_linux.sh` — start app runtime smoke suite (API + WebSocket + Dev Mode lock flow).
 
 Usage examples:
 
@@ -77,6 +78,7 @@ chmod +x scripts/*.sh
 ./scripts/run_linux.sh config/system.json INFO
 ./scripts/test_linux.sh all
 ./scripts/test_linux.sh security
+./scripts/test_linux.sh runtime
 ./scripts/perf_linux.sh http://localhost:8000
 ```
 

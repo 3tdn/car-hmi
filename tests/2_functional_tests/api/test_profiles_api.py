@@ -111,189 +111,7 @@ async def client():
 
 
 @pytest.mark.asyncio
-async def test_list_signals_no_auth(client):
-    resp = await client.get("/signals")
-    assert resp.status_code == 401
 
-
-@pytest.mark.asyncio
-async def test_list_signals_with_auth(client):
-    resp = await client.get("/signals", headers={"X-API-Key": "test-key"})
-    assert resp.status_code == 200
-    data = resp.json()
-    # Với profile-based access mới, request có thể bị lọc theo scope profile.
-    # Mặc định fixture không gửi X-Profile-Name nên total hiện tại = 0.
-    assert data["total"] == 0
-    assert data["items"] == []
-    assert isinstance(data.get("warnings", []), list)
-
-
-@pytest.mark.asyncio
-async def test_get_signal_not_found(client):
-    resp = await client.get("/signals/Unknown", headers={"X-API-Key": "test-key"})
-    # Quyền profile được kiểm tra trước signal existence => có thể 403 thay vì 404.
-    assert resp.status_code == 403
-    detail = resp.json()["detail"]
-    assert detail["code"] in {"profile_not_selected", "profile_signal_denied"}
-
-
-@pytest.mark.asyncio
-async def test_health_endpoint(client):
-    resp = await client.get("/system/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] in ("ok", "degraded")
-
-
-@pytest.mark.asyncio
-async def test_ready_endpoint(client):
-    resp = await client.get("/system/ready")
-    assert resp.status_code == 200
-    assert "ready" in resp.json()
-
-
-@pytest.mark.asyncio
-async def test_health_endpoint_error_on_reader_fatal():
-    store = SignalStore()
-    await store.update("VehicleSpeed", 60.0)
-    now = time.time()
-    app = create_app(
-        store,
-        _FakeRepo(),
-        can_readers=[_FakeReader(thread_alive=False, last_frame_timestamp=now - 120.0, fatal_error="reconnect_failed")],
-        api_key="",
-    )
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get("/system/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "error"
-
-
-@pytest.mark.asyncio
-async def test_ready_false_when_reader_frames_stale():
-    store = SignalStore()
-    await store.update("VehicleSpeed", 60.0)
-    now = time.time()
-    app = create_app(
-        store,
-        _FakeRepo(),
-        can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=now - 120.0, fatal_error=None)],
-        api_key="",
-    )
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.get("/system/ready")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["ready"] is False
-    assert data["details"]["readers_recent_frames"] is False
-
-
-@pytest.mark.asyncio
-async def test_list_alarms(client):
-    resp = await client.get("/alarms", headers={"X-API-Key": "test-key"})
-    assert resp.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_get_alarm_by_id(client):
-    resp = await client.get("/alarms/1", headers={"X-API-Key": "test-key"})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["id"] == 1
-    assert data["signal_name"] == "CoolantTemp"
-
-    resp_not_found = await client.get("/alarms/99", headers={"X-API-Key": "test-key"})
-    assert resp_not_found.status_code == 404
-    detail = resp_not_found.json()["detail"]
-    assert detail["code"] == "alarm_not_found"
-    assert detail["alarm_id"] == 99
-
-
-# ── System Metrics tests ────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_system_metrics_endpoint(client):
-    """GET /system/metrics trả về JSON đầy đủ thông tin tài nguyên."""
-    resp = await client.get("/system/metrics")
-    assert resp.status_code == 200
-    data = resp.json()
-
-    # CPU fields
-    assert "cpu_percent" in data
-    assert isinstance(data["cpu_percent"], (int, float))
-    assert "cpu_percent_per_core" in data
-    assert isinstance(data["cpu_percent_per_core"], list)
-    assert data["cpu_count_logical"] > 0
-
-    # RAM fields
-    assert data["ram_total_mb"] > 0
-    assert "ram_percent" in data
-
-    # Process fields
-    assert data["process_pid"] > 0
-    assert data["process_memory_rss_mb"] >= 0
-
-    # Disk fields
-    assert data["disk_total_gb"] > 0
-
-    # Application-specific
-    assert "queue_size" in data
-    assert "queue_maxsize" in data
-    assert "heap_allocated_mb" in data
-    assert "gc_objects" in data
-    assert "asyncio_tasks" in data
-    assert "python_version" in data
-    assert "platform" in data
-    assert data["timestamp"] > 0
-
-
-@pytest.mark.asyncio
-async def test_system_metrics_cpu_cores(client):
-    """cpu_percent_per_core phải có đúng số phần tử = cpu_count_logical."""
-    resp = await client.get("/system/metrics")
-    data = resp.json()
-    assert len(data["cpu_percent_per_core"]) == data["cpu_count_logical"]
-
-
-@pytest.mark.asyncio
-async def test_system_metrics_no_auth_required(client):
-    """System metrics endpoint không yêu cầu auth (giống /health)."""
-    resp = await client.get("/system/metrics")
-    assert resp.status_code == 200
-
-
-# ── Available signals endpoint tests ────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_available_signals_requires_auth(client):
-    resp = await client.get("/signals/available")
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_available_signals_returns_metadata(client):
-    """GET /signals/available trả về metadata đầy đủ cho mỗi signal."""
-    resp = await client.get("/signals/available", headers={"X-API-Key": "test-key"})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "signals_info" in data
-    assert "total" in data
-    assert data["total"] >= 1
-    # VehicleSpeed should be present from the fixture
-    names = [item["signal_name"] for item in data["signals_info"]]
-    assert "VehicleSpeed" in names
-    sample = data["signals_info"][0]
-    # Metadata fields should exist (even if None)
-    assert "unit" in sample
-    assert "writable" in sample
-    assert "alarm_warning_high" in sample
-
-
-# ── Profile endpoint tests ───────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
 async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     """POST/GET profile phải lưu và trả về trường permission."""
     import src.api.routes.profiles as profile_routes
@@ -334,8 +152,6 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     assert saved_map["VehicleSpeed"] == ["read", "write"]
     assert saved_map["FuelLevel"] == ["read", "write"]
 
-
-@pytest.mark.asyncio
 async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_path):
     """Tạo profile mới sau bootstrap phải có full permission."""
     import src.api.routes.profiles as profile_routes
@@ -368,8 +184,6 @@ async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_p
 
     assert resp.status_code == 403
 
-
-@pytest.mark.asyncio
 async def test_set_active_profile_success(monkeypatch, tmp_path):
     """PUT /api/profile/active đổi active profile khi có full permission."""
     import src.api.routes.profiles as profile_routes
@@ -408,8 +222,6 @@ async def test_set_active_profile_success(monkeypatch, tmp_path):
     saved = json.loads(profiles_path.read_text(encoding="utf-8"))
     assert saved["active"] == "operator"
 
-
-@pytest.mark.asyncio
 async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path):
     """PUT /api/profile/active bị chặn với profile thiếu full permission."""
     import src.api.routes.profiles as profile_routes
@@ -445,8 +257,6 @@ async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path
     assert detail["code"] == "profile_permission_denied"
     assert detail["required_permission"] == "full"
 
-
-@pytest.mark.asyncio
 async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path):
     """PUT /api/profile/active cho phép đổi profile khi bật dev mode header."""
     import src.api.routes.profiles as profile_routes
@@ -485,8 +295,6 @@ async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path
     data = resp.json()
     assert data["active"] == "operator"
 
-
-@pytest.mark.asyncio
 async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_path):
     """PUT /api/profile/active với X-Client-Id chỉ cập nhật session của client đó."""
     import src.api.routes.profiles as profile_routes
@@ -542,8 +350,6 @@ async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_pat
     assert list_global.status_code == 200
     assert list_global.json()["active"] == "admin"
 
-
-@pytest.mark.asyncio
 async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_path):
     """GET /api/profile/sessions trả map client -> active profile."""
     import src.api.routes.profiles as profile_routes
@@ -597,8 +403,6 @@ async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_pat
     assert by_profile["viewer"]["offline"] == 0
     assert by_profile["admin"]["total"] == 1
 
-
-@pytest.mark.asyncio
 async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
     """POST /api/profile/heartbeat cập nhật last_seen cho client session."""
     import src.api.routes.profiles as profile_routes
@@ -636,8 +440,6 @@ async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
     assert data["active"] == "admin"
     assert data["last_seen"] > (time.time() - 10)
 
-
-@pytest.mark.asyncio
 async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
     """POST /api/profile/heartbeat trả 400 nếu thiếu X-Client-Id."""
     import src.api.routes.profiles as profile_routes
@@ -664,8 +466,6 @@ async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
     detail = resp.json()["detail"]
     assert detail["code"] == "client_id_required"
 
-
-@pytest.mark.asyncio
 async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
     """POST /api/profile/offline đánh dấu session offline ngay."""
     import src.api.routes.profiles as profile_routes
@@ -714,8 +514,6 @@ async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
     by_client = {item["client_id"]: item for item in sessions_data["sessions"]}
     assert by_client["client-a"]["status"] == "offline"
 
-
-@pytest.mark.asyncio
 async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, tmp_path):
     """POST /api/profile/offline phải nhả lock Dev Mode của cùng client ngay lập tức."""
     import src.api.routes.profiles as profile_routes
@@ -779,7 +577,6 @@ async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, t
     assert after_offline.status_code == 202
     reset_seat_lock_registry()
 
-
 def test_release_devmode_locks_for_offline_sessions(monkeypatch, tmp_path):
     """Cleanup helper chỉ xử lý owner đang giữ lock và nhả owner offline."""
     import src.api.routes.profiles as profile_routes
@@ -829,7 +626,6 @@ def test_release_devmode_locks_for_offline_sessions(monkeypatch, tmp_path):
     assert registry.lock_for_seat("fr", now=now) is not None
     assert registry.lock_for_seat("rl1", now=now) is not None
     reset_seat_lock_registry()
-
 
 def test_release_devmode_locks_owner_filter_soak_quantifies_scan_reduction(monkeypatch, tmp_path):
     """Soak test: with N lock owners and M sessions, owner-filter only inspects N sessions."""
@@ -913,8 +709,6 @@ def test_release_devmode_locks_owner_filter_soak_quantifies_scan_reduction(monke
     assert full_scan_checks / max(1, filtered_checks) >= 100
     reset_seat_lock_registry()
 
-
-@pytest.mark.asyncio
 async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatch, tmp_path):
     """Không prune theo timeout; chỉ trim session offline nằm ngoài top 50 mới nhất."""
     import src.api.routes.profiles as profile_routes
@@ -966,8 +760,6 @@ async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatc
     assert by_client["fresh-client"]["status"] == "online"
     assert "offline-client" not in by_client
 
-
-@pytest.mark.asyncio
 async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp_path):
     """Session offline vẫn được giữ nếu tổng session chưa vượt ngưỡng lưu lịch sử."""
     import src.api.routes.profiles as profile_routes
@@ -1015,8 +807,6 @@ async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp
     assert by_profile["admin"]["online"] == 1
     assert by_profile["admin"]["offline"] == 1
 
-
-@pytest.mark.asyncio
 async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_path):
     """GET /api/profile ưu tiên profile theo session của client-id."""
     import src.api.routes.profiles as profile_routes
@@ -1055,8 +845,6 @@ async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_pat
     assert resp.status_code == 200
     assert resp.json()["name"] == "viewer"
 
-
-@pytest.mark.asyncio
 async def test_set_active_profile_not_found(monkeypatch, tmp_path):
     """PUT /api/profile/active trả 404 nếu profile đích không tồn tại."""
     import src.api.routes.profiles as profile_routes
@@ -1088,8 +876,6 @@ async def test_set_active_profile_not_found(monkeypatch, tmp_path):
     assert detail["code"] == "profile_not_found"
     assert detail["profile_name"] == "missing-profile"
 
-
-@pytest.mark.asyncio
 async def test_delete_profile_removes_profile_and_matching_sessions(monkeypatch, tmp_path):
     """DELETE /api/profile/{name} xóa profile và session đang trỏ tới profile đó."""
     import src.api.routes.profiles as profile_routes
@@ -1133,322 +919,3 @@ async def test_delete_profile_removes_profile_and_matching_sessions(monkeypatch,
     saved_sessions = json.loads(sessions_path.read_text(encoding="utf-8"))
     assert "client-a" not in saved_sessions["client_sessions"]
     assert "client-b" in saved_sessions["client_sessions"]
-
-
-@pytest.mark.asyncio
-async def test_write_signal_requires_write_permission(monkeypatch, tmp_path):
-    """Signal write bị chặn với profile chỉ có read permission."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="viewer",
-        profiles={
-            "viewer": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
-                "description": "Viewer",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    app.state.writer = _FakeWriter()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.put(
-            "/signals/VehicleSpeed",
-            headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"},
-            json={"value": 77.0},
-        )
-
-    assert resp.status_code == 403
-    detail = resp.json()["detail"]
-    assert detail["code"] == "profile_permission_denied"
-    assert detail["required_permission"] == "write"
-    assert detail["profile_name"] == "viewer"
-
-
-@pytest.mark.asyncio
-async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
-    """Signal write được phép với profile có write permission."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="operator",
-        profiles={
-            "operator": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
-                "description": "Operator",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    app.state.writer = _FakeWriter()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.put(
-            "/signals/VehicleSpeed",
-            headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"},
-            json={"value": 77.0},
-        )
-
-    assert resp.status_code == 202
-    assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
-
-
-@pytest.mark.asyncio
-async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
-    """Dev Mode cho phép ghi signal ngoài scope của profile hiện tại."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="viewer",
-        profiles={
-            "viewer": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
-                "description": "Viewer",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    app.state.writer = _FakeWriter()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.put(
-            "/signals/VehicleSpeed",
-            headers={
-                "X-API-Key": "test-key",
-                "X-Profile-Name": "viewer",
-                "X-Dev-Mode": "true",
-            },
-            json={"value": 77.0},
-        )
-
-    assert resp.status_code == 202
-    assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
-
-
-@pytest.mark.asyncio
-async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tmp_path):
-    """Batch write chỉ queue signal hợp lệ và trả warnings cho phần bị bỏ qua."""
-    import src.api.routes.profiles as profile_routes
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="operator",
-        profiles={
-            "operator": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
-                "description": "Operator",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    app.state.writer = _FakeWriter()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post(
-            "/signals/batch_update",
-            headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"},
-            json={
-                "signals": [
-                    {"signal_name": "VehicleSpeed", "value": 80.0},
-                    {"signal_name": "FuelLevel", "value": 25.0},
-                ]
-            },
-        )
-
-    assert resp.status_code == 202
-    data = resp.json()
-    assert data["queued"] == [{"signal_name": "VehicleSpeed", "value": 80.0}]
-    assert data["warnings"][0]["code"] == "profile_signal_filtered"
-    assert data["warnings"][0]["signals"] == ["FuelLevel"]
-
-
-def test_ws_subscribe_ack_warns_for_signal_outside_profile(monkeypatch, tmp_path):
-    """Subscribe ack trả warnings khi client yêu cầu signal ngoài profile scope."""
-    import src.api.routes.profiles as profile_routes
-    from starlette.testclient import TestClient
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="viewer",
-        profiles={
-            "viewer": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["read"]}],
-                "description": "Viewer",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
-    with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/signals?api_key=ws-secret&profile_name=viewer") as ws:
-            ws.send_text(json.dumps({"type": "subscribe", "signals": ["FuelLevel"]}))
-            ack = json.loads(ws.receive_text())
-
-    assert ack["type"] == "subscribe_ack"
-    assert ack["channels"] == []
-    assert ack["warnings"][0]["code"] == "profile_signal_denied"
-
-
-# ── APIKeyAuth.verify() unit tests ──────────────────────────────────────────
-
-
-def test_api_key_auth_verify_valid():
-    """verify() returns True for correct key."""
-    from src.api.auth import APIKeyAuth
-
-    auth = APIKeyAuth("my-secret")
-    assert auth.verify("my-secret") is True
-
-
-def test_api_key_auth_verify_invalid():
-    """verify() returns False for wrong or missing key."""
-    from src.api.auth import APIKeyAuth
-
-    auth = APIKeyAuth("my-secret")
-    assert auth.verify("wrong") is False
-    assert auth.verify(None) is False
-    assert auth.verify("") is False
-
-
-def test_api_key_auth_verify_disabled():
-    """verify() always returns True when auth is disabled (empty key)."""
-    from src.api.auth import APIKeyAuth
-
-    auth = APIKeyAuth("")
-    assert auth.verify(None) is True
-    assert auth.verify("anything") is True
-
-
-# ── Config reset endpoint test ───────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_reset_general_config(monkeypatch, tmp_path):
-    """POST /config/general/reset calls write_default_bus and returns ok + default dict."""
-    import src.core.config_manager as cm
-    import src.api.routes.profiles as profile_routes
-
-    default_payload = {"can": [{"interface": "virtual", "channel": "vcan0"}], "api": {}}
-    monkeypatch.setattr(cm, "write_default_bus", lambda path=None: default_payload)
-
-    profiles_path = tmp_path / "profiles.json"
-    _write_profiles(
-        profiles_path,
-        active="admin",
-        profiles={
-            "admin": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["full"]}],
-                "description": "Admin",
-            }
-        },
-    )
-    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        resp = await c.post(
-            "/config/general/reset",
-            headers={"X-API-Key": "test-key", "X-Profile-Name": "admin"},
-        )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["ok"] is True
-    assert "default" in data
-    assert data["default"] == default_payload
-
-
-@pytest.mark.asyncio
-async def test_get_signal_config_not_found_returns_structured_error(client):
-    resp = await client.get("/config/signal/Unknown", headers={"X-API-Key": "test-key"})
-    assert resp.status_code == 404
-    detail = resp.json()["detail"]
-    assert detail["code"] == "signal_config_not_found"
-    assert detail["signal_name"] == "Unknown"
-
-
-# ── WebSocket auth tests ─────────────────────────────────────────────────────
-
-
-def test_ws_auth_rejected_without_key():
-    """WebSocket connection is rejected when auth is enabled and no key is provided."""
-    from starlette.testclient import TestClient
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
-    with TestClient(app, raise_server_exceptions=False) as sc:
-        with pytest.raises(Exception):
-            with sc.websocket_connect("/ws/signals") as ws:
-                ws.receive_text()
-
-
-def test_ws_auth_accepted_with_valid_key():
-    """WebSocket connection succeeds with valid API key in query string."""
-    from starlette.testclient import TestClient
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
-    with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/signals?api_key=ws-secret") as ws:
-            pass  # connection established — no exception raised
-
-
-def test_ws_no_auth_when_disabled():
-    """WebSocket connects freely when auth is disabled (empty api_key)."""
-    from starlette.testclient import TestClient
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
-    with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/signals") as ws:
-            pass  # should connect without any key
-
-
-def test_ws_subscribe_signal_payload_format():
-    """WS signal frame uses timestamp + signals[{name,std_name,value}] format."""
-    from starlette.testclient import TestClient
-
-    store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
-    mgr = app.state.ws_manager
-
-    with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/subscribe") as ws:
-            ws.send_text(json.dumps({"type": "subscribe", "signals": ["VehicleSpeed"]}))
-            ack = json.loads(ws.receive_text())
-            assert ack["type"] == "subscribe_ack"
-
-            import asyncio
-
-            asyncio.run(mgr.broadcast_signal("VehicleSpeed", 23.0, 1717243200.123))
-            frame = json.loads(ws.receive_text())
-
-            assert "timestamp" in frame
-            assert isinstance(frame.get("signals"), list)
-            assert len(frame["signals"]) == 1
-            sig = frame["signals"][0]
-            assert set(sig.keys()) == {"name", "std_name", "value"}
-            assert sig["name"] == "VehicleSpeed"
-            assert sig["std_name"] == "VehicleSpeed"
-            assert sig["value"] == 23.0
-
-

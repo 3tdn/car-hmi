@@ -68,7 +68,7 @@ MEDIA_DIR = Path(__file__).resolve().parents[3] / "media"
 # seatbelt can be: SLL | CLL | MSLL | SLL_MSLL (combined SLL/MSLL)
 # ---------------------------------------------------------------------------
 _FILENAME_PATTERN = re.compile(
-    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)kmh?_(?P<seatbelt>[\w_]+)\.\w+$",
+    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)(?:kmh?)?_(?P<seatbelt>[\w_]+)\.\w+$",
     re.IGNORECASE,
 )
 
