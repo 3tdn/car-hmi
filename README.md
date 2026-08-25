@@ -51,10 +51,13 @@ The project includes convenience scripts under the `scripts/` directory to prepa
 - Windows (PowerShell):
 	- `scripts/run_windows.ps1` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_windows.ps1` — prepare `.venv` (optionally install) and run tests with coverage.
+  - `scripts/perf_windows.ps1` — run k6 performance script and save JSON report.
 
 - Linux / macOS (Bash):
 	- `scripts/run_linux.sh` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_linux.sh` — prepare `.venv`, install deps and run tests with coverage.
+  - `scripts/perf_linux.sh` — run k6 performance script and save JSON report.
+  - `scripts/runtime_smoke_linux.sh` — start app runtime smoke suite (API + WebSocket + Dev Mode lock flow).
 
 Usage examples:
 
@@ -66,13 +69,17 @@ PowerShell (run app):
 PowerShell (run tests, install before running):
 ```powershell
 .\scripts\test_windows.ps1 -InstallBefore
+.\scripts\test_windows.ps1 -Suite unit
 ```
 
 Bash (make scripts executable once and run):
 ```bash
 chmod +x scripts/*.sh
 ./scripts/run_linux.sh config/system.json INFO
-./scripts/test_linux.sh
+./scripts/test_linux.sh all
+./scripts/test_linux.sh security
+./scripts/test_linux.sh runtime
+./scripts/perf_linux.sh http://localhost:8000
 ```
 
 Notes:
@@ -104,7 +111,11 @@ car-hmi/
 │   ├── core/               # config, config_manager, runner, signal_store, system_metrics
 │   ├── processor/          # Pipeline stages: filters, alarms, computed, pipeline
 │   └── storage/            # SQLite repository, database init, exporter (CSV/JSON)
-├── tests/                  # pytest test suite
+├── tests/
+│   ├── 1_unit_functions/   # Unit tests by module/function
+│   ├── 2_functional_tests/ # API, WebSocket, and integration tests
+│   ├── 3_performance/      # Performance scripts and reports
+│   └── 4_security/         # Security hardening and bypass tests
 ├── frontend/               # Static HTML/CSS/JS dashboard
 ├── scripts/                # Helper scripts (run, test, config tools, DBC utilities)
 ├── diagram/                # PlantUML architecture diagrams

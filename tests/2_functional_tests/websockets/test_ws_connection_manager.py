@@ -8,6 +8,7 @@ import json
 import pytest
 
 from src.api.websocket import ConnectionManager, SubscriptionTopic
+import src.api.websocket as websocket_module
 
 
 class FakeWebSocket:
@@ -46,6 +47,16 @@ class FakeWebSocket:
 @pytest.fixture
 def mgr():
     return ConnectionManager()
+
+
+@pytest.fixture(autouse=True)
+def _allow_subscribe_without_profile_restriction(monkeypatch):
+    """Keep ConnectionManager unit tests deterministic: no env-dependent active profile filtering."""
+
+    def _fake_get_profile_context(profile_name=None, *, client_id=None, allow_bootstrap=False):  # noqa: ARG001
+        return None, None, {}
+
+    monkeypatch.setattr(websocket_module, "get_profile_context", _fake_get_profile_context)
 
 
 @pytest.mark.asyncio

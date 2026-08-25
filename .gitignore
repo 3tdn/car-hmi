@@ -22,6 +22,8 @@ coverage.xml
 htmlcov/
 .tox/
 reports/
+tests/3_performance/reports/*
+!tests/3_performance/reports/.gitkeep
 
 # SQLite databases
 *.db
