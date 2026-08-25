@@ -1,8 +1,9 @@
-﻿"""CAN Simulator — gửi khung CAN ngẫu nhiên qua virtual bus từ config/can.json.
+﻿"""CAN Simulator — sends random CAN frames over the virtual bus from config/can.json.
 
-``CANSimulator`` đọc trực tiếp ``can.json``, sinh giá trị ngẫu nhiên trong
-``[minimum, maximum]`` cho mỗi tín hiệu, mã hóa và gửi lên bus CAN ảo.
-Không phụ thuộc DBC raw; mọi thông số lấy từ ``can.json``.
+``CANSimulator`` reads ``can.json`` directly, generates random values within
+``[minimum, maximum]`` for each signal, encodes them, and sends them on the
+virtual CAN bus. It does not depend on raw DBC files; all parameters are taken
+from ``can.json``.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
-    """Đánh dấu các bit đã dùng trong bitmask `used` (LSB-indexed)."""
+    """Mark bits as used in the `used` bitmask (LSB-indexed)."""
     total = len(used)
     for b in range(max(0, start_lsb), min(total, start_lsb + length)):
         used[b] = True
@@ -32,7 +33,7 @@ def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
 
 @dataclass
 class _SigDef:
-    """Định nghĩa tín hiệu đọc từ can.json."""
+    """Definition of a signal read from can.json."""
 
     name: str
     start_bit: int
@@ -48,7 +49,7 @@ class _SigDef:
 
 @dataclass
 class _MsgDef:
-    """Định nghĩa thông điệp đọc từ can.json."""
+    """Definition of a message read from can.json."""
 
     msg_id: int
     name: str
@@ -57,15 +58,15 @@ class _MsgDef:
 
 
 class CANSimulator:
-    """Bộ mô phỏng đọc định nghĩa message/signal trực tiếp từ ``can.json``
-    và sinh giá trị ngẫu nhiên đều trong ``[minimum, maximum]`` cho từng tín hiệu.
+    """Simulation engine that reads message/signal definitions directly from ``can.json``
+    and generates uniformly random values in ``[minimum, maximum]`` for each signal.
 
-    Không phụ thuộc vào file DBC raw — mọi thông số tín hiệu
-    lấy từ ``can.json``, thông số bus và chu kỳ lấy từ ``AppConfig``.
+    It does not depend on raw DBC files — all signal parameters are taken from
+    ``can.json``, while bus and timing details come from ``AppConfig``.
 
-    Các tín hiệu bị trống ``start_bit`` hoặc thiếu ``minimum``/``maximum`` sẽ lấy giá trị hơp lý:
-    - ``start_bit`` là ``null`` sẽ được tự động phân bổ vào vị trí bit trống đầu tiên trong message.
-    - ``minimum`` hoặc ``maximum`` là ``null`` sẽ được tính dựa trên độ dài bit, signedness, factor và offset.
+    Signals with missing ``start_bit`` or missing ``minimum``/``maximum`` are assigned valid defaults:
+    - ``start_bit`` set to ``null`` is automatically allocated to the first free bit position in the message.
+    - ``minimum`` or ``maximum`` set to ``null`` is computed from bit length, signedness, factor, and offset.
     """
 
     def __init__(
@@ -77,13 +78,13 @@ class CANSimulator:
         random_mode: bool = False,
     ) -> None:
         """
-        Tham số:
-            bus:           Thể hiện ``can.BusABC`` đã mở để truyền.
-            can_json_path: Đường dẫn tới file ``can.json``.
-            cycle_ms:      Chu kỳ phát (ms) — lấy từ ``cfg.simulator.default_cycle_ms``.
-            repeat:        Nếu ``True`` thì chạy liên tục cho đến khi ``stop()``.
-            random_mode:   Nếu ``False`` thì mỗi chu kỳ phát sẽ dùng raw value (hoặc state) tăng lên 1.
-                           Nếu ``True`` thì dùng random.uniform() như bình thường.
+        Parameters:
+            bus:           An opened ``can.BusABC`` instance for transmission.
+            can_json_path: Path to the ``can.json`` file.
+            cycle_ms:      Transmit cycle in milliseconds — sourced from ``cfg.simulator.default_cycle_ms``.
+            repeat:        If ``True``, run continuously until ``stop()``.
+            random_mode:   If ``False``, each transmit cycle uses the raw value (or state) incremented by one.
+                           If ``True``, uses ``random.uniform()`` as usual.
         """
         self._bus = bus
         self._cycle_ms = cycle_ms
@@ -99,7 +100,7 @@ class CANSimulator:
             can_json_path,
         )
 
-    # ── Tải can.json ───────────────────────────────────────────────────────────
+    # ── Load can.json ───────────────────────────────────────────────────────────
 
     def _load_can_json(self, path: Path) -> list[_MsgDef]:
         if not path.exists():

@@ -12,6 +12,10 @@
  *   GET  /api/info                   → fetchSystemInfo()
  *   GET  /api/profiles               → listProfiles()
  *   GET  /api/profile[?name=x]       → fetchProfile(name?)
+ *   PUT  /api/profile/active         → setActiveProfile(name)
+ *   GET  /api/profile/sessions       → listProfileSessions()
+ *   POST /api/profile/heartbeat      → heartbeatProfileSession()
+ *   POST /api/profile/offline        → markProfileSessionOffline()
  *   POST /api/profile                → createProfile(body)
  *   PUT  /api/profile                → updateProfile(body)   [optimistic lock: section_id]
  *   DELETE /api/profile/{name}       → deleteProfile(name)
@@ -38,6 +42,11 @@
  *   - Backend maps signal_name ↔ std_name from config/signal_std_name.json
  *   - Frontend can read/write using either name; backend resolves transparently
  *   - API responses include std_name field when available
+ *
+ * Profile session headers:
+ *   - X-Client-Id is attached automatically (persisted in sessionStorage)
+ *   - /api/profile/heartbeat and /api/profile/offline require X-Client-Id
+ *   - /api/profile/active with X-Client-Id sets active profile for that client only
  */
 
 // ── Signal Name Registry (std_name support) ─────────────────────────────────
@@ -103,10 +112,87 @@ const API_BASE = window.API_BASE || DEFAULT_ORIGIN;
 const WS_BASE =
   window.WS_BASE || `${originProtocol === "https:" ? "wss" : "ws"}://${originHost}${originPort}`;
 const API_KEY = window.API_KEY || "";
+let PROFILE_NAME = window.PROFILE_NAME || "";
+
+function _getOrCreateClientId() {
+  const storageKey = "can_hmi_client_id";
+  try {
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const generated = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID()
+      : `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem(storageKey, generated);
+    return generated;
+  } catch {
+    return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+const CLIENT_ID = _getOrCreateClientId();
+
+function setProfileName(name) {
+  PROFILE_NAME = name || "";
+  window.PROFILE_NAME = PROFILE_NAME;
+}
+
+function getProfileName() {
+  return PROFILE_NAME;
+}
+
+function getClientId() {
+  return CLIENT_ID;
+}
+
+function _normalizeWarnings(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload.warnings)) return payload.warnings;
+  if (Array.isArray(payload.detail)) return payload.detail;
+  if (payload.detail && typeof payload.detail === "object") return [payload.detail];
+  return [];
+}
+
+async function _readPayload(resp) {
+  // 204/205 must not include a message body.
+  if (resp.status === 204 || resp.status === 205) {
+    return null;
+  }
+
+  const contentType = resp.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await resp.text();
+    return text ? { message: text } : null;
+  }
+  try {
+    return await resp.json();
+  } catch {
+    // Some endpoints reply with empty body but still set JSON content-type.
+    return null;
+  }
+}
+
+async function _fetchJson(url, options = {}) {
+  const resp = await fetch(url, options);
+  const payload = await _readPayload(resp);
+  if (!resp.ok) {
+    const error = new Error(payload?.message || payload?.detail?.message || `${options.method || "GET"} ${url} → ${resp.status}`);
+    error.status = resp.status;
+    error.payload = payload;
+    error.detail = payload?.detail ?? null;
+    error.warnings = _normalizeWarnings(payload);
+    throw error;
+  }
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    payload.warnings = _normalizeWarnings(payload);
+  }
+  return payload;
+}
 
 const _headers = () => {
   const h = { "Content-Type": "application/json" };
   if (API_KEY) h["X-API-Key"] = API_KEY;
+  if (PROFILE_NAME) h["X-Profile-Name"] = PROFILE_NAME;
+  if (CLIENT_ID) h["X-Client-Id"] = CLIENT_ID;
   return h;
 };
 
@@ -117,9 +203,7 @@ const _headers = () => {
  * @returns {Promise<{name:string, version:string, uptime_seconds:number, signal_count:number, bus_connected:boolean, db_connected:boolean}>}
  */
 async function fetchSystemInfo() {
-  const resp = await fetch(`${API_BASE}/api/info`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/info → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/api/info`, { headers: _headers() });
 }
 
 /**
@@ -127,9 +211,7 @@ async function fetchSystemInfo() {
  * @returns {Promise<Object>}
  */
 async function fetchSystemMetrics() {
-  const resp = await fetch(`${API_BASE}/system/metrics`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /system/metrics → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/system/metrics`, { headers: _headers() });
 }
 
 // ── Profiles ───────────────────────────────────────────────────────────────
@@ -139,55 +221,93 @@ async function fetchSystemMetrics() {
  * @returns {Promise<{profiles:Array, total:number, active:string|null}>}
  */
 async function listProfiles() {
-  const resp = await fetch(`${API_BASE}/api/profiles`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/profiles → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/api/profiles`, { headers: _headers() });
 }
 
 /**
  * Lấy một profile theo tên, hoặc active profile nếu không truyền name.
  * @param {string} [name]
- * @returns {Promise<{name:string, signals:string[], description:string|null, section_id:string}>}
+ * @returns {Promise<{name:string, signals:Array<{name:string, permission:string[]}>, description:string|null, section_id:string}>}
  */
 async function fetchProfile(name) {
   const url = name
     ? `${API_BASE}/api/profile?name=${encodeURIComponent(name)}`
     : `${API_BASE}/api/profile`;
-  const resp = await fetch(url, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/profile → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(url, { headers: _headers() });
+}
+
+/**
+ * Đổi active profile trên server.
+ * @param {string} name
+ * @returns {Promise<{active:string, warnings?:Array}>}
+ */
+async function setActiveProfile(name, options = {}) {
+  const headers = _headers();
+  if (options.devMode) headers["X-Dev-Mode"] = "true";
+  return _fetchJson(`${API_BASE}/api/profile/active`, {
+    method:  "PUT",
+    headers,
+    body:    JSON.stringify({ name }),
+  });
+}
+
+/**
+ * Danh sách session active profile theo client.
+ * @returns {Promise<{sessions:Array, total:number, global_active:string|null}>}
+ */
+async function listProfileSessions(options = {}) {
+  const headers = _headers();
+  if (options.devMode) headers["X-Dev-Mode"] = "true";
+  return _fetchJson(`${API_BASE}/api/profile/sessions`, { headers });
+}
+
+/**
+ * Heartbeat session profile cho client hiện tại.
+ * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
+ */
+async function heartbeatProfileSession() {
+  return _fetchJson(`${API_BASE}/api/profile/heartbeat`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+/**
+ * Đánh dấu session profile của client là offline ngay lập tức.
+ * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
+ */
+async function markProfileSessionOffline() {
+  return _fetchJson(`${API_BASE}/api/profile/offline`, {
+    method: "POST",
+    headers: _headers(),
+  });
 }
 
 /**
  * Tạo profile mới.
- * @param {{name:string, signals:string[], description?:string}} body
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string}} body
  * @returns {Promise<Object>}
  */
 async function createProfile(body) {
-  const resp = await fetch(`${API_BASE}/api/profile`, {
+  return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "POST",
     headers: _headers(),
     body:    JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`POST /api/profile → ${resp.status}`);
-  return resp.json();
 }
 
 /**
  * Cập nhật profile (yêu cầu section_id để tránh xung đột đồng thời).
  * Nếu section_id mismatch → lỗi 409 → gọi fetchProfile() lại rồi thử lại.
- * @param {{name:string, signals:string[], description?:string, section_id:string}} body
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string, section_id:string}} body
  * @returns {Promise<Object>}
  */
 async function updateProfile(body) {
-  const resp = await fetch(`${API_BASE}/api/profile`, {
+  return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "PUT",
     headers: _headers(),
     body:    JSON.stringify(body),
   });
-  if (resp.status === 409) throw new Error("Conflict: reload profile và thử lại (section_id mismatch)");
-  if (!resp.ok) throw new Error(`PUT /api/profile → ${resp.status}`);
-  return resp.json();
 }
 
 /**
@@ -195,11 +315,10 @@ async function updateProfile(body) {
  * @param {string} name
  */
 async function deleteProfile(name) {
-  const resp = await fetch(`${API_BASE}/api/profile/${encodeURIComponent(name)}`, {
+  return _fetchJson(`${API_BASE}/api/profile/${encodeURIComponent(name)}`, {
     method:  "DELETE",
     headers: _headers(),
   });
-  if (!resp.ok) throw new Error(`DELETE /api/profile/${name} → ${resp.status}`);
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────────
@@ -209,9 +328,7 @@ async function deleteProfile(name) {
  * @returns {Promise<{items:Array, total:number}>}
  */
 async function fetchSignals() {
-  const resp = await fetch(`${API_BASE}/signals`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /signals → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/signals`, { headers: _headers() });
 }
 
 /**
@@ -220,9 +337,7 @@ async function fetchSignals() {
  * @returns {Promise<{signals_info:Array, total:number}>}
  */
 async function fetchAvailableSignals() {
-  const resp = await fetch(`${API_BASE}/signals/available`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /signals/available → ${resp.status}`);
-  const data = await resp.json();
+  const data = await _fetchJson(`${API_BASE}/signals/available`, { headers: _headers() });
   // Backward-compatible normalization during contract transition.
   return {
     ...data,
@@ -235,17 +350,18 @@ async function fetchAvailableSignals() {
  * Hỗ trợ cả signal_name và std_name — backend resolve tự động.
  * @param {string} nameOrStdName  — signal_name hoặc std_name
  * @param {number} value
+ * @param {{devMode?:boolean}} [options]
  * @returns {Promise<{signal_name:string, value:number, queued_at:number}>}
  */
-async function writeSignal(nameOrStdName, value) {
+async function writeSignal(nameOrStdName, value, options = {}) {
   const canonical = resolveSignalName(nameOrStdName);
-  const resp = await fetch(`${API_BASE}/signals/${encodeURIComponent(canonical)}`, {
+  const headers = _headers();
+  if (options.devMode) headers["X-Dev-Mode"] = "true";
+  return _fetchJson(`${API_BASE}/signals/${encodeURIComponent(canonical)}`, {
     method:  "PUT",
-    headers: _headers(),
+    headers,
     body:    JSON.stringify({ value }),
   });
-  if (!resp.ok) throw new Error(`PUT /signals/${canonical} → ${resp.status}`);
-  return resp.json();
 }
 
 /**
@@ -260,13 +376,69 @@ async function batchWriteSignals(writes) {
     signal_name: resolveSignalName(item.signal_name),
     value: item.value,
   }));
-  const resp = await fetch(`${API_BASE}/signals/batch_update`, {
+  return _fetchJson(`${API_BASE}/signals/batch_update`, {
     method:  "POST",
     headers: _headers(),
     body:    JSON.stringify({ signals: resolved }),
   });
-  if (!resp.ok) throw new Error(`POST /signals/batch_update → ${resp.status}`);
-  return resp.json();
+}
+
+// ── Dev Mode ─────────────────────────────────────────────────────────────────
+
+const _devHeaders = () => ({ ..._headers(), "X-Dev-Mode": "true" });
+
+/**
+ * Metadata used to build the Dev Mode view A tabs and state buttons.
+ * @returns {Promise<{seats:string[], families:Array<{signal_name:string, kind:string, states:Array}>, block_timeout_sec:number}>}
+ */
+async function fetchDevmodeCatalog() {
+  return _fetchJson(`${API_BASE}/api/devmode/catalog`, { headers: _devHeaders() });
+}
+
+/**
+ * Current Dev Mode seat lock state.
+ * @returns {Promise<{seats:Object, expires_at:string|null}>}
+ */
+async function fetchDevmodeStatus() {
+  return _fetchJson(`${API_BASE}/api/devmode/status`, { headers: _devHeaders() });
+}
+
+/**
+ * Tell the backend which seats are selected — it locks them for block_timeout_sec.
+ * @param {Object<string, boolean>} seats
+ * @param {number} [blockTimeoutSec]
+ */
+async function selectDevmodeSeats(seats, blockTimeoutSec) {
+  const body = { seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/seats/select`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/**
+ * Apply one signal family (ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request)
+ * to several seats at once.
+ */
+async function applyDevmodeSignal(signalName, value, seats, blockTimeoutSec) {
+  const body = { signal_name: signalName, value, seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/signals`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/** Leave Dev Mode — release every seat lock held by this section. */
+async function exitDevmode(options = {}) {
+  return _fetchJson(`${API_BASE}/api/devmode/exit`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    keepalive: !!options.keepalive,
+  });
 }
 
 // ── Alarms ────────────────────────────────────────────────────────────────────
@@ -276,9 +448,7 @@ async function batchWriteSignals(writes) {
  * @returns {Promise<{items:Array, total:number}>}
  */
 async function fetchActiveAlarms() {
-  const resp = await fetch(`${API_BASE}/alarms?acknowledged=false&limit=50`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /alarms → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/alarms?acknowledged=false&limit=50`, { headers: _headers() });
 }
 
 /**
@@ -286,12 +456,10 @@ async function fetchActiveAlarms() {
  * @param {number} alarmId
  */
 async function acknowledgeAlarm(alarmId) {
-  const resp = await fetch(`${API_BASE}/alarms/${alarmId}/acknowledge`, {
+  return _fetchJson(`${API_BASE}/alarms/${alarmId}/acknowledge`, {
     method:  "POST",
     headers: _headers(),
   });
-  if (!resp.ok) throw new Error(`POST /alarms/${alarmId}/acknowledge → ${resp.status}`);
-  return resp.json();
 }
 
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
@@ -329,7 +497,11 @@ function openWebSocket(topic, onMessage) {
  * @returns {{ ws:WebSocket, subscribe:function, unsubscribe:function, ping:function }}
  */
 function openSubscriptionWS(onMessage, onOpen) {
-  const url  = `${WS_BASE}/ws/signals`;
+  const qs = [];
+  if (API_KEY) qs.push(`api_key=${encodeURIComponent(API_KEY)}`);
+  if (PROFILE_NAME) qs.push(`profile_name=${encodeURIComponent(PROFILE_NAME)}`);
+  if (CLIENT_ID) qs.push(`client_id=${encodeURIComponent(CLIENT_ID)}`);
+  const url  = `${WS_BASE}/ws/signals${qs.length ? `?${qs.join("&")}` : ""}`;
   const sock = new WebSocket(url);
 
   sock.addEventListener("message", (evt) => {

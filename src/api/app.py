@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 import logging
 import time
 from pathlib import Path
@@ -16,6 +18,7 @@ from src.api.routes import (
     alarms,
     camera,
     config,
+    devmode,
     profiles,
     restraints,
     signals,
@@ -42,6 +45,7 @@ def create_app(
         version="0.1.0",
         description="Real-time CAN bus signal monitoring and control API",
     )
+    app.state.shutting_down = False
 
     # CORS
     app.add_middleware(
@@ -61,6 +65,7 @@ def create_app(
     _cfg = read_config()
     _sig_cfg = _cfg.get("signal", {})
     _reader_cfg = _cfg.get("reader", {})
+    _profile_cfg = _cfg.get("profiles", {})
     signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
     app.state.signal_name_mapper = signal_name_mapper
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
@@ -89,6 +94,7 @@ def create_app(
                             "unit": sig_data.get("unit") or None,
                             "writable": bool(sig_data.get("TX", False)),
                             "states": sig_data.get("states") or None,
+                            "tag": sig_data.get("tag") or signals._infer_signal_tags(sig_name) or None,
                         },
                     )
     except Exception:
@@ -101,8 +107,29 @@ def create_app(
     except Exception:
         logger.debug("Failed to load runtime alarms snapshot", exc_info=True)
 
+    app.state.profile_session_cleanup_task = None
+
+    try:
+        cleanup_interval_sec = max(1.0, float(_profile_cfg.get("session_cleanup_interval_sec", 5.0)))
+    except (TypeError, ValueError):
+        cleanup_interval_sec = 5.0
+    app.state.devmode_cleanup_interval_sec = cleanup_interval_sec
+
+
     app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
     app.state.dbc_job_manager = DBCJobManager()
+
+    async def _stop_profile_session_cleanup_task() -> None:
+        app.state.shutting_down = True
+        task = app.state.profile_session_cleanup_task
+        app.state.profile_session_cleanup_task = None
+        if task is None:
+            return
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    app.router.on_shutdown.append(_stop_profile_session_cleanup_task)
 
     # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
     # cho phép 1 kết nối đồng thời (mutex phía nguồn).
@@ -145,6 +172,7 @@ def create_app(
     app.include_router(system.router, prefix="/system", tags=["System"])
     app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
     app.include_router(camera.router, prefix="/api/camera", tags=["Camera"])
+    app.include_router(devmode.router, prefix="/api/devmode", tags=["Dev Mode"], dependencies=[auth_dep])
     # /api/info — thông tin hệ thống theo demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])
     # Profile management

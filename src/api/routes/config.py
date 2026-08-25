@@ -22,6 +22,7 @@ from src.api.models import (
 from src.core.config import load_config
 from src.core.config_manager import read_config
 from src.core.paths import DEFAULT_CONFIG_PATH
+from src.api.routes.profiles import build_access_warning, require_profile_permission
 from src.storage.repository import SignalConfigRecord
 import yaml
 
@@ -35,6 +36,10 @@ def _build_runtime_notes(result: dict[str, Any]) -> dict[str, list[str]]:
         "skipped": result.get("skipped", []),
         "errors": result.get("errors", []),
     }
+
+
+def _config_error(code: str, message: str, *, signal_name: str | None = None) -> dict:
+    return build_access_warning(code, message, signal_name=signal_name)
 
 
 @router.get("", summary="List all signal configurations")
@@ -55,17 +60,20 @@ async def get_signal_config(signal_name: str, request: Request):
     sv = await request.app.state.store.get(signal_name)
     if sv is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_config_error("signal_config_not_found", f"Signal '{signal_name}' not found", signal_name=signal_name),
         )
     return SignalConfigResponse(signal_name=signal_name, unit=getattr(sv, "unit", None))
 
 
 @router.patch("/signal/{signal_name}", response_model=SignalConfigResponse, summary="Update signal config")
 async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest, request: Request):
+    require_profile_permission(request, "full")
     sv = await request.app.state.store.get(signal_name)
     if sv is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_config_error("signal_config_not_found", f"Signal '{signal_name}' not found", signal_name=signal_name),
         )
 
     repo = request.app.state.repo
@@ -132,13 +140,17 @@ async def get_general_config(request: Request):
 
 @router.patch("/general", summary="Patch application config (partial)")
 async def patch_general_config(body: dict, request: Request):
+    require_profile_permission(request, "full")
     manager = request.app.state.config_manager
     try:
         status_info = await manager.patch_general_config(body, runtime=getattr(request.app.state, "runner", None))
         runner = getattr(request.app.state, "runner", None)
         cfg = runner.config if runner is not None and getattr(runner, "config", None) is not None else load_config(str(DEFAULT_CONFIG_PATH))
     except (ValueError, OSError, TypeError) as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_config_error("general_config_patch_invalid", str(exc)),
+        ) from exc
 
     runtime_notes = _build_runtime_notes(status_info)
     return {"config": cfg.model_dump(), "reload": status_info, "runtime_notes": runtime_notes}
@@ -146,6 +158,7 @@ async def patch_general_config(body: dict, request: Request):
 
 @router.post("/general/reset", summary="Reset application config to defaults")
 async def reset_general_config(request: Request):
+    require_profile_permission(request, "full")
     manager = request.app.state.config_manager
     result = await manager.reset_general_config(runtime=getattr(request.app.state, "runner", None))
     runtime_notes = _build_runtime_notes(result)
@@ -162,16 +175,21 @@ async def get_alarms_config():
 
 @router.post("/alarms", summary="Update alarms config (JSON body)")
 async def post_alarms_config(body: dict, request: Request):
+    require_profile_permission(request, "full")
     manager = request.app.state.config_manager
     try:
         result = await manager.replace_alarms_config(body, runtime=getattr(request.app.state, "runner", None))
     except (ValueError, OSError, TypeError) as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_config_error("alarms_config_update_failed", str(exc)),
+        ) from exc
     return {"ok": result["ok"], "reload": result}
 
 
 @router.post("/alarms/reset", summary="Reset alarms config to empty default")
 async def reset_alarms_config(request: Request):
+    require_profile_permission(request, "full")
     manager = request.app.state.config_manager
     result = await manager.reset_alarms_config(runtime=getattr(request.app.state, "runner", None))
     return {"ok": result["ok"], "written": result["written"], "reload": result}
@@ -179,6 +197,7 @@ async def reset_alarms_config(request: Request):
 
 @router.post("/processor", response_model=ProcessorConfigResponse, summary="Update processor config")
 async def update_processor_config_endpoint(request: Request, body: UpdateProcessorConfigRequest = Body(...)) -> ProcessorConfigResponse:
+    require_profile_permission(request, "full")
     from src.core.config_manager import update_processor_config
     from src.core.config import load_config
 
@@ -186,7 +205,10 @@ async def update_processor_config_endpoint(request: Request, body: UpdateProcess
     try:
         update_processor_config(max_queue_size=body.max_queue_size, queue_policy=body.queue_policy, path=DEFAULT_CONFIG_PATH)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=_config_error("processor_config_invalid", str(exc)),
+        ) from exc
 
     cfg = load_config(str(DEFAULT_CONFIG_PATH))
 

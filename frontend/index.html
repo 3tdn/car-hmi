@@ -10,6 +10,7 @@
   <header class="hmi-header">
     <h1>CAN-HMI Live Dashboard</h1>
     <div style="display:flex; gap:8px; margin-left:12px;">
+      <button id="btn-profiles" class="btn">Profiles</button>
       <button id="btn-settings" class="btn">Settings</button>
       <button id="btn-alarms" class="btn">Alarms</button>
       <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
@@ -23,6 +24,7 @@
     <nav class="hmi-nav">
       <button id="tab-dashboard" class="nav-btn active">Dashboard</button>
       <button id="tab-adaptive" class="nav-btn">Adaptive Restraint</button>
+      <button id="tab-devmode" class="nav-btn" style="display:none;">Dev Mode</button>
     </nav>
     <span id="connection-badge" class="badge badge--disconnected" style="margin-left:auto;">Disconnected</span>
   </header>
@@ -362,6 +364,45 @@
     </section>
   </main>
 
+  <main class="devmode-view" id="view-devmode" style="display: none;">
+    <div class="devmode-topbar">
+      <div class="devmode-subtabs">
+        <button id="devmode-subtab-a" class="nav-btn active">A — Seat Actuation</button>
+        <button id="devmode-subtab-b" class="nav-btn">B — Network &amp; ELK Status</button>
+      </div>
+      <span id="devmode-lock-badge" class="badge badge--disconnected">No seat locked</span>
+      <button id="devmode-exit-btn" class="btn">Exit Dev Mode (release locks)</button>
+    </div>
+
+    <!-- View A: multi-seat signal actuation -->
+    <section class="card devmode-panel" id="devmode-view-a">
+      <h3>Seat selection</h3>
+      <p class="devmode-hint">
+        Turn on a seat switch to take control of it. The backend locks that seat for
+        <span id="devmode-timeout-label">60</span>s, blocking other sections from writing to it
+        until the lock expires or you press “Exit Dev Mode”.
+      </p>
+      <div class="seat-switch-row" id="devmode-seat-switches"></div>
+
+      <h3 style="margin-top:18px;">Signal actuation</h3>
+      <div class="devmode-tabs" id="devmode-family-tabs"></div>
+      <div class="devmode-states" id="devmode-family-states"></div>
+      <div class="devmode-log" id="devmode-apply-log"></div>
+    </section>
+
+    <!-- View B: component connectivity + ELK status -->
+    <section class="card devmode-panel" id="devmode-view-b" style="display:none;">
+      <div class="devmode-panel-head">
+        <h3>Component status</h3>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="devmode-elk-summary" class="badge badge--warning">Status Unknown</span>
+          <button id="devmode-elk-reset-btn" class="btn">Reset E-Locking Failure Memory</button>
+        </div>
+      </div>
+      <div class="component-grid" id="devmode-component-grid"></div>
+    </section>
+  </main>
+
   <footer class="hmi-footer">
     <span id="status-text">Connecting…</span>
   </footer>
@@ -390,6 +431,7 @@
   <script src="js/app.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
   <script src="js/adaptive.js"></script>
+  <script src="js/devmode.js"></script>
   <script>
     // Modal containers for settings and alarms
     const settingsModal = document.createElement('div');
@@ -1022,9 +1064,7 @@
     document.getElementById('btn-settings').addEventListener('click', async () => {
       setSettingsStatus('Loading current configuration...');
       try {
-        const resp = await fetch(`${API_BASE}/config/general`);
-        if (!resp.ok) throw new Error(resp.statusText || `HTTP ${resp.status}`);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/general`, { headers: _headers() });
         setGeneralFormValues(json);
         renderSettingsRuntimeNotes(json?.runtime_notes || {});
         setSettingsStatus('Configuration loaded. Ready to edit.', 'ok');
@@ -1035,28 +1075,25 @@
     });
     document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
     document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('settings_reset', 'Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
       try {
         setSettingsStatus('Resetting to default configuration...');
-        const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/general/reset`, { method: 'POST', headers: _headers() });
         setGeneralFormValues(json.default || {});
         renderSettingsRuntimeNotes(json?.runtime_notes || {});
         setSettingsStatus('Default configuration restored.', 'ok');
-        alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
+        window.showUiNotice?.('Đã reset cấu hình chung về mặc định (file được ghi đè).', { source: 'settings', code: 'settings_reset_ok' });
       } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
         setSettingsStatus('Reset failed: ' + e, 'error');
-        alert('Reset failed: '+e);
+        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_reset_failed' });
       }
     });
     document.getElementById('settings-save').addEventListener('click', async () => {
       try {
         setSettingsStatus('Saving configuration...');
         const body = collectGeneralSettingsPatch();
-        const resp = await fetch(`${API_BASE}/config/general`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const result = await resp.json();
+        const result = await _fetchJson(`${API_BASE}/config/general`, { method: 'PATCH', headers: _headers(), body: JSON.stringify(body) });
         if (result?.config) setGeneralFormValues(result.config);
 
         const notes = result?.runtime_notes || {};
@@ -1076,10 +1113,11 @@
 
         setSettingsStatus(noteText.join(' | '), requiresRestart.length ? 'info' : 'ok');
         settingsModal.style.display = 'none';
-        alert(`Config updated (on-disk).\n${noteText.join('\n')}`);
+        window.showUiNotice?.(`Config updated (on-disk).\n${noteText.join('\n')}`, { source: 'settings', code: 'settings_save_ok' });
       } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
         setSettingsStatus('Save failed: ' + e, 'error');
-        alert('Save failed: '+e);
+        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_save_failed' });
       }
     });
     document.getElementById('settings-backups').addEventListener('click', async () => {
@@ -1091,32 +1129,34 @@
       const editor = document.getElementById('alarms-editor');
       editor.value = '';
       try {
-        const resp = await fetch(`${API_BASE}/config/alarms`);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/alarms`, { headers: _headers() });
         editor.value = JSON.stringify(json, null, 2);
       } catch (e) { editor.value = 'Failed to load alarms: '+e; }
       alarmsModal.style.display = 'block';
     });
     document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
     document.getElementById('alarms-reset').addEventListener('click', async () => {
-      if (!confirm('Reset alarms về mặc định (rỗng)?')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('alarms_reset', 'Reset alarms về mặc định (rỗng)?')) return;
       try {
-        const resp = await fetch(`${API_BASE}/config/alarms/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
+        const json = await _fetchJson(`${API_BASE}/config/alarms/reset`, { method: 'POST', headers: _headers() });
         document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
-        alert('Alarms đã được reset.');
-      } catch (e) { alert('Reset failed: '+e); }
+        window.showUiNotice?.('Alarms đã được reset.', { source: 'alarms', code: 'alarms_reset_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
+        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_reset_failed' });
+      }
     });
     document.getElementById('alarms-save').addEventListener('click', async () => {
       const editor = document.getElementById('alarms-editor');
       try {
         const body = JSON.parse(editor.value);
-        const resp = await fetch(`${API_BASE}/config/alarms`, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
+        await _fetchJson(`${API_BASE}/config/alarms`, { method: 'POST', headers: _headers(), body: JSON.stringify(body) });
         alarmsModal.style.display = 'none';
-        alert('Alarms config updated.');
-      } catch (e) { alert('Save failed: '+e); }
+        window.showUiNotice?.('Alarms config updated.', { source: 'alarms', code: 'alarms_save_ok' });
+      } catch (e) {
+        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
+        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_save_failed' });
+      }
     });
 
     let currentDbcJobId = null;

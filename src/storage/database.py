@@ -1,4 +1,4 @@
-"""Khởi tạo cơ sở dữ liệu — tạo schema lần đầu chạy."""
+"""Database initialization — create the schema on first run."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS signal_config (
 
 
 async def init_db(path: str) -> aiosqlite.Connection:
-    """Mở (hoặc tạo) cơ sở dữ liệu SQLite và áp dụng schema."""
+    """Open (or create) the SQLite database and apply the schema."""
     conn = await aiosqlite.connect(path)
     conn.row_factory = aiosqlite.Row
     await conn.executescript(SCHEMA_SQL)

@@ -5,49 +5,16 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.skip(reason="SmoothingFilter removed per project policy")
-@pytest.mark.asyncio
-async def test_smoothing_filter_ema():
-    from src.processor.filters import SmoothingFilter
+def test_smoothing_filter_ema_removed_by_policy():
+    import src.processor.filters as filters
 
-    f = SmoothingFilter(window=5, method="ema")
-
-    result1 = await f.process({"speed": 10.0})
-    assert result1["speed"] == 10.0
-
-    result2 = await f.process({"speed": 20.0})
-    # window=5, alpha = 2/(5+1) = 1/3 (constant).
-    # ema = 1/3 * 20 + 2/3 * 10 = 13.333
-    assert result2["speed"] == pytest.approx(13.333333333333334)
-
-    result3 = await f.process({"speed": 30.0})
-    # ema = 1/3 * 30 + 2/3 * 13.333 = 10 + 8.889 = 18.889
-    assert result3["speed"] == pytest.approx(18.88888888888889)
-
-    result4 = await f.process({"speed": 40.0})
-    # ema = 1/3 * 40 + 2/3 * 18.889 = 13.333 + 12.593 = 25.926
-    assert result4["speed"] == pytest.approx(25.925925925925927)
-
-    result5 = await f.process({"speed": 50.0})
-    # ema = 1/3 * 50 + 2/3 * 25.926 = 16.667 + 17.284 = 33.951
-    assert result5["speed"] == pytest.approx(33.95061728395062)
-
-    result6 = await f.process({"speed": 60.0})
-    # alpha = 1/3 (constant). ema = 1/3 * 60 + 2/3 * 33.951 = 20 + 22.634 = 42.634
-    assert result6["speed"] == pytest.approx(42.63374485596708)
+    assert not hasattr(filters, "SmoothingFilter")
 
 
-@pytest.mark.skip(reason="SmoothingFilter removed per project policy")
-@pytest.mark.asyncio
-async def test_smoothing_filter_moving_avg():
-    from src.processor.filters import SmoothingFilter
+def test_smoothing_filter_moving_avg_removed_by_policy():
+    import src.processor.filters as filters
 
-    f = SmoothingFilter(window=3, method="moving_avg")
-    result = await f.process({"speed": 10.0})
-    result = await f.process({"speed": 20.0})
-    result = await f.process({"speed": 30.0})
-    # average of [10, 20, 30]
-    assert result["speed"] == pytest.approx(20.0)
+    assert not hasattr(filters, "SmoothingFilter")
 
 
 @pytest.mark.asyncio

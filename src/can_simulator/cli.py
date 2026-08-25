@@ -1,4 +1,4 @@
-"""Entrypoint CLI cho CAN Simulator."""
+"""CLI entrypoint for the CAN Simulator."""
 
 from __future__ import annotations
 

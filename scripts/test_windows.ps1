@@ -1,7 +1,7 @@
 <#
 Run tests helper for Windows (PowerShell)
 Usage:
-  .\scripts\test_windows.ps1 [-InstallBefore]
+    .\scripts\test_windows.ps1 [-InstallBefore] [-Suite <all|unit|functional|api|ws|integration|security>]
 
 This script will:
  - ensure .venv exists (creates if missing)
@@ -10,7 +10,9 @@ This script will:
 #>
 
 param(
-    [switch]$InstallBefore
+    [switch]$InstallBefore,
+    [ValidateSet("all", "unit", "functional", "api", "ws", "integration", "security")]
+    [string]$Suite = "all"
 )
 
 function Write-Log([string]$m){ Write-Host "[test] $m" }
@@ -56,7 +58,19 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Run pytest with coverage and HTML test report (requires pytest-html and pytest-cov)
-& $venvPy -m pytest tests/ -q --tb=short --cov=src --cov-fail-under=60 `
+switch ($Suite) {
+    "all"         { $target = "tests" }
+    "unit"        { $target = "tests/1_unit_functions" }
+    "functional"  { $target = "tests/2_functional_tests" }
+    "api"         { $target = "tests/2_functional_tests/api" }
+    "ws"          { $target = "tests/2_functional_tests/websockets" }
+    "integration" { $target = "tests/2_functional_tests/integration" }
+    "security"    { $target = "tests/4_security" }
+}
+
+Write-Log "Suite: $Suite ($target)"
+
+& $venvPy -m pytest $target -q --tb=short --cov=src --cov-fail-under=60 `
     --cov-report=html:$reports\coverage_html `
     --cov-report=term-missing `
     --html="$reports\report.html" --self-contained-html

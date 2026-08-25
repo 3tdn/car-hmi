@@ -8,6 +8,7 @@ import json
 import pytest
 
 from src.api.websocket import ConnectionManager, SubscriptionTopic
+import src.api.websocket as websocket_module
 
 
 class FakeWebSocket:
@@ -46,6 +47,16 @@ class FakeWebSocket:
 @pytest.fixture
 def mgr():
     return ConnectionManager()
+
+
+@pytest.fixture(autouse=True)
+def _allow_subscribe_without_profile_restriction(monkeypatch):
+    """Keep ConnectionManager unit tests deterministic: no env-dependent active profile filtering."""
+
+    def _fake_get_profile_context(profile_name=None, *, client_id=None, allow_bootstrap=False):  # noqa: ARG001
+        return None, None, {}
+
+    monkeypatch.setattr(websocket_module, "get_profile_context", _fake_get_profile_context)
 
 
 @pytest.mark.asyncio
@@ -414,3 +425,24 @@ async def test_subscribe_changed_only_mode(mgr):
     sig = payload["signals"][0]
     assert sig["name"] == "Speed"
     assert sig["value"] == 81.0
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_false_when_no_connections(mgr):
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is False
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_true_for_legacy_signals_topic(mgr):
+    ws = FakeWebSocket()
+    await mgr.connect(ws, {SubscriptionTopic.SIGNALS})
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is True
+
+
+@pytest.mark.asyncio
+async def test_has_signal_interest_true_for_matching_subscribe_signal(mgr):
+    ws = FakeWebSocket()
+    await mgr.connect_subscribe(ws)
+    mgr._subscriptions[ws].signal_names.add("COM_Status_PumaFLEthernet")
+    assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is True
+    assert await mgr.has_signal_interest({"COM_Status_PumaFREthernet"}) is False

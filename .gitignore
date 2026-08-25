@@ -23,6 +23,8 @@ htmlcov/
 .tox/
 reports/
 tmp/
+tests/3_performance/reports/*
+!tests/3_performance/reports/.gitkeep
 
 # SQLite databases
 *.db
@@ -60,8 +62,10 @@ site/
 # VS Code settings
 .vscode
 .local/
+.local/*
 
 # Config
 #config/
 *config/backups/
 config/backups
+config/backups/*

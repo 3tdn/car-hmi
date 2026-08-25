@@ -1,4 +1,4 @@
-"""Tín hiệu tính toán / ảo dẫn xuất từ giá trị tín hiệu thô."""
+"""Calculated / virtual signals derived from raw signal values."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class ComputedSignals(ProcessingStage):
-    """Tính toán tín hiệu ảo từ công thức áp dụng cho tín hiệu hiện có.
+    """Compute virtual signals from formulas applied to existing signals.
 
-    Ví dụ:
+    Example:
         EnginePower_kW = EngineRPM * Torque / 9549
     """
 

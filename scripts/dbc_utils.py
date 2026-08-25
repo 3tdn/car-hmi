@@ -151,10 +151,25 @@ def comment_step_split(comment: str) -> tuple[str, list[dict[str, Any]]]:
     return main_comment, states
 
 
-def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
-    """Trả về cấu trúc chi tiết của messages và signals từ các file DBC.
+def _as_scalar_number(value: Any, default: float = 0.0) -> float:
+    """Convert NumPy/scalar/list-like values to a plain numeric scalar."""
+    if value is None:
+        return float(default)
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else default
+    if hasattr(value, "item"):
+        try:
+            return float(value.item())
+        except Exception:
+            pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
 
-    Kết quả:
+
+def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
+    """Return a dict with the following structure:
     {
       "messages": {
          "MessageName": {
@@ -204,21 +219,38 @@ def parse_dbc_messages(paths: list[Path]) -> Dict[str, Any]:
                         unit = states[0].get("description").replace("0-max ", "")
                         states = []  # if we used the only state description as unit, clear states to avoid confusion
                     tx_val = CARPC_NAME in senders
-                    signals[sig.name] = {
-                        "start_bit": getattr(sig, "start", None) or getattr(sig, "start_bit", None),
-                        "length": getattr(sig, "length", None),
-                        "byte_order": getattr(sig, "byte_order", None),
-                        "is_signed": getattr(sig, "is_signed", None),
-                        "factor": getattr(sig, "scale", getattr(sig, "factor", None)),
-                        "offset": getattr(sig, "offset", None),
-                        "minimum": getattr(sig, "minimum", None),
-                        "maximum": getattr(sig, "maximum", None),
-                        "unit": unit,
-                        "description": comment,
-                        "states": states,
-                        "RX": True,
-                        "TX": tx_val
-                    }
+                    length = getattr(sig, "length", None)
+                    length = int(length) if length is not None else 0
+                    is_signed = getattr(sig, "is_signed", None)
+                    factor = getattr(sig, "scale", getattr(sig, "factor", 1.0))
+                    offset = getattr(sig, "offset", 0)
+                    factor = _as_scalar_number(factor, 1.0)
+                    offset = _as_scalar_number(offset, 0.0)
+                    # bound min/max to the valid bit-range implied by the signal's length, factor, and offset
+                    range_minimum = (-1 * (2 ** (length - 1))) * factor + offset if is_signed else offset
+                    range_maximum = (2 ** (length - 1)) * factor + offset if is_signed else (2 ** length - 1) * factor + offset
+                    minimum = max(_as_scalar_number(getattr(sig, "minimum", 0), range_minimum), range_minimum)
+                    maximum = min(_as_scalar_number(getattr(sig, "maximum", range_maximum), range_maximum), range_maximum)
+                    name = getattr(sig, "name", "")
+                    name = name.strip() if name else ""
+                    # clear suffix by regex _[a-z]\w*$ to remove suffixes like _bool, _status, _flag, _state, ... (all lowcase suffixes after an underscore)
+                    name = re.sub(r'_[a-z]\w*$', '', name) if name else ""
+                    if name:
+                        signals[name] = {
+                            "start_bit": getattr(sig, "start", None) or getattr(sig, "start_bit", None),
+                            "length": length,
+                            "byte_order": getattr(sig, "byte_order", None),
+                            "is_signed": is_signed,
+                            "factor": factor,
+                            "offset": offset,
+                            "minimum": minimum,
+                            "maximum": maximum,
+                            "unit": unit,
+                            "description": comment,
+                            "states": states,
+                            "RX": True,
+                            "TX": tx_val
+                        }
 
                 result["messages"][msg_name] = {
                     "id": getattr(msg, "frame_id", None),

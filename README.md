@@ -51,10 +51,13 @@ The project includes convenience scripts under the `scripts/` directory to prepa
 - Windows (PowerShell):
 	- `scripts/run_windows.ps1` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_windows.ps1` — prepare `.venv` (optionally install) and run tests with coverage.
+  - `scripts/perf_windows.ps1` — run k6 performance script and save JSON report.
 
 - Linux / macOS (Bash):
 	- `scripts/run_linux.sh` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_linux.sh` — prepare `.venv`, install deps and run tests with coverage.
+  - `scripts/perf_linux.sh` — run k6 performance script and save JSON report.
+  - `scripts/runtime_smoke_linux.sh` — start app runtime smoke suite (API + WebSocket + Dev Mode lock flow).
 
 Usage examples:
 
@@ -66,13 +69,17 @@ PowerShell (run app):
 PowerShell (run tests, install before running):
 ```powershell
 .\scripts\test_windows.ps1 -InstallBefore
+.\scripts\test_windows.ps1 -Suite unit
 ```
 
 Bash (make scripts executable once and run):
 ```bash
 chmod +x scripts/*.sh
 ./scripts/run_linux.sh config/system.json INFO
-./scripts/test_linux.sh
+./scripts/test_linux.sh all
+./scripts/test_linux.sh security
+./scripts/test_linux.sh runtime
+./scripts/perf_linux.sh http://localhost:8000
 ```
 
 Notes:
@@ -104,7 +111,11 @@ car-hmi/
 │   ├── core/               # config, config_manager, runner, signal_store, system_metrics
 │   ├── processor/          # Pipeline stages: filters, alarms, computed, pipeline
 │   └── storage/            # SQLite repository, database init, exporter (CSV/JSON)
-├── tests/                  # pytest test suite
+├── tests/
+│   ├── 1_unit_functions/   # Unit tests by module/function
+│   ├── 2_functional_tests/ # API, WebSocket, and integration tests
+│   ├── 3_performance/      # Performance scripts and reports
+│   └── 4_security/         # Security hardening and bypass tests
 ├── frontend/               # Static HTML/CSS/JS dashboard
 ├── scripts/                # Helper scripts (run, test, config tools, DBC utilities)
 ├── diagram/                # PlantUML architecture diagrams
@@ -170,6 +181,10 @@ Alarm thresholds are defined separately in `config/alarms.json` (per-signal `war
 | POST    | `/api/profile`                    | Create a new profile                                            |
 | PUT     | `/api/profile`                    | Update a profile (optimistic locking via `section_id`)          |
 | DELETE  | `/api/profile/{name}`             | Delete a profile                                                |
+| PUT     | `/api/profile/active`             | Set active profile globally or per client session               |
+| GET     | `/api/profile/sessions`           | List client profile sessions with online/offline status         |
+| POST    | `/api/profile/heartbeat`          | Refresh client profile session heartbeat                        |
+| POST    | `/api/profile/offline`            | Mark a client profile session offline immediately               |
 | GET     | `/system/info` · `/api/info`      | Project & system overview (uptime, bus/db status, signal count) |
 | GET     | `/system/health`                  | Liveness probe (bus + DB status, uptime)                        |
 | GET     | `/system/ready`                   | Readiness probe (for container / systemd)                       |
@@ -447,10 +462,29 @@ curl -X POST http://localhost:8000/config/alarms/reset -H "X-API-Key: your_api_k
 
 ### Profiles
 
-Profiles store per-user signal display whitelists in `config/profiles.json`. The first profile created becomes the active profile automatically.
+Profiles store per-user signal display whitelists in `config/profiles.json`. Each signal carries its own permission (`read`/`write`/`full`). The first profile created becomes the active profile automatically.
+All mutating APIs now enforce the selected profile's permission scope. Send `X-Profile-Name` on write requests; if omitted, the backend falls back to the active profile.
+When `X-Client-Id` is provided, the backend resolves active profile by client session first, then falls back to global active profile.
+Frontend uses per-tab client identity via session storage and sends `X-Client-Id` automatically.
+Each profile may also include `exinfo` as a free-form JSON object for frontend-specific metadata. If omitted on update, the existing `exinfo` is preserved.
+For single-signal read/write endpoints, permission or profile-scope violations return `403` with a structured `detail` object including `code`, `profile_name`, `required_permission`, and `signal_name`.
+For bulk reads/writes and WebSocket subscribe, the backend returns `warnings` and skips unauthorized signals instead of failing the whole operation.
+
+`system.json` profile runtime settings:
+
+```json
+{
+  "profiles": {
+    "profiles_path": "config/profiles.json",
+    "default_profile_permission": ["read"],
+    "session_online_ttl_seconds": 600,
+    "session_history_limit": 50
+  }
+}
+```
 
 #### `GET /api/profiles`
-List all profiles and the current active profile name.
+List all profiles and resolved active profile for the current client context.
 
 ```bash
 curl http://localhost:8000/api/profiles -H "X-API-Key: your_api_key"
@@ -460,10 +494,82 @@ Response:
 ```json
 {
   "profiles": [
-    {"name": "default", "signals": ["EngineSpeed", "CoolantTemp"], "description": "Default view", "section_id": "a1b2c3d4e5f6"}
+    {
+      "name": "default",
+      "signals": [
+        {"name": "EngineSpeed", "permission": ["read"]},
+        {"name": "CoolantTemp", "permission": ["full"]}
+      ],
+      "exinfo": {"role": "dev", "color": "#22c55e"},
+      "description": "Default view",
+      "section_id": "a1b2c3d4e5f6"
+    }
   ],
   "total": 1,
-  "active": "default"
+  "active": "default",
+  "global_active": "default",
+  "client_id": "tab-client-id"
+}
+```
+
+#### `PUT /api/profile/active`
+Set active profile for caller context:
+- With `X-Client-Id`: update that client session only.
+- Without `X-Client-Id`: update global active profile.
+
+```bash
+curl -X PUT http://localhost:8000/api/profile/active \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Profile-Name: admin" \
+  -H "X-Client-Id: client-a" \
+  -d '{"name": "driver"}'
+```
+
+Response:
+```json
+{
+  "active": "driver",
+  "global_active": "admin",
+  "client_id": "client-a",
+  "warnings": []
+}
+```
+
+#### `POST /api/profile/heartbeat`
+Refresh client session heartbeat (`last_seen`) and keep session online.
+
+```bash
+curl -X POST http://localhost:8000/api/profile/heartbeat \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Client-Id: client-a"
+```
+
+#### `GET /api/profile/sessions`
+List client sessions with active profile and online/offline status derived from TTL.
+
+```bash
+curl http://localhost:8000/api/profile/sessions \
+  -H "X-API-Key: your_api_key" \
+  -H "X-Profile-Name: admin"
+```
+
+Response:
+```json
+{
+  "sessions": [
+    {
+      "client_id": "client-a",
+      "active": "driver",
+      "updated_at": 1720000000.0,
+      "last_seen": 1720000030.0,
+      "status": "online"
+    }
+  ],
+  "total": 1,
+  "global_active": "admin",
+  "ttl_seconds": 600,
+  "server_time": 1720000035.0
 }
 ```
 
@@ -476,7 +582,8 @@ Get a profile by name. Omit `name` to get the active profile.
 curl -X POST http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "FuelLevel"], "description": "Driver view"}'
+  -H "X-Profile-Name: admin" \
+  -d '{"name": "driver", "signals": [{"name": "EngineSpeed", "permission": ["read"]}, {"name": "FuelLevel", "permission": ["read", "write"]}], "exinfo": {"role": "dev", "color": "#22c55e"}, "description": "Driver view"}'
 ```
 
 #### `PUT /api/profile` — Update profile (optimistic lock)
@@ -487,7 +594,8 @@ Requires the `section_id` returned by the last GET. Returns `409 Conflict` if th
 curl -X PUT http://localhost:8000/api/profile \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
-  -d '{"name": "driver", "signals": ["EngineSpeed", "BatteryVoltage"], "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
+  -H "X-Profile-Name: admin" \
+  -d '{"name": "driver", "signals": [{"name": "EngineSpeed", "permission": ["read"]}, {"name": "BatteryVoltage", "permission": ["read", "write"]}], "exinfo": {"role": "ops"}, "description": "Updated view", "section_id": "a1b2c3d4e5f6"}'
 ```
 
 #### `DELETE /api/profile/{name}` — Delete profile (204)

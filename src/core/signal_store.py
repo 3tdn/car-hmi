@@ -1,4 +1,4 @@
-"""Kho lưu trữ trạng thái tín hiệu trong bộ nhớ (mẫu Observer / Pub-Sub)."""
+"""In-memory signal state store (Observer / Pub-Sub pattern)."""
 
 from __future__ import annotations
 
@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SignalValue:
     value: float
-    status: str = "ok"  # ok | warning | critical  (trạng thái: bình thường | cảnh báo | nguy hiểm)
+    status: str = "ok"  # ok | warning | critical
     timestamp: float = 0.0
     unit: str | None = None
 
 
 class SignalStore:
-    """Kho lưu trữ trong bộ nhớ an toàn luồng cho giá trị tín hiệu mới nhất.
+    """Thread-safe in-memory store for the latest signal values.
 
-    Hỗ trợ đăng ký observer — người đăng ký được thông báo mỗi lần có cập nhật.
+    Supports observer registration; subscribers are notified on every update.
     """
 
     def __init__(self) -> None:
@@ -38,8 +38,8 @@ class SignalStore:
         timestamp: float = 0.0,
         unit: str | None = None,
     ) -> None:
-        """Cập nhật giá trị tín hiệu và thông báo đến tất cả người đăng ký."""
-        # Giữ nguyên đơn vị hiện có nếu người gọi không cung cấp
+        """Update the signal value and notify all subscribers."""
+        # Keep the current unit if the caller does not provide one
         existing = self._signals.get(name)
         use_unit = (
             unit if unit is not None else (getattr(existing, "unit", None) if existing else None)
@@ -56,10 +56,10 @@ class SignalStore:
         timestamp: float = 0.0,
         units: dict[str, str] | None = None,
     ) -> None:
-        """Cập nhật nhiều tín hiệu trong 1 lần acquire lock — O(1) thay vì O(n) lần."""
+        """Update multiple signals in one acquire-lock operation — O(1) instead of O(n) calls."""
         entries: list[tuple[str, SignalValue]] = []
         for name, value in updates.items():
-            # Xác định đơn vị: ưu tiên units dict > đơn vị đã lưu > None
+            # Determine the unit: prefer units dict > stored unit > None
             existing = self._signals.get(name)
             use_unit = None
             if units and name in units:
@@ -79,10 +79,10 @@ class SignalStore:
             return self._signals.get(name)
 
     def get_unit(self, name: str) -> str | None:
-        """Đọc đồng bộ unit của tín hiệu — an toàn trong CPython nhờ GIL.
+        """Read the signal unit synchronously — safe in CPython due to the GIL.
 
-        Dùng cho hot-path pipeline để tránh acquire asyncio.Lock() per-signal.
-        Unit được khởi tạo lúc seed và không thay đổi trong runtime.
+        This is used on hot paths to avoid acquiring asyncio.Lock() per signal.
+        Units are initialized at seed time and are not expected to change at runtime.
         """
         sv = self._signals.get(name)
         return sv.unit if sv is not None else None
@@ -92,7 +92,7 @@ class SignalStore:
             return dict(self._signals)
 
     def subscribe(self, callback: Callable[[str, SignalValue], Any]) -> None:
-        """Đăng ký callback được gọi mỗi khi có cập nhật tín hiệu."""
+        """Register a callback invoked on every signal update."""
         self._subscribers.append(callback)
 
     def unsubscribe(self, callback: Callable[[str, SignalValue], Any]) -> None:

@@ -1,15 +1,17 @@
-"""Bộ điều phối ứng dụng — khởi tạo và phối hợp tất cả các thành phần."""
+"""Application coordinator — initializes and orchestrates all system components."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import logging.handlers
 import signal
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from src.core.config import AppConfig, load_config
 from src.core.config_manager import BackupManager, ConfigReloadManager
@@ -17,6 +19,61 @@ from src.core.paths import DEFAULT_ALARMS_PATH, DEFAULT_CONFIG_PATH
 from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ETHERNET_TARGETS: dict[str, str] = {
+    "COM_Status_PumaFLEthernet": "192.168.1.101",
+    "COM_Status_PumaFREthernet": "192.168.1.102",
+    "COM_Status_PumaRL1Ethernet": "192.168.1.103",
+    "COM_Status_PumaRL2Ethernet": "192.168.1.104",
+    "COM_Status_PumaRR1Ethernet": "192.168.1.105",
+    "COM_Status_PantherEthernet": "192.168.1.100",
+}
+
+
+def _extract_host(raw_target: str | None) -> str | None:
+    if raw_target is None:
+        return None
+
+    target = str(raw_target).strip()
+    if not target:
+        return None
+
+    if "://" in target:
+        host = urlparse(target).hostname
+        return host.strip() if host else None
+
+    if target.count(":") == 1:
+        maybe_host, maybe_port = target.rsplit(":", 1)
+        if maybe_port.isdigit():
+            return maybe_host.strip() or None
+
+    return target
+
+
+class _ShutdownNoiseFilter(logging.Filter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.enabled = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not self.enabled:
+            return True
+
+        message = record.getMessage()
+        if "ASGI callable returned without completing response" in message:
+            return False
+
+        if record.name.startswith(("uvicorn", "starlette")) and record.exc_info:
+            exc_type, _, _ = record.exc_info
+            try:
+                import asyncio
+
+                if issubclass(exc_type, asyncio.CancelledError):
+                    return False
+            except Exception:
+                pass
+
+        return True
 
 
 def _setup_logging(cfg: AppConfig) -> None:
@@ -52,20 +109,20 @@ def _db_total_size(db_path: "Path") -> int:
 
 
 class AppRunner:
-    """Bộ điều phối: khởi tạo và chạy tất cả các thành phần của hệ thống.
+    """Coordinator that initializes and runs all system components.
 
-    Thứ tự khởi động
-    ------------------
-    1. Ghi log
-    2. Tải cơ sở dữ liệu CAN  (quét DBC / CANdb)
-    3. Lưu trữ             (khởi tạo schema SQLite)
-    4. Bus CAN              (mở giao diện)
-    5. CAN Reader           (giải mã → hàng đợi)
-    6. CAN Writer           (mã hóa → bus)
-    7. Signal Pipeline      (lọc → cảnh báo → store → DB)
-    8. CAN Simulator        (tùy chọn, chế độ dev)
-    9. FastAPI server       (REST + WebSocket)
-    10. Watchdog            (giám sát sức khỏe)
+    Startup order
+    -------------
+    1. Logging
+    2. Load CAN database (scan DBC / CANdb)
+    3. Storage (initialize SQLite schema)
+    4. CAN bus (open interface)
+    5. CAN Reader (decode → queue)
+    6. CAN Writer (encode → bus)
+    7. Signal Pipeline (filter → alarm → store → DB)
+    8. CAN Simulator (optional, dev mode)
+    9. FastAPI server (REST + WebSocket)
+    10. Watchdog (system health monitoring)
     """
 
     def __init__(self, config: AppConfig) -> None:
@@ -73,7 +130,7 @@ class AppRunner:
         self.store = SignalStore()
         self._shutting_down = False
         self._tasks: list[asyncio.Task] = []
-        # Tham chiếu đến các thành phần (khởi tạo trong start())
+        # Component references (created in start())
         self._pipeline = None
         self._readers: list = []
         self._writers: list = []
@@ -86,6 +143,8 @@ class AppRunner:
         self._bus_factories: list = []
         self._db_loaders: list = []
         self._fastapi_server = None
+        self._api_app = None
+        self._shutdown_noise_filter = _ShutdownNoiseFilter()
         self._ws_manager = None
         self._start_time: float = 0.0
         self._uvicorn_server = None
@@ -95,10 +154,13 @@ class AppRunner:
             retention_count=self.config.backup.retention_count,
         )
         self._config_manager = ConfigReloadManager(backup_manager=self._backup_manager)
+        self._ping_unavailable_logged = False
 
     async def start(self) -> None:
-        """Khởi động tất cả thành phần và chặn chửd cho đến khi tắt."""
+        """Start all components and block until shutdown."""
         _setup_logging(self.config)
+        for logger_name in ("uvicorn.error", "starlette", "uvicorn.lifespan.on"):
+            logging.getLogger(logger_name).addFilter(self._shutdown_noise_filter)
         logger.info("CAN-HMI starting up (config validated ✓)")
         self._start_time = time.time()
 
@@ -124,13 +186,23 @@ class AppRunner:
                 self.config.api.host,
                 self.config.api.port,
             )
-            results = await asyncio.gather(*self._tasks, return_exceptions=True)
+            # Take a stable snapshot because the watchdog may prune finished tasks
+            # from self._tasks while we are waiting here.
+            tasks = tuple(self._tasks)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             # Phát hiện lỗi nhiệm vụ nghiêm trọng và kích hoạt tắt
-            for task, result in zip(self._tasks, results, strict=True):
+            for task, result in zip(tasks, results):
                 if isinstance(result, Exception):
                     logger.error("Task '%s' failed: %s", task.get_name(), result)
             if any(isinstance(r, Exception) for r in results):
                 await self.shutdown()
+        except asyncio.CancelledError:
+            if not self._shutting_down:
+                try:
+                    await asyncio.shield(self.shutdown())
+                except asyncio.CancelledError:
+                    pass
+            return
         except Exception as exc:
             logger.critical("Fatal startup error: %s", exc, exc_info=True)
             await self.shutdown()
@@ -293,6 +365,30 @@ class AppRunner:
         self._tasks.append(asyncio.create_task(self._metrics_broadcaster(), name="metrics-push"))
         self._tasks.append(asyncio.create_task(self._retention_cleanup(), name="retention"))
 
+        monitor_cfg = self.config.status_monitor
+        if monitor_cfg.enabled:
+            ping_targets, can_reference_targets = self._build_status_targets()
+            if ping_targets or can_reference_targets:
+                self._tasks.append(
+                    asyncio.create_task(
+                        self._status_monitor(
+                            ping_targets=ping_targets,
+                            can_reference_targets=can_reference_targets,
+                            interval_sec=max(1.0, float(monitor_cfg.interval_sec)),
+                            ping_timeout_sec=max(0.2, float(monitor_cfg.ping_timeout_sec)),
+                        ),
+                        name="status-monitor",
+                    )
+                )
+                logger.info(
+                    "Status monitor enabled for %d signal(s) (ethernet=%d, can_ref=%d)",
+                    len(ping_targets) + len(can_reference_targets),
+                    len(ping_targets),
+                    len(can_reference_targets),
+                )
+            else:
+                logger.warning("Status monitor enabled but no valid targets configured")
+
 
     def _load_alarm_configs(self) -> list:
         """Tải cấu hình ngưỡng cảnh báo từ config/alarms.json."""
@@ -410,6 +506,7 @@ class AppRunner:
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
         )
+        self._api_app = app
         # Expose runtime objects so config endpoints can attempt to apply changes
         app.state.pipeline = self._pipeline
         app.state.runner = self
@@ -647,6 +744,128 @@ class AppRunner:
             except Exception:
                 logger.debug("Failed to broadcast metrics", exc_info=True)
 
+    def _build_status_targets(self) -> tuple[dict[str, str], dict[str, str]]:
+        cfg_targets = dict(getattr(self.config.status_monitor, "targets", {}) or {})
+
+        for signal_name, host in _DEFAULT_ETHERNET_TARGETS.items():
+            cfg_targets.setdefault(signal_name, host)
+
+        jetson_signal = "COM_Status_NvidiaJetsonEthernet"
+        if jetson_signal not in cfg_targets:
+            cam_host = _extract_host(self.config.camera.stream_url)
+            if cam_host:
+                cfg_targets[jetson_signal] = cam_host
+
+        ping_targets: dict[str, str] = {}
+        can_reference_targets: dict[str, str] = {}
+        for signal_name, target in cfg_targets.items():
+            signal_key = str(signal_name).strip()
+            if not signal_key:
+                continue
+
+            if signal_key.endswith("Ethernet"):
+                host = _extract_host(target)
+                if not host:
+                    logger.warning(
+                        "Ignoring status monitor ethernet target '%s' because host is empty (%r)",
+                        signal_key,
+                        target,
+                    )
+                    continue
+                ping_targets[signal_key] = host
+                continue
+
+            ref_signal = str(target).strip() if target is not None else ""
+            if not ref_signal:
+                logger.warning(
+                    "Ignoring status monitor CAN reference '%s' because reference signal is empty (%r)",
+                    signal_key,
+                    target,
+                )
+                continue
+            can_reference_targets[signal_key] = ref_signal
+
+        return ping_targets, can_reference_targets
+
+    async def _ping_host(self, host: str, timeout_sec: float) -> bool:
+        if sys.platform.startswith("win"):
+            cmd = ["ping", "-n", "1", host]
+        else:
+            cmd = ["ping", "-c", "1", host]
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            if not self._ping_unavailable_logged:
+                logger.error("Ping command is not available in PATH; ethernet monitor disabled")
+                self._ping_unavailable_logged = True
+            return False
+        except Exception:
+            logger.debug("Failed to start ping for host %s", host, exc_info=True)
+            return False
+
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=timeout_sec)
+            return proc.returncode == 0
+        except asyncio.TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.wait()
+            return False
+        except Exception:
+            logger.debug("Ping failed for host %s", host, exc_info=True)
+            return False
+
+    async def _status_monitor(
+        self,
+        *,
+        ping_targets: dict[str, str],
+        can_reference_targets: dict[str, str],
+        interval_sec: float,
+        ping_timeout_sec: float,
+    ) -> None:
+        signal_names = set(ping_targets) | set(can_reference_targets)
+
+        while not self._shutting_down:
+            try:
+                if self._ws_manager is None or not await self._ws_manager.has_signal_interest(signal_names):
+                    await asyncio.sleep(interval_sec)
+                    continue
+
+                now = time.time()
+                updates: dict[str, float] = {}
+
+                if ping_targets:
+                    checks = await asyncio.gather(
+                        *(self._ping_host(host, ping_timeout_sec) for host in ping_targets.values()),
+                        return_exceptions=False,
+                    )
+                    updates.update(
+                        {
+                            signal_name: 1.0 if is_online else 0.0
+                            for (signal_name, _), is_online in zip(ping_targets.items(), checks)
+                        }
+                    )
+
+                for signal_name, reference_signal in can_reference_targets.items():
+                    ref_signal_value = await self.store.get(reference_signal)
+                    is_connected = bool(
+                        ref_signal_value is not None and (now - float(ref_signal_value.timestamp)) < interval_sec
+                    )
+                    updates[signal_name] = 1.0 if is_connected else 0.0
+
+                if updates:
+                    await self.store.bulk_update(updates, timestamp=now)
+            except Exception:
+                logger.debug("Status monitor cycle failed", exc_info=True)
+
+            await asyncio.sleep(interval_sec)
+
     async def _retention_cleanup(self) -> None:
         """Xóa bản ghi signal_log theo hai tiêu chí:
         1. Time-based: xóa các bản ghi cũ hơn retention_days mỗi 1 giờ.
@@ -754,6 +973,19 @@ class AppRunner:
             reader.stop()
         if self._simulator:
             self._simulator.stop()
+        if self._api_app is not None:
+            camera_proxy = getattr(self._api_app.state, "camera_proxy", None)
+            if camera_proxy is not None:
+                try:
+                    await camera_proxy.aclose()
+                except Exception:
+                    logger.debug("Camera proxy close failed during shutdown", exc_info=True)
+            ws_manager = getattr(self._api_app.state, "ws_manager", None)
+            if ws_manager is not None and hasattr(ws_manager, "close_all"):
+                try:
+                    await ws_manager.close_all()
+                except Exception:
+                    logger.debug("WebSocket close-all failed during shutdown", exc_info=True)
         if self._pipeline:
             self._pipeline.stop()
             try:
@@ -764,22 +996,37 @@ class AppRunner:
         # Signal uvicorn to stop gracefully *before* cancelling its task so
         # the lifespan context manager has a chance to exit cleanly.
         if self._uvicorn_server is not None:
+            self._shutdown_noise_filter.enabled = True
+            if self._api_app is not None:
+                self._api_app.state.shutting_down = True
             self._uvicorn_server.handle_exit(sig=signal.SIGTERM, frame=None)
+            api_shutdown_timeout = float(self.config.shutdown.timeout_sec)
             # Wait for the API task to return on its own (uvicorn drains the
-            # lifespan queue and exits serve()). Only then cancel remaining
-            # tasks — this prevents the CancelledError traceback from Starlette.
+            # lifespan queue and exits serve()). If that does not happen within
+            # the configured shutdown window, ask uvicorn to force-exit rather
+            # than cancelling the API task directly.
             api_tasks = [t for t in self._tasks if t.get_name() == "api"]
             if api_tasks:
                 try:
-                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=5.0)
-                except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                    await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=api_shutdown_timeout)
+                except asyncio.TimeoutError:
+                    logger.warning("API shutdown timed out after %.1fs; forcing uvicorn exit", api_shutdown_timeout)
+                    self._uvicorn_server.force_exit = True
+                    try:
+                        await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=1.0)
+                    except asyncio.TimeoutError:
+                        logger.warning("API task still running after forced exit; continuing shutdown")
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
                     pass
 
         for task in self._tasks:
-            task.cancel()
+            if task.get_name() != "api":
+                task.cancel()
 
         if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+            await asyncio.gather(*(task for task in self._tasks if task.get_name() != "api"), return_exceptions=True)
 
         for bus in self._buses:
             try:

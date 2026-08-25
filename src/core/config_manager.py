@@ -1,4 +1,7 @@
-"""Config persistence, backup, reload, and DBC generation helpers."""
+"""Config persistence, backup, reload, and DBC generation helpers.
+
+Also provides the minimal helper used to update `processor` in `config/system.json`.
+"""
 from __future__ import annotations
 
 import asyncio
