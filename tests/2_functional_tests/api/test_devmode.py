@@ -197,7 +197,7 @@ async def test_isb_color_is_split_into_rgb_signals():
 
 
 @pytest.mark.asyncio
-async def test_apply_signal_rejects_unknown_family_and_value():
+async def test_apply_signal_rejects_unknown_family_but_allows_unlisted_value():
     app = await _build_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         unknown = await c.post(
@@ -205,14 +205,15 @@ async def test_apply_signal_rejects_unknown_family_and_value():
             headers=_headers("owner"),
             json={"signal_name": "Nope", "value": 1, "seats": {"fl": True}},
         )
-        bad_value = await c.post(
+        unlisted_value = await c.post(
             "/api/devmode/signals",
             headers=_headers("owner"),
             json={"signal_name": "HB_Request", "value": 9, "seats": {"fl": True}},
         )
 
     assert unknown.status_code == 422
-    assert bad_value.status_code == 422
+    assert unlisted_value.status_code == 200
+    assert app.state.writer.writes == [("HB_Request_FL", 9.0)]
 
 
 @pytest.mark.asyncio

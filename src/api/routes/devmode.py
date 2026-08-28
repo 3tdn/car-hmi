@@ -32,8 +32,7 @@ SIGNAL_FAMILIES: dict[str, dict] = {
         "kind": "state",
         "templates": ["ACR_{seat}_RetractRequest"],
         "allowed_values": [5, *range(10, 26)],
-        "fallback_states": [{"value": 5, "description": "Haptic"}]
-        + [{"value": v, "description": f"Retract level {v}"} for v in range(10, 26)],
+        "fallback_states": [],
     },
     "ABL_RetractRequest": {
         "kind": "state",
@@ -238,13 +237,7 @@ def _validate_value(family: str, value: float) -> None:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="ISB_Color must be an integer RGB value between 0 and 16777215",
             )
-        return
-    allowed = spec.get("allowed_values")
-    if allowed and int(value) not in set(allowed):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Value {value} is not valid for '{family}'. Allowed: {sorted(set(allowed))}",
-        )
+    return
 
 
 async def _seat_connectivity(
