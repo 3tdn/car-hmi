@@ -99,6 +99,10 @@ def _require_seat_connected() -> bool:
     return bool(_devmode_config().get("require_seat_connected", True))
 
 
+def _bypass_can_status_check(request: Request) -> bool:
+    return bool(getattr(request.app.state, "devmode_bypass_can_status", False))
+
+
 def _registry():
     return get_seat_lock_registry(_default_timeout())
 
@@ -243,8 +247,12 @@ def _validate_value(family: str, value: float) -> None:
         )
 
 
-async def _seat_connectivity(request: Request) -> dict[str, bool]:
+async def _seat_connectivity(
+    request: Request, *, bypass_can_status_check: bool = False
+) -> dict[str, bool]:
     """Return live seat connectivity; missing and stale signals are disconnected."""
+    if bypass_can_status_check and _bypass_can_status_check(request):
+        return dict.fromkeys(SEAT_IDS, True)
     if not _require_seat_connected():
         return dict.fromkeys(SEAT_IDS, True)
     store = getattr(request.app.state, "store", None)
@@ -341,7 +349,9 @@ async def select_seats(body: DevModeSeatSelectRequest, request: Request):
     seats = _normalize_seats(body.seats)
     owner = _require_owner(request)
     registry = _registry()
-    connectivity = await _seat_connectivity(request)
+    connectivity = await _seat_connectivity(
+        request, bypass_can_status_check=True
+    )
     now = time.time()
 
     applied: dict[str, dict] = {}
@@ -418,7 +428,9 @@ async def apply_devmode_signal(body: DevModeSignalRequest, request: Request):
 
     owner = _require_owner(request)
     registry = _registry()
-    connectivity = await _seat_connectivity(request)
+    connectivity = await _seat_connectivity(
+        request, bypass_can_status_check=True
+    )
     now = time.time()
 
     applied: dict[str, dict] = {}

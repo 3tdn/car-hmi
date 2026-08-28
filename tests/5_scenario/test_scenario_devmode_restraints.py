@@ -70,6 +70,7 @@ async def test_apply_signal_skips_disconnected_seat_but_applies_others(app_build
         profiles={"admin": {"signals": [], "description": "Admin"}},
         initial_signals=_connected_seats("fl"),  # rl1 cố tình không có COM status
     )
+    app.state.devmode_bypass_can_status = False
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(

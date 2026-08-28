@@ -220,6 +220,7 @@ async def test_seat_not_connected_is_rejected():
     store = SignalStore()
     await store.update("COM_Status_PumaFLCan", 0.0, timestamp=time.time())
     app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.devmode_bypass_can_status = False
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
@@ -237,6 +238,7 @@ async def test_missing_or_stale_connectivity_is_rejected():
     store = SignalStore()
     await store.update("COM_Status_PumaFRCan", 1.0, timestamp=time.time() - 31)
     app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.devmode_bypass_can_status = False
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         missing = await c.post(
@@ -252,6 +254,24 @@ async def test_missing_or_stale_connectivity_is_rejected():
 
     assert missing.status_code == 409
     assert stale.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_bypass_can_status_allows_devmode_signal_write():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.devmode_bypass_can_status = True
+    app.state.writer = _FakeWriter()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/devmode/signals",
+            headers=_headers("owner"),
+            json={"signal_name": "ABL_RetractRequest", "value": 1, "seats": {"fl": True}},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["applied"]["fl"]["value"] == 1
+    assert app.state.writer.writes == [("ABL_FL_RetractRequest", 1.0)]
 
 
 @pytest.mark.asyncio

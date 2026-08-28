@@ -114,7 +114,8 @@
   },
   "devmode": {
     "block_timeout_sec": 60,
-    "require_seat_connected": true
+    "require_seat_connected": true,
+    "pypass_check_CAN_status": false
   },
   "logging": {
     "level": "INFO",

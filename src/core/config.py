@@ -104,6 +104,15 @@ class StatusMonitorConfig(BaseModel):
     # - Signal CAN: target là tên tín hiệu tham chiếu để kiểm tra freshness.
 
 
+class DevModeConfig(BaseModel):
+    """Cấu hình Dev Mode."""
+
+    block_timeout_sec: float = 60.0
+    require_seat_connected: bool = True
+    pypass_check_CAN_status: bool = False
+    # Cho phép Dev Mode ghi tín hiệu mà không yêu cầu COM_Status_*Can đang online.
+
+
 class StorageConfig(BaseModel):
     """Cấu hình lưu trữ dữ liệu tín hiệu lịch sử."""
 
@@ -215,6 +224,8 @@ class AppConfig(BaseModel):
     # Cấu hình proxy camera stream (MJPEG)
     status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
     # Cấu hình monitor COM status (Ethernet + CAN reference)
+    devmode: DevModeConfig = Field(default_factory=DevModeConfig)
+    # Cấu hình chọn ghế và ghi tín hiệu trong Dev Mode
     storage: StorageConfig = Field(default_factory=StorageConfig)
     # Cấu hình lưu trữ dữ liệu lịch sử
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)

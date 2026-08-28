@@ -66,9 +66,13 @@ def create_app(
     _sig_cfg = _cfg.get("signal", {})
     _reader_cfg = _cfg.get("reader", {})
     _profile_cfg = _cfg.get("profiles", {})
+    _devmode_cfg = _cfg.get("devmode", {})
     signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
     app.state.signal_name_mapper = signal_name_mapper
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
+    app.state.devmode_bypass_can_status = bool(
+        _devmode_cfg.get("pypass_check_CAN_status", False)
+    )
     app.state.profile_session_cleanup_task = None
 
     try:
