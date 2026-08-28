@@ -232,21 +232,23 @@ class ConnectionManager:
                             sub.signal_names.add("*")
                             accepted_channels.append("*")
                         else:
-                            allowed: list[str] = []
-                            for signal_name in profile_signal_names(profile, required="read"):
-                                canonical = self._mapper.resolve(signal_name)
-                                sub.signal_names.add(canonical)
-                                allowed.append(canonical)
-                            accepted_channels.extend(allowed)
-                            warnings.append(
-                                build_access_warning(
-                                    "profile_signal_filtered",
-                                    f"Wildcard subscription limited to profile '{profile_name}' signals",
-                                    profile_name=profile_name,
-                                    required_permission="read",
-                                    signals=sorted(allowed),
+                            allowed = profile_signal_names(profile, required="read")
+                            if "*" in allowed:
+                                sub.signal_names.add("*")
+                                accepted_channels.append("*")
+                            else:
+                                canonical_names = [self._mapper.resolve(signal_name) for signal_name in allowed]
+                                sub.signal_names.update(canonical_names)
+                                accepted_channels.extend(canonical_names)
+                                warnings.append(
+                                    build_access_warning(
+                                        "profile_signal_filtered",
+                                        f"Wildcard subscription limited to profile '{profile_name}' signals",
+                                        profile_name=profile_name,
+                                        required_permission="read",
+                                        signals=sorted(canonical_names),
+                                    )
                                 )
-                            )
                     else:
                         if not has_read_permission:
                             continue

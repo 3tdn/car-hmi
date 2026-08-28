@@ -1,34 +1,10 @@
 {
   "active": "Front",
   "profiles": {
-    "driver2": {
+    "admin": {
       "signals": [
         {
-          "name": "HMI_FL_OccupantAge",
-          "permission": [
-            "full"
-          ]
-        },
-        {
-          "name": "ARS_FL_InjuryRiskAdaptive",
-          "permission": [
-            "full"
-          ]
-        },
-        {
-          "name": "ARS_FL_InjuryRiskNonAdaptive",
-          "permission": [
-            "full"
-          ]
-        },
-        {
-          "name": "ARS_FL_TimeToFireAirbag",
-          "permission": [
-            "full"
-          ]
-        },
-        {
-          "name": "ARS_FL_TimeToFireSeatbelt",
+          "name": "*",
           "permission": [
             "full"
           ]

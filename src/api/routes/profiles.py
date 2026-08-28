@@ -522,7 +522,7 @@ def profile_allows_signal(
         if not isinstance(item, dict):
             continue
         name = str(item.get("name", "")).strip()
-        if not name or name not in candidates:
+        if not name or (name != "*" and name not in candidates):
             continue
         if required is None:
             return True

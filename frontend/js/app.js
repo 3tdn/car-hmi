@@ -144,6 +144,7 @@ const USER_SIGNAL_WHITELIST = [
 
 function isSignalAllowed(name, std_name) {
   if (FRONTEND_MODE === 'dev') return true;
+  if (getProfileSignals().some((item) => item.name === '*')) return true;
   return USER_SIGNAL_WHITELIST.includes(name) || USER_SIGNAL_WHITELIST.includes(std_name);
 }
 
@@ -182,7 +183,7 @@ function getSignalPermissions(signalName, stdName) {
   const signals = getProfileSignals();
   const permissionUnion = new Set();
   signals.forEach((item) => {
-    if (item.name === signalName || (!!stdName && item.name === stdName)) {
+    if (item.name === '*' || item.name === signalName || (!!stdName && item.name === stdName)) {
       normalizePermissionList(item.permission).forEach((permission) => permissionUnion.add(permission));
     }
   });
@@ -206,7 +207,7 @@ function hasProfilePermission(required) {
 function isSignalInProfileScope(signalName, stdName) {
   if (!currentProfile) return true;
   const allowed = new Set(getProfileSignals().map((item) => item.name));
-  return allowed.has(signalName) || (!!stdName && allowed.has(stdName));
+  return allowed.has('*') || allowed.has(signalName) || (!!stdName && allowed.has(stdName));
 }
 
 function getSignalAccessState(signalName, stdName, writable) {
@@ -1183,8 +1184,10 @@ function connect() {
       if (FRONTEND_MODE === 'dev') {
         subConn.subscribe(["*", "alarms", "metrics"], "continuous");
       } else {
-        // subscribe only to whitelist signals plus alarms and metrics
-        const channels = USER_SIGNAL_WHITELIST.slice();
+        // A wildcard profile can subscribe to every signal; other profiles use the legacy whitelist.
+        const channels = getProfileSignals().some((item) => item.name === '*')
+          ? ["*"]
+          : USER_SIGNAL_WHITELIST.slice();
         // channels.push('alarms', 'metrics');
         subConn.subscribe(channels, 'continuous');
       }

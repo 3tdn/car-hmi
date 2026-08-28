@@ -203,6 +203,44 @@ async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
     assert resp.status_code == 202
     assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
 
+
+@pytest.mark.asyncio
+async def test_wildcard_full_profile_allows_any_signal(monkeypatch, tmp_path):
+    """Profile name '*' with full permission grants access to every signal."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active="driver2",
+        profiles={
+            "driver2": {
+                "signals": [{"name": "*", "permission": ["full"]}],
+                "description": "Driver view",
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.writer = _FakeWriter()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        read_resp = await c.get(
+            "/signals/VehicleSpeed",
+            headers={"X-API-Key": "test-key", "X-Profile-Name": "driver2"},
+        )
+        write_resp = await c.put(
+            "/signals/OtherSignal",
+            headers={"X-API-Key": "test-key", "X-Profile-Name": "driver2"},
+            json={"value": 77.0},
+        )
+
+    assert read_resp.status_code == 200
+    assert write_resp.status_code == 202
+    assert app.state.writer.writes == [("OtherSignal", 77.0)]
+
 async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
     """Dev Mode cho phép ghi signal ngoài scope của profile hiện tại."""
     import src.api.routes.profiles as profile_routes

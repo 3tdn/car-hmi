@@ -122,8 +122,8 @@ async def test_apply_signal_reports_signal_not_available_for_missing_can_signal(
 
 
 @pytest.mark.asyncio
-async def test_apply_signal_rejects_out_of_range_value(app_builder, monkeypatch, tmp_path):
-    """Giá trị ngoài danh sách hợp lệ của họ signal bị từ chối với 422."""
+async def test_apply_signal_allows_value_outside_allowed_values(app_builder, monkeypatch, tmp_path):
+    """Dev Mode không giới hạn giá trị theo danh sách allowed_values của họ signal."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -139,8 +139,8 @@ async def test_apply_signal_rejects_out_of_range_value(app_builder, monkeypatch,
             json={"signal_name": "HB_Request", "value": 99, "seats": {"fl": True}},
         )
 
-    assert resp.status_code == 422
-    assert writer.writes == []
+    assert resp.status_code == 200
+    assert writer.writes == [("HB_Request_FL", 99.0)]
 
 
 @pytest.mark.asyncio
