@@ -39,9 +39,7 @@
  *   Server → Client (pong):   {"type": "pong"}
  *
  * std_name Support:
- *   - Backend maps signal_name ↔ std_name from config/signal_std_name.json
- *   - Frontend can read/write using either name; backend resolves transparently
- *   - API responses include std_name field when available
+ *   - Backend returns std_name equal to signal_name
  *
  * Profile session headers:
  *   - X-Client-Id is attached automatically (persisted in sessionStorage)
@@ -49,34 +47,26 @@
  *   - /api/profile/active with X-Client-Id sets active profile for that client only
  */
 
-// ── Signal Name Registry (std_name support) ─────────────────────────────────
+// ── Signal Name Registry ─────────────────────────────────
 const _signalRegistry = {
   byCanonical: new Map(),  // signal_name → {signal_name, std_name, unit, ...}
-  byStdName:   new Map(),  // std_name → signal_name (for fast reverse lookup)
 };
 
 /**
- * Resolve a name to canonical signal_name (handles both signal_name and std_name).
- * @param {string} nameOrStdName
- * @returns {string} canonical signal_name
+ * @param {string} signalName
+ * @returns {string} signal_name
  */
-function resolveSignalName(nameOrStdName) {
-  // Try lookup by std_name first
-  if (_signalRegistry.byStdName.has(nameOrStdName)) {
-    return _signalRegistry.byStdName.get(nameOrStdName);
-  }
-  // Otherwise assume it's already canonical or will be resolved by backend
-  return nameOrStdName;
+function resolveSignalName(signalName) {
+  return signalName;
 }
 
 /**
- * Get full signal metadata including std_name.
- * @param {string} nameOrStdName
+ * Get full signal metadata.
+ * @param {string} signalName
  * @returns {object|null}
  */
-function getSignalMetadata(nameOrStdName) {
-  const canonical = resolveSignalName(nameOrStdName);
-  return _signalRegistry.byCanonical.get(canonical) || null;
+function getSignalMetadata(signalName) {
+  return _signalRegistry.byCanonical.get(signalName) || null;
 }
 
 /**
@@ -85,15 +75,11 @@ function getSignalMetadata(nameOrStdName) {
  */
 function populateSignalRegistry(availableSignalsList) {
   _signalRegistry.byCanonical.clear();
-  _signalRegistry.byStdName.clear();
   
   if (!availableSignalsList) return;
   
   availableSignalsList.forEach(sig => {
     _signalRegistry.byCanonical.set(sig.signal_name, sig);
-    if (sig.std_name && sig.std_name !== sig.signal_name) {
-      _signalRegistry.byStdName.set(sig.std_name, sig.signal_name);
-    }
   });
 }
 
@@ -347,17 +333,15 @@ async function fetchAvailableSignals() {
 
 /**
  * Ghi giá trị lên một writable signal (queue CAN output). HTTP 202 Accepted.
- * Hỗ trợ cả signal_name và std_name — backend resolve tự động.
- * @param {string} nameOrStdName  — signal_name hoặc std_name
+ * @param {string} signalName
  * @param {number} value
  * @param {{devMode?:boolean}} [options]
  * @returns {Promise<{signal_name:string, value:number, queued_at:number}>}
  */
-async function writeSignal(nameOrStdName, value, options = {}) {
-  const canonical = resolveSignalName(nameOrStdName);
+async function writeSignal(signalName, value, options = {}) {
   const headers = _headers();
   if (options.devMode) headers["X-Dev-Mode"] = "true";
-  return _fetchJson(`${API_BASE}/signals/${encodeURIComponent(canonical)}`, {
+  return _fetchJson(`${API_BASE}/signals/${encodeURIComponent(signalName)}`, {
     method:  "PUT",
     headers,
     body:    JSON.stringify({ value }),
@@ -366,20 +350,14 @@ async function writeSignal(nameOrStdName, value, options = {}) {
 
 /**
  * Ghi nhiều writable signals cùng lúc. HTTP 202 Accepted.
- * Hỗ trợ cả signal_name và std_name trong mỗi item — backend resolve tự động.
- * @param {Array<{signal_name:string, value:number}>} writes  — signal_name/std_name
+ * @param {Array<{signal_name:string, value:number}>} writes
  * @returns {Promise<{queued:Array, count:number, queued_at:number}>}
  */
 async function batchWriteSignals(writes) {
-  // Resolve std_name → signal_name cho mỗi item
-  const resolved = writes.map(item => ({
-    signal_name: resolveSignalName(item.signal_name),
-    value: item.value,
-  }));
   return _fetchJson(`${API_BASE}/signals/batch_update`, {
     method:  "POST",
     headers: _headers(),
-    body:    JSON.stringify({ signals: resolved }),
+    body:    JSON.stringify({ signals: writes }),
   });
 }
 

@@ -11,7 +11,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 - **Storage** — Async SQLite persistence with configurable batch inserts, retention policy, and data export to CSV / JSON
 - **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
 - **Simulator** — Built-in CAN simulator for development without hardware; driven by the `can.json` signal definitions
- - **Standardized signal names (`std_name`)** — Optional short/standard aliases for canonical signal names. Frontend and API accept either canonical names or `std_name` values; mapping is configured via `config/signal_std_name.json`. See `STD_NAME_USAGE.md` for full usage and examples.
+- **Standardized signal names (`std_name`)** — API responses include `std_name` for compatibility; it is identical to `signal_name`.
 - **API Key Auth** — Optional `X-API-Key` header authentication; disabled automatically when key is set to placeholder values
 
 ## Requirements

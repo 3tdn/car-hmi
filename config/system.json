@@ -109,9 +109,6 @@
   "supervisor": {
     "watchdog_interval_sec": 5
   },
-  "signal": {
-    "sync_dict": "config/signal_std_name.json"
-  },
   "devmode": {
     "block_timeout_sec": 60,
     "require_seat_connected": true,

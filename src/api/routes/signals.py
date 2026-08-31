@@ -97,7 +97,6 @@ def _append_filtered_warning(warnings: list[dict], profile_name: str, required: 
 @router.get("", response_model=SignalListResponse, summary="List latest signal values")
 async def list_signals(request: Request):
     store = request.app.state.store
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
     snapshot = await store.get_snapshot()
     profile_name, profile, warnings = _batch_access_context(request, "read")
     if warnings and profile is not None:
@@ -107,18 +106,18 @@ async def list_signals(request: Request):
     items = [
         SignalValueResponse(
             signal_name=name,
-            std_name=mapper.get_std_name(name) if mapper else None,
+            std_name=name,
             value=sv.value,
             unit=getattr(sv, "unit", None),
             timestamp=sv.timestamp,
         )
         for name, sv in snapshot.items()
         if profile is None
-        or profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None], required="read")
+        or profile_allows_signal(profile, name, [name], required="read")
     ]
     if profile is not None:
         for name in snapshot:
-            if not profile_allows_signal(profile, name, [mapper.get_std_name(name) if mapper else None], required="read"):
+            if not profile_allows_signal(profile, name, [name], required="read"):
                 skipped.append(name)
         _append_filtered_warning(warnings, profile_name, "read", skipped)
     return SignalListResponse(items=items, total=len(items), warnings=warnings)
@@ -146,7 +145,6 @@ async def list_available_signals(request: Request):
 
     store = request.app.state.store
     snapshot = await store.get_snapshot()
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
     profile_name, profile, warnings = _batch_access_context(request, "read")
     if warnings and profile is not None:
         return SignalMetadataListResponse(signals_info=[], total=0, warnings=warnings)
@@ -183,7 +181,7 @@ async def list_available_signals(request: Request):
         sv = snapshot.get(name)
         sig_cfg = signal_configs.get(name, {})
         alm_cfg = alarm_configs.get(name, {})
-        std_name = sig_cfg.get("std_name") if "std_name" in sig_cfg else (mapper.get_std_name(name) if mapper else None)
+        std_name = name
         can_read = profile is None or profile_allows_signal(profile, name, [std_name], required="read")
         if profile is not None and not can_read:
             skipped.append(name)
@@ -218,24 +216,22 @@ async def list_available_signals(request: Request):
     "/{signal_name}", response_model=SignalValueResponse, summary="Get latest value for one signal"
 )
 async def get_signal(signal_name: str, request: Request):
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
-    canonical = mapper.resolve(signal_name) if mapper else signal_name
     require_profile_permission(
         request,
         "read",
-        signal_name=canonical,
-        alternates=[signal_name, mapper.get_std_name(canonical) if mapper else None],
+        signal_name=signal_name,
+        alternates=[signal_name],
         allow_bootstrap=True,
     )
     store = request.app.state.store
-    sv = await store.get(canonical)
+    sv = await store.get(signal_name)
     if sv is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Signal '{signal_name}' not found"
         )
     return SignalValueResponse(
-        signal_name=canonical,
-        std_name=mapper.get_std_name(canonical) if mapper else None,
+        signal_name=signal_name,
+        std_name=signal_name,
         value=sv.value,
         unit=getattr(sv, "unit", None),
         timestamp=sv.timestamp,
@@ -255,18 +251,16 @@ async def get_signal_history(
     limit: int = Query(100, ge=1, le=10_000),
     offset: int = Query(0, ge=0),
 ):
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
-    canonical = mapper.resolve(signal_name) if mapper else signal_name
     require_profile_permission(
         request,
         "read",
-        signal_name=canonical,
-        alternates=[signal_name, mapper.get_std_name(canonical) if mapper else None],
+        signal_name=signal_name,
+        alternates=[signal_name],
         allow_bootstrap=True,
     )
     repo = request.app.state.repo
     records = await repo.query_signals(
-        signal_name=canonical, start=start, end=end, limit=limit, offset=offset
+        signal_name=signal_name, start=start, end=end, limit=limit, offset=offset
     )
     items = [
         SignalValueResponse(
@@ -283,13 +277,11 @@ async def get_signal_history(
     summary="Write value to signal (CAN write)",
 )
 async def write_signal(signal_name: str, body: WriteSignalRequest, request: Request):
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
-    canonical = mapper.resolve(signal_name) if mapper else signal_name
     require_profile_permission(
         request,
         "write",
-        signal_name=canonical,
-        alternates=[signal_name, mapper.get_std_name(canonical) if mapper else None],
+        signal_name=signal_name,
+        alternates=[signal_name],
         allow_bootstrap=True,
     )
     writer = getattr(request.app.state, "writer", None)
@@ -297,14 +289,14 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
-    blocking = get_seat_lock_registry().blocking_lock(canonical, _write_owner(request))
+    blocking = get_seat_lock_registry().blocking_lock(signal_name, _write_owner(request))
     if blocking is not None:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=_seat_lock_warning(canonical, blocking),
+            detail=_seat_lock_warning(signal_name, blocking),
         )
     try:
-        await writer.send_signal(canonical, body.value)
+        await writer.send_signal(signal_name, body.value)
     except ValueError as exc:
         message = str(exc)
         if "not found" in message.lower() or "cannot encode" in message.lower():
@@ -318,7 +310,7 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
-    return {"signal_name": canonical, "value": body.value, "queued_at": time.time()}
+    return {"signal_name": signal_name, "value": body.value, "queued_at": time.time()}
 
 
 @router.post(
@@ -339,18 +331,15 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
-    mapper = getattr(request.app.state, "signal_name_mapper", None)
     profile_name, profile, warnings = _batch_access_context(request, "write")
     if warnings and profile is not None:
         return {"queued": [], "count": 0, "queued_at": time.time(), "errors": [], "warnings": warnings}
 
-    # Resolve canonical names; last entry wins nếu trùng tên sau resolve
     resolved: dict[str, float] = {}
     aliases: dict[str, set[str]] = {}
     for item in body.signals:
-        canonical = mapper.resolve(item.signal_name) if mapper else item.signal_name
-        resolved[canonical] = item.value
-        aliases.setdefault(canonical, set()).update(filter(None, [item.signal_name, mapper.get_std_name(canonical) if mapper else None]))
+        resolved[item.signal_name] = item.value
+        aliases.setdefault(item.signal_name, set()).add(item.signal_name)
 
     if profile is not None:
         skipped = [

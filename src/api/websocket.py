@@ -22,7 +22,6 @@ from src.api.routes.profiles import (
     profile_has_permission,
     profile_signal_names,
 )
-from src.core.signal_name_mapper import SignalNameMapper
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class _ClientSubscription:
 class ConnectionManager:
     """Manage active WebSocket connections and fan-out broadcast delivery."""
 
-    def __init__(self, signal_name_mapper: SignalNameMapper | None = None) -> None:
+    def __init__(self) -> None:
         # Legacy topic-based connections
         self._connections: dict[WebSocket, set[SubscriptionTopic]] = {}
         # New per-signal subscription connections
@@ -70,7 +69,6 @@ class ConnectionManager:
         self._latest_signals: dict[str, dict] = {}
         self._only_send_signal_update: bool = False
         self._lock = asyncio.Lock()
-        self._mapper: SignalNameMapper = signal_name_mapper or SignalNameMapper()
 
     def set_only_send_signal_update(self, enabled: bool) -> None:
         """Control WS signal payload mode for subscribe connections.
@@ -237,7 +235,7 @@ class ConnectionManager:
                                 sub.signal_names.add("*")
                                 accepted_channels.append("*")
                             else:
-                                canonical_names = [self._mapper.resolve(signal_name) for signal_name in allowed]
+                                canonical_names = list(allowed)
                                 sub.signal_names.update(canonical_names)
                                 accepted_channels.extend(canonical_names)
                                 warnings.append(
@@ -252,22 +250,20 @@ class ConnectionManager:
                     else:
                         if not has_read_permission:
                             continue
-                        # Resolve std_name -> canonical signal_name before storing
-                        canonical = self._mapper.resolve(ch)
-                        std_name = self._mapper.get_std_name(canonical) or ch
-                        if profile is not None and not profile_allows_signal(profile, canonical, [ch, std_name], required="read"):
+                        signal_name = ch
+                        if profile is not None and not profile_allows_signal(profile, signal_name, [signal_name], required="read"):
                             warnings.append(
                                 build_access_warning(
                                     "profile_signal_denied",
-                                    f"Signal '{canonical}' is outside profile '{profile_name}' scope",
+                                    f"Signal '{signal_name}' is outside profile '{profile_name}' scope",
                                     profile_name=profile_name,
                                     required_permission="read",
-                                    signal_name=canonical,
+                                    signal_name=signal_name,
                                 )
                             )
                             continue
-                        sub.signal_names.add(canonical)
-                        accepted_channels.append(canonical)
+                        sub.signal_names.add(signal_name)
+                        accepted_channels.append(signal_name)
 
                     if mode == "once":
                         if ch == "*":
@@ -275,7 +271,7 @@ class ConnectionManager:
                         elif ch in {"alarms", "metrics"}:
                             sub.once_channels.add(ch)
                         else:
-                            sub.once_channels.add(self._mapper.resolve(ch))
+                            sub.once_channels.add(ch)
                 elif action == "unsubscribe":
                     if ch_lower == "alarms":
                         sub.subscribe_alarms = False
@@ -284,7 +280,7 @@ class ConnectionManager:
                     elif ch == "*":
                         sub.signal_names.discard("*")
                     else:
-                        sub.signal_names.discard(self._mapper.resolve(ch))
+                        sub.signal_names.discard(ch)
 
         # Ack — normalized format expected by tests: {"type":"<action>_ack","action":...,"channels":[...]}.
         ack_type = f"{action}_ack"
@@ -319,10 +315,9 @@ class ConnectionManager:
         # Last-write-wins theo signal_name trong cùng một batch.
         merged: dict[str, dict] = {}
         for signal_name, value, _ in updates:
-            std = self._mapper.get_std_name(signal_name) or signal_name
             entry = {
                 "name": signal_name,
-                "std_name": std,
+                "std_name": signal_name,
                 "value": value,
             }
             merged[signal_name] = entry

@@ -1082,7 +1082,7 @@ async function loadSnapshot() {
   // 1. Fetch full metadata (heavy, once)
   try {
     const { signals_info, warnings } = await fetchAvailableSignals();
-    // Populate std_name → signal_name registry for resolving names
+    // Populate signal metadata registry
     populateSignalRegistry(signals_info);
     if (warnings?.length) showPermissionWarnings(warnings, 'signals');
     signals_info.forEach((meta) => {

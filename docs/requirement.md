@@ -414,17 +414,9 @@ CREATE TABLE IF NOT EXISTS signal_config (
 | GET | `/system/ready` | Readiness probe — trả `200` khi tất cả component đã init |
 | GET | `/system/metrics` | Thông tin tài nguyên CarPC: CPU, RAM, disk, swap, queue, heap, network, async tasks, uptime, platform |
 
-**Signal Naming (std_name mapping)**
+**Signal Naming**
 
-The system supports optional standardized signal aliases (`std_name`) which map to canonical signal names. This enables user-friendly names in the frontend and external integrations while preserving canonical names internally. The mapping file is referenced in `config/system.json` under `signal.sync_dict` (default: `config/signal_std_name.json`). The server resolves `std_name` to canonical names when processing requests and includes an optional `std_name` field in responses when a mapping exists.
-
-Configuration example (excerpt of `config/system.json`):
-
-```json
-"signal": {
-  "sync_dict": "config/signal_std_name.json"
-}
-```
+The system no longer maps between aliases and canonical names. API responses keep the `std_name` field for compatibility, but `std_name` is always identical to `signal_name`; read/write requests must use the actual signal name.
 
 #### Error Response Format
 

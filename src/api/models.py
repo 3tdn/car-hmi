@@ -26,7 +26,7 @@ class SignalValueResponse(BaseModel):
     """Current value of a CAN signal."""
 
     signal_name: str = Field(..., description="Unique signal identifier")
-    std_name: str | None = Field(None, description="Normalized name from sync_dict, if available")
+    std_name: str | None = Field(None, description="Standard signal name; currently identical to signal_name")
     value: float = Field(..., description="Decoded real value")
     unit: str | None = Field(None, description="Measurement unit (for example: km/h, °C)")
     timestamp: float = Field(..., description="Unix timestamp (seconds) when the value was read")
@@ -77,7 +77,7 @@ class SignalMetadata(BaseModel):
     """Full metadata for one signal — returned by GET /signals/available."""
 
     signal_name: str = Field(..., description="Unique signal identifier")
-    std_name: str | None = Field(None, description="Normalized name from sync_dict, if available")
+    std_name: str | None = Field(None, description="Standard signal name; currently identical to signal_name")
     tag: list[str] | None = Field(None, description="Tags inferred from the signal name or DBC configuration")
     unit: str | None = Field(None, description="Measurement unit")
     min_value: float | None = Field(None, description="Minimum valid value")

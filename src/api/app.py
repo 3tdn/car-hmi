@@ -27,7 +27,6 @@ from src.api.routes import (
 from src.api.websocket import ConnectionManager
 from src.core.camera_stream import CameraStreamProxy
 from src.core.config_manager import read_config
-from src.core.signal_name_mapper import SignalNameMapper
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +60,10 @@ def create_app(
     app.state.readers = can_readers or []
     app.state.start_time = time.time()
 
-    # Load signal name mapper from sync_dict config
     _cfg = read_config()
-    _sig_cfg = _cfg.get("signal", {})
     _reader_cfg = _cfg.get("reader", {})
     _profile_cfg = _cfg.get("profiles", {})
     _devmode_cfg = _cfg.get("devmode", {})
-    signal_name_mapper = SignalNameMapper(_sig_cfg.get("sync_dict"))
-    app.state.signal_name_mapper = signal_name_mapper
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
     app.state.devmode_bypass_can_status = bool(
         _devmode_cfg.get("pypass_check_CAN_status", False)
@@ -81,7 +76,7 @@ def create_app(
         cleanup_interval_sec = 5.0
     app.state.devmode_cleanup_interval_sec = cleanup_interval_sec
 
-    app.state.ws_manager = ConnectionManager(signal_name_mapper=signal_name_mapper)
+    app.state.ws_manager = ConnectionManager()
 
     async def _stop_profile_session_cleanup_task() -> None:
         app.state.shutting_down = True
