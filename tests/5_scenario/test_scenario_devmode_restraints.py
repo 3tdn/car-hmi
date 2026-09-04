@@ -1,8 +1,8 @@
-"""Kịch bản test: Dev Mode điều khiển restraint theo ghế + API update liên quan.
+"""Scenario tests: Dev Mode restraint control by seat + related update APIs.
 
-Bao phủ: chọn ghế, áp giá trị 1 họ signal cho nhiều ghế, khóa ghi theo ghế
-giữa các section, ghế mất kết nối / signal không tồn tại trong DBC, và các
-API update dùng chung (ELK reset, SEAL airbag) khi không ở trong Dev Mode.
+Covers: selecting seats, applying one signal-family value to multiple seats,
+seat-based write locking between sections, disconnected seats / signals missing
+from the DBC, and shared update APIs (ELK reset, SEAL airbag) outside Dev Mode.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def _headers(client_id: str, *, dev_mode: bool = True) -> dict[str, str]:
 
 @pytest.mark.asyncio
 async def test_select_seats_then_apply_signal_family_writes_per_seat_can_signals(app_builder, monkeypatch, tmp_path):
-    """Chọn 2 ghế rồi áp ACR_RetractRequest — mỗi ghế nhận đúng tín hiệu CAN mở rộng."""
+    """Select 2 seats, then apply ACR_RetractRequest — each seat receives the correct expanded CAN signal."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -62,13 +62,13 @@ async def test_select_seats_then_apply_signal_family_writes_per_seat_can_signals
 
 @pytest.mark.asyncio
 async def test_apply_signal_skips_disconnected_seat_but_applies_others(app_builder, monkeypatch, tmp_path):
-    """Ghế không có COM status (mất kết nối) bị đánh dấu lỗi, ghế còn lại vẫn áp dụng được."""
+    """A seat without COM status (disconnected) is marked as an error, while the other seat is still applied."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
         active="admin",
         profiles={"admin": {"signals": [], "description": "Admin"}},
-        initial_signals=_connected_seats("fl"),  # rl1 cố tình không có COM status
+        initial_signals=_connected_seats("fl"),  # rl1 intentionally has no COM status
     )
     app.state.devmode_bypass_can_status = False
 
@@ -93,7 +93,7 @@ async def test_apply_signal_skips_disconnected_seat_but_applies_others(app_build
 
 @pytest.mark.asyncio
 async def test_apply_signal_reports_signal_not_available_for_missing_can_signal(app_builder, monkeypatch, tmp_path):
-    """Ghế thiếu tín hiệu tương ứng trong DBC (không tồn tại) trả `signal_not_available`."""
+    """A seat missing the corresponding signal in the DBC returns `signal_not_available`."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -123,7 +123,7 @@ async def test_apply_signal_reports_signal_not_available_for_missing_can_signal(
 
 @pytest.mark.asyncio
 async def test_apply_signal_allows_value_outside_allowed_values(app_builder, monkeypatch, tmp_path):
-    """Dev Mode không giới hạn giá trị theo danh sách allowed_values của họ signal."""
+    """Dev Mode does not limit values by the signal family's allowed_values list."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -145,7 +145,7 @@ async def test_apply_signal_allows_value_outside_allowed_values(app_builder, mon
 
 @pytest.mark.asyncio
 async def test_seat_lock_blocks_other_section_until_exit_then_release(app_builder, monkeypatch, tmp_path):
-    """Section khác không thể chọn/ghi ghế đã bị khóa cho tới khi owner rời Dev Mode."""
+    """A different section cannot select/write a locked seat until the owner exits Dev Mode."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -197,7 +197,7 @@ async def test_seat_lock_blocks_other_section_until_exit_then_release(app_builde
 
 @pytest.mark.asyncio
 async def test_batch_update_skips_locked_seat_with_warning_but_allows_owner(app_builder, monkeypatch, tmp_path):
-    """`/signals/batch_update` bỏ qua signal thuộc ghế đã bị khóa Dev Mode và cảnh báo, owner vẫn ghi được."""
+    """`/signals/batch_update` skips signals on Dev Mode-locked seats and warns, while the owner can still write."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -239,7 +239,7 @@ async def test_batch_update_skips_locked_seat_with_warning_but_allows_owner(app_
 
 @pytest.mark.asyncio
 async def test_devmode_catalog_and_status_reflect_selection(app_builder, monkeypatch, tmp_path):
-    """`GET /api/devmode/catalog` liệt kê 4 họ signal; `GET /api/devmode/status` phản ánh ghế đã chọn."""
+    """`GET /api/devmode/catalog` lists 4 signal families; `GET /api/devmode/status` reflects the selected seats."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -269,7 +269,7 @@ async def test_devmode_catalog_and_status_reflect_selection(app_builder, monkeyp
 
 @pytest.mark.asyncio
 async def test_elk_reset_and_seal_airbag_writes_use_normal_signal_permission(app_builder, monkeypatch, tmp_path):
-    """API update ELK reset flag / SEAL airbag dùng chung endpoint ghi signal, vẫn theo permission profile."""
+    """The ELK reset flag / SEAL airbag update APIs use the shared signal-write endpoint and still follow profile permissions."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Tạo/gộp `config/signals.json` và `config/alarms.json` từ các file DBC.
+"""Generate/merge `config/signals.json` and `config/alarms.json` from DBC files.
 
-Cách dùng:
+Usage:
   python scripts/gen_configs_from_dbc.py --dbc path/to/file.dbc [--signals-out config/signals.json] [--alarms-out config/alarms.json] [--dry-run] [--overwrite]
 
-Script phân tích các DBC bằng `cantools` và thêm các tín hiệu chưa có vào file JSON.
-Các mục hiện có được giữ nguyên trừ khi có `--overwrite`.
+The script parses DBC files with `cantools` and adds missing signals to the JSON files.
+Existing entries are kept unchanged unless `--overwrite` is used.
 """
 from __future__ import annotations
 
@@ -36,15 +36,15 @@ def load_yaml(path: Path) -> dict:
 
 def write_yaml(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Dùng safe_dump với default_flow_style=False để YAML dễ đọc
+    # Use safe_dump with default_flow_style=False to keep YAML readable
     with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, sort_keys=True, default_flow_style=False, allow_unicode=True)
 
 
 def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:
-    """Trả về ánh xạ signal_name -> dict(thông tin)
+    """Return a signal_name -> dict(info) mapping.
 
-    Thông tin ít nhất bao gồm: minimum, maximum, unit (khi có).
+    The information includes at least: minimum, maximum, unit (when available).
     """
     if cantools is None:
         logger.error("cantools not installed. Install with: pip install cantools")
@@ -63,7 +63,7 @@ def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:
                 logger.warning("Failed to load %s: %s", f, exc)
                 continue
             for sig in db.signals:
-                # cantools Signal có thuộc tính: name, minimum, maximum, unit
+                # cantools Signal exposes the attributes: name, minimum, maximum, unit
                 signals[sig.name] = {
                     "minimum": getattr(sig, "minimum", None),
                     "maximum": getattr(sig, "maximum", None),
@@ -74,12 +74,12 @@ def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:
 
 def merge_into_signals_config(existing: dict, parsed: dict, overwrite: bool = False) -> dict:
     cfg = existing.copy()
-    # Đảm bảo có khóa cấp cao nhất
+    # Ensure the top-level key exists
     signals_section = cfg.get("signals") or {}
     for name, info in parsed.items():
         if name in signals_section and not overwrite:
             continue
-        # Cấu hình hiển thị mặc định
+        # Default display configuration
         signals_section[name] = {
             "display_name": name,
             "group": "unknown",
@@ -87,7 +87,7 @@ def merge_into_signals_config(existing: dict, parsed: dict, overwrite: bool = Fa
             "visible_user_mode": True,
             "writable": False,
         }
-        # Nếu biết đơn vị, thêm vào làm metadata (frontend dùng unit từ DB store)
+        # If the unit is known, add it as metadata (the frontend uses the unit from the DB store)
         if info.get("unit"):
             signals_section[name]["unit"] = info.get("unit")
 
@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     new_alarms = merge_into_alarms_config(existing_alarms, parsed, overwrite=args.overwrite)
 
     if args.dry_run:
-        # In tóm tắt các mục mới
+        # Print a summary of new entries
         added_signals = set(new_signals.get("signals", {}).keys()) - set(existing_signals.get("signals", {}).keys())
         added_alarms = set(new_alarms.get("alarms", {}).keys()) - set(existing_alarms.get("alarms", {}).keys())
         logger.info("Would add %d signals and %d alarms", len(added_signals), len(added_alarms))

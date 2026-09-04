@@ -1,8 +1,9 @@
-"""Kịch bản test bổ sung: các luồng biên chưa được các nhóm test khác che phủ.
+"""Additional scenario tests: edge flows not covered by other test groups.
 
-Gồm: khóa ghế Dev Mode tự hết hạn theo thời gian, phiên client offline giải
-phóng khóa ngay lập tức, xóa profile đang active tự chuyển sang profile khác
-và dọn session, heartbeat/offline ảnh hưởng tới danh sách phiên.
+Covers: Dev Mode seat locks expiring automatically over time, offline client
+sessions releasing locks immediately, deleting the active profile auto-switching
+to another profile and cleaning sessions, and heartbeat/offline affecting the
+session list.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ def _connected_seats(*seats: str) -> dict[str, float]:
 
 @pytest.mark.asyncio
 async def test_seat_lock_expires_after_timeout_without_explicit_exit(app_builder, monkeypatch, tmp_path):
-    """Khóa ghế Dev Mode tự hết hạn sau `block_timeout_sec`, không cần gọi /exit."""
+    """Dev Mode seat locks expire automatically after `block_timeout_sec` without calling /exit."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -53,7 +54,7 @@ async def test_seat_lock_expires_after_timeout_without_explicit_exit(app_builder
 
 @pytest.mark.asyncio
 async def test_marking_client_session_offline_releases_its_devmode_locks(app_builder, monkeypatch, tmp_path):
-    """`POST /api/profile/offline` giải phóng ngay các khóa ghế Dev Mode của client đó."""
+    """`POST /api/profile/offline` immediately releases that client's Dev Mode seat locks."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -88,7 +89,7 @@ async def test_marking_client_session_offline_releases_its_devmode_locks(app_bui
 
 @pytest.mark.asyncio
 async def test_deleting_active_profile_promotes_next_profile_and_clears_its_sessions(app_builder, monkeypatch, tmp_path):
-    """Xóa profile đang active: server tự chuyển active sang profile còn lại và dọn session trỏ tới nó."""
+    """Deleting the active profile makes the server switch active to the remaining profile and clean sessions pointing to it."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -100,7 +101,7 @@ async def test_deleting_active_profile_promotes_next_profile_and_clears_its_sess
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        # Client "phone-1" tự chọn active = viewer.
+        # Client "phone-1" explicitly selects active = viewer.
         await c.put(
             "/api/profile/active",
             headers={"X-API-Key": "test-key", "X-Profile-Name": "admin", "X-Client-Id": "phone-1"},
@@ -112,7 +113,7 @@ async def test_deleting_active_profile_promotes_next_profile_and_clears_its_sess
         )
         assert delete_resp.status_code == 204
 
-        # Session của phone-1 trỏ tới profile đã xóa phải được dọn — client rơi về global active.
+        # phone-1's session pointing to the deleted profile must be cleaned — the client falls back to the global active profile.
         list_resp = await c.get(
             "/api/profiles", headers={"X-API-Key": "test-key", "X-Client-Id": "phone-1"}
         )
@@ -126,7 +127,7 @@ async def test_deleting_active_profile_promotes_next_profile_and_clears_its_sess
 
 @pytest.mark.asyncio
 async def test_heartbeat_and_offline_toggle_client_session_status_listing(app_builder, monkeypatch, tmp_path):
-    """Heartbeat đánh dấu online; `/api/profile/offline` đánh dấu offline ngay trong danh sách session."""
+    """Heartbeat marks the session online; `/api/profile/offline` marks it offline immediately in the session list."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,

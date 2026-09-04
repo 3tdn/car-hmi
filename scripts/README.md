@@ -1,61 +1,61 @@
-# Trình tạo cấu hình từ DBC
+# Configuration Generator from DBC
 
-Thư mục này chứa các tiện ích dùng để tạo/gộp các file cấu hình tĩnh từ file DBC.
+This directory contains utilities used to create/merge static configuration files from DBC files.
 
-Yêu cầu
+Requirements
  - Python 3.8+
- - Cài phụ thuộc runtime:
+ - Install runtime dependencies:
 
 ```bash
 pip install cantools pyyaml
 ```
 
-Các file chính
- - `dbc_utils.py` — hàm tiện ích chung: phân tích DBC và đọc/ghi JSON.
- - `gen_signals_from_dbc.py` — tạo/gộp `config/signals.json` từ DBC.
- - `gen_alarms_from_dbc.py` — tạo/gộp `config/alarms.json` từ DBC.
- - `gen_configs_from_dbc.py` — script kết hợp (giữ lại để tiện lợi).
+Main files
+ - `dbc_utils.py` — common utility functions: parse DBC and read/write JSON.
+ - `gen_signals_from_dbc.py` — create/merge `config/signals.json` from DBC.
+ - `gen_alarms_from_dbc.py` — create/merge `config/alarms.json` from DBC.
+ - `gen_configs_from_dbc.py` — combined script (kept for convenience).
  - `gen_can_json.py` — aggregate DBC messages/signals into `config/can.json`.
 
-Các ví dụ sử dụng cơ bản
+Basic usage examples
 
-- Chạy chế độ dry-run (hiển thị những gì sẽ thêm, không ghi file):
+- Run in dry-run mode (show what will be added, do not write files):
 
 ```bash
 python scripts/gen_signals_from_dbc.py -d path/to/dbc_or_dir --dry-run
 python scripts/gen_alarms_from_dbc.py -d path/to/dbc_or_dir --dry-run
 ```
 
-- Tạo và ghi ra các đường dẫn cấu hình mặc định:
+- Generate and write to the default configuration paths:
 
 ```bash
 python scripts/gen_signals_from_dbc.py -d path/to/dbc_dir
 python scripts/gen_alarms_from_dbc.py -d path/to/dbc_dir
 ```
 
-- Chỉ định đường dẫn đầu ra và cho phép ghi đè:
+- Specify an output path and allow overwrite:
 
 ```bash
 python scripts/gen_signals_from_dbc.py -d path/to/file.dbc --out config/signals.json --overwrite
 python scripts/gen_alarms_from_dbc.py -d path/to/file.dbc --out config/alarms.json --overwrite
 ```
 
-Ghi chú
- - Các script sử dụng `cantools` để phân tích DBC; chúng trích các thuộc tính `name`, `minimum`, `maximum`, và `unit` (nếu có).
- - Các trình tạo sẽ không xóa hoặc thay đổi mục hiện có trừ khi bạn truyền `--overwrite`.
- - YAML sinh ra sử dụng các giá trị mặc định đơn giản:
-   - Tín hiệu (`signals`): `display_name` = tên tín hiệu, `group` = `unknown`, `widget` = `gauge`, `writable` = `false`.
-   - Cảnh báo (`alarms`): `warning_high`/`warning_low` được lấy từ DBC `maximum`/`minimum` nếu có; ngưỡng `critical` để `null` mặc định.
- - Vui lòng kiểm tra các file đã sinh và điều chỉnh ngưỡng/nhóm/widget phù hợp với dự án.
+Notes
+ - The scripts use `cantools` to parse DBC; they extract the `name`, `minimum`, `maximum`, and `unit` attributes (if available).
+ - The generators will not delete or change existing entries unless you pass `--overwrite`.
+ - The generated YAML uses simple default values:
+   - Signals (`signals`): `display_name` = signal name, `group` = `unknown`, `widget` = `gauge`, `writable` = `false`.
+   - Alarms (`alarms`): `warning_high`/`warning_low` are taken from DBC `maximum`/`minimum` when available; `critical` thresholds default to `null`.
+ - Please review the generated files and adjust thresholds/groups/widgets to fit the project.
 
-Ví dụ (Windows PowerShell)
+Example (Windows PowerShell)
 
 ```powershell
 python .\scripts\gen_signals_from_dbc.py -d .\db\ -v --dry-run
-python .\scripts\gen_alarms_from_dbc.py -d .\db\ --out config\alarms.json
+python .\scripts\gen_alarms_from_dbc.py -d .\db\ --out configlarms.json
 ```
 
-Tùy chọn nâng cao tôi có thể hỗ trợ:
- - Thêm một script `--apply-both` chạy cả hai trình tạo trong một lệnh.
- - Cài heuristic ngưỡng thông minh hơn (ví dụ: warning = 75% của max, critical = 95%).
- - Thêm unit test cho các script tạo.
+Advanced options I can help with:
+ - Add a `--apply-both` script that runs both generators in one command.
+ - Implement smarter threshold heuristics (for example: warning = 75% of max, critical = 95%).
+ - Add unit tests for the generator scripts.

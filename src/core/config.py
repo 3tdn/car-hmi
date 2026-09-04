@@ -1,4 +1,4 @@
-"""Bộ tải cấu hình toàn cục sử dụng Pydantic BaseSettings."""
+"""Global configuration loader using Pydantic BaseSettings."""
 
 from __future__ import annotations
 
@@ -10,236 +10,236 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class CANConfig(BaseModel):
-    """Cấu hình một kênh CAN bus."""
+    """Configuration for a CAN bus channel."""
 
     interface: str = "virtual"
-    # Tên driver python-can: "socketcan", "virtual", "kvaser", "pcan", …
+    # python-can driver name: "socketcan", "virtual", "kvaser", "pcan", …
     channel: str = "vcan0"
-    # Tên kênh OS (vcan0, can0) hoặc tên thiết bị tuỳ theo interface
+    # OS channel name (vcan0, can0) or device name depending on the interface
     bitrate: int = 500_000
-    # Tốc độ bus tính bằng bit/s (500_000 = CAN classic, 2_000_000 = CAN FD nominal)
+    # Bus bitrate in bit/s (500_000 = classic CAN, 2_000_000 = nominal CAN FD)
     can_json_path: str = "config/can.json"
-    # File JSON mô tả message/signal cho kênh này (xuất từ DBC bằng gen_can_json.py)
+    # JSON file describing messages/signals for this channel (exported from DBC by gen_can_json.py)
     can_db_files: list[str] = Field(default_factory=list)
-    # Danh sách đường dẫn tới file DBC / A2L cần nạp thêm (bổ sung cho can_json_path)
+    # List of DBC / A2L file paths to load additionally (supplementing can_json_path)
     can_db_dirs: list[str] = Field(default_factory=list)
-    # Thư mục chứa file DBC/A2L; tất cả file hợp lệ trong thư mục sẽ được nạp
+    # Directory containing DBC/A2L files; all valid files in the directory will be loaded
     a2l_dirs: list[str] = Field(default_factory=list)
-    # Thư mục chứa file A2L (ASAP2) để nạp định nghĩa tín hiệu ECU
+    # Directory containing A2L (ASAP2) files used to load ECU signal definitions
     can_db_format: Literal["auto", "dbc", "a2l"] = "auto"
-    # Định dạng DB: "auto" = tự nhận theo đuôi file, "dbc" hoặc "a2l" ép kiểu cụ thể
+    # DB format: "auto" = detect from file extension, "dbc" or "a2l" = force a specific format
 
 
 class SimulatorConfig(BaseModel):
-    """Cấu hình CAN simulator nội bộ (dùng trong môi trường dev/test)."""
+    """Configuration for the built-in CAN simulator (used in dev/test environments)."""
 
     enabled: bool = True
-    # Bật/tắt simulator; nên tắt (false) trên xe thật
+    # Enable/disable the simulator; it should be disabled (false) on a real vehicle
     random_mode: bool = False
-    # Nếu True, simulator sẽ phát giá trị tín hiệu random
-    # Nếu False, simulator sẽ phát giá trị tăng dần lên 1 đơn vị (hoặc 1 state)
+    # If True, the simulator transmits random signal values
+    # If False, the simulator transmits values incremented by 1 unit (or 1 state)
     default_cycle_ms: int = 50
-    # Chu kỳ phát mỗi message tính bằng ms; giảm xuống làm tăng tải bus
+    # Transmit period per message in ms; reducing it increases bus load
     can_json_path: str = "config/can.json"
-    # File JSON chứa danh sách message simulator sẽ phát (thường dùng can.json tổng hợp)
+    # JSON file containing the messages the simulator will transmit (typically the combined can.json)
 
 
 class APIConfig(BaseModel):
-    """Cấu hình REST API và WebSocket server (FastAPI / Uvicorn)."""
+    """Configuration for the REST API and WebSocket server (FastAPI / Uvicorn)."""
 
     host: str = "0.0.0.0"
-    # Địa chỉ bind; "0.0.0.0" = lắng nghe tất cả interface, "127.0.0.1" = chỉ local
+    # Bind address; "0.0.0.0" = listen on all interfaces, "127.0.0.1" = local only
     port: int = 8000
-    # Cổng HTTP; đổi nếu bị xung đột hoặc cần chạy sau reverse proxy
+    # HTTP port; change it if there is a conflict or if running behind a reverse proxy
     api_key: str = "change-me-in-production"
-    # Bearer token dùng để xác thực API; PHẢI đổi trước khi deploy lên môi trường thật
+    # Bearer token used for API authentication; MUST be changed before deploying to production
     ws_heartbeat_interval_sec: float = 5.0
-    # Khoảng thời gian gửi ping keepalive tới WebSocket client (giây)
+    # Interval for sending keepalive pings to WebSocket clients (seconds)
     ws_metrics_interval_sec: float = 3.0
-    # Khoảng thời gian gửi snapshot metrics hệ thống qua WebSocket (giây)
+    # Interval for sending system metrics snapshots over WebSocket (seconds)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
-    # Danh sách origin được phép CORS; thêm URL frontend nếu chạy trên domain khác
+    # List of origins allowed by CORS; add frontend URLs if served from another domain
 
 
 class CameraConfig(BaseModel):
-    """Cấu hình proxy camera stream (MJPEG)."""
+    """Configuration for the camera stream proxy (MJPEG)."""
 
     enabled: bool = False
-    # Bật/tắt route camera stream
+    # Enable/disable the camera stream route
     stream_url: str = "http://192.168.2.119:8080/stream"
-    # URL MJPEG stream nguồn (CarPC truy cập camera qua IP:port này)
-    # LƯU Ý: MJPG server phía camera chỉ cho phép DUY NHẤT 1 kết nối đồng thời
-    # (mutex phía nguồn) — CarPC phải mở đúng 1 kết nối upstream và tự fan-out
-    # cho nhiều client (nhiều thiết bị đầu cuối) xem đồng thời.
+    # Source MJPEG stream URL (CarPC accesses the camera through this IP:port)
+    # NOTE: the camera-side MJPG server allows only ONE simultaneous connection
+    # (source-side mutex) — CarPC must open exactly one upstream connection and fan it out
+    # to many clients (multiple end devices) viewing simultaneously.
     reconnect_interval_sec: float = 3.0
-    # Thời gian chờ trước khi thử kết nối lại upstream sau khi mất kết nối/lỗi
+    # Wait time before retrying the upstream connection after a disconnect/error
     connect_timeout_sec: float = 5.0
-    # Timeout thiết lập kết nối TCP tới camera (giây)
+    # Timeout for establishing the TCP connection to the camera (seconds)
     read_timeout_sec: float = 10.0
-    # Timeout đọc dữ liệu giữa 2 chunk liên tiếp từ camera (giây)
+    # Timeout for reading data between two consecutive chunks from the camera (seconds)
     chunk_size: int = 4096
-    # Kích thước mỗi chunk đọc từ upstream và fan-out cho client (bytes)
+    # Size of each chunk read from upstream and fanned out to clients (bytes)
     subscriber_queue_size: int = 64
-    # Số chunk tối đa buffer cho mỗi client chậm trước khi bị drop frame cũ
+    # Maximum number of buffered chunks for each slow client before old frames are dropped
     startup_wait_sec: float = 5.0
-    # Thời gian tối đa chờ phát hiện Content-Type/boundary thật từ upstream
-    # trước khi trả response cho client (đảm bảo header đúng boundary MJPEG)
+    # Maximum time to wait for detecting the real Content-Type/boundary from upstream
+    # before returning the response to the client (ensures the correct MJPEG boundary header)
     fps_log_interval_sec: float = 5.0
-    # Chu kỳ (giây) log FPS thực tế của upstream camera (đếm gần đúng qua marker
-    # JPEG EOI 0xFFD9) — dùng để giám sát/chẩn đoán, không ảnh hưởng tới relay.
+    # Interval (seconds) for logging the actual upstream camera FPS (estimated from the
+    # JPEG EOI 0xFFD9 marker) — used for monitoring/diagnostics and does not affect relaying.
 
 
 class StatusMonitorConfig(BaseModel):
-    """Cấu hình monitor status cho các tín hiệu COM_Status_*."""
+    """Configuration for status monitoring of COM_Status_* signals."""
 
     enabled: bool = False
-    # Bật/tắt monitor status monitor.
+    # Enable/disable the status monitor.
     interval_sec: float = 10.0
-    # Chu kỳ ping định kỳ (giây).
+    # Periodic ping interval (seconds).
     ping_timeout_sec: float = 1.5
-    # Timeout tối đa cho mỗi lệnh ping (giây).
+    # Maximum timeout for each ping command (seconds).
     targets: dict[str, str] = Field(default_factory=dict)
     # Map signal_name -> target.
-    # - Signal Ethernet: target là host/IP/URL để ping.
-    # - Signal CAN: target là tên tín hiệu tham chiếu để kiểm tra freshness.
+    # - Ethernet signal: target is the host/IP/URL to ping.
+    # - CAN signal: target is the reference signal name used to check freshness.
 
 
 class DevModeConfig(BaseModel):
-    """Cấu hình Dev Mode."""
+    """Dev Mode configuration."""
 
     block_timeout_sec: float = 60.0
     require_seat_connected: bool = True
     pypass_check_CAN_status: bool = False
-    # Cho phép Dev Mode ghi tín hiệu mà không yêu cầu COM_Status_*Can đang online.
+    # Allow Dev Mode to write signals without requiring COM_Status_*Can to be online.
 
 
 class StorageConfig(BaseModel):
-    """Cấu hình lưu trữ dữ liệu tín hiệu lịch sử."""
+    """Configuration for historical signal data storage."""
 
     engine: Literal["sqlite", "timescaledb", "influxdb"] = "sqlite"
-    # Backend lưu trữ: "sqlite" cho dev/embedded, "timescaledb"/"influxdb" cho production
+    # Storage backend: "sqlite" for dev/embedded, "timescaledb"/"influxdb" for production
     sqlite_path: str = "data/signals.db"
-    # Đường dẫn file SQLite (chỉ dùng khi engine="sqlite")
+    # Path to the SQLite file (used only when engine="sqlite")
     batch_size: int = 100
-    # Số bản ghi tích luỹ trước khi flush xuống DB; tăng để giảm số lần write I/O
+    # Number of records accumulated before flushing to DB; increase it to reduce write I/O frequency
     batch_interval_sec: float = 2.0
-    # Thời gian tối đa giữa hai lần flush dù buffer chưa đầy (giây)
+    # Maximum time between flushes even if the buffer is not full (seconds)
     retention_days: int = 30
-    # Số ngày giữ dữ liệu; bản ghi cũ hơn sẽ bị xoá bởi retention task
+    # Number of days to retain data; older records will be deleted by the retention task
     max_disk_mb: int = 2048
-    # Giới hạn dung lượng DB (MB); khi vượt ngưỡng, retention task sẽ xóa oldest rows và VACUUM
+    # DB size limit (MB); when exceeded, the retention task trims oldest rows and runs VACUUM
 
 
 class ProcessorConfig(BaseModel):
-    """Cấu hình pipeline xử lý tín hiệu."""
+    """Configuration for the signal processing pipeline."""
 
     smoothing_window: int = 5
-    # Kích thước cửa sổ làm mượt (SmoothingFilter): số mẫu dùng cho moving average
+    # Smoothing window size (SmoothingFilter): number of samples used for the moving average
     max_update_rate_hz: float = 10.0
-    # Tần suất cập nhật tối đa mỗi tín hiệu vào SignalStore (Hz); frame vượt quá sẽ bị bỏ qua
+    # Maximum update rate for each signal into SignalStore (Hz); frames beyond this are dropped
     max_queue_size: int = 10_000
-    # Kích thước tối đa của RX queue (số DecodedFrame); tăng nếu burst tải cao
+    # Maximum size of the RX queue (number of DecodedFrame objects); increase it for high-load bursts
     queue_policy: Literal["drop_oldest", "reject"] = "reject"
-    # Hành vi khi queue đầy:
-    #   "drop_oldest" — bỏ frame cũ nhất, nhận frame mới (ưu tiên data tươi, khuyến nghị)
-    #   "reject"      — bỏ frame mới đến (giữ nguyên queue, có thể gây mất signal mới)
+    # Behavior when the queue is full:
+    #   "drop_oldest" — discard the oldest frame and accept the new frame (prefer fresh data, recommended)
+    #   "reject"      — discard the newly arrived frame (leave the queue unchanged, may lose the latest signal updates)
     batch_drain_size: int = 200
-    # Số frame tối đa được drain khỏi queue trong mỗi lần lặp pipeline.
-    # Pipeline merge các frame cùng signal_id → chỉ giữ giá trị mới nhất, giảm số lần
-    # xử lý từ N → 1 khi tải cao. Tăng nếu vẫn còn dropped frames trong log.
+    # Maximum number of frames drained from the queue in each pipeline loop.
+    # The pipeline merges frames with the same signal_id → only the latest value is kept, reducing
+    # processing from N → 1 under high load. Increase it if dropped frames still appear in logs.
 
 
 class WriterConfig(BaseModel):
-    """Cấu hình CAN Writer (ghi lệnh điều khiển xuống bus)."""
+    """Configuration for the CAN Writer (writing control commands to the bus)."""
 
     rate_limit_per_sec: int = 10
-    # Số frame ghi tối đa mỗi giây; ngăn flood bus khi nhiều lệnh đến cùng lúc
+    # Maximum number of frames written per second; prevents bus flooding when many commands arrive at once
     burst: int = 5
-    # Số frame được phép ghi liên tiếp vượt rate_limit (token bucket burst size)
+    # Number of frames allowed to exceed rate_limit in a burst (token bucket burst size)
     periodic_mode: bool = False
-    # Nếu True, mỗi lần write sẽ gửi liên tục theo chu kỳ periodic_time_step ms
-    # trong khoảng periodic_duration ms, bỏ qua rate_limit_per_sec và burst
+    # If True, each write sends continuously at periodic_time_step ms intervals
+    # for periodic_duration ms, ignoring rate_limit_per_sec and burst
     periodic_time_step: int = 20
-    # Thời gian giữa 2 lần gửi liên tục (ms) khi periodic_mode=True
+    # Time between repeated sends (ms) when periodic_mode=True
     periodic_duration: int = 10000
-    # Dừng gửi liên tục sau periodic_duration ms kể từ lần gửi đầu tiên
+    # Stop repeated sends after periodic_duration ms from the first send
 
 
 class ReaderConfig(BaseModel):
-    """Cấu hình bộ đọc CAN (CANReader)."""
+    """Configuration for the CAN reader (CANReader)."""
 
     frequency_piority: float = 0.0
-    # Ngưỡng thời gian (giây) để ưu tiên tín hiệu có tần suất thay đổi thấp.
-    # Nếu > 0, tín hiệu chưa được enqueue trong khoảng thời gian này sẽ được
-    # buộc đưa vào queue dù giá trị không đổi (heartbeat) và bypass kiểm tra
-    # message-level dedup — đảm bảo không bỏ lỡ tín hiệu "hiếm thay đổi".
-    # Ví dụ: 1.0 = tín hiệu ổn định > 1 s luôn được refresh vào queue.
-    # 0.0 = tắt tính năng này (chỉ enqueue khi giá trị thay đổi).
+    # Time threshold (seconds) for prioritizing low-frequency-changing signals.
+    # If > 0, signals that have not been enqueued within this interval will be
+    # forced into the queue even if their value is unchanged (heartbeat), bypassing the
+    # message-level dedup check — ensuring "rarely changing" signals are not missed.
+    # Example: 1.0 = a stable signal is always refreshed into the queue after > 1 s.
+    # 0.0 = disable this feature (enqueue only when the value changes).
     only_send_signal_update: bool = False
-    # Điều khiển payload WS signal:
-    #   False = gửi full tập signal đã subscribe (latest snapshot)
-    #   True  = chỉ gửi các signal vừa thay đổi trong batch hiện tại
+    # Controls the WS signal payload:
+    #   False = send the full set of subscribed signals (latest snapshot)
+    #   True  = send only signals that changed in the current batch
     stale_threshold_sec: float = 30.0
-    # Ngưỡng tối đa (giây) cho tuổi của frame CAN gần nhất.
-    # Nếu quá ngưỡng này, health/readiness sẽ coi reader là stale.
+    # Maximum age threshold (seconds) for the most recent CAN frame.
+    # If this threshold is exceeded, health/readiness will treat the reader as stale.
 
 
 class ShutdownConfig(BaseModel):
-    """Cấu hình trình tự tắt ứng dụng."""
+    """Configuration for the application shutdown sequence."""
 
     timeout_sec: int = 10
-    # Thời gian tối đa (giây) chờ các task async kết thúc sạch trước khi buộc cancel
+    # Maximum time (seconds) to wait for async tasks to finish cleanly before forcing cancellation
 
 
 class SupervisorConfig(BaseModel):
-    """Cấu hình watchdog giám sát sức khoẻ hệ thống."""
+    """Configuration for the system health watchdog."""
 
     watchdog_interval_sec: int = 5
-    # Chu kỳ watchdog kiểm tra trạng thái các task (giây); log cảnh báo nếu task chết
+    # Watchdog interval for checking task status (seconds); logs a warning if a task dies
 
 
 class LoggingConfig(BaseModel):
-    """Cấu hình logging."""
+    """Logging configuration."""
 
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    # Mức log tối thiểu được ghi; dùng "DEBUG" để trace chi tiết khi debug
+    # Minimum log level to record; use "DEBUG" for detailed trace output during debugging
     file_path: str = "logs/can-hmi.log"
-    # Đường dẫn file log; thư mục sẽ được tạo tự động nếu chưa tồn tại
+    # Path to the log file; the directory will be created automatically if missing
     max_size_mb: int = 50
-    # Kích thước tối đa mỗi file log (MB) trước khi rotate sang file mới
+    # Maximum size per log file (MB) before rotating to a new file
     backup_count: int = 5
-    # Số file log cũ giữ lại sau khi rotate (can-hmi.log.1 … can-hmi.log.N)
+    # Number of old log files retained after rotation (can-hmi.log.1 … can-hmi.log.N)
 
 
 class AppConfig(BaseModel):
-    """Cấu hình tổng thể ứng dụng CAN-HMI — tổng hợp tất cả các nhóm cấu hình."""
+    """Overall CAN-HMI application configuration — aggregates all configuration groups."""
 
     can: list[CANConfig] = Field(default_factory=lambda: [CANConfig()])
-    # Danh sách kênh CAN; mỗi phần tử là một bus độc lập (vcan0, vcan1, can0, …)
+    # List of CAN channels; each item is an independent bus (vcan0, vcan1, can0, …)
     simulator: SimulatorConfig = Field(default_factory=SimulatorConfig)
-    # Cấu hình CAN simulator nội bộ
+    # Built-in CAN simulator configuration
     api: APIConfig = Field(default_factory=APIConfig)
-    # Cấu hình REST API / WebSocket
+    # REST API / WebSocket configuration
     camera: CameraConfig = Field(default_factory=CameraConfig)
-    # Cấu hình proxy camera stream (MJPEG)
+    # Camera stream proxy (MJPEG) configuration
     status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
-    # Cấu hình monitor COM status (Ethernet + CAN reference)
+    # COM status monitor configuration (Ethernet + CAN reference)
     devmode: DevModeConfig = Field(default_factory=DevModeConfig)
-    # Cấu hình chọn ghế và ghi tín hiệu trong Dev Mode
+    # Seat selection and signal writing configuration for Dev Mode
     storage: StorageConfig = Field(default_factory=StorageConfig)
-    # Cấu hình lưu trữ dữ liệu lịch sử
+    # Historical data storage configuration
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)
-    # Cấu hình pipeline xử lý tín hiệu
+    # Signal processing pipeline configuration
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
-    # Cấu hình bộ đọc CAN
+    # CAN reader configuration
     writer: WriterConfig = Field(default_factory=WriterConfig)
-    # Cấu hình CAN Writer
+    # CAN Writer configuration
     shutdown: ShutdownConfig = Field(default_factory=ShutdownConfig)
-    # Cấu hình tắt ứng dụng
+    # Application shutdown configuration
     supervisor: SupervisorConfig = Field(default_factory=SupervisorConfig)
-    # Cấu hình watchdog
+    # Watchdog configuration
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
-    # Cấu hình logging
+    # Logging configuration
 
     @field_validator("can")
     @classmethod
@@ -256,7 +256,7 @@ class AppConfig(BaseModel):
 
 
 def load_config(path: str | Path) -> AppConfig:
-    """Tải và xác thực AppConfig từ file JSON."""
+    """Load and validate AppConfig from a JSON file."""
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     return AppConfig.model_validate(data or {})

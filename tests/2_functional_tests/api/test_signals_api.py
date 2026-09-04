@@ -114,7 +114,7 @@ async def client():
 
 async def test_get_signal_not_found(client):
     resp = await client.get("/signals/Unknown", headers={"X-API-Key": "test-key"})
-    # Quyền profile được kiểm tra trước signal existence => có thể 403 thay vì 404.
+    # Profile permission is checked before signal existence, so this may be 403 instead of 404.
     assert resp.status_code == 403
     detail = resp.json()["detail"]
     assert detail["code"] in {"profile_not_selected", "profile_signal_denied"}
@@ -124,7 +124,7 @@ async def test_available_signals_requires_auth(client):
     assert resp.status_code == 401
 
 async def test_available_signals_returns_metadata(client):
-    """GET /signals/available trả về metadata đầy đủ cho mỗi signal."""
+    """GET /signals/available returns complete metadata for each signal."""
     resp = await client.get("/signals/available", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 200
     data = resp.json()
@@ -141,7 +141,7 @@ async def test_available_signals_returns_metadata(client):
     assert "alarm_warning_high" in sample
 
 async def test_write_signal_requires_write_permission(monkeypatch, tmp_path):
-    """Signal write bị chặn với profile chỉ có read permission."""
+    """Signal writes are blocked for a profile with only read permission."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -174,7 +174,7 @@ async def test_write_signal_requires_write_permission(monkeypatch, tmp_path):
     assert detail["profile_name"] == "viewer"
 
 async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
-    """Signal write được phép với profile có write permission."""
+    """Signal writes are allowed for a profile with write permission."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -242,7 +242,7 @@ async def test_wildcard_full_profile_allows_any_signal(monkeypatch, tmp_path):
     assert app.state.writer.writes == [("OtherSignal", 77.0)]
 
 async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
-    """Dev Mode cho phép ghi signal ngoài scope của profile hiện tại."""
+    """Dev Mode allows writing a signal outside the current profile scope."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -276,7 +276,7 @@ async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
     assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
 
 async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tmp_path):
-    """Batch write chỉ queue signal hợp lệ và trả warnings cho phần bị bỏ qua."""
+    """Batch writes queue only valid signals and return warnings for skipped ones."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"

@@ -158,7 +158,7 @@ BO_ 544 EPS_SteeringStatus: 8 EPS
 // BODY ELECTRONICS - Body electronics
 // =============================================================================
 
-// --- BCM: Body Control Module (Bộ điều khiển thân xe) ---
+// --- BCM: Body Control Module (vehicle body controller) ---
 BO_ 672 BCM_LightingStatus: 8 BCM
  SG_ HeadlightLeft : 0|2@1+ (1,0) [0|3] "" IC
  SG_ HeadlightRight : 2|2@1+ (1,0) [0|3] "" IC

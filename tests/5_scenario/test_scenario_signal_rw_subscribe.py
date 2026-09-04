@@ -1,8 +1,8 @@
-"""Kịch bản test: đọc/ghi signal qua REST + subscribe realtime qua WebSocket.
+"""Scenario tests: signal read/write over REST + realtime subscribe over WebSocket.
 
-Mỗi test mô phỏng một luồng nghiệp vụ nhiều bước (không chỉ 1 request/response
-đơn lẻ) để phát hiện lỗi tích hợp giữa REST write, WS broadcast và profile
-permission.
+Each test simulates a multi-step business flow (not just a single
+request/response) to catch integration issues between REST writes, WS
+broadcasts, and profile permissions.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from starlette.testclient import TestClient
 
 @pytest.mark.asyncio
 async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeypatch, tmp_path):
-    """Operator ghi được VehicleSpeed (write), nhưng đọc FuelLevel (ngoài scope) bị chặn."""
+    """The operator can write VehicleSpeed, but reading FuelLevel (outside scope) is blocked."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -44,7 +44,7 @@ async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeyp
             headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"},
         )
         assert read_resp.status_code == 200
-        # Giá trị store chỉ đổi khi CAN bus echo lại, không phải ngay sau khi gửi write.
+        # The store value changes only when the CAN bus echoes it back, not immediately after sending the write.
         assert read_resp.json()["value"] == 40.0
 
         denied = await c.get(
@@ -57,7 +57,7 @@ async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeyp
 
 @pytest.mark.asyncio
 async def test_batch_write_reports_partial_success_for_missing_can_signal(app_builder, monkeypatch, tmp_path):
-    """batch_update ghi các signal hợp lệ, báo lỗi riêng cho signal không có trong DBC."""
+    """batch_update writes valid signals and reports a separate error for a signal missing from the DBC."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -94,7 +94,7 @@ async def test_batch_write_reports_partial_success_for_missing_can_signal(app_bu
 
 
 def test_ws_subscribe_receives_broadcast_then_stops_after_unsubscribe(app_builder_sync):
-    """Client subscribe 1 signal, nhận update; unsubscribe xong không còn nhận nữa."""
+    """A client subscribes to 1 signal, receives an update; after unsubscribe, it receives nothing more."""
     app = app_builder_sync(
         active="viewer",
         profiles={
@@ -123,14 +123,14 @@ def test_ws_subscribe_receives_broadcast_then_stops_after_unsubscribe(app_builde
             unsub_ack = json.loads(ws.receive_text())
             assert unsub_ack["type"] == "unsubscribe_ack"
 
-            # Xác nhận server-side subscription đã được gỡ (tránh phải chờ nhận
-            # broadcast trên socket, dễ treo test nếu không còn dữ liệu gửi tới).
+            # Confirm the server-side subscription has been removed (avoids waiting
+            # for a socket broadcast, which could hang the test if no more data is sent).
             remaining = next(iter(mgr._subscriptions.values()))
             assert "VehicleSpeed" not in remaining.signal_names
 
 
 def test_ws_wildcard_subscribe_limited_to_profile_signals(app_builder_sync):
-    """Subscribe '*' chỉ nhận các signal nằm trong profile đang active, kèm warning."""
+    """Subscribe '*' only receives signals included in the active profile, with a warning."""
     app = app_builder_sync(
         active="viewer",
         profiles={
@@ -151,7 +151,7 @@ def test_ws_wildcard_subscribe_limited_to_profile_signals(app_builder_sync):
 
 
 def test_two_ws_clients_only_interested_subscriber_receives_update(app_builder_sync):
-    """Hai client subscribe khác signal — mỗi client chỉ nhận đúng phần mình quan tâm."""
+    """Two clients subscribe to different signals — each client receives only what it cares about."""
     app = app_builder_sync(
         active="admin",
         profiles={

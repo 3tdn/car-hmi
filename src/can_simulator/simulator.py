@@ -121,7 +121,7 @@ class CANSimulator:
             # Collect raw signal dicts first so we can allocate missing start_bit
             raw_sigs: list[dict] = []
             for sig_name, sd in md.get("signals", {}).items():
-                # skip TX signals — những tín hiệu CAR_PC ghi ra bus, không mô phỏng
+                # skip TX signals — signals written to the bus by CAR_PC are not simulated
                 if sd.get("TX", False):
                     logger.debug("Skip TX signal '%s' in '%s' (simulator only sends ECU→CarPC)", sig_name, msg_name)
                     continue
@@ -289,10 +289,10 @@ class CANSimulator:
         )
         return result
 
-    # ── Vòng phát ──────────────────────────────────────────────────────────────
+    # ── Transmit loop ───────────────────────────────────────────────────────
 
     async def start(self) -> None:
-        """Bắt đầu phát tín hiệu ngẫu nhiên theo chu kỳ ``cycle_ms``."""
+        """Start transmitting random signal values on the ``cycle_ms`` interval."""
         self._running = True
         event_loop = asyncio.get_running_loop()
         logger.info(
@@ -310,10 +310,10 @@ class CANSimulator:
             logger.info("CANSimulator stopped.")
 
     async def _tick(self, event_loop: asyncio.AbstractEventLoop) -> None:
-        """Một chu kỳ: sinh ngẫu nhiên, mã hóa và gửi tất cả message.
+        """One cycle: generate values, encode them, and send every message.
 
-        đo thời gian gửi thực tế rồi sleep phần còn lại của chu kỳ
-        để tránh drift (actual_period = send_time + sleep thay vì cycle_ms).
+        Measure the actual send time, then sleep for the remaining portion of the cycle
+        to avoid drift (actual_period = send_time + sleep instead of cycle_ms).
         """
         t_start = time.monotonic()
         for msg_def in self._messages:
@@ -347,7 +347,7 @@ class CANSimulator:
                 else:
                     physical = random.uniform(sig.minimum, sig.maximum)  # noqa: S311
                     raw_val = round((physical - sig.offset) / sig.factor)
-                # Clamp raw về dải bit hợp lệ
+                # Clamp raw to the valid bit range
                 raw_val = max(r_min, min(r_max, raw_val))
                 try:
                     _insert_bits(frame_data, raw_val, sig.start_bit, sig.length, sig.is_signed, sig.big_endian)
@@ -377,5 +377,5 @@ class CANSimulator:
             await asyncio.sleep(remaining)
 
     def stop(self) -> None:
-        """Dừng vòng phát sau chu kỳ hiện tại."""
+        """Stop the transmit loop after the current cycle."""
         self._running = False

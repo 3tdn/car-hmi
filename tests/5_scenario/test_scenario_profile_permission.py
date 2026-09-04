@@ -1,8 +1,8 @@
-"""Kịch bản test: quản lý profile + phân quyền theo signal.
+"""Scenario tests: profile management + signal permissions.
 
-Bao phủ luồng: tạo/cập nhật profile, chuyển active profile (global & theo
-client), rồi xác nhận quyền đọc/ghi/subscribe signal thay đổi tương ứng khi
-signal có/không nằm trong profile.
+Covers the flow of creating/updating profiles, switching the active profile
+(globally and per client), then confirming that signal read/write/subscribe
+permissions change accordingly when a signal is inside or outside the profile.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from starlette.testclient import TestClient
 
 @pytest.mark.asyncio
 async def test_create_profile_then_update_adds_write_permission(app_builder, monkeypatch, tmp_path):
-    """Admin (full) tạo profile 'driver' chỉ có 'read'; ghi bị chặn cho tới khi admin update thêm 'write'."""
+    """Admin (full) creates profile 'driver' with only 'read'; writes are blocked until admin updates it to add 'write'."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -74,7 +74,7 @@ async def test_create_profile_then_update_adds_write_permission(app_builder, mon
 
 @pytest.mark.asyncio
 async def test_switch_active_profile_requires_full_permission_and_changes_scope(app_builder, monkeypatch, tmp_path):
-    """Chuyển active profile cần quyền 'full'; sau khi chuyển, scope đọc/ghi đổi theo profile mới."""
+    """Switching the active profile requires 'full'; after switching, the read/write scope changes with the new profile."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -93,7 +93,7 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        # viewer thiếu quyền 'full' nên không đổi được active profile.
+        # viewer lacks 'full', so it cannot change the active profile.
         denied = await c.put(
             "/api/profile/active",
             headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"},
@@ -102,13 +102,13 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
         assert denied.status_code == 403
         assert denied.json()["detail"]["required_permission"] == "full"
 
-        # Khi active vẫn là viewer: đọc VehicleSpeed OK, FuelLevel bị chặn.
+        # While active is still viewer: reading VehicleSpeed is OK, FuelLevel is blocked.
         vs_ok = await c.get("/signals/VehicleSpeed", headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"})
         assert vs_ok.status_code == 200
         fl_denied = await c.get("/signals/FuelLevel", headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"})
         assert fl_denied.status_code == 403
 
-        # Dev Mode header cho phép bỏ qua yêu cầu quyền 'full' để đổi profile.
+        # The Dev Mode header allows bypassing the 'full' permission requirement to switch profiles.
         switched = await c.put(
             "/api/profile/active",
             headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer", "X-Dev-Mode": "true"},
@@ -117,7 +117,7 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
         assert switched.status_code == 200
         assert switched.json()["active"] == "operator"
 
-        # Sau khi chuyển sang operator: FuelLevel đọc/ghi được, VehicleSpeed bị chặn.
+        # After switching to operator: FuelLevel can be read/written, VehicleSpeed is blocked.
         fl_ok = await c.get("/signals/FuelLevel", headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"})
         assert fl_ok.status_code == 200
         fl_write = await c.put(
@@ -133,7 +133,7 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
 
 @pytest.mark.asyncio
 async def test_per_client_active_profile_session_is_isolated(app_builder, monkeypatch, tmp_path):
-    """Mỗi client (X-Client-Id) có thể chọn active profile khác nhau độc lập với global active."""
+    """Each client (X-Client-Id) can independently choose an active profile different from the global active profile."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -162,11 +162,11 @@ async def test_per_client_active_profile_session_is_isolated(app_builder, monkey
         assert body["active"] == "viewer"
         assert body["global_active"] == "admin"
 
-        # Client khác không có X-Client-Id vẫn thấy global active = admin.
+        # Another client without X-Client-Id still sees global active = admin.
         other_client = await c.get("/api/profiles", headers={"X-API-Key": "test-key"})
         assert other_client.json()["active"] == "admin"
 
-        # Client tablet-1 vẫn thấy active = viewer (write bị chặn vì viewer chỉ có 'read').
+        # Client tablet-1 still sees active = viewer (writes are blocked because viewer only has 'read').
         tablet_write = await c.put(
             "/signals/VehicleSpeed",
             headers={"X-API-Key": "test-key", "X-Client-Id": "tablet-1"},
@@ -178,7 +178,7 @@ async def test_per_client_active_profile_session_is_isolated(app_builder, monkey
 
 @pytest.mark.asyncio
 async def test_signal_outside_any_profile_scope_is_denied_for_read_write_and_batch(app_builder, monkeypatch, tmp_path):
-    """Signal không khai báo trong profile bị chặn ở mọi kênh: read, write, batch."""
+    """A signal not declared in the profile is blocked on every channel: read, write, batch."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -224,7 +224,7 @@ async def test_signal_outside_any_profile_scope_is_denied_for_read_write_and_bat
 
 
 def test_ws_subscribe_scope_follows_active_profile_switch(app_builder_sync):
-    """WS subscribe '*' phản ánh đúng signal scope của profile được truyền lúc connect."""
+    """WS subscribe '*' reflects the signal scope of the profile provided at connect time."""
     app = app_builder_sync(
         active="viewer",
         profiles={

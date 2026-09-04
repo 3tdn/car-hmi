@@ -1,10 +1,10 @@
-"""Route quản lý profiles — tập hợp signal mỗi user muốn hiển thị.
+"""Profile management routes — collections of signals each user wants to display.
 
-Profiles lưu tại config/profiles.json, còn client session lưu riêng trong data/profile_sessions.json
-(tạo tự động nếu chưa có).
+Profiles are stored in config/profiles.json, while client sessions are stored separately in data/profile_sessions.json
+(created automatically if missing).
 
-Optimistic locking: mỗi PUT yêu cầu truyền section_id đúng với server,
-tránh ghi đè đồng thời từ nhiều tab/user. Nếu mismatch → HTTP 409.
+Optimistic locking: each PUT requires the correct server section_id,
+to avoid concurrent overwrites from multiple tabs/users. If mismatched → HTTP 409.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_profile_runtime_settings() -> tuple[Path, Path, list[str], int, int]:
-    """Đọc runtime settings cho profile/session từ config/system.json."""
+    """Read runtime settings for profiles/sessions from config/system.json."""
     fallback_path = Path("config/profiles.json")
     fallback_sessions_path = Path("data/profile_sessions.json")
     fallback_permission = ["read"]
@@ -230,7 +230,7 @@ def _save(data: dict[str, Any]) -> None:
 
 
 def _section_id(profile: dict) -> str:
-    """MD5 hash (12 chars) của nội dung profile — dùng làm optimistic lock token."""
+    """12-character MD5 hash of the profile contents — used as the optimistic-lock token."""
     blob = json.dumps(profile, sort_keys=True).encode()
     return hashlib.md5(blob).hexdigest()[:12]  # noqa: S324 — non-crypto use
 
@@ -308,7 +308,7 @@ def _cleanup_orphan_sessions(data: dict[str, Any]) -> bool:
 
 
 def _trim_sessions_over_capacity(data: dict[str, Any], *, now: float | None = None) -> bool:
-    """Giữ lịch sử session tối đa theo ưu tiên mới nhất; chỉ xóa session offline ngoài top limit."""
+    """Keep session history capped by newest-first priority; only delete offline sessions beyond the top limit."""
     timestamp = now if now is not None else time.time()
     sessions = _client_sessions(data)
     if len(sessions) <= SESSION_HISTORY_LIMIT:
@@ -406,7 +406,7 @@ def _touch_client_session(data: dict[str, Any], client_id: str, *, active: str |
 
 
 def _mark_client_session_offline(data: dict[str, Any], client_id: str, *, now: float | None = None) -> dict[str, Any]:
-    """Đánh dấu session offline ngay lập tức bằng cách đẩy last_seen ra ngoài TTL."""
+    """Mark a session offline immediately by pushing last_seen outside the TTL."""
     timestamp = now if now is not None else time.time()
     sessions = _client_sessions(data)
     state = sessions.get(client_id)
@@ -488,7 +488,7 @@ def get_profile_context(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_found",
-                f"Profile '{target}' không tìm thấy",
+                f"Profile '{target}' not found",
                 profile_name=target,
             ),
         )
@@ -556,7 +556,7 @@ def require_profile_permission(
     alternates: list[str] | tuple[str, ...] | None = None,
     allow_bootstrap: bool = False,
 ) -> tuple[str | None, dict[str, Any] | None]:
-    """Đảm bảo request có profile đủ quyền cho thao tác ghi."""
+    """Ensure the request has a profile with sufficient permission for the requested operation."""
     if _is_dev_mode(request):
         return None, None
 
@@ -614,7 +614,7 @@ def _require_profile_mutation_permission(request: Request, *, allow_bootstrap: b
     summary="List all profiles",
 )
 async def list_profiles(request: Request):
-    """Trả về danh sách tất cả profiles và tên profile đang active."""
+    """Return the list of all profiles and the active profile name."""
     data = _load()
     if _cleanup_sessions(data):
         _save(data)
@@ -636,7 +636,7 @@ async def list_profiles(request: Request):
     summary="List client active-profile sessions",
 )
 async def list_profile_sessions(request: Request):
-    """Trả về danh sách client đang map tới active profile nào."""
+    """Return the list of clients mapped to each active profile."""
     if not _is_dev_mode(request):
         require_profile_permission(request, "read")
 
@@ -718,7 +718,7 @@ async def list_profile_sessions(request: Request):
     summary="Heartbeat for client profile session",
 )
 async def profile_heartbeat(request: Request):
-    """Cập nhật heartbeat để giữ session client sống và phục vụ trạng thái online/offline."""
+    """Update the heartbeat to keep the client session alive and support online/offline status."""
     client_id = _normalized_client_id(request.headers.get(CLIENT_ID_HEADER))
     if not client_id:
         raise HTTPException(
@@ -751,7 +751,7 @@ async def profile_heartbeat(request: Request):
     summary="Mark client profile session offline",
 )
 async def profile_offline(request: Request):
-    """Đánh dấu session client offline ngay khi frontend mất realtime connection."""
+    """Mark the client session offline as soon as the frontend loses its realtime connection."""
     client_id = _normalized_client_id(request.headers.get(CLIENT_ID_HEADER))
     if not client_id:
         raise HTTPException(
@@ -792,8 +792,8 @@ async def profile_offline(request: Request):
     response_model=ProfileResponse,
     summary="Get profile by name (or active profile)",
 )
-async def get_profile(request: Request, name: str | None = Query(None, description="Tên profile; bỏ trống để lấy active profile")):
-    """Lấy một profile theo tên, hoặc profile đang active nếu không truyền name."""
+async def get_profile(request: Request, name: str | None = Query(None, description="Profile name; leave empty to get the active profile")):
+    """Get a profile by name, or the active profile if no name is provided."""
     data = _load()
     if _cleanup_sessions(data):
         _save(data)
@@ -804,7 +804,7 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_selected",
-                "Không có active profile",
+                "No active profile",
             ),
         )
     p = data.get("profiles", {}).get(target)
@@ -813,7 +813,7 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_found",
-                f"Profile '{target}' không tìm thấy",
+                f"Profile '{target}' not found",
                 profile_name=target,
             ),
         )
@@ -826,7 +826,7 @@ async def get_profile(request: Request, name: str | None = Query(None, descripti
     summary="Set active profile",
 )
 async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
-    """Đổi profile active trên server để các client khác cùng nhìn thấy trạng thái mới."""
+    """Change the active profile on the server so other clients also see the new state."""
     _require_profile_mutation_permission(request)
 
     data = _load()
@@ -843,7 +843,7 @@ async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_found",
-                f"Profile '{target}' không tìm thấy",
+                f"Profile '{target}' not found",
                 profile_name=target,
             ),
         )
@@ -859,7 +859,7 @@ async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
             warnings=[
                 build_access_warning(
                     "profile_already_active",
-                    f"Profile '{target}' đã là active profile",
+                    f"Profile '{target}' is already the active profile",
                     profile_name=target,
                 )
             ],
@@ -881,7 +881,7 @@ async def set_active_profile(body: ProfileSetActiveRequest, request: Request):
     summary="Create new profile",
 )
 async def create_profile(body: ProfileCreate, request: Request):
-    """Tạo profile mới. Profile đầu tiên sẽ được đặt làm active tự động."""
+    """Create a new profile. The first profile will automatically be set as active."""
     _require_profile_mutation_permission(request, allow_bootstrap=True)
     data = _load()
     profiles = data.setdefault("profiles", {})
@@ -890,7 +890,7 @@ async def create_profile(body: ProfileCreate, request: Request):
             status_code=status.HTTP_409_CONFLICT,
             detail=build_access_warning(
                 "profile_already_exists",
-                f"Profile '{body.name}' đã tồn tại",
+                f"Profile '{body.name}' already exists",
                 profile_name=body.name,
             ),
         )
@@ -913,9 +913,9 @@ async def create_profile(body: ProfileCreate, request: Request):
     summary="Update profile (optimistic lock)",
 )
 async def update_profile(body: ProfileUpdate, request: Request):
-    """Cập nhật profile. Yêu cầu section_id đúng với server để tránh xung đột đồng thời.
+    """Update a profile. section_id must match the server to avoid concurrent conflicts.
 
-    Nếu section_id không khớp → HTTP 409 → client cần GET lại và thử lại.
+    If section_id does not match → HTTP 409 → the client must GET it again and retry.
     """
     _require_profile_mutation_permission(request)
     data = _load()
@@ -925,7 +925,7 @@ async def update_profile(body: ProfileUpdate, request: Request):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_found",
-                f"Profile '{body.name}' không tìm thấy",
+                f"Profile '{body.name}' not found",
                 profile_name=body.name,
             ),
         )
@@ -935,7 +935,7 @@ async def update_profile(body: ProfileUpdate, request: Request):
             status_code=status.HTTP_409_CONFLICT,
             detail=build_access_warning(
                 "profile_section_mismatch",
-                "section_id không khớp — vui lòng GET lại profile và thử lại",
+                "section_id mismatch — please GET the profile again and retry",
                 profile_name=body.name,
             ),
         )
@@ -953,7 +953,7 @@ async def update_profile(body: ProfileUpdate, request: Request):
     summary="Delete profile",
 )
 async def delete_profile(name: str, request: Request):
-    """Xóa profile theo tên. Nếu là active profile, active sẽ chuyển sang profile tiếp theo."""
+    """Delete a profile by name. If it is the active profile, active will switch to the next profile."""
     _require_profile_mutation_permission(request)
     data = _load()
     if name not in data.get("profiles", {}):
@@ -961,7 +961,7 @@ async def delete_profile(name: str, request: Request):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=build_access_warning(
                 "profile_not_found",
-                f"Profile '{name}' không tìm thấy",
+                f"Profile '{name}' not found",
                 profile_name=name,
             ),
         )

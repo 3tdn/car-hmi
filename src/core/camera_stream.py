@@ -38,11 +38,11 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CONTENT_TYPE = "multipart/x-mixed-replace; boundary=frame"
-_JPEG_EOI_MARKER = b"\xff\xd9"  # JPEG End-Of-Image marker — dùng để đếm frame gần đúng
+_JPEG_EOI_MARKER = b"\xff\xd9"  # JPEG End-Of-Image marker — used for approximate frame counting
 
 
 class CameraStreamProxy:
-    """Quản lý 1 kết nối upstream MJPEG và fan-out cho nhiều subscriber."""
+    """Manage one upstream MJPEG connection and fan it out to many subscribers."""
 
     def __init__(
         self,
@@ -162,8 +162,8 @@ class CameraStreamProxy:
             try:
                 q.put_nowait(chunk)
             except asyncio.QueueFull:
-                # Client chậm: bỏ chunk cũ nhất để ưu tiên dữ liệu tươi, tránh
-                # nghẽn broadcast cho các client khác.
+                # Slow client: drop the oldest chunk to prioritize fresh data and avoid
+                # blocking broadcasts for other clients.
                 with contextlib.suppress(asyncio.QueueEmpty, asyncio.QueueFull):
                     q.get_nowait()
                     q.put_nowait(chunk)
@@ -179,11 +179,11 @@ class CameraStreamProxy:
         self._prev_chunk_last_byte = b""
 
     def _track_fps(self, chunk: bytes) -> None:
-        """Đếm số frame JPEG gần đúng trong `chunk` và log FPS định kỳ.
+        """Estimate the number of JPEG frames in `chunk` and log FPS periodically.
 
-        Đếm số marker JPEG End-Of-Image (0xFFD9) xuất hiện trong chunk, có xử lý
-        trường hợp marker bị chia đôi giữa 2 chunk liên tiếp (byte 0xFF ở cuối
-        chunk trước + byte 0xD9 ở đầu chunk này).
+        Counts JPEG End-Of-Image (0xFFD9) markers found in the chunk, including the
+        case where the marker is split across two consecutive chunks (0xFF at the end
+        of the previous chunk + 0xD9 at the start of the current chunk).
         """
         if not chunk:
             return
@@ -206,7 +206,7 @@ class CameraStreamProxy:
             self._fps_window_start = now
 
     async def _run_upstream(self) -> None:
-        """Vòng lặp giữ đúng 1 kết nối upstream, tự reconnect khi lỗi."""
+        """Loop that maintains exactly one upstream connection and auto-reconnects on errors."""
         timeout = httpx.Timeout(
             connect=self._connect_timeout_sec,
             read=self._read_timeout_sec,
@@ -250,5 +250,5 @@ class CameraStreamProxy:
         finally:
             self._connected = False
             self._fps = 0.0
-            self._content_type_ready.set()  # giải phóng mọi subscriber đang chờ startup
+            self._content_type_ready.set()  # release any subscribers waiting for startup
             self._broadcast_end()

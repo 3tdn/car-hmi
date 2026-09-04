@@ -1,12 +1,12 @@
 /**
- * api.js — REST + WebSocket wrapper cho CAN-HMI backend.
+ * api.js — REST + WebSocket wrapper for the CAN-HMI backend.
  *
- * Tương thích với demo API: https://car-hmi-api-demo.onrender.com
+ * Compatible with the demo API: https://car-hmi-api-demo.onrender.com
  *
- * Cấu hình trước khi load (thêm <script> trước file này):
- *   window.API_BASE = "http://192.168.1.100:8000";   // mặc định: cùng origin
- *   window.WS_BASE  = "ws://192.168.1.100:8000";      // mặc định: cùng origin
- *   window.API_KEY  = "your-key";                      // mặc định: không cần key
+ * Configure before loading (add a <script> before this file):
+ *   window.API_BASE = "http://192.168.1.100:8000";   // default: same origin
+ *   window.WS_BASE  = "ws://192.168.1.100:8000";      // default: same origin
+ *   window.API_KEY  = "your-key";                      // default: no key required
  *
  * REST endpoints:
  *   GET  /api/info                   → fetchSystemInfo()
@@ -185,7 +185,7 @@ const _headers = () => {
 // ── System ──────────────────────────────────────────────────────────────────────
 
 /**
- * Thông tin tổng quan dự án: tên, phiên bản, uptime, số signal, trạng thái kết nối.
+ * Project overview: name, version, uptime, signal count, connection status.
  * @returns {Promise<{name:string, version:string, uptime_seconds:number, signal_count:number, bus_connected:boolean, db_connected:boolean}>}
  */
 async function fetchSystemInfo() {
@@ -193,7 +193,7 @@ async function fetchSystemInfo() {
 }
 
 /**
- * Thông tin tài nguyên CarPC: CPU, RAM, disk, queue, heap.
+ * CarPC resource information: CPU, RAM, disk, queue, heap.
  * @returns {Promise<Object>}
  */
 async function fetchSystemMetrics() {
@@ -203,7 +203,7 @@ async function fetchSystemMetrics() {
 // ── Profiles ───────────────────────────────────────────────────────────────
 
 /**
- * Danh sách tất cả profiles và profile đang active.
+ * List of all profiles and the active profile.
  * @returns {Promise<{profiles:Array, total:number, active:string|null}>}
  */
 async function listProfiles() {
@@ -211,7 +211,7 @@ async function listProfiles() {
 }
 
 /**
- * Lấy một profile theo tên, hoặc active profile nếu không truyền name.
+ * Get a profile by name, or the active profile if no name is provided.
  * @param {string} [name]
  * @returns {Promise<{name:string, signals:Array<{name:string, permission:string[]}>, description:string|null, section_id:string}>}
  */
@@ -223,7 +223,7 @@ async function fetchProfile(name) {
 }
 
 /**
- * Đổi active profile trên server.
+ * Change the active profile on the server.
  * @param {string} name
  * @returns {Promise<{active:string, warnings?:Array}>}
  */
@@ -238,7 +238,7 @@ async function setActiveProfile(name, options = {}) {
 }
 
 /**
- * Danh sách session active profile theo client.
+ * List active-profile sessions by client.
  * @returns {Promise<{sessions:Array, total:number, global_active:string|null}>}
  */
 async function listProfileSessions(options = {}) {
@@ -248,7 +248,7 @@ async function listProfileSessions(options = {}) {
 }
 
 /**
- * Heartbeat session profile cho client hiện tại.
+ * Send a profile-session heartbeat for the current client.
  * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
  */
 async function heartbeatProfileSession() {
@@ -259,7 +259,7 @@ async function heartbeatProfileSession() {
 }
 
 /**
- * Đánh dấu session profile của client là offline ngay lập tức.
+ * Mark the client's profile session offline immediately.
  * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
  */
 async function markProfileSessionOffline() {
@@ -270,7 +270,7 @@ async function markProfileSessionOffline() {
 }
 
 /**
- * Tạo profile mới.
+ * Create a new profile.
  * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string}} body
  * @returns {Promise<Object>}
  */
@@ -283,8 +283,8 @@ async function createProfile(body) {
 }
 
 /**
- * Cập nhật profile (yêu cầu section_id để tránh xung đột đồng thời).
- * Nếu section_id mismatch → lỗi 409 → gọi fetchProfile() lại rồi thử lại.
+ * Update a profile (requires section_id to avoid concurrent conflicts).
+ * If section_id mismatches → 409 error → call fetchProfile() again and retry.
  * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string, section_id:string}} body
  * @returns {Promise<Object>}
  */
@@ -297,7 +297,7 @@ async function updateProfile(body) {
 }
 
 /**
- * Xóa profile theo tên.
+ * Delete a profile by name.
  * @param {string} name
  */
 async function deleteProfile(name) {
@@ -310,7 +310,7 @@ async function deleteProfile(name) {
 // ── Signals ──────────────────────────────────────────────────────────────────
 
 /**
- * Snapshot hiện tại của tất cả giá trị signal.
+ * Current snapshot of all signal values.
  * @returns {Promise<{items:Array, total:number}>}
  */
 async function fetchSignals() {
@@ -318,8 +318,8 @@ async function fetchSignals() {
 }
 
 /**
- * Full metadata của tất cả signals (gọi 1 lần khi khởi động).
- * Gồm: unit, min/max, alarm thresholds, writable, giá trị hiện tại.
+ * Full metadata for all signals (called once at startup).
+ * Includes: unit, min/max, alarm thresholds, writable flag, current value.
  * @returns {Promise<{signals_info:Array, total:number}>}
  */
 async function fetchAvailableSignals() {
@@ -332,7 +332,7 @@ async function fetchAvailableSignals() {
 }
 
 /**
- * Ghi giá trị lên một writable signal (queue CAN output). HTTP 202 Accepted.
+ * Write a value to a writable signal (queued to CAN output). HTTP 202 Accepted.
  * @param {string} signalName
  * @param {number} value
  * @param {{devMode?:boolean}} [options]
@@ -349,7 +349,7 @@ async function writeSignal(signalName, value, options = {}) {
 }
 
 /**
- * Ghi nhiều writable signals cùng lúc. HTTP 202 Accepted.
+ * Write multiple writable signals at once. HTTP 202 Accepted.
  * @param {Array<{signal_name:string, value:number}>} writes
  * @returns {Promise<{queued:Array, count:number, queued_at:number}>}
  */
@@ -422,7 +422,7 @@ async function exitDevmode(options = {}) {
 // ── Alarms ────────────────────────────────────────────────────────────────────
 
 /**
- * Danh sách alarm chưa được acknowledge.
+ * List of alarms not yet acknowledged.
  * @returns {Promise<{items:Array, total:number}>}
  */
 async function fetchActiveAlarms() {
@@ -430,7 +430,7 @@ async function fetchActiveAlarms() {
 }
 
 /**
- * Acknowledge một alarm theo ID.
+ * Acknowledge an alarm by ID.
  * @param {number} alarmId
  */
 async function acknowledgeAlarm(alarmId) {
@@ -443,7 +443,7 @@ async function acknowledgeAlarm(alarmId) {
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
 
 /**
- * Mở WebSocket tĩnh đến một topic (không có subscribe control, legacy).
+ * Open a fixed WebSocket to a topic (no subscribe control, legacy).
  * @param {"signals"|"alarms"|"all"} topic
  * @param {function(object): void} onMessage
  * @returns {WebSocket}
@@ -461,17 +461,17 @@ function openWebSocket(topic, onMessage) {
 // ── WebSocket (demo-compatible subscribe protocol) ────────────────────────────
 
 /**
- * Mở WebSocket chính đến /ws/signals với subscribe protocol.
+ * Open the main WebSocket to /ws/signals using the subscribe protocol.
  *
  * Demo-compatible:
- *   subscribe(["*"])             → nhận tất cả signals
- *   subscribe(["A", "B"])        → nhận signal A và B
+ *   subscribe(["*"])             → receive all signals
+ *   subscribe(["A", "B"])        → receive signals A and B
  *   subscribe(["*", "alarms"])   → signals + alarm events
- *   subscribe(["metrics"])       → chỉ metrics
- *   ping()                       → server trả {"type": "pong"}
+ *   subscribe(["metrics"])       → metrics only
+ *   ping()                       → server returns {"type": "pong"}
  *
- * @param {function(object): void} onMessage  — gọi mỗi khi nhận message
- * @param {function(): void}       [onOpen]   — gọi khi kết nối thành công
+ * @param {function(object): void} onMessage  — called each time a message is received
+ * @param {function(): void}       [onOpen]   — called when the connection succeeds
  * @returns {{ ws:WebSocket, subscribe:function, unsubscribe:function, ping:function }}
  */
 function openSubscriptionWS(onMessage, onOpen) {
@@ -492,7 +492,7 @@ function openSubscriptionWS(onMessage, onOpen) {
   }
 
   /**
-   * Đăng ký nhận signals/channels.
+   * Subscribe to signals/channels.
    * @param {string[]|string} signals  — e.g. ["EngineSpeed", "*", "alarms", "metrics"]
    * @param {"continuous"|"once"} [mode="continuous"]
    * @param {{rate_ms?:number}} [opts]
@@ -506,7 +506,7 @@ function openSubscriptionWS(onMessage, onOpen) {
   }
 
   /**
-   * Hủy đăng ký signals.
+   * Unsubscribe from signals.
    * @param {string[]} signals
    */
   function unsubscribe(signals) {
@@ -515,7 +515,7 @@ function openSubscriptionWS(onMessage, onOpen) {
     }
   }
 
-  /** Gửi keepalive ping — server trả về {"type": "pong"}. */
+  /** Send a keepalive ping — the server returns {"type": "pong"}. */
   function ping() {
     if (sock.readyState === WebSocket.OPEN) {
       sock.send(JSON.stringify({ type: "ping" }));
@@ -528,7 +528,7 @@ function openSubscriptionWS(onMessage, onOpen) {
 // ── Adaptive Restraint ─────────────────────────────────────────────────────────
 
 /**
- * Lấy danh sách các options lọc hệ thống hỗ trợ thích ứng
+ * Get the list of filter options for the adaptive system
  */
 async function fetchAdaptiveAvailable() {
   const resp = await fetch(`${API_BASE}/adaptive_restraint/available`, { headers: _headers() });
@@ -537,7 +537,7 @@ async function fetchAdaptiveAvailable() {
 }
 
 /**
- * Lấy thống kê và thông tin vẽ biểu đồ Box-plot cho hệ thống thích ứng
+ * Get statistics and Box-plot chart data for the adaptive system
  */
 async function fetchAdaptiveChartInfo(params) {
   const queryParts = [];

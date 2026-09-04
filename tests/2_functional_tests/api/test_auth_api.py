@@ -120,8 +120,8 @@ async def test_list_signals_with_auth(client):
     resp = await client.get("/signals", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 200
     data = resp.json()
-    # Với profile-based access mới, request có thể bị lọc theo scope profile.
-    # Mặc định fixture không gửi X-Profile-Name nên total hiện tại = 0.
+    # With the new profile-based access, the request may be filtered by profile scope.
+    # By default, the fixture does not send X-Profile-Name, so the current total = 0.
     assert data["total"] == 0
     assert data["items"] == []
     assert isinstance(data.get("warnings", []), list)

@@ -1,12 +1,12 @@
-"""Bộ phân tích cơ sở dữ liệu CAN — tải từ file can.json.
+"""CAN database parser — loads from the can.json file.
 
-Nhiệm vụ
---------
-- Tải file can.json chứa định nghĩa thông điệp/tín hiệu
-- Tự động phân bổ ``start_bit`` khi giá trị là ``null``
-- Tự động tính ``minimum``/``maximum`` khi thiếu
-- Giải mã khung CAN thô → ``dict[signal_name, float]``
-- Mã hóa giá trị tín hiệu → ``can.Message``
+Responsibilities
+----------------
+- Load the can.json file containing message/signal definitions
+- Automatically allocate ``start_bit`` when the value is ``null``
+- Automatically compute ``minimum``/``maximum`` when missing
+- Decode raw CAN frames into ``dict[signal_name, float]``
+- Encode signal values into ``can.Message``
 """
 
 from __future__ import annotations
@@ -21,47 +21,47 @@ import can
 logger = logging.getLogger(__name__)
 
 
-# ── Mô hình miền dữ liệu ───────────────────────────────────────────────────────
+# ── Data domain models ──────────────────────────────────────────────────────
 
 
 @dataclass
 class ParsedSignal:
-    """Thông tin tín hiệu đã phân tích từ file DBC / CANdb."""
+    """Parsed signal information loaded from a DBC / CANdb file."""
 
     name: str
     start_bit: int
     length: int
     is_signed: bool
-    byte_order: str  # "little_endian" | "big_endian"  (định dạng byte)
+    byte_order: str  # "little_endian" | "big_endian" (byte order)
     factor: float
     offset: float
     unit: str
     minimum: float | None
     maximum: float | None
     description: str
-    db_source: str  # file nguồn đã tải tín hiệu
+    db_source: str  # source file from which the signal was loaded
     receivers: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ParsedMessage:
-    """Thông tin thông điệp đã phân tích từ file DBC / CANdb."""
+    """Parsed message information loaded from a DBC / CANdb file."""
 
     msg_id: int
     name: str
     dlc: int
     senders: list[str]
-    signals: dict[str, ParsedSignal]  # signal_name → ParsedSignal (ánh xạ tín hiệu)
+    signals: dict[str, ParsedSignal]  # signal_name → ParsedSignal (signal mapping)
     db_source: str
     cycle_ms: int | None = None
     description: str = ""
 
 
-# ── Hàm hỗ trợ thao tác bit ────────────────────────────────────────────────────
+# ── Bit-manipulation helpers ───────────────────────────────────────────────
 
 
 def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
-    """Đánh dấu các bit đã dùng trong bitmask ``used`` (LSB-indexed)."""
+    """Mark bits as used in the ``used`` bitmask (LSB-indexed)."""
     total = len(used)
     for b in range(max(0, start_lsb), min(total, start_lsb + length)):
         used[b] = True
@@ -70,9 +70,9 @@ def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
 def _extract_bits(
     data: bytes, start_bit: int, length: int, is_signed: bool, big_endian: bool
 ) -> int:
-    """Trích xuất giá trị từ byte dữ liệu khung CAN.
+    """Extract a value from CAN frame payload bytes.
 
-    Sử dụng quy ước vectorcast Intel (little-endian).
+    Uses the Intel (little-endian) bit-numbering convention.
     """
     raw = int.from_bytes(data, "little")
     if big_endian:
@@ -96,7 +96,7 @@ def _extract_bits(
 def _insert_bits(
     data: bytearray, raw_int: int, start_bit: int, length: int, is_signed: bool, big_endian: bool
 ) -> None:
-    """Chèn giá trị số nguyên thô vào bytearray tại vị trí bit đã chỉ định."""
+    """Insert a raw integer value into a bytearray at the specified bit position."""
     mask = (1 << length) - 1
     if is_signed and raw_int < 0:
         raw_int = raw_int & mask
@@ -118,11 +118,11 @@ def _insert_bits(
     data[:] = wide.to_bytes(len(data), "little")
 
 
-# ── Giải mã / Mã hóa frame ──────────────────────────────────────────────────
+# ── Frame decoding / encoding ─────────────────────────────────────────────
 
 
 def decode_frame_from_msg(msg: ParsedMessage, data: bytes) -> dict[str, float]:
-    """Giải mã byte CAN thô → dict tín hiệu theo công thức factor/offset."""
+    """Decode raw CAN bytes into a signal dict using factor/offset conversion."""
     if len(data) < msg.dlc:
         # Pad short frames to avoid bit extraction errors
         data = data + b"\x00" * (msg.dlc - len(data))
@@ -139,7 +139,7 @@ def decode_frame_from_msg(msg: ParsedMessage, data: bytes) -> dict[str, float]:
 
 
 def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> bytes:
-    """Mã hóa dict giá trị tín hiệu thành byte dữ liệu khung CAN."""
+    """Encode a signal-value dict into CAN frame payload bytes."""
     data = bytearray(msg.dlc)
     for sig_name, value in signals.items():
         sig = msg.signals.get(sig_name)
@@ -164,18 +164,18 @@ def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> byte
     return bytes(data)
 
 
-# ── DatabaseLoader — tải từ can.json ────────────────────────────────────────
+# ── DatabaseLoader — load from can.json ───────────────────────────────────
 
 
 class DatabaseLoader:
-    """Tải cơ sở dữ liệu CAN từ file ``can.json``.
+    """Load a CAN database from the ``can.json`` file.
 
-    Hỗ trợ:
-    - Tự động phân bổ ``start_bit`` khi giá trị là ``null``
-    - Tự động tính ``minimum``/``maximum`` khi thiếu
-    - Giải mã / mã hóa khung CAN qua công thức factor/offset
+    Supports:
+    - Automatically allocating ``start_bit`` when the value is ``null``
+    - Automatically computing ``minimum``/``maximum`` when missing
+    - Decoding / encoding CAN frames through factor/offset conversion
 
-    Sử dụng::
+    Usage::
 
         loader = DatabaseLoader()
         loader.load("config/can.json")
@@ -189,10 +189,10 @@ class DatabaseLoader:
         self._signal_to_msg: dict[str, int] = {}  # signal_name → msg_id
         self._loaded_files: list[str] = []
 
-    # ── API công khai ──────────────────────────────────────────────────────────
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def load(self, path: str | Path) -> None:
-        """Tải file can.json và gộp định nghĩa thông điệp/tín hiệu."""
+        """Load can.json and merge message/signal definitions."""
         resolved = Path(path)
         if not resolved.exists():
             raise FileNotFoundError(f"can.json not found: {resolved}")
@@ -215,7 +215,7 @@ class DatabaseLoader:
             senders = md.get("senders", [])
             description = md.get("comment", md.get("description", ""))
 
-            # Thu thập raw signal trước để phân bổ start_bit
+            # Collect raw signals first so start_bit can be allocated
             raw_sigs: list[dict] = []
             for sig_name, sd in md.get("signals", {}).items():
                 raw_len = sd.get("length")
@@ -253,7 +253,7 @@ class DatabaseLoader:
                     "receivers": sd.get("receivers", []),
                 })
 
-            # Tìm bit đã dùng (LSB-indexed) — lần quét 1
+            # Find used bits (LSB-indexed) — pass 1
             total_bits = dlc * 8
             used: list[bool] = [False] * total_bits
 
@@ -270,7 +270,7 @@ class DatabaseLoader:
                 if start_lsb >= 0 and start_lsb + rs["length"] <= total_bits:
                     _mark_used_bits(used, start_lsb, rs["length"])
 
-            # Lần quét 2: xây ParsedSignal, phân bổ start_bit nếu null
+            # Pass 2: build ParsedSignal objects and allocate start_bit when null
             parsed_sigs: dict[str, ParsedSignal] = {}
             for rs in raw_sigs:
                 name = rs["name"]
@@ -282,7 +282,7 @@ class DatabaseLoader:
 
                 sb = rs["start_bit"]
                 if sb is None:
-                    # Phân bổ tự động: tìm khoảng bit trống đầu tiên
+                    # Automatic allocation: find the first free bit range
                     found = False
                     for p in range(0, total_bits - length + 1):
                         if all(not used[b] for b in range(p, p + length)):
@@ -310,7 +310,7 @@ class DatabaseLoader:
                         )
                         continue
 
-                # Tính min/max khi thiếu
+                # Compute min/max when missing
                 sig_min = rs["minimum"]
                 sig_max = rs["maximum"]
                 if sig_min is None or sig_max is None:
@@ -399,14 +399,14 @@ class DatabaseLoader:
         return self._signals
 
     def decode_frame(self, msg_id: int, data: bytes) -> dict[str, float]:
-        """Giải mã byte CAN thô → dict tín hiệu."""
+        """Decode raw CAN bytes into a signal dict."""
         msg = self._messages.get(msg_id)
         if msg is None:
             return {}
         return decode_frame_from_msg(msg, data)
 
     def encode_signal(self, signal_name: str, value: float) -> can.Message | None:
-        """Tìm thông điệp chứa ``signal_name`` và mã hóa nó."""
+        """Find the message containing ``signal_name`` and encode it."""
         msg_id = self._signal_to_msg.get(signal_name)
         if msg_id is None:
             logger.debug("Signal not found in DB: %s", signal_name)
@@ -422,7 +422,7 @@ class DatabaseLoader:
         )
 
     def encode_message(self, msg_id: int, signals: dict[str, float]) -> can.Message | None:
-        """Mã hóa toàn bộ thông điệp theo ID với nhiều giá trị tín hiệu."""
+        """Encode an entire message by ID with multiple signal values."""
         msg = self._messages.get(msg_id)
         if msg is None:
             return None
@@ -434,7 +434,7 @@ class DatabaseLoader:
         )
 
     def get_message_for_signal(self, signal_name: str) -> "ParsedMessage | None":
-        """Trả về ParsedMessage chứa signal_name, hoặc None nếu không tìm thấy."""
+        """Return the ParsedMessage containing signal_name, or None if not found."""
         msg_id = self._signal_to_msg.get(signal_name)
         return self._messages.get(msg_id) if msg_id is not None else None
 

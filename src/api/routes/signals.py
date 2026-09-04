@@ -1,4 +1,4 @@
-"""Route REST để đọc tín hiệu thời gian thực và lịch sử, cộng push qua WebSocket."""
+"""REST routes for reading real-time signals and history, plus WebSocket push."""
 
 from __future__ import annotations
 
@@ -133,10 +133,10 @@ async def list_signals(request: Request):
     summary="List all available signals with metadata and alarm thresholds",
 )
 async def list_available_signals(request: Request):
-    """Trả về danh sách đầy đủ metadata của tất cả tín hiệu.
+    """Return the full metadata list for all signals.
 
-    Client gọi 1 lần khi khởi động để lấy cấu trúc, sau đó chỉ subscribe
-    value + timestamp nhẹ qua WebSocket.
+    The client calls this once at startup to get the structure, then only subscribes
+    to lightweight value + timestamp updates over WebSocket.
     """
     import json
     from pathlib import Path
@@ -319,12 +319,12 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
     summary="Write multiple writable signals simultaneously (batch)",
 )
 async def batch_update_signals(body: BatchSignalWrite, request: Request):
-    """Ghi nhiều tín hiệu CAN cùng lúc.
+    """Write multiple CAN signals at once.
 
-    Các tín hiệu thuộc cùng một CAN message được gộp lại và gửi thành một
-    frame duy nhất (read-modify-write: giữ nguyên giá trị các tín hiệu khác
-    trong cùng message không có trong danh sách batch).
-    REST write được broadcast ngay tới tất cả WS clients đang subscribe.
+    Signals belonging to the same CAN message are grouped together and sent as a single
+    frame (read-modify-write: preserve the values of other signals
+    in the same message that are not included in the batch).
+    REST writes are broadcast immediately to all subscribed WS clients.
     """
     writer = getattr(request.app.state, "writer", None)
     if writer is None:
@@ -388,7 +388,7 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
 
 @ws_router.websocket("/signals")
 async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None), profile_name: str | None = Query(None)):
-    """Endpoint WebSocket chính — tương thích với demo API.
+    """Primary WebSocket endpoint — compatible with the demo API.
 
     Client → Server:
         {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
@@ -429,9 +429,9 @@ async def ws_all(websocket: WebSocket, api_key: str | None = Query(None)):
 
 @ws_router.websocket("/subscribe")
 async def ws_subscribe(websocket: WebSocket, api_key: str | None = Query(None), profile_name: str | None = Query(None)):
-    """Alias của /ws/signals — giữ để backward compatible. Khuyến nghị dùng /ws/signals cho client mới.
+    """Alias of /ws/signals — kept for backward compatibility. /ws/signals is recommended for new clients.
 
-    Hỗ trợ đồng thời cả 2 định dạng:
+    Supports both formats:
         {"type": "subscribe", "signals": ["EngineSpeed", "*"]}   # demo format
         {"action": "subscribe", "channels": ["metrics"]}          # legacy format
         {"type": "ping"}  →  {"type": "pong"}

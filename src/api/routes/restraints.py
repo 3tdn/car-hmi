@@ -1,4 +1,4 @@
-"""Route REST cho hệ thống restraint – tìm video phù hợp với điều kiện va chạm.
+"""REST route for the restraint system – find the video matching the crash conditions.
 
 Video filename naming schema:
     {percentile}p_{seat_position}_{velocity}_{seatbelt}.ext

@@ -218,13 +218,13 @@ function getSignalAccessState(signalName, stdName, writable) {
   let reason = '';
   let required = null;
   if (!inScope) {
-    reason = 'Signal nằm ngoài phạm vi profile hiện tại';
+    reason = 'Signal is outside the current profile scope';
     required = 'read/write';
   } else if (!canRead) {
-    reason = 'Signal hiện tại thiếu quyền read';
+    reason = 'Current signal lacks read permission';
     required = 'read';
   } else if (writable && !canWrite) {
-    reason = 'Signal hiện tại thiếu quyền write';
+    reason = 'Current signal lacks write permission';
     required = 'write';
   }
   return { canRead, canWrite, reason, required };
@@ -275,7 +275,7 @@ function requestDangerConfirmation(actionKey, message, ttlMs = 5000) {
     return true;
   }
   pendingDangerAction = { key: actionKey, expiresAt: now + ttlMs };
-  showUiNotice(`${message} (bấm lại trong ${Math.round(ttlMs / 1000)} giây để xác nhận)`, {
+  showUiNotice(`${message} (click again within ${Math.round(ttlMs / 1000)} seconds to confirm)`, {
     level: 'warning',
     source: 'confirm',
     code: 'confirm_required',
@@ -671,8 +671,8 @@ function renderProfileSessionSummary() {
 }
 
 async function sendProfileHeartbeat() {
-  // Fallback heartbeat: cho phép khi chưa từng xác nhận mất kết nối realtime.
-  // Khi đã nhận event disconnect, dừng heartbeat để tránh giữ session online sai.
+  // Fallback heartbeat: allow it until realtime disconnect has been confirmed.
+  // Once a disconnect event has been received, stop the heartbeat to avoid incorrectly keeping the session online.
   if (!isRealtimeConnected() && realtimeDisconnected) return;
   try {
     await heartbeatProfileSession();
@@ -857,7 +857,7 @@ function refreshPermissionDecorations() {
     if (!btn) return;
     const allowed = hasProfilePermission('full');
     btn.classList.toggle('btn--permission-warn', !allowed);
-    btn.title = allowed ? '' : 'Profile hiện tại thiếu quyền full';
+    btn.title = allowed ? '' : 'Current profile lacks full permission';
   });
 }
 

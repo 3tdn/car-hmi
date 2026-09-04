@@ -1,4 +1,4 @@
-"""Xuất dữ liệu tín hiệu và cảnh báo ra file CSV hoặc JSON."""
+"""Export signal and alarm data to CSV or JSON files."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataExporter:
-    """Xuất bản ghi tín hiệu/cảnh báo ra CSV hoặc JSON."""
+    """Export signal/alarm records to CSV or JSON."""
 
     def __init__(self, repository: ISignalRepository) -> None:
         self._repo = repository

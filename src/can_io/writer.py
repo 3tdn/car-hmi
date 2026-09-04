@@ -1,4 +1,4 @@
-"""Mã hóa giá trị tín hiệu thành khung CAN và gửi trên bus."""
+"""Encode signal values into CAN frames and send them on the bus."""
 
 from __future__ import annotations
 
@@ -19,20 +19,20 @@ logger = logging.getLogger(__name__)
 
 
 class CANWriter:
-    """Mã hóa giá trị tín hiệu → khung CAN và gửi trên bus.
+    """Encode signal values into CAN frames and send them on the bus.
 
-    Tất cả hành động ghi được nối tiếp qua ``asyncio.Lock`` để tránh
-    truyền khung đồng thời từ nhiều caller bất đồng bộ.
+    All write operations are serialized through ``asyncio.Lock`` to avoid
+    concurrent frame transmission from multiple async callers.
 
-    Nếu ``signal_store`` được cung cấp, ``send_signal`` sẽ:
-    1. Đọc giá trị hiện tại của các tín hiệu cùng message (read-modify-write)
-       để không zero-out các tín hiệu khác trong cùng CAN frame.
-    2. Cập nhật SignalStore trực tiếp sau khi gửi thành công, vì SocketCAN
-       mặc định không loopback lại frame của chính socket (recv_own_msgs=False).
+    If ``signal_store`` is provided, ``send_signal`` will:
+    1. Read the current values of signals in the same message (read-modify-write)
+       so other signals in the same CAN frame are not zeroed out.
+    2. Update SignalStore directly after a successful send, because SocketCAN
+       does not loop back frames from the same socket by default (recv_own_msgs=False).
 
-    Khi ``periodic_mode=True`` (từ WriterConfig), mỗi lần ``send_signals_batch``
-    sẽ gửi ngay lập tức, sau đó tiếp tục gửi lại theo chu kỳ ``periodic_time_step`` ms
-    trong tổng thời gian ``periodic_duration`` ms.  Rate-limit và burst bị bỏ qua.
+    When ``periodic_mode=True`` (from WriterConfig), each ``send_signals_batch``
+    sends immediately, then continues retransmitting at ``periodic_time_step`` ms intervals
+    for a total duration of ``periodic_duration`` ms. Rate limiting and burst are ignored.
     """
 
     def __init__(
@@ -43,12 +43,12 @@ class CANWriter:
         writer_config: "WriterConfig | None" = None,
     ) -> None:
         """
-        Tham số:
-            bus:           Đối tượng ``can.Bus`` mở để ghi vào.
-            db:            ``DatabaseLoader`` dùng để mã hóa tín hiệu.
-            signal_store:  Tham chiếu tới SignalStore để read-modify-write và
-                           cập nhật dashboard sau khi gửi (tuỳ chọn).
-            writer_config: Cấu hình writer (periodic mode, rate limit, ...).
+        Args:
+            bus:           Open ``can.Bus`` object used for transmission.
+            db:            ``DatabaseLoader`` used to encode signals.
+            signal_store:  Reference to SignalStore for read-modify-write and
+                           dashboard updates after sending (optional).
+            writer_config: Writer configuration (periodic mode, rate limit, ...).
         """
         self._bus = bus
         self._db = db
@@ -66,45 +66,45 @@ class CANWriter:
             self._periodic_time_step_ms = 20
             self._periodic_duration_ms = 10000
 
-        # Quản lý periodic tasks: msg_id → asyncio.Task
+        # Periodic task management: msg_id → asyncio.Task
         self._periodic_tasks: dict[int, asyncio.Task] = {}
 
     async def send_signal(self, name: str, value: float) -> None:
-        """Mã hóa một tín hiệu và truyền khung CAN tương ứng.
+        """Encode a single signal and transmit the corresponding CAN frame.
 
-        Delegate sang ``send_signals_batch`` để dùng chung logic
-        read-modify-write (giữ nguyên các tín hiệu khác cùng message).
+        Delegates to ``send_signals_batch`` so both paths share the same
+        read-modify-write logic (preserving the other signals in the same message).
 
-        Tham số:
-            name:  Tên tín hiệu theo định nghĩa trong cơ sở dữ liệu DBC/CANdb.
-            value: Giá trị vật lý (đơn vị kỹ thuật).
+        Args:
+            name:  Signal name as defined in the DBC/CANdb database.
+            value: Physical value (engineering units).
 
-        Ngoại lệ:
-            ValueError: nếu tín hiệu ``name`` không tìm thấy trong DB.
-            can.CanError: nếu ``bus.send()`` thất bại.
+        Raises:
+            ValueError: if signal ``name`` is not found in the DB.
+            can.CanError: if ``bus.send()`` fails.
         """
         await self.send_signals_batch({name: value})
 
     async def send_signals_batch(self, signals: dict[str, float]) -> dict[str, float]:
-        """Gộp nhiều tín hiệu theo message ID rồi gửi mỗi message một frame duy nhất.
+        """Group multiple signals by message ID and send exactly one frame per message.
 
-        Với mỗi CAN message được đề cập trong ``signals``:
-        - Đọc giá trị hiện tại của tất cả tín hiệu còn lại trong message từ
-          SignalStore (read-modify-write) để không zero-out chúng.
-        - Ghi đè bằng các giá trị mới trong ``signals``.
-        - Mã hoá và gửi một frame CAN duy nhất cho message đó.
+        For each CAN message referenced in ``signals``:
+        - Read the current values of all remaining signals in the message from
+          SignalStore (read-modify-write) so they are not zeroed out.
+        - Override them with the new values in ``signals``.
+        - Encode and send a single CAN frame for that message.
 
-        Tham số:
-            signals: dict {signal_name → giá_trị_vật_lý} cho tất cả tín hiệu cần ghi.
+        Args:
+            signals: dict {signal_name → physical_value} for all signals to write.
 
-        Trả về:
-            dict {signal_name → value} của các tín hiệu đã được gửi thành công.
+        Returns:
+            dict {signal_name → value} for the signals that were sent successfully.
 
-        Ngoại lệ:
-            ValueError: nếu một tín hiệu không tìm thấy trong DB của kênh này.
+        Raises:
+            ValueError: if a signal is not found in this channel's DB.
         """
-        # ── Bước 1: gom nhóm theo message ─────────────────────────────────────
-        from src.can_io.parser import ParsedMessage  # tránh circular ở top-level
+        # ── Step 1: group by message ────────────────────────────────────────────
+        from src.can_io.parser import ParsedMessage  # avoid top-level circular import
 
         msg_groups: dict[int, dict[str, float]] = {}
         msg_defs: dict[int, ParsedMessage] = {}
@@ -120,7 +120,7 @@ class CANWriter:
                 msg_defs[msg_def.msg_id] = msg_def
             msg_groups[msg_def.msg_id][sig_name] = value
 
-        # ── Bước 2: gửi một frame duy nhất cho mỗi message ────────────────────
+        # ── Step 2: send a single frame for each message ───────────────────────
         sent: dict[str, float] = {}
         ts = time.time()
 
@@ -129,11 +129,11 @@ class CANWriter:
             await self._send_frame(msg_id, msg_def, sig_values, ts)
 
             if self._periodic_mode:
-                # Hủy periodic task cũ (nếu có) cho msg_id này
+                # Cancel the previous periodic task (if any) for this msg_id
                 old_task = self._periodic_tasks.pop(msg_id, None)
                 if old_task is not None and not old_task.done():
                     old_task.cancel()
-                # Khởi động periodic task mới
+                # Start a new periodic task
                 task = asyncio.create_task(
                     self._periodic_sender(msg_id, msg_def, dict(sig_values)),
                     name=f"periodic-writer-{msg_id:#x}",
@@ -142,9 +142,9 @@ class CANWriter:
 
             sent.update(sig_values)
 
-        # ── Bước 3: cập nhật SignalStore (fire-and-forget) ───────────────────
-        # Tách khỏi await chain để response HTTP trả về ngay sau khi CAN frame
-        # đã được gửi, không bị block bởi WS broadcast.
+        # ── Step 3: update SignalStore (fire-and-forget) ──────────────────────
+        # Keep this off the await chain so the HTTP response can return right after the CAN frame
+        # has been sent, without being blocked by WebSocket broadcasting.
         if self._store is not None and sent:
             asyncio.create_task(self._store.bulk_update(sent, timestamp=ts))
 
@@ -157,7 +157,7 @@ class CANWriter:
         sig_values: dict[str, float],
         ts: float,
     ) -> None:
-        """Thực hiện read-modify-write rồi gửi một CAN frame cho ``msg_id``."""
+        """Perform read-modify-write and then send one CAN frame for ``msg_id``."""
         signals_to_encode: dict[str, float] = {}
         if self._store is not None:
             for sig_name in msg_def.signals:
@@ -197,7 +197,7 @@ class CANWriter:
         msg_def: object,
         sig_values: dict[str, float],
     ) -> None:
-        """Gửi lặp lại CAN frame mỗi ``periodic_time_step`` ms trong ``periodic_duration`` ms."""
+        """Repeatedly send a CAN frame every ``periodic_time_step`` ms for ``periodic_duration`` ms."""
         interval = self._periodic_time_step_ms / 1000.0
         deadline = time.monotonic() + self._periodic_duration_ms / 1000.0
         try:
@@ -220,15 +220,15 @@ class CANWriter:
             )
 
     async def send_message(self, msg_id: int, signals: dict[str, float]) -> None:
-        """Mã hóa toàn bộ thông điệp theo ID và gửi đi.
+        """Encode an entire message by ID and send it.
 
-        Tham số:
-            msg_id:  ID phân xử lý CAN.
-            signals: Dict {signal_name: giá_trị_vật_lý} cho tất cả tín hiệu cần mã hóa.
+        Args:
+            msg_id:  CAN arbitration ID.
+            signals: Dict {signal_name: physical_value} for all signals to encode.
 
-        Ngoại lệ:
-            ValueError: nếu ``msg_id`` không tìm thấy trong DB.
-            can.CanError: khi gửi thất bại.
+        Raises:
+            ValueError: if ``msg_id`` is not found in the DB.
+            can.CanError: if sending fails.
         """
         msg = self._db.encode_message(msg_id, signals)
         if msg is None:
@@ -252,10 +252,10 @@ class CANWriter:
 
 
 class CANWriterRouter:
-    """Định tuyến yêu cầu ghi tín hiệu đến đúng CANWriter theo kênh.
+    """Route signal write requests to the correct CANWriter by channel.
 
-    Xây dựng bảng ánh xạ O(1): signal_name → CANWriter, msg_id → CANWriter
-    để tránh tìm kiếm tuyến tính khi ghi.
+    Builds O(1) lookup maps: signal_name → CANWriter, msg_id → CANWriter
+    to avoid linear searches during writes.
     """
 
     def __init__(self) -> None:
@@ -264,7 +264,7 @@ class CANWriterRouter:
         self._writers: list[CANWriter] = []
 
     def register(self, db: DatabaseLoader, writer: CANWriter) -> None:
-        """Đăng ký một CANWriter cùng DatabaseLoader tương ứng."""
+        """Register a CANWriter together with its corresponding DatabaseLoader."""
         self._writers.append(writer)
         for sig_name in db.signals:
             if sig_name in self._signal_to_writer:
@@ -286,7 +286,7 @@ class CANWriterRouter:
             self._msgid_to_writer[msg_id] = writer
 
     async def send_signal(self, name: str, value: float) -> None:
-        """Định tuyến và gửi tín hiệu qua đúng kênh CAN."""
+        """Route and send a signal through the correct CAN channel."""
         writer = self._signal_to_writer.get(name)
         if writer is None:
             raise ValueError(
@@ -295,7 +295,7 @@ class CANWriterRouter:
         await writer.send_signal(name, value)
 
     async def send_message(self, msg_id: int, signals: dict[str, float]) -> None:
-        """Định tuyến và gửi thông điệp qua đúng kênh CAN."""
+        """Route and send a message through the correct CAN channel."""
         writer = self._msgid_to_writer.get(msg_id)
         if writer is None:
             raise ValueError(
@@ -306,20 +306,20 @@ class CANWriterRouter:
     async def send_signals_batch(
         self, signals: dict[str, float]
     ) -> tuple[dict[str, float], list[dict]]:
-        """Gộp batch tín hiệu theo kênh rồi gửi, mỗi CAN message chỉ một frame.
+        """Group a signal batch by channel and send it, with one frame per CAN message.
 
-        Tín hiệu không tìm thấy trên bất kỳ kênh nào được thu thập vào danh sách
-        lỗi thay vì ném ngoại lệ, để các tín hiệu hợp lệ vẫn được gửi.
+        Signals not found on any channel are collected into an error list
+        instead of raising an exception, so valid signals can still be sent.
 
-        Tham số:
-            signals: dict {canonical_signal_name → giá_trị_vật_lý}
+        Args:
+            signals: dict {canonical_signal_name → physical_value}
 
-        Trả về:
+        Returns:
             (sent, errors)
-            - sent:   dict {signal_name → value} các tín hiệu đã gửi thành công
-            - errors: list[{"signal_name": ..., "error": ...}] các tín hiệu thất bại
+            - sent:   dict {signal_name → value} for signals sent successfully
+            - errors: list[{"signal_name": ..., "error": ...}] for failed signals
         """
-        # ── Phân loại signal → writer ──────────────────────────────────────────
+        # ── Classify signal → writer ───────────────────────────────────────────
         writer_groups: dict[int, tuple[CANWriter, dict[str, float]]] = {}
         errors: list[dict] = []
 
@@ -338,14 +338,14 @@ class CANWriterRouter:
                 writer_groups[wid] = (writer, {})
             writer_groups[wid][1][sig_name] = value
 
-        # ── Gửi batch cho từng kênh ────────────────────────────────────────────
+        # ── Send batches for each channel ───────────────────────────────────────
         sent: dict[str, float] = {}
         for writer, sig_map in writer_groups.values():
             try:
                 result = await writer.send_signals_batch(sig_map)
                 sent.update(result)
             except ValueError as exc:
-                # Đưa toàn bộ tín hiệu của kênh này vào errors
+                # Put every signal from this channel into errors
                 for sig_name in sig_map:
                     errors.append({"signal_name": sig_name, "error": str(exc), "kind": "value"})
             except can.CanError as exc:

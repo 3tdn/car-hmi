@@ -5,18 +5,25 @@ skinparam responseMessageBelowArrow true
 
 title Sequence Diagram — Subscribe-based Data Streaming
 
-actor       "Frontend\n(Browser)"  as FE
-participant "FastAPI\nREST"        as REST
-participant "ConnectionManager\n(websocket.py)" as WS
+actor       "Frontend
+(Browser)"  as FE
+participant "FastAPI
+REST"        as REST
+participant "ConnectionManager
+(websocket.py)" as WS
 participant "SignalStore"          as SS
-participant "SystemMetrics\n(runner)"  as SM
+participant "SystemMetrics
+(runner)"  as SM
 
 == Phase 1: Initial Metadata Fetch (One-Time, Heavy) ==
 
 FE -> REST : GET /signals/available
 REST -> SS : get_snapshot()
-REST -> REST : merge signals.json\n+ alarms.json
-REST --> FE : 200 SignalMetadataListResponse\n(unit, min, max, widget, alarm\nthresholds, value, status, timestamp)
+REST -> REST : merge signals.json
++ alarms.json
+REST --> FE : 200 SignalMetadataListResponse
+(unit, min, max, widget, alarm
+thresholds, value, status, timestamp)
 
 note right of FE
   Frontend caches metadata locally.
@@ -29,8 +36,12 @@ end note
 FE -> WS : WS /ws/subscribe
 WS --> FE : accept (handshake)
 
-FE -> WS : {"action":"subscribe",\n"channels":["EngineSpeed","BatterySOC",\n"alarms","metrics"],\n"mode":"continuous"}
-WS -> WS : acquire _lock\nmutate subscription state
+FE -> WS : {"action":"subscribe",
+"channels":["EngineSpeed","BatterySOC",
+"alarms","metrics"],
+"mode":"continuous"}
+WS -> WS : acquire _lock
+mutate subscription state
 WS --> FE : {"type":"subscribe_ack", ...}
 
 note right of WS
@@ -44,49 +55,66 @@ end note
 
 == Phase 3: Lightweight Value Streaming ==
 
-SS -> WS : signal update\n("EngineSpeed", 2750.0, 1719800001.5)
-WS -> WS : filter: client subscribed\nto "EngineSpeed"? YES
-WS --> FE : {"type":"signal",\n"signal":"EngineSpeed",\n"value":2750.0,\n"timestamp":1719800001.5}
+SS -> WS : signal update
+("EngineSpeed", 2750.0, 1719800001.5)
+WS -> WS : filter: client subscribed
+to "EngineSpeed"? YES
+WS --> FE : {"type":"signal",
+"signal":"EngineSpeed",
+"value":2750.0,
+"timestamp":1719800001.5}
 
 note right of FE
-  Frontend cập nhật widget dùng
+  Frontend updates the widget using
   cached metadata (unit=rpm, min=0, max=8000)
-  → chỉ nhận value + timestamp (nhẹ)
+  → receives only value + timestamp (lightweight)
 end note
 
-SS -> WS : signal update\n("SteeringAngle", -5.0, ...)
-WS -> WS : filter: client subscribed\nto "SteeringAngle"? NO
+SS -> WS : signal update
+("SteeringAngle", -5.0, ...)
+WS -> WS : filter: client subscribed
+to "SteeringAngle"? NO
 WS ->x WS : skip — not sent
 
 == Phase 4: Alarm Push ==
 
-WS --> FE : {"type":"alarm",\n"signal_name":"BatterySOC",\n"level":"warning", ...}
+WS --> FE : {"type":"alarm",
+"signal_name":"BatterySOC",
+"level":"warning", ...}
 
 == Phase 5: Metrics Push ==
 
 SM -> WS : broadcast_metrics({...})
-WS --> FE : {"type":"metrics",\n"cpu_percent":23.4,\n"ram_percent":41.0, ...}
+WS --> FE : {"type":"metrics",
+"cpu_percent":23.4,
+"ram_percent":41.0, ...}
 
 == Phase 6: Dynamic Subscribe/Unsubscribe ==
 
-FE -> WS : {"action":"subscribe",\n"channels":["WheelSpeed_FL"],\n"mode":"continuous"}
+FE -> WS : {"action":"subscribe",
+"channels":["WheelSpeed_FL"],
+"mode":"continuous"}
 WS --> FE : subscribe_ack
 
-FE -> WS : {"action":"unsubscribe",\n"channels":["BatterySOC"]}
+FE -> WS : {"action":"unsubscribe",
+"channels":["BatterySOC"]}
 WS --> FE : subscribe_ack
 
 note right of FE
-  Client có thể thay đổi danh sách channel
-  bất kỳ lúc nào → server cập nhật filter
-  → giảm băng thông linh hoạt.
+  The client can change the channel list
+  at any time → the server updates the filter
+  → reduces bandwidth flexibly.
 end note
 
 == Phase 7: One-Shot Mode ==
 
-FE -> WS : {"action":"subscribe",\n"channels":["EngineTemp"],\n"mode":"once"}
+FE -> WS : {"action":"subscribe",
+"channels":["EngineTemp"],
+"mode":"once"}
 WS --> FE : subscribe_ack
 SS -> WS : signal update ("EngineTemp", 85.3, ...)
 WS --> FE : {"type":"signal","signal":"EngineTemp","value":85.3, ...}
-WS -> WS : auto-unsubscribe\n"EngineTemp" (once mode)
+WS -> WS : auto-unsubscribe
+"EngineTemp" (once mode)
 
 @enduml
