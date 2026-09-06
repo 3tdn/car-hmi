@@ -99,7 +99,7 @@
   "writer": {
     "rate_limit_per_sec": 10,
     "burst": 5,
-    "periodic_mode": true,
+    "periodic_mode": false,
     "periodic_time_step": 20,
     "periodic_duration": 10000
   },
