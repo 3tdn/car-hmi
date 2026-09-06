@@ -43,9 +43,9 @@ def write_json(path: Path, data: dict) -> None:
 
 
 def parse_dbc_files(paths: list[Path]) -> Dict[str, Any]:
-    """Trả về ánh xạ signal_name -> dict(thông tin) sử dụng cantools.
+    """Return a signal_name -> dict(info) mapping using cantools.
 
-    Thông tin bao gồm: minimum, maximum, unit (khi có).
+    Information includes: minimum, maximum, unit (when available).
     """
     if cantools is None:
         logger.error("cantools not installed. Install with: pip install cantools")

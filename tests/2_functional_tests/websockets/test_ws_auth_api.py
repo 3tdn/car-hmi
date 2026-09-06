@@ -113,7 +113,7 @@ async def client():
 @pytest.mark.asyncio
 
 def test_ws_subscribe_ack_warns_for_signal_outside_profile(monkeypatch, tmp_path):
-    """Subscribe ack trả warnings khi client yêu cầu signal ngoài profile scope."""
+    """Subscribe ack returns warnings when the client requests a signal outside the profile scope."""
     import src.api.routes.profiles as profile_routes
     from starlette.testclient import TestClient
 

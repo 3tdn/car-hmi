@@ -95,7 +95,7 @@ def _setup_logging(cfg: AppConfig) -> None:
 
 
 def _db_total_size(db_path: "Path") -> int:
-    """Tổng kích thước file .db + .db-wal + .db-shm (bytes)."""
+    """Total size of the .db + .db-wal + .db-shm files (bytes)."""
     total = 0
     for suffix in ("", "-wal", "-shm"):
         p = Path(str(db_path) + suffix)
@@ -157,16 +157,16 @@ class AppRunner:
         self._start_time = time.time()
 
         loop = asyncio.get_running_loop()
-        # Đăng ký xử lý tín hiệu. Trên một số nền tảng (nhất là Windows) vòng lặp sự kiện
-        # không hỗ trợ add_signal_handler; khi đó dùng signal.signal() đồng bộ và lập lịch
-        # coroutine an toàn trên luồng event loop.
+        # Register signal handlers. On some platforms (especially Windows), the event loop
+        # does not support add_signal_handler; in that case use synchronous signal.signal() and schedule the
+        # coroutine safely onto the event-loop thread.
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(self.shutdown()))
             except NotImplementedError:
 
                 def _sync_handler(_signum, _frame):
-                    # Lập lịch tắt trong luồng event loop
+                    # Schedule shutdown on the event-loop thread
                     loop.call_soon_threadsafe(lambda: asyncio.create_task(self.shutdown()))
 
                 signal.signal(sig, _sync_handler)
@@ -182,7 +182,7 @@ class AppRunner:
             # from self._tasks while we are waiting here.
             tasks = tuple(self._tasks)
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            # Phát hiện lỗi nhiệm vụ nghiêm trọng và kích hoạt tắt
+            # Detect critical task failures and trigger shutdown
             for task, result in zip(tasks, results):
                 if isinstance(result, Exception):
                     logger.error("Task '%s' failed: %s", task.get_name(), result)
@@ -217,7 +217,7 @@ class AppRunner:
         store_cfg = self.config.storage
         sim_cfg = self.config.simulator
 
-        # 1. CAN DB — tải mỗi kênh từ can.json riêng ──────────────────────────
+        # 1. CAN DB — load each channel from its own can.json ───────────────────
         all_signals: dict[str, object] = {}
         for ch_cfg in can_channels:
             db_loader = DatabaseLoader()
@@ -237,7 +237,7 @@ class AppRunner:
                 "Channel '%s': %s", ch_cfg.channel, db_loader.summary(),
             )
 
-        # Khởi tạo SignalStore với tất cả tín hiệu đã biết (giá trị ban đầu + đơn vị)
+        # Initialize SignalStore with all known signals (initial values + units)
         try:
             import time
 
@@ -265,7 +265,7 @@ class AppRunner:
         self._db_conn = await init_db(str(db_path))
         self._repo = SQLiteRepository(self._db_conn)
 
-        # 3. Signal Pipeline (dùng chung 1 queue cho tất cả kênh) ──────────────
+        # 3. Signal Pipeline (share one queue across all channels) ───────────────
         rx_queue: asyncio.Queue = asyncio.Queue(maxsize=proc_cfg.max_queue_size)
         self._rx_queue = rx_queue
 
@@ -287,8 +287,8 @@ class AppRunner:
             checker.add_alarm_handler(self._on_alarm)
             self._pipeline.add_stage(checker)
 
-        # 4. Kiểm tra simulator sớm — trước khi mở bus ─────────────────────────
-        # Tự động tắt nếu có kênh dùng hardware thực (non-virtual)
+        # 4. Check the simulator early — before opening the bus ──────────────────
+        # Automatically disable it if any channel uses real hardware (non-virtual)
         real_interfaces = [ch.interface for ch in can_channels if ch.interface != "virtual"]
         if sim_cfg.enabled and real_interfaces:
             logger.info(
@@ -297,7 +297,7 @@ class AppRunner:
             )
             sim_cfg = type(sim_cfg)(**{**sim_cfg.model_dump(), "enabled": False})
 
-        # 5. CAN Bus + Reader + Writer — mỗi kênh riêng ───────────────────────
+        # 5. CAN Bus + Reader + Writer — one set per channel ────────────────────
         writer_router = CANWriterRouter()
         for idx, ch_cfg in enumerate(can_channels):
             db_loader = self._db_loaders[idx]
@@ -332,14 +332,14 @@ class AppRunner:
 
         self._writer_router = writer_router
 
-        # 6. CAN Simulator (tùy chọn) ───────────────────────────────────────────
+        # 6. CAN Simulator (optional) ────────────────────────────────────────────
         if sim_cfg.enabled:
             self._simulator = await self._build_simulator(sim_cfg)
 
-        # 6. Máy chủ FastAPI ─────────────────────────────────────────────────────
+        # 6. FastAPI server ──────────────────────────────────────────────────────
         self._fastapi_server = await self._build_api_server()
 
-        # Lên lịch tất cả tác vụ async
+        # Schedule all async tasks
         self._tasks = [
             asyncio.create_task(self._pipeline.start(), name="pipeline"),
         ]
@@ -383,7 +383,7 @@ class AppRunner:
 
 
     def _load_alarm_configs(self) -> list:
-        """Tải cấu hình ngưỡng cảnh báo từ config/alarms.json."""
+        """Load alarm-threshold configuration from config/alarms.json."""
         import json
         from src.core.config import load_config
         from src.processor.alarms import AlarmConfig
@@ -419,7 +419,7 @@ class AppRunner:
         return configs
 
     async def _on_alarm(self, alarm) -> None:
-        """Lưu cảnh báo vào storage và đẩy qua WebSocket."""
+        """Store an alarm and push it over WebSocket."""
         import time
 
         from src.storage.repository import AlarmRecord
@@ -459,7 +459,7 @@ class AppRunner:
             logger.error("Failed to store/broadcast alarm: %s", exc)
 
     async def _build_simulator(self, sim_cfg) -> object | None:
-        """Xây dựng CANSimulator nếu cấu hình simulator tồn tại."""
+        """Build CANSimulator if simulator configuration exists."""
         from src.can_simulator.simulator import CANSimulator
 
         can_json_path = Path(sim_cfg.can_json_path)
@@ -481,7 +481,7 @@ class AppRunner:
         )
 
     async def _build_api_server(self):
-        """Xây dựng FastAPI + coroutine chạy uvicorn."""
+        """Build FastAPI and the coroutine that runs uvicorn."""
         try:
             import uvicorn
 
@@ -531,7 +531,7 @@ class AppRunner:
                 logger.exception("WS batch flush failed")
                 ws_batch_task = None
 
-        # Đăng ký SignalStore để phát sóng qua WebSocket
+        # Register SignalStore for WebSocket broadcasting
         async def _broadcast_signal(name: str, sv) -> None:
             nonlocal ws_batch_task
             pending_ws_updates[name] = (sv.value, sv.timestamp)
@@ -551,7 +551,7 @@ class AppRunner:
         self._uvicorn_server = server
 
         async def _serve_safe() -> None:
-            """Bọ server.serve vào try/except để chuyển SystemExit thành ngoại lệ thông thường."""
+            """Wrap server.serve in try/except to convert SystemExit into a normal exception."""
             try:
                 await server.serve()
             except asyncio.CancelledError:
@@ -626,7 +626,7 @@ class AppRunner:
         return {"ok": True, "migrated": migrated, "new_maxsize": new_maxsize}
 
     async def _metrics_broadcaster(self) -> None:
-        """Broadcast system metrics qua WS tới subscriber đã đăng ký channel 'metrics'."""
+        """Broadcast system metrics over WS to subscribers registered for the 'metrics' channel."""
         from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
         # metrics interval configurable via API config; default 3s -> allow float
@@ -765,9 +765,9 @@ class AppRunner:
             await asyncio.sleep(interval_sec)
 
     async def _retention_cleanup(self) -> None:
-        """Xóa bản ghi signal_log theo hai tiêu chí:
-        1. Time-based: xóa các bản ghi cũ hơn retention_days mỗi 1 giờ.
-        2. Size-based: xóa oldest rows rồi VACUUM nếu file DB vượt max_disk_mb.
+        """Delete signal_log records using two criteria:
+        1. Time-based: delete records older than retention_days every 1 hour.
+        2. Size-based: delete oldest rows and then VACUUM if the DB file exceeds max_disk_mb.
         """
         import time as _time_mod
 
@@ -784,7 +784,7 @@ class AppRunner:
                 if deleted:
                     logger.info("Retention cleanup: deleted %d old signal records", deleted)
 
-                # Size-based enforcement: trim oldest rows nếu DB vượt max_disk_mb
+                # Size-based enforcement: trim oldest rows if the DB exceeds max_disk_mb
                 if max_bytes > 0 and self._repo is not None:
                     db_size = _db_total_size(db_path)
                     if db_size > max_bytes:
@@ -807,7 +807,7 @@ class AppRunner:
                 logger.exception("Retention cleanup failed")
 
     async def _watchdog(self) -> None:
-        """Kiểm tra sức khỏe định kỳ — ghi log trạng thái và có thể khởi động lại các thành phần."""
+        """Perform periodic health checks — log status and potentially restart components."""
         interval = self.config.supervisor.watchdog_interval_sec
         while not self._shutting_down:
             await asyncio.sleep(interval)
@@ -861,7 +861,7 @@ class AppRunner:
                 raise RuntimeError(f"Unrecoverable CAN reader failure: {reader_fatal}")
 
     async def shutdown(self) -> None:
-        """Tắt đúng cách: flush pipeline, dừng reader, đóng DB."""
+        """Shut down cleanly: flush the pipeline, stop readers, and close the DB."""
         if self._shutting_down:
             return
         self._shutting_down = True

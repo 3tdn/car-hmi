@@ -1,4 +1,4 @@
-"""Bộ đọc khung CAN bất đồng bộ hỗ trợ giải mã đầy đủ (DBC / CANdb JSON / A2L)."""
+"""Asynchronous CAN frame reader with full decoding support (DBC / CANdb JSON / A2L)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from src.can_io.parser import DatabaseLoader
 
 logger = logging.getLogger(__name__)
 
-# Tần suất tối thiểu để log cảnh báo drop frames (tránh spam).
+# Minimum interval for logging dropped-frame warnings (avoid spam).
 _DROP_WARN_INTERVAL_SEC = 5.0
 
 
@@ -37,13 +37,13 @@ class DecodedFrame:
 
 
 class CANReader:
-    """Bất đồng bộ đọc khung CAN, giải mã qua DatabaseLoader.
+    """Asynchronously read CAN frames and decode them via DatabaseLoader.
 
-    Khung đã giải mã được đưa vào asyncio.Queue cho SignalPipeline.
-    Hỗ trợ:
-    - Bộ lọc danh sách cho phép theo CAN ID (tùy chọn)
-    - Tự kết nối lại khi lỗi bus (backoff mũ  1 s → 30 s)
-    - Callback mở lại bus sạch sẽ khi kết nối lại
+    Decoded frames are pushed into an asyncio.Queue for SignalPipeline.
+    Supports:
+    - Allowlist filtering by CAN ID (optional)
+    - Automatic reconnection on bus errors (exponential backoff 1 s → 30 s)
+    - A callback for cleanly reopening the bus during reconnect
     """
 
     def __init__(
@@ -59,20 +59,20 @@ class CANReader:
         priority_sec: float = 0.0,
     ) -> None:
         """
-        Tham số:
-            bus:            Đối tượng ``can.Bus`` đã mở.
-            db:             ``DatabaseLoader`` đã tải các định nghĩa thông điệp/tín hiệu.
-            queue:          Hàng đợi đầu ra cho khung đã giải mã.
-            filter_ids:     Nếu không rỗng, chỉ xử lý khung có những ID này.
-            bus_factory:    Callable để mở lại bus khi mất kết nối (tùy chọn).
-            max_reconnect_retries: Số lần thử kết nối lại tối đa liên tiếp.
-            max_rate_hz:    Nếu > 0, rate-gate mỗi msg_id — bỏ qua frame nếu
-                            cùng ID vừa được enqueue trong vòng 1/max_rate_hz giây.
-                            Giúp tránh queue full khi simulator gửi nhanh hơn
-                            pipeline tiêu thụ.
-            priority_sec:   Nếu > 0, tín hiệu chưa được enqueue trong khoảng thời
-                            gian này sẽ được buộc đưa vào queue dù giá trị không đổi.
-                            Đảm bảo không bỏ lỡ tín hiệu có tần suất thay đổi thấp.
+        Args:
+            bus:            An open ``can.Bus`` object.
+            db:             ``DatabaseLoader`` with loaded message/signal definitions.
+            queue:          Output queue for decoded frames.
+            filter_ids:     If not empty, process only frames with these IDs.
+            bus_factory:    Callable used to reopen the bus after disconnection (optional).
+            max_reconnect_retries: Maximum number of consecutive reconnect attempts.
+            max_rate_hz:    If > 0, rate-gate each msg_id — drop a frame if
+                            the same ID was just enqueued within 1/max_rate_hz seconds.
+                            Helps prevent queue overflows when the simulator sends faster
+                            than the pipeline can consume.
+            priority_sec:   If > 0, signals not enqueued within this
+                            time window are forced into the queue even if their value is unchanged.
+                            Ensures low-frequency-changing signals are not missed.
         """
         self._bus = bus
         self._db = db
@@ -106,13 +106,13 @@ class CANReader:
         self._recv_thread: threading.Thread | None = None
 
     async def start(self) -> None:
-        """Bắt đầu đọc khung CAN — chạy đến khi ``stop()`` được gọi.
+        """Start reading CAN frames — runs until ``stop()`` is called.
 
-        Kiến trúc:
-        - Thread riêng gọi ``bus.recv()`` trong vòng lặp chặt (không có asyncio overhead/frame).
-        - Mỗi frame được post về event loop qua ``call_soon_threadsafe`` rất nhẹ (~0.5 µs).
-        - Làm giảm overhead từ ~10 µs/frame (run_in_executor) xuống ~0.5 µs/frame.
-        - Thích hợp cho tốc độ 5,000-10,000 frames/s trên CAN FD 8 Mbps.
+        Architecture:
+        - A dedicated thread calls ``bus.recv()`` in a tight loop (no asyncio overhead per frame).
+        - Each frame is posted back to the event loop through lightweight ``call_soon_threadsafe`` (~0.5 µs).
+        - Reduces overhead from ~10 µs/frame (run_in_executor) down to ~0.5 µs/frame.
+        - Suitable for rates of 5,000-10,000 frames/s on 8 Mbps CAN FD.
         """
         self._running = True
         self._fatal_error = None
@@ -127,7 +127,7 @@ class CANReader:
         try:
             while self._running:
                 await asyncio.sleep(0.5)
-                # Watchdog: nếu thread chết bất ngờ, thử reconnect
+                # Watchdog: if the thread dies unexpectedly, try reconnecting
                 if not self._recv_thread.is_alive() and self._running:
                     logger.warning("CAN recv thread exited unexpectedly — reconnecting...")
                     await self._reconnect()
@@ -143,7 +143,7 @@ class CANReader:
             logger.info("CAN Reader stopped.")
 
     def _spawn_recv_thread(self, event_loop: asyncio.AbstractEventLoop) -> threading.Thread:
-        """Tạo và khửi chạy thread nhận khung mới."""
+        """Create and start a new receive thread."""
         t = threading.Thread(
             target=self._recv_loop,
             args=(event_loop,),
@@ -154,10 +154,10 @@ class CANReader:
         return t
 
     def _recv_loop(self, event_loop: asyncio.AbstractEventLoop) -> None:
-        """Chạy trong OS thread riêng: vòng lặp recv() chặt, post frame qua call_soon_threadsafe.
+        """Run in a dedicated OS thread: a tight recv() loop that posts frames via call_soon_threadsafe.
 
-        Không có asyncio overhead cho mỗi lần gọ recv() — loại bỏ hoàn toàn
-        chi phí schedule của run_in_executor (~5-10 µs/frame).
+        There is no asyncio overhead for each recv() call — this completely removes
+        the scheduling cost of run_in_executor (~5-10 µs/frame).
         """
         logger.debug("CAN recv thread started (tid=%d)", threading.get_ident())
         bus = self._bus  # local snapshot — avoids race with _reconnect() reassigning self._bus
@@ -190,10 +190,10 @@ class CANReader:
         logger.debug("CAN recv thread exited")
 
     def _enqueue_sync(self, msg: can.Message, arrival: float = 0.0) -> None:
-        """Gọi trong event loop thread (call_soon_threadsafe): lọc, rate-gate, giải mã, đưa vào queue.
+        """Called in the event-loop thread (via call_soon_threadsafe): filter, rate-gate, decode, and enqueue.
 
-        An toàn với asyncio primitives vì chạy trong event loop thread.
-        arrival: timestamp từ recv thread (time.monotonic()) — chính xác hơn gọi tại đây.
+        Safe with asyncio primitives because it runs in the event-loop thread.
+        arrival: timestamp from the recv thread (time.monotonic()) — more accurate than calling it here.
         """
         if self._filter_ids and msg.arbitration_id not in self._filter_ids:
             return
@@ -273,14 +273,14 @@ class CANReader:
 
 
     def stop(self) -> None:
-        """Thông báo cho vòng lặp đọc dừng sạch sẽ."""
+        """Signal the read loop to stop cleanly."""
         self._running = False
 
     def _is_stale_message(self, msg_id: int, now: float) -> bool:
-        """True nếu bất kỳ tín hiệu nào trong message chưa được enqueue trong > _priority_sec giây.
+        """True if any signal in the message has not been enqueued in more than _priority_sec seconds.
 
-        Dùng để bypass message-level dedup cho message có data không đổi nhưng
-        chứa tín hiệu "hiếm thay đổi" cần được refresh định kỳ.
+        Used to bypass message-level dedup for messages whose data does not change but
+        contain "rarely changing" signals that still need periodic refresh.
         """
         if self._priority_sec <= 0.0:
             return False
@@ -292,7 +292,7 @@ class CANReader:
                 return True
         return False
 
-    # ── Giải mã ───────────────────────────────────────────────────────────────
+    # ── Decoding ─────────────────────────────────────────────────────────────
 
     def _decode(self, msg: can.Message) -> DecodedFrame:
         raw = RawCANFrame(
@@ -311,10 +311,10 @@ class CANReader:
             msg_name=msg_def.name if msg_def else "",
         )
 
-    # ── Kết nối lại ───────────────────────────────────────────────────────────
+    # ── Reconnection ─────────────────────────────────────────────────────────
 
     async def _reconnect(self, max_retries: int | None = None) -> None:
-        """Thử mở lại bus CAN với backoff mũ (1 s → 30 s)."""
+        """Try to reopen the CAN bus with exponential backoff (1 s → 30 s)."""
         retries = max_retries if max_retries is not None else self._max_retries
         for attempt in range(1, retries + 1):
             if not self._running:  # honour stop() during reconnect backoff
@@ -343,10 +343,10 @@ class CANReader:
             retries,
         )
         self._fatal_error = "reconnect_failed"
-        self.stop()  # dừng vòng lặp; watchdog/supervisor phải khởi động lại tiến trình
+        self.stop()  # stop the loop; the watchdog/supervisor must restart the process
 
     def get_metrics(self) -> dict:
-        """Trả về metrics nội bộ của reader (dropped frames, error count)."""
+        """Return internal reader metrics (dropped frames, error count)."""
         return {
             "dropped_frames": int(self._dropped_count),
             "error_count": int(self._error_count),
@@ -364,7 +364,7 @@ class CANReader:
         }
 
     def get_runtime_state(self) -> dict:
-        """Trả về trạng thái runtime của reader cho watchdog/health checks."""
+        """Return the reader runtime state for watchdog/health checks."""
         now_mono = time.monotonic()
         return {
             "running": bool(self._running),
@@ -382,14 +382,14 @@ class CANReader:
 
     @property
     def has_fatal_error(self) -> bool:
-        """True nếu reader không thể tự phục hồi và cần supervisor restart."""
+        """True if the reader cannot recover by itself and needs a supervisor restart."""
         return self._fatal_error is not None
 
     # Runtime helpers
     def set_queue_policy(self, policy: str) -> None:
-        """Cập nhật chính sách hàng đợi tại runtime."""
+        """Update the queue policy at runtime."""
         self._policy = policy
 
     def set_queue(self, queue: asyncio.Queue) -> None:
-        """Hoán đổi tham chiếu đến hàng đợi đầu ra (caller chịu trách nhiệm về chuyển dữ liệu)."""
+        """Swap the reference to the output queue (the caller is responsible for data migration)."""
         self._queue = queue

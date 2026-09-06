@@ -25,16 +25,16 @@
 
 ---
 
-## 1. Tổng quan hệ thống
+## 1. System Overview
 
-Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý dữ liệu, lưu trữ và phục vụ qua **FastAPI + WebSocket** để người dùng có thể **xem real-time** và **chỉnh sửa thông số online** từ giao diện web.
+The system supports **reading/writing vehicle CAN bus signals**, processing data, storing it, and serving it through **FastAPI + WebSocket** so users can **view data in real time** and **edit parameters online** from the web UI.
 
-**Design patterns chính:**
+**Primary design patterns:**
 - **Pipeline** — Signal processing chain (smoothing → alarm check → computed signals)
-- **Observer / Pub-Sub** — WebSocket broadcast tới nhiều client, signal store notify
-- **Repository** — Storage abstraction (SQLite adapter, có thể swap sang TimescaleDB/InfluxDB)
+- **Observer / Pub-Sub** — WebSocket broadcast to multiple clients, signal store notifications
+- **Repository** — Storage abstraction (SQLite adapter, can be swapped to TimescaleDB/InfluxDB)
 - **Factory** — FastAPI application factory (`create_app()`)
-- **Strategy** — CAN database parser (can.json) load signal definitions at startup
+- **Strategy** — CAN database parser (can.json) that loads signal definitions at startup
 
 ### Frontend Modes (Dev / User)
 
@@ -61,8 +61,8 @@ Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý d�
 │  │  Simulator   │    │  (RTSP)  │ │  ┌──────────────────────────────┐          │           │
 │  └──────────────┘    │          │ └─►│      BACKEND SERVICE         │◄─────────┘           │
 └──────────────────────┘          │    │  (FastAPI / GStreamer / WS)  │                      │
-                                  │    └──────────────────────────────┘                      │
-                                  │                   ▲                                      │
+                                   │    └──────────────────────────────┘                      │
+                                   │                   ▲                                      │
 ┌──────────────────────┐          │                   │ REST / WebSockets                    │
 │      FRONTEND        │          │                   │ (Data & Video Stream)                │
 │  ┌──────────────┐    │          │                   │                                      │
@@ -74,30 +74,30 @@ Hệ thống cho phép **đọc/ghi tín hiệu CAN bus của xe**, xử lý d�
 
 ---
 
-## 2. Các module và yêu cầu chi tiết
+## 2. Detailed Modules and Requirements
 
 ### 2.1 CAN Simulator (Vehicle Simulator)
 
-> Mô phỏng ECU xe gửi/nhận CAN frame trên virtual CAN bus.
+> Simulates vehicle ECUs sending/receiving CAN frames on a virtual CAN bus.
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Mục đích | Phát CAN frame theo CANdb / candb để phát triển/test mà không cần phần cứng |
-| Giao thức | CAN 2.0B, hỗ trợ mở rộng CAN FD (tùy chọn) |
-| CANdb | Load file `config/can.json` chứa message/signal definitions để encode signal → CAN frame |
-| Kịch bản | Hỗ trợ scenario file (JSON/YAML) định nghĩa chuỗi tín hiệu theo thời gian |
-| Tốc độ | Configurable cycle time per message (mặc định 10–100 ms) |
+| Purpose | Emit CAN frames according to CANdb / candb so development/testing can proceed without hardware |
+| Protocol | CAN 2.0B, with optional CAN FD extension support |
+| CANdb | Load `config/can.json` containing message/signal definitions to encode signal → CAN frame |
+| Scenarios | Support scenario files (JSON/YAML) defining time-based signal sequences |
+| Speed | Configurable cycle time per message (default 10–100 ms) |
 | Interface | `python-can` virtual interface (`virtual`, `socketcan`, `pcan`, `vector`) |
-| Nhiễu | Tùy chọn thêm noise/jitter để mô phỏng thực tế |
+| Noise | Optional added noise/jitter for realistic simulation |
 | CLI | `python -m src.can_simulator.cli --config config/system.json --scenario scenarios/city_drive.yaml` |
 
-> Simulator và processor load signal definitions từ **`config/can.json`**. File này chứa toàn bộ message/signal metadata cần thiết cho decode/encode.
+> The simulator and processor load signal definitions from **`config/can.json`**. This file contains all message/signal metadata required for decode/encode.
 
 #### CANdb (candb) format
 
-Hệ thống phải hỗ trợ đọc/ghi dữ liệu định nghĩa message/signal theo chuẩn **CANdb (candb)** để dễ tích hợp với dữ liệu mô tả từ các công cụ khác.
+The system must support reading/writing message/signal definition data in the **CANdb (candb)** format to simplify integration with description data from other tools.
 
-Ví dụ đơn giản (JSON):
+Simple example (JSON):
 
 ```json
 {
@@ -118,73 +118,73 @@ Ví dụ đơn giản (JSON):
 }
 ```
 
-> **Lưu ý:** Các format DBC và A2L đã được loại bỏ. Hệ thống chỉ sử dụng **`config/can.json`** làm nguồn duy nhất cho message/signal definitions.
+> **Note:** DBC and A2L formats have been removed. The system uses **`config/can.json`** as the only source of message/signal definitions.
 
-Yêu cầu hỗ trợ:
-- Load từ **1 file JSON** (`config/can.json`).
-- Parser trả về cấu trúc message/signal chung để dùng chung cho decoder/encoder.
-- Hỗ trợ `start_bit: null` (auto-allocation) và auto min/max calculation.
+Support requirements:
+- Load from **1 JSON file** (`config/can.json`).
+- The parser returns a common message/signal structure shared by the decoder/encoder.
+- Support `start_bit: null` (auto-allocation) and automatic min/max calculation.
 
-**Tín hiệu mẫu cần mô phỏng (tất cả tín hiệu trong `config/can.json`):**
+**Sample signals that need to be simulated (all signals in `config/can.json`):**
 
-| Tín hiệu mẫu | Message (ID) | Unit | Range | Cycle |
+| Sample signal | Message (ID) | Unit | Range | Cycle |
 |---|---|---|---|---|
 | HMI_CrashSeverity | INC_HMI_CrashInfo (128) |  | 0–7 | TBD |
 | HMI_CrashImpactTrigger | INC_HMI_CrashInfo (128) |  | 0–1 | TBD |
 
-> **Lưu ý:** Danh sách đầy đủ tín hiệu được định nghĩa trong `config/can.json`. Hệ thống tự động load toàn bộ signal từ file này khi khởi động.
+> **Note:** The full signal list is defined in `config/can.json`. The system automatically loads all signals from this file at startup.
 
 ---
 
 ### 2.2 CAN Reader / Writer
 
-> Đọc CAN frame từ bus, decode thành signal; encode signal và ghi ngược lên bus.
+> Read CAN frames from the bus, decode them into signals; encode signals and write them back to the bus.
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Thư viện | `python-can` (CAN I/O) — parser tự viết từ `can.json` |
-| Bus factory | `bus_factory.py` — Factory tạo CAN bus instance (hỗ trợ virtual, socketcan, pcan, vector, kvaser, serial) |
-| Parser | `parser.py` — `DatabaseLoader` load `config/can.json`, decode/encode CAN frame bằng bit manipulation tự viết |
-| Decode | Tự động decode frame → signal dựa trên can.json (bit extraction + factor/offset) |
-| Encode + Send | Nhận lệnh thay đổi signal → encode → gửi CAN frame |
-| Async | Chạy non-blocking (`asyncio`) để không block main loop |
-| Filter | Hỗ trợ CAN ID filter (chỉ nhận message quan tâm) |
-| Bus config | Đọc từ file config (JSON): interface, channel, bitrate. Hỗ trợ nhiều kênh CAN đồng thời |
-| Output | Push decoded signal dict vào internal queue (asyncio.Queue) |
-| Queue policy | Hỗ trợ 3 chính sách khi queue đầy: `block`, `reject`, `drop_oldest` |
-| Reconnect | Tự reconnect khi bus lỗi với exponential backoff (1s → 30s), max retries configurable |
-| Error handling | Tự reconnect khi bus lỗi, log cảnh báo |
+| Library | `python-can` (CAN I/O) — custom parser based on `can.json` |
+| Bus factory | `bus_factory.py` — Factory that creates CAN bus instances (supports virtual, socketcan, pcan, vector, kvaser, serial) |
+| Parser | `parser.py` — `DatabaseLoader` loads `config/can.json`, decodes/encodes CAN frames using custom bit manipulation |
+| Decode | Automatically decode frames → signals based on can.json (bit extraction + factor/offset) |
+| Encode + Send | Receive signal-change commands → encode → send CAN frame |
+| Async | Run non-blocking (`asyncio`) so the main loop is not blocked |
+| Filter | Support CAN ID filters (receive only relevant messages) |
+| Bus config | Read from the config file (JSON): interface, channel, bitrate. Support multiple CAN channels concurrently |
+| Output | Push decoded signal dicts into the internal queue (`asyncio.Queue`) |
+| Queue policy | Support 3 policies when the queue is full: `block`, `reject`, `drop_oldest` |
+| Reconnect | Automatically reconnect when the bus fails with exponential backoff (1s → 30s), max retries configurable |
+| Error handling | Automatically reconnect on bus errors and log warnings |
 
-**Cấu trúc decoded signal (sau khi decode frame):**
+**Decoded signal structure (after frame decode):**
 
-Định dạng chuẩn gồm 4 phần chính:
-1) **Message config** — metadata từ config/can.json
-2) **Raw message** — frame nhận được từ CAN bus
-3) **Signal configs** — định nghĩa bit layout, factor/offset từ can.json
-4) **Decoded signal values** — giá trị thực sau khi decode (`raw × factor + offset`)
+Standard format with 4 main parts:
+1) **Message config** — metadata from config/can.json
+2) **Raw message** — frame received from the CAN bus
+3) **Signal configs** — bit layout, factor/offset definitions from can.json
+4) **Decoded signal values** — real values after decoding (`raw × factor + offset`)
 
 ```json
 {
-    // --- 1) Message config (từ config + can.json) ------------------------------
+    // --- 1) Message config (from config + can.json) ------------------------------
     "message_config": {
         "msg_name": "SBS_WMS_FR_Response",
         "msg_id": 401,
         "dlc": 4,
-        "cycle_ms": 20,                                 // nếu có cấu hình trong config
+        "cycle_ms": 20,                                 // if configured in config
         "description": "Engine status message",
-        "db": "Interface_Panther_To_CarPC_generated.dbc",                    // hoặc "candb" / "config"
-        "src": "PANTHER"                                // node nguồn
+        "db": "Interface_Panther_To_CarPC_generated.dbc",                    // or "candb" / "config"
+        "src": "PANTHER"                                // source node
     },
 
-    // --- 2) Raw CAN frame (từ python-can) ---------------------------------------
+    // --- 2) Raw CAN frame (from python-can) ---------------------------------------
     "raw_message": {
-        "timestamp": 1742000000.123,                    // epoch seconds (từ python-can frame.timestamp)
-        "bus": "vcan0",                                 // tùy chọn nếu multi-bus
+        "timestamp": 1742000000.123,                    // epoch seconds (from python-can frame.timestamp)
+        "bus": "vcan0",                                 // optional if multi-bus
         "msg_id": 401,
         "is_extended": false,
         "is_fd": false,
         "data": ["0x0C", "0x1E", "..."],          // raw bytes
-        "raw_hex": "0C1E..."              // xâu hex (tùy chọn)
+        "raw_hex": "0C1E..."              // hex string (optional)
     },
 
     // --- 3) Signal config + decoded values -------------------------------------
@@ -203,7 +203,7 @@ Yêu cầu hỗ trợ:
             "max": 8191,
             "description": "Webbing Payout measured by ACR spool rotation",
             "db": "Interface_Panther_To_CarPC_generated.dbc",
-            "dst": ["PANTHER", "CAR_PC"]                    // node đích
+            "dst": ["PANTHER", "CAR_PC"]                    // destination nodes
         },
         {
             "msg_id": 401,
@@ -219,7 +219,7 @@ Yêu cầu hỗ trợ:
             "max": 16383,
             "description": "",
             "db": "Interface_Panther_To_CarPC_generated.dbc",
-            "dst": ["PANTHER", "CAR_PC"]                    // node đích
+            "dst": ["PANTHER", "CAR_PC"]                    // destination nodes
         },
         {
             "msg_id": 964,
@@ -235,7 +235,7 @@ Yêu cầu hỗ trợ:
             "max": 215,
             "description": "Engine coolant temperature",
             "db": "mercedes_common.dbc",
-            "dst": ["IC"]                    // node đích
+            "dst": ["IC"]                    // destination node
         }
     ],
     // --- 4) Decoded signal values -----------------------------------------------
@@ -247,34 +247,34 @@ Yêu cầu hỗ trợ:
 }
 ```
 
-> **Ghi chú:**
-> - `message_config` là metadata dùng cho mapping giữa config và can.json (ví dụ: cycle time, mô tả, nguồn dữ liệu).
-> - `signal_configs` gồm các thông tin lấy từ can.json (factor/offset/unit/bit layout/description), dùng để encode/decode.
-> - `signals` là giá trị đã decode từ `raw_message` dựa trên `signal_configs`.
-> - Decoder/encoder phải hỗ trợ cả CANdb (candb) để giữ nhất quán tên/số ID và cấu hình tính toán.
+> **Notes:**
+> - `message_config` is metadata used for mapping between config and can.json (for example: cycle time, description, data source).
+> - `signal_configs` contains information from can.json (factor/offset/unit/bit layout/description), used for encode/decode.
+> - `signals` contains the values decoded from `raw_message` based on `signal_configs`.
+> - The decoder/encoder must also support CANdb (candb) to keep names, numeric IDs, and calculation configuration consistent.
 
 
 ---
 
 ### 2.3 Signal Processor
 
-> Xử lý, lọc, biến đổi tín hiệu thô trước khi lưu và phát ra ngoài.
+> Process, filter, and transform raw signals before storing and publishing them.
 >
-> **Lưu ý:** Processor nên hỗ trợ nhiều kênh CAN đồng thời, mỗi kênh có file can.json riêng. Tín hiệu từ tất cả các kênh được gộp vào chung một pipeline xử lý.
+> **Note:** The processor should support multiple CAN channels simultaneously, with each channel having its own can.json file. Signals from all channels are merged into a single processing pipeline.
 >
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Smoothing | Moving average, exponential moving average (configurable window, `method: "moving_avg"` hoặc `"ema"`) |
-| Rate limiting | Giới hạn tần số cập nhật per signal (ví dụ: max 10 Hz cho UI) |
-| Alarm / Threshold | Định nghĩa ngưỡng cảnh báo per signal (YAML config), phát hiện state change (none→warning→critical) |
-| Unit conversion | Hỗ trợ convert đơn vị (raw → engineering value đã có từ can.json, thêm custom nếu cần) |
-| Computed signals | Hỗ trợ virtual signal tính từ nhiều signal khác (ví dụ: `Power = RPM × Torque / 9549`) — `ComputedSignals` stage với pluggable formulas |
-| Output | Signal dict đã xử lý → push vào broadcast queue + gửi cho storage |
-| Backpressure | Khi queue đầy: áp dụng `queue_policy` (drop_oldest / block / reject). Queue size configurable (`max_queue_size`, default 10 000) |
-| Pipeline | 4 stages theo thứ tự: SmoothingFilter → RateLimiter → ComputedSignals → AlarmChecker |
-| Batch storage | Buffer signal records, flush khi đạt `batch_size` hoặc `batch_interval_sec` |
+| Smoothing | Moving average, exponential moving average (configurable window, `method: "moving_avg"` or `"ema"`) |
+| Rate limiting | Limit update frequency per signal (for example: max 10 Hz for UI) |
+| Alarm / Threshold | Define per-signal alarm thresholds (YAML config), detect state changes (none→warning→critical) |
+| Unit conversion | Support unit conversion (raw → engineering value already provided by can.json, plus custom conversions if needed) |
+| Computed signals | Support virtual signals computed from multiple other signals (for example: `Power = RPM × Torque / 9549`) — `ComputedSignals` stage with pluggable formulas |
+| Output | Processed signal dict → push into the broadcast queue + send to storage |
+| Backpressure | When the queue is full: apply `queue_policy` (drop_oldest / block / reject). Queue size is configurable (`max_queue_size`, default 10 000) |
+| Pipeline | 4 stages in order: SmoothingFilter → RateLimiter → ComputedSignals → AlarmChecker |
+| Batch storage | Buffer signal records, flush when `batch_size` is reached or `batch_interval_sec` elapses |
 
-**Alarm threshold config mẫu (`config/alarms.json`):**
+**Sample alarm threshold config (`config/alarms.json`):**
 
 ```yaml
 alarms:
@@ -298,20 +298,20 @@ alarms:
     description: "Engine RPM thresholds"
 ```
 
-> **Lưu ý:** Format alarm config là dict (key = signal name), không phải list. Auto-generate bằng script `scripts/gen_alarms_from_dbc.py`.
+> **Note:** Alarm config format is a dict (key = signal name), not a list. Auto-generated by script `scripts/gen_alarms_from_dbc.py`.
 
 ---
 
 ### 2.4 Storage
 
-> Lưu trữ time-series signal data và cấu hình.
+> Store time-series signal data and configuration.
 
-Mục tiêu:
-- Lưu trữ giá trị tín hiệu (signal) theo thời gian để phục vụ truy vấn lịch sử, biểu đồ, phân tích.
-- Lưu trữ cấu hình tín hiệu (min/max, unit, writable) để frontend và backend cùng dùng.
-- Hỗ trợ batch insert và retention để tránh quá tải I/O.
+Goals:
+- Store signal values over time to support historical queries, charts, and analysis.
+- Store signal configuration (min/max, unit, writable) so frontend and backend can share it.
+- Support batch insert and retention to avoid I/O overload.
 
-**Cấu hình (đã có trong `config/system.json`):**
+**Configuration (already in `config/system.json`):**
 
 ```yaml
 storage:
@@ -322,15 +322,15 @@ storage:
   retention_days: 30
 ```
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Engine mặc định | **SQLite** (zero-config, file-based) |
-| Engine mở rộng | Có thể xây thêm adapter cho **TimescaleDB** / **InfluxDB** khi cần |
-| Schema | `signal_log` ghi thời gian, msg_name, signal_name, giá trị, unit |
-| Config store | `signal_config` lưu meta: min/max/writable/unit/description |
-| Batch insert | Buffer + batch insert mỗi N record hoặc mỗi T giây |
-| Retention | Auto-purge dữ liệu cũ hơn N ngày (configurable) |
-| Export | Hỗ trợ export CSV/JSON qua API |
+| Default engine | **SQLite** (zero-config, file-based) |
+| Extended engine | Can later add adapters for **TimescaleDB** / **InfluxDB** when needed |
+| Schema | `signal_log` stores time, msg_name, signal_name, value, unit |
+| Config store | `signal_config` stores metadata: min/max/writable/unit/description |
+| Batch insert | Buffer + batch insert every N records or every T seconds |
+| Retention | Auto-purge data older than N days (configurable) |
+| Export | Support CSV/JSON export through the API |
 
 **Schema (SQLite — implemented in `storage/database.py`):**
 
@@ -371,48 +371,48 @@ CREATE TABLE IF NOT EXISTS signal_config (
 );
 ```
 
-> **Gợi ý triển khai:**
-> - API ghi (write) đẩy dữ liệu vào queue → worker dùng batch insert để ghi vào SQLite.
-> - Mỗi N giây (hoặc mỗi N record), flush batch xuống DB.
-> - Retention: chạy job định kỳ xóa bản ghi cũ hơn `retention_days`.
+> **Implementation suggestions:**
+> - The write API pushes data into a queue → a worker uses batch insert to write to SQLite.
+> - Every N seconds (or every N records), flush the batch to the DB.
+> - Retention: run a periodic job to delete records older than `retention_days`.
 
 ---
 
 ### 2.5 FastAPI / WebSocket Server
 
-> Cung cấp REST API + WebSocket để đọc, ghi tín hiệu, nhận real-time stream và nhận video stream từ camera DMS/OMS (GStreamer over Ethernet).
+> Provide REST API + WebSocket for reading and writing signals, receiving real-time streams, and receiving video streams from the DMS/OMS camera (GStreamer over Ethernet).
 
-> **Lưu ý:** Toàn bộ phần CAN RW, xử lý tín hiệu, storage và FastAPI/WebSocket đều nằm trong khối **CarPC** (bao gồm cả stream video). Ở chế độ sản xuất, CarPC sẽ chạy như một node duy nhất đảm nhiệm cả CAN và giao tiếp mạng.
+> **Note:** All CAN RW, signal processing, storage, and FastAPI/WebSocket functionality are located inside the **CarPC** block (including video streaming). In production mode, CarPC runs as a single node responsible for both CAN and network communication.
 
 #### REST API Endpoints
 
-> **Lưu ý:** Route prefix thực tế là `/signals`, `/alarms`, `/config`, `/system` (không có `/api/v1/`). OpenAPI docs tại `/docs`.
+> **Note:** The actual route prefixes are `/signals`, `/alarms`, `/config`, `/system` (there is no `/api/v1/`). OpenAPI docs are at `/docs`.
 
-| Method | Path | Mô tả |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/signals` | Danh sách tất cả signal hiện tại (snapshot) |
-| GET | `/signals/available` | **Full metadata** của tất cả signals (unit, min/max, alarm thresholds, widget, value, status) — gọi 1 lần khi client khởi động |
-| GET | `/signals/{signal_name}` | Giá trị hiện tại của 1 signal |
-| PUT | `/signals/{signal_name}` | **Ghi giá trị mới** cho signal (gửi xuống CAN bus) — trả 202 ACCEPTED |
-| GET | `/signals/{signal_name}/history` | Lịch sử signal (query params: `start`, `end`, `limit`, `offset`) |
-| GET | `/alarms` | Danh sách alarm (filter: `signal_name`, `level`, `acknowledged`, `start`, `end`, `limit`, `offset`) |
-| GET | `/alarms/{alarm_id}` | Chi tiết 1 alarm |
-| POST | `/alarms/{alarm_id}/acknowledge` | Acknowledge một alarm (đánh dấu đã xem) |
-| POST | `/alarms/{alarm_id}/resolve` | Resolve một alarm (đánh dấu đã xử lý) |
-| GET | `/config` | Danh sách signal config (unit, widget, writable) |
-| GET | `/config/signal/{signal_name}` | Lấy config cho 1 signal |
-| PATCH | `/config/signal/{signal_name}` | Cập nhật config cho signal (upsert vào signal_config table) |
-| GET | `/config/processor` | Xem processor config (max_queue_size, queue_policy) |
-| POST | `/config/processor` | Cập nhật processor config (live apply attempt) |
-| GET | `/config/general` | Xem full application config (AppConfig.model_dump()) |
-| PATCH | `/config/general` | Patch application config (partial update, persist system.json) |
-| POST | `/config/general/reset` | Reset application config về defaults |
-| GET | `/config/alarms` | Xem alarms config (raw YAML as JSON) |
-| POST | `/config/alarms` | Cập nhật alarms config (overwrite) |
-| POST | `/config/alarms/reset` | Reset alarms config về empty default |
-| GET | `/system/health` | Liveness probe — trả `200` + `{"status":"ok","uptime_seconds":...}` |
-| GET | `/system/ready` | Readiness probe — trả `200` khi tất cả component đã init |
-| GET | `/system/metrics` | Thông tin tài nguyên CarPC: CPU, RAM, disk, swap, queue, heap, network, async tasks, uptime, platform |
+| GET | `/signals` | List of all current signals (snapshot) |
+| GET | `/signals/available` | **Full metadata** for all signals (unit, min/max, alarm thresholds, widget, value, status) — called once when the client starts |
+| GET | `/signals/{signal_name}` | Current value of one signal |
+| PUT | `/signals/{signal_name}` | **Write a new value** for the signal (send to CAN bus) — returns 202 ACCEPTED |
+| GET | `/signals/{signal_name}/history` | Signal history (query params: `start`, `end`, `limit`, `offset`) |
+| GET | `/alarms` | Alarm list (filter: `signal_name`, `level`, `acknowledged`, `start`, `end`, `limit`, `offset`) |
+| GET | `/alarms/{alarm_id}` | Details of one alarm |
+| POST | `/alarms/{alarm_id}/acknowledge` | Acknowledge an alarm (mark as seen) |
+| POST | `/alarms/{alarm_id}/resolve` | Resolve an alarm (mark as handled) |
+| GET | `/config` | List of signal configs (unit, widget, writable) |
+| GET | `/config/signal/{signal_name}` | Get the config for one signal |
+| PATCH | `/config/signal/{signal_name}` | Update signal config (upsert into the `signal_config` table) |
+| GET | `/config/processor` | View processor config (max_queue_size, queue_policy) |
+| POST | `/config/processor` | Update processor config (live apply attempt) |
+| GET | `/config/general` | View full application config (AppConfig.model_dump()) |
+| PATCH | `/config/general` | Patch application config (partial update, persist to system.json) |
+| POST | `/config/general/reset` | Reset application config to defaults |
+| GET | `/config/alarms` | View alarms config (raw YAML as JSON) |
+| POST | `/config/alarms` | Update alarms config (overwrite) |
+| POST | `/config/alarms/reset` | Reset alarms config to the empty default |
+| GET | `/system/health` | Liveness probe — returns `200` + `{"status":"ok","uptime_seconds":...}` |
+| GET | `/system/ready` | Readiness probe — returns `200` when all components are initialized |
+| GET | `/system/metrics` | CarPC resource information: CPU, RAM, disk, swap, queue, heap, network, async tasks, uptime, platform |
 
 **Signal Naming**
 
@@ -420,7 +420,7 @@ The system no longer maps between aliases and canonical names. API responses kee
 
 #### Error Response Format
 
-Tất cả lỗi trả về dạng JSON thống nhất:
+All errors are returned in a consistent JSON format:
 
 ```json
 {
@@ -432,24 +432,24 @@ Tất cả lỗi trả về dạng JSON thống nhất:
 }
 ```
 
-| HTTP Status | Mô tả |
+| HTTP Status | Description |
 |---|---|
-| 400 | Bad Request — tham số không hợp lệ |
-| 401 | Unauthorized — thiếu hoặc sai API key |
-| 404 | Not Found — signal/resource không tồn tại |
-| 429 | Too Many Requests — vượt rate limit |
+| 400 | Bad Request — invalid parameters |
+| 401 | Unauthorized — missing or incorrect API key |
+| 404 | Not Found — signal/resource does not exist |
+| 429 | Too Many Requests — rate limit exceeded |
 | 500 | Internal Server Error |
 
 #### WebSocket Endpoints
 
-| Path | Mô tả |
+| Path | Description |
 |---|---|
-| `ws://host/ws/signals` | (Legacy) Stream signal updates real-time (topic: SIGNALS) |
+| `ws://host/ws/signals` | (Legacy) Stream real-time signal updates (topic: SIGNALS) |
 | `ws://host/ws/alarms` | (Legacy) Stream alarm events (topic: ALARMS) |
-| `ws://host/ws/all` | (Legacy) Stream tất cả events — signals + alarms (topic: ALL) |
-| `ws://host/ws/subscribe` | **Subscribe protocol** — client gửi JSON subscribe/unsubscribe để chọn kênh nhận dữ liệu |
+| `ws://host/ws/all` | (Legacy) Stream all events — signals + alarms (topic: ALL) |
+| `ws://host/ws/subscribe` | **Subscribe protocol** — the client sends subscribe/unsubscribe JSON to choose which channels to receive |
 
-> **Lưu ý:** Endpoint `/ws/subscribe` là giao thức mới, cho phép per-signal subscription để giảm băng thông. Legacy endpoints vẫn hoạt động để backward-compatible.
+> **Note:** Endpoint `/ws/subscribe` is the new protocol that allows per-signal subscriptions to reduce bandwidth. Legacy endpoints still work for backward compatibility.
 
 **WebSocket message format (implemented in `api/websocket.py`):**
 
@@ -475,7 +475,7 @@ Subscribe ack format:
 
 **Subscribe Protocol (`/ws/subscribe`):**
 
-Client gửi JSON command sau khi WS connected:
+Client sends JSON commands after the WS connection is established:
 ```json
 {"action": "subscribe", "channels": ["EngineSpeed", "BatterySOC", "alarms", "metrics"], "mode": "continuous"}
 {"action": "subscribe", "channels": ["*"], "mode": "continuous"}
@@ -483,18 +483,18 @@ Client gửi JSON command sau khi WS connected:
 {"action": "unsubscribe", "channels": ["BatterySOC"]}
 ```
 
-| Field | Type | Mô tả |
+| Field | Type | Description |
 |---|---|---|
-| `action` | `"subscribe"` \| `"unsubscribe"` | Đăng ký hoặc hủy đăng ký |
-| `channels` | `string[]` | Danh sách: tên signal, `"alarms"`, `"metrics"`, hoặc `"*"` (tất cả signals) |
-| `mode` | `"continuous"` \| `"once"` | `continuous`: nhận liên tục; `once`: nhận 1 lần rồi tự hủy |
+| `action` | `"subscribe"` \| `"unsubscribe"` | Subscribe or unsubscribe |
+| `channels` | `string[]` | List of signal names, `"alarms"`, `"metrics"`, or `"*"` (all signals) |
+| `mode` | `"continuous"` \| `"once"` | `continuous`: receive continuously; `once`: receive once and then auto-unsubscribe |
 
-> **Lưu ý:**
-> - `ConnectionManager` quản lý connections với topic-based subscription (`SubscriptionTopic` enum: SIGNALS, ALARMS, ALL) cho legacy endpoints, và per-channel `_ClientSubscription` cho `/ws/subscribe`.
-> - Broadcast sử dụng `asyncio.gather()` để gửi đồng thời tới tất cả clients, tự remove stale connections.
-> - Frontend flow mới: (1) GET /signals/available → cache metadata; (2) WS /ws/subscribe → subscribe channels → nhận value+timestamp nhẹ. Giảm băng thông đáng kể so với broadcast ALL.
+> **Notes:**
+> - `ConnectionManager` manages connections with topic-based subscriptions (`SubscriptionTopic` enum: SIGNALS, ALARMS, ALL) for legacy endpoints, and per-channel `_ClientSubscription` for `/ws/subscribe`.
+> - Broadcast uses `asyncio.gather()` to send concurrently to all clients and automatically remove stale connections.
+> - New frontend flow: (1) GET /signals/available → cache metadata; (2) WS /ws/subscribe → subscribe to channels → receive lightweight value+timestamp updates. This significantly reduces bandwidth compared with broadcasting ALL.
 
-#### 1) `signal_config` (static metadata, gửi khi client subscribe)
+#### 1) `signal_config` (static metadata, sent when the client subscribes)
 
 ```json
 {
@@ -529,7 +529,7 @@ Client gửi JSON command sau khi WS connected:
 }
 ```
 
-#### 3) `alarm` (cảnh báo/ngưỡng)
+#### 3) `alarm` (alarm/threshold)
 
 ```json
 {
@@ -539,11 +539,11 @@ Client gửi JSON command sau khi WS connected:
   "level": "critical",            // one of: info / warning / critical
   "value": 97.2,
   "threshold": 95,
-  "description": "Coolant temperature vượt ngưỡng critical (>= 95°C)"
+  "description": "Coolant temperature exceeded the critical threshold (>= 95°C)"
 }
 ```
 
-#### 4) `snapshot` (khi client mới kết nối)
+#### 4) `snapshot` (when a client first connects)
 
 ```json
 {
@@ -556,9 +556,9 @@ Client gửi JSON command sau khi WS connected:
 }
 ```
 
-> **Ghi chú:**
-> - Client có thể mở kết nối `ws://host/ws/signals` để nhận toàn bộ tín hiệu, hoặc `ws://host/ws/signals/{name}` để nhận một tín hiệu cụ thể.
-> - Server có thể mở rộng message type (ví dụ: `system_status`, `config_update`) tuỳ nhu cầu.
+> **Notes:**
+> - The client can open `ws://host/ws/signals` to receive all signals, or `ws://host/ws/signals/{name}` to receive one specific signal.
+> - The server can be extended with more message types (for example: `system_status`, `config_update`) as needed.
 
 #### 5) `heartbeat` (keep-alive)
 
@@ -571,51 +571,50 @@ Client gửi JSON command sau khi WS connected:
 ```
 
 > **Reconnection strategy:**
-> - Server gửi `heartbeat` mỗi **5 giây** (configurable qua `ws_heartbeat_interval_sec`).
-> - Client phát hiện mất kết nối nếu không nhận heartbeat trong **15 giây**.
-> - Client tự động reconnect với **exponential backoff** (1s → 2s → 4s → … → max 30s).
-> - Sau reconnect, server gửi lại `signal_config` + `snapshot` để client đồng bộ trạng thái.
+> - The server sends `heartbeat` every **5 seconds** (configurable via `ws_heartbeat_interval_sec`).
+> - The client detects a lost connection if it does not receive a heartbeat within **15 seconds**.
+> - The client automatically reconnects with **exponential backoff** (1s → 2s → 4s → … → max 30s).
+> - After reconnect, the server resends `signal_config` + `snapshot` so the client can resynchronize state.
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
 | Framework | FastAPI + uvicorn |
-| Video stream | GStreamer RTP/RTSP stream từ camera DMS/OMS qua Ethernet (CarPC) |
-| Auth | REST: API key (header `X-API-Key`), tùy chọn JWT. WebSocket: token qua query param `?token=` khi connect |
-| Rate limit | Giới hạn write request (tránh spam CAN bus) |
-| CORS | Cho phép cross-origin từ frontend dev server |
-| Docs | Auto-gen Swagger UI tại `/docs` |
-| Validation | Pydantic model cho request/response |
+| Video stream | GStreamer RTP/RTSP stream from the DMS/OMS camera over Ethernet (CarPC) |
+| Auth | REST: API key (header `X-API-Key`), optional JWT. WebSocket: token via query param `?token=` when connecting |
+| Rate limit | Limit write requests (prevent CAN bus spam) |
+| CORS | Allow cross-origin access from the frontend dev server |
+| Docs | Auto-generate Swagger UI at `/docs` |
+| Validation | Pydantic models for request/response |
 
 ---
-
 ### 2.6 Web Demo Dashboard (Frontend)
 
-> Giao diện web hiển thị real-time signal và cho phép chỉnh sửa thông số.
+> Web UI that displays real-time signals and allows parameter editing.
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Tech | HTML + CSS + Vanilla JS (hoặc Vue.js/React tùy chọn mở rộng) |
-| Serve | Static files phục vụ bởi FastAPI (`/static`) |
-| Real-time | Kết nối WebSocket nhận signal stream |
-| Hiển thị | Dashboard chia thành các widget card cho từng nhóm signal |
+| Tech | HTML + CSS + Vanilla JS (or Vue.js/React as an optional extension) |
+| Serve | Static files served by FastAPI (`/static`) |
+| Real-time | WebSocket connection receives the signal stream |
+| Display | Dashboard divided into widget cards for each signal group |
 | Browser support | Chrome/Edge ≥ 120, Firefox ≥ 120. Responsive: desktop (≥ 1024px) + tablet (≥ 768px) |
-| Offline / fallback | Khi mất kết nối WS: hiển thị banner "Disconnected", giữ last-known values (grey-out stale), auto-reconnect |
-| Accessibility | Semantic HTML, aria-labels cho widgets, keyboard navigation cho edit controls, color contrast ≥ 4.5:1 |
+| Offline / fallback | When the WS connection is lost: show a `Disconnected` banner, keep last-known values (grey out stale values), auto-reconnect |
+| Accessibility | Semantic HTML, aria-labels for widgets, keyboard navigation for edit controls, color contrast ≥ 4.5:1 |
 
-**Các thành phần giao diện cho:**
+**UI components for:**
 
-| Widget | Mô tả |
+| Widget | Description |
 |---|---|
-| **Gauge** | Đồng hồ tốc độ, RPM (vòng cung hoặc số lớn) |
-| **Line Chart** | Biểu đồ real-time cho CoolantTemp, BatteryVoltage (rolling 60s) |
-| **Status Panel** | GearPosition, TurnSignal, DoorStatus dưới dạng icon/badge |
-| **Alarm Bar** | Thanh cảnh báo trên cùng, đổi màu theo level |
-| **Signal Table** | Bảng all signals: name, value, unit, min, max, writable |
-| **Edit Control** | Ô input + nút Send cho signal writable (gửi PUT request → CAN) |
-| **History Modal** | Click signal → popup chart lịch sử (fetch từ REST API) |
+| **Gauge** | Speedometer, RPM (arc or large number) |
+| **Line Chart** | Real-time chart for CoolantTemp, BatteryVoltage (rolling 60s) |
+| **Status Panel** | GearPosition, TurnSignal, DoorStatus as icons/badges |
+| **Alarm Bar** | Top warning bar, color changes by level |
+| **Signal Table** | Table of all signals: name, value, unit, min, max, writable |
+| **Edit Control** | Input field + Send button for writable signals (send PUT request → CAN) |
+| **History Modal** | Click a signal → popup history chart (fetched from REST API) |
 | **System Info** | Bus status, message count, uptime |
 
-**Layout mẫu:**
+**Sample layout:**
 
 ```
 ┌─────────┬──────────┬──────────────────────────────────────┐
@@ -642,56 +641,56 @@ Client gửi JSON command sau khi WS connected:
 │  SYSTEM: Bus=OK │ Msgs: 12,345 │ Uptime: 00:23:45         │
 └───────────────────────────────────────────────────────────┘
 
-Dev Mode thì liệt kê hết ra signal (kể cả không hiển thị trên dashboard) để dễ debug. User Mode thì chỉ hiển thị signal quan trọng, ẩn các signal phụ trợ. Có thể toggle giữa 2 chế độ bằng thẻ tab trên giao diện.
+In Dev Mode, all signals are listed (including those not shown on the dashboard) to make debugging easier. In User Mode, only important signals are shown and supporting/internal signals are hidden. The user can toggle between the two modes using the tab controls in the UI.
 ```
 
 ---
 
 ## 2.7 Monitoring (Watchdog / Supervisor / mDNS)
 
-> Cung cấp lớp giám sát và tự phục hồi cho toàn bộ hệ thống CarPC.
+> Provide a monitoring and self-recovery layer for the entire CarPC system.
 
-| Chức năng | Yêu cầu |
+| Function | Requirement |
 |---|---|
-| Watchdog | Giám sát process chính (CAN RW, signal processor, FastAPI) và tự khởi động lại khi crash |
-| Supervisor | Quản lý luồng, khởi động/tắt các thành phần: CAN Reader/Writer, Processor, Storage, FastAPI, Video Stream |
-| mDNS | Quảng bá dịch vụ (FastAPI + WebSocket + video) trên mạng LAN để frontend dễ tìm |
-| Health check | Endpoint `/health` trả trạng thái hệ thống (uptime, process, memory, disk, error) |
+| Watchdog | Monitor the main processes (CAN RW, signal processor, FastAPI) and automatically restart them on crash |
+| Supervisor | Manage flows and start/stop components: CAN Reader/Writer, Processor, Storage, FastAPI, Video Stream |
+| mDNS | Advertise services (FastAPI + WebSocket + video) on the LAN so the frontend can find them easily |
+| Health check | Endpoint `/health` returns system status (uptime, process, memory, disk, error) |
 | Logging | Structured JSON logs (stdout + file rotation). Levels: DEBUG / INFO / WARNING / ERROR. Config: `logging.level`, `logging.file_path`, `logging.max_size_mb`, `logging.backup_count` |
 
 ### 2.7.1 CarPC System Metrics (`/system/metrics`)
 
-> Theo dõi thông tin tài nguyên hệ thống CarPC real-time qua API endpoint và frontend dashboard.
+> Monitor CarPC system resource information in real time via the API endpoint and frontend dashboard.
 
-**Thư viện:** `psutil>=5.9` (cross-platform system info).
+**Library:** `psutil>=5.9` (cross-platform system info).
 
-**Endpoint:** `GET /system/metrics` — trả về JSON snapshot tài nguyên, poll mỗi 3 giây từ frontend.
+**Endpoint:** `GET /system/metrics` — returns a JSON snapshot of system resources, polled every 3 seconds from the frontend.
 
-| Nhóm | Metric | Mô tả |
+| Group | Metric | Description |
 |---|---|---|
-| **CPU (system)** | `cpu_percent` | %CPU tổng hệ thống |
-| | `cpu_percent_per_core` | %CPU mỗi core |
-| | `cpu_count_logical` / `cpu_count_physical` | Số core logic / vật lý |
-| | `cpu_freq_current_mhz` / `cpu_freq_max_mhz` | Tần số CPU hiện tại / tối đa |
-| **CPU (process)** | `process_cpu_percent` | %CPU của process CAN-HMI |
-| **RAM (system)** | `ram_total_mb`, `ram_used_mb`, `ram_available_mb`, `ram_percent` | Bộ nhớ RAM hệ thống |
-| **Memory (process)** | `process_memory_rss_mb` | Resident Set Size (bộ nhớ thực tế) |
+| **CPU (system)** | `cpu_percent` | Total system CPU % |
+| | `cpu_percent_per_core` | CPU % per core |
+| | `cpu_count_logical` / `cpu_count_physical` | Number of logical / physical cores |
+| | `cpu_freq_current_mhz` / `cpu_freq_max_mhz` | Current / maximum CPU frequency |
+| **CPU (process)** | `process_cpu_percent` | CPU % used by the CAN-HMI process |
+| **RAM (system)** | `ram_total_mb`, `ram_used_mb`, `ram_available_mb`, `ram_percent` | System RAM |
+| **Memory (process)** | `process_memory_rss_mb` | Resident Set Size (actual memory in use) |
 | | `process_memory_vms_mb` | Virtual Memory Size |
-| | `process_memory_percent` | % RAM process chiếm |
-| | `process_threads` | Số thread của process |
-| | `process_open_files` | Số file descriptor đang mở |
+| | `process_memory_percent` | % of RAM used by the process |
+| | `process_threads` | Number of process threads |
+| | `process_open_files` | Number of open file descriptors |
 | **Swap** | `swap_total_mb`, `swap_used_mb`, `swap_percent` | Swap space |
-| **Disk** | `disk_total_gb`, `disk_used_gb`, `disk_free_gb`, `disk_percent` | Disk working directory |
-| **Network I/O** | `net_bytes_sent`, `net_bytes_recv` | Tổng bytes gửi/nhận (cumulative) |
-| | `net_packets_sent`, `net_packets_recv` | Tổng packets gửi/nhận |
-| **Signal Queue** | `queue_size`, `queue_maxsize`, `queue_usage_percent` | Trạng thái `asyncio.Queue` (RX pipeline) |
-| **Heap / GC** | `heap_allocated_mb` | RSS process (~ heap) |
-| | `gc_objects` | Số object theo dõi bởi garbage collector |
-| **Async Tasks** | `asyncio_tasks` | Số asyncio task đang chạy |
-| **Runtime** | `uptime_seconds` | Thời gian chạy |
-| | `python_version`, `platform` | Phiên bản Python, hệ điều hành |
+| **Disk** | `disk_total_gb`, `disk_used_gb`, `disk_free_gb`, `disk_percent` | Working-directory disk usage |
+| **Network I/O** | `net_bytes_sent`, `net_bytes_recv` | Total bytes sent/received (cumulative) |
+| | `net_packets_sent`, `net_packets_recv` | Total packets sent/received |
+| **Signal Queue** | `queue_size`, `queue_maxsize`, `queue_usage_percent` | `asyncio.Queue` status (RX pipeline) |
+| **Heap / GC** | `heap_allocated_mb` | Process RSS (~ heap) |
+| | `gc_objects` | Number of objects tracked by the garbage collector |
+| **Async Tasks** | `asyncio_tasks` | Number of running asyncio tasks |
+| **Runtime** | `uptime_seconds` | Running time |
+| | `python_version`, `platform` | Python version, operating system |
 
-**Response mẫu:**
+**Sample response:**
 
 ```json
 {
@@ -736,80 +735,79 @@ Dev Mode thì liệt kê hết ra signal (kể cả không hiển thị trên da
 }
 ```
 
-**Frontend widget:** Panel "CarPC System Monitor" gồm 12 card (CPU, Process CPU, RAM, Process Memory, Disk, Swap, Queue, Heap/GC, Network, Async Tasks, Uptime, Platform) với progress bar màu sắc theo ngưỡng (xanh < 70%, vàng 70-90%, đỏ > 90%).
+**Frontend widget:** A `CarPC System Monitor` panel with 12 cards (CPU, Process CPU, RAM, Process Memory, Disk, Swap, Queue, Heap/GC, Network, Async Tasks, Uptime, Platform) using threshold-based colored progress bars (green < 70%, yellow 70–90%, red > 90%).
 
 ---
 
-## 2.8 Đồng thời & Độ tin cậy (Concurrency, Backpressure & Graceful shutdown)
+## 2.8 Concurrency & Reliability (Concurrency, Backpressure & Graceful shutdown)
 
-> Hướng dẫn vận hành để đảm bảo hệ thống ổn định dưới tải và khi xảy ra sự cố.
+> Operational guidance to keep the system stable under load and during failures.
 
-- Mô hình runtime:
-  - Sử dụng `asyncio` làm runtime chính cho I/O-bound tasks (CAN reader/writer, FastAPI, WebSocket). Các tác vụ CPU-bound (ví dụ: xử lý tín hiệu nặng với numpy) nên offload sang `ProcessPoolExecutor` hoặc tách thành worker process/service riêng để tránh block event loop.
-  - FastAPI chạy trên `uvicorn` (ASGI). Nếu scale bằng nhiều worker, lưu ý `SignalStore` là in-memory: khi dùng nhiều worker cần chuyển `SignalStore` sang shared store (Redis) hoặc dùng message broker.
+- Runtime model:
+  - Use `asyncio` as the main runtime for I/O-bound tasks (CAN reader/writer, FastAPI, WebSocket). CPU-bound tasks (for example: heavy signal processing with numpy) should be offloaded to `ProcessPoolExecutor` or split into a separate worker process/service to avoid blocking the event loop.
+  - FastAPI runs on `uvicorn` (ASGI). If scaled with multiple workers, note that `SignalStore` is in-memory: when using multiple workers, `SignalStore` must be moved to a shared store (Redis) or a message broker must be used.
 
-- Hàng đợi & Backpressure:
-  - Kết nối các thành phần bằng `asyncio.Queue` có `maxsize` (config: `processor.max_queue_size`). Khi queue đầy, áp dụng chính sách `queue_policy`: `block` | `drop_oldest` | `reject_writes` (mặc định: `reject_writes`).
-  - Propagate backpressure: nếu storage/writer chậm, hệ thống nên giảm tốc độ broadcast (WS) hoặc trả lỗi `503` cho các write request mới.
-  - Sử dụng batch insert (`storage.batch_size`, `batch_interval_sec`) để giảm I/O overhead và ổn định throughput.
+- Queues & Backpressure:
+  - Connect components using an `asyncio.Queue` with `maxsize` (config: `processor.max_queue_size`). When the queue is full, apply policy `queue_policy`: `block` | `drop_oldest` | `reject_writes` (default: `reject_writes`).
+  - Propagate backpressure: if storage/writer is slow, the system should reduce broadcast rate (WS) or return `503` for new write requests.
+  - Use batch insert (`storage.batch_size`, `batch_interval_sec`) to reduce I/O overhead and stabilize throughput.
 
-- Ghi CAN an toàn:
-  - Serialise các thao tác ghi trên mỗi bus bằng `asyncio.Lock` hoặc duy trì một writer task đơn để đảm bảo thứ tự và tránh tranh chấp trên interface.
-  - Áp dụng rate-limit cho write (per-signal và global) và validate giá trị trước khi encode gửi xuống bus.
+- Safe CAN writing:
+  - Serialize write operations on each bus with `asyncio.Lock`, or keep a single writer task to guarantee ordering and avoid contention on the interface.
+  - Apply write rate limiting (per-signal and global) and validate values before encoding and sending to the bus.
 
 - Graceful shutdown & Flush:
-  - Khi nhận `SIGINT`/`SIGTERM`: đánh dấu `shutting_down`, từ chối write mới (trả 503), gửi notification (`system_status`/`shutdown`) tới clients qua WS.
-  - Gọi `storage.flush()` và chờ tối đa `shutdown_timeout_sec` (config, mặc định 10s) để persist buffer; nếu timeout, log warning và đóng kết nối an toàn.
-  - Đóng CAN interface sau khi writer queue đã được xử lý, rồi đóng WebSocket connections.
+  - On `SIGINT`/`SIGTERM`: mark `shutting_down`, reject new writes (return 503), and send a notification (`system_status`/`shutdown`) to clients over WS.
+  - Call `storage.flush()` and wait up to `shutdown_timeout_sec` (config, default 10s) to persist the buffer; if it times out, log a warning and close connections safely.
+  - Close the CAN interface after the writer queue has been processed, then close WebSocket connections.
 
-- Giám sát & phục hồi:
-  - Duy trì cả `/health` (liveness) và `/ready` (readiness). Supervisor/watchdog (systemd, docker restart policy, hoặc supervisor) sử dụng các endpoint này để quyết định restart.
-  - Export metrics quan trọng: queue length, queue drops, storage backlog, write latency, error counts.
+- Monitoring & recovery:
+  - Keep both `/health` (liveness) and `/ready` (readiness). Supervisor/watchdog (systemd, docker restart policy, or supervisor) uses these endpoints to decide when to restart.
+  - Export important metrics: queue length, queue drops, storage backlog, write latency, error counts.
 
 - Logging & Observability:
-  - Structured JSON logs với fields: `timestamp`, `component`, `correlation_id`, `task`, `level`, `message`.
-  - Bổ sung metrics cho Prometheus (ví dụ: `can_msgs_total`, `signal_updates_total`, `write_errors_total`, `queue_drops_total`).
+  - Structured JSON logs with fields: `timestamp`, `component`, `correlation_id`, `task`, `level`, `message`.
+  - Add metrics for Prometheus (for example: `can_msgs_total`, `signal_updates_total`, `write_errors_total`, `queue_drops_total`).
 
-- Scale & kiến trúc phân tán:
-  - Single-process `asyncio` đơn giản và phù hợp khi dùng in-memory `SignalStore`. Để scale ngang, chuyển state ra ngoài (Redis) hoặc dùng message bus (NATS/RabbitMQ).
-  - Lưu ý: nhiều uvicorn workers đồng thời yêu cầu shared state; nếu không có shared state, tránh dùng nhiều workers.
+- Scale & distributed architecture:
+  - Single-process `asyncio` is simple and appropriate when using an in-memory `SignalStore`. To scale horizontally, move state out to Redis or use a message bus (NATS/RabbitMQ).
+  - Note: multiple uvicorn workers require shared state; without shared state, avoid using multiple workers.
 
-- Cấu hình đề xuất (thêm):
+- Suggested additional configuration:
   - `processor.queue_policy: drop_oldest|block|reject`
   - `writer.rate_limit_per_sec`, `writer.burst`
   - `shutdown_timeout_sec: 10`
   - `supervisor.watchdog_interval_sec: 5`
 
-- Kiểm thử:
-  - Test backpressure: làm chậm storage để kiểm tra behaviour (drops, 503, sampling).
-  - Test graceful shutdown: đảm bảo `storage.flush()` được gọi và writer queue được drained.
+- Testing:
+  - Test backpressure: slow down storage to verify behavior (drops, 503, sampling).
+  - Test graceful shutdown: ensure `storage.flush()` is called and the writer queue is drained.
 
 ---
-
 ## 2.9 Error Taxonomy & Recovery
 
-> Phân loại lỗi hệ thống và chiến lược phục hồi cho từng loại.
+> Classification of system errors and recovery strategy for each type.
 
-| Mã lỗi | Nguồn | Mô tả | Severity | Recovery Strategy |
+| Error code | Source | Description | Severity | Recovery Strategy |
 |---|---|---|---|---|
-| `ERR_CAN_BUS_OFF` | CAN I/O | Bus-off state do lỗi phần cứng hoặc quá tải | CRITICAL | Auto-reconnect với exponential backoff (1s → max 30s). Log lỗi, tạm dừng write. Sau 5 lần thất bại liên tiếp → alert Supervisor |
-| `ERR_CAN_TIMEOUT` | CAN Reader | Không nhận frame trong thời gian kỳ vọng (> 3× cycle time) | WARNING | Log warning, gửi stale status cho signal. Nếu > 30s → đánh dấu signal offline |
-| `ERR_PARSE_DB` | Parser | File can.json không hợp lệ hoặc bị hỏng | CRITICAL | Reject file, log chi tiết lỗi (file, line, reason). Hệ thống vẫn chạy với các file hợp lệ còn lại |
-| `ERR_DECODE_FRAME` | CAN Reader | Frame nhận được không match can.json definition (DLC mismatch, unknown ID) | WARNING | Log + skip frame, increment error counter. Nếu error rate > threshold → alert |
-| `ERR_STORAGE_WRITE` | Storage | SQLite write thất bại (disk full, lock, corruption) | CRITICAL | Retry 3 lần với backoff. Nếu vẫn thất bại → buffer in-memory (max 10 000 records), alert Supervisor. Khi DB phục hồi → flush buffer |
-| `ERR_STORAGE_FULL` | Storage | Disk usage vượt ngưỡng `storage.max_disk_mb` | WARNING | Chạy retention purge ngay lập tức. Nếu vẫn không đủ → giảm batch size, log warning |
-| `ERR_WS_SLOW_CLIENT` | WebSocket | Client không consume message kịp (send buffer > threshold) | WARNING | Drop oldest messages cho client đó (per-client buffer). Nếu client quá chậm > 60s → disconnect |
-| `ERR_API_RATE_LIMIT` | FastAPI | Write request vượt rate limit | INFO | Trả HTTP 429 + `Retry-After` header |
-| `ERR_CONFIG_INVALID` | Config | YAML config không hợp lệ (schema mismatch) | CRITICAL | Reject startup, log chi tiết lỗi validation (field, expected, got) |
-| `ERR_ENCODER_FAIL` | CAN Writer | Encode signal thất bại (out of range, unknown signal) | WARNING | Reject write request (HTTP 400), log reason. Không gửi frame lên bus |
+| `ERR_CAN_BUS_OFF` | CAN I/O | Bus-off state due to hardware failure or overload | CRITICAL | Auto-reconnect with exponential backoff (1s → max 30s). Log the error, temporarily pause writes. After 5 consecutive failures → alert Supervisor |
+| `ERR_CAN_TIMEOUT` | CAN Reader | No frame received within the expected time (> 3× cycle time) | WARNING | Log a warning, send stale status for the signal. If > 30s → mark signal offline |
+| `ERR_PARSE_DB` | Parser | Invalid or corrupted can.json file | CRITICAL | Reject the file, log detailed error information (file, line, reason). The system continues running with the remaining valid files |
+| `ERR_DECODE_FRAME` | CAN Reader | Received frame does not match the can.json definition (DLC mismatch, unknown ID) | WARNING | Log + skip frame, increment error counter. If error rate > threshold → alert |
+| `ERR_STORAGE_WRITE` | Storage | SQLite write failure (disk full, lock, corruption) | CRITICAL | Retry 3 times with backoff. If it still fails → buffer in memory (max 10 000 records), alert Supervisor. Flush the buffer when DB recovers |
+| `ERR_STORAGE_FULL` | Storage | Disk usage exceeds threshold `storage.max_disk_mb` | WARNING | Run retention purge immediately. If still insufficient → reduce batch size, log warning |
+| `ERR_WS_SLOW_CLIENT` | WebSocket | Client cannot consume messages fast enough (send buffer > threshold) | WARNING | Drop oldest messages for that client (per-client buffer). If the client remains too slow for > 60s → disconnect |
+| `ERR_API_RATE_LIMIT` | FastAPI | Write request exceeds rate limit | INFO | Return HTTP 429 + `Retry-After` header |
+| `ERR_CONFIG_INVALID` | Config | Invalid YAML config (schema mismatch) | CRITICAL | Reject startup, log detailed validation error (field, expected, got) |
+| `ERR_ENCODER_FAIL` | CAN Writer | Signal encode failure (out of range, unknown signal) | WARNING | Reject the write request (HTTP 400), log the reason. Do not send the frame to the bus |
 
-> **Error counters:** Mỗi loại lỗi có counter riêng, export qua Prometheus metric và hiển thị trong `/api/v1/system/status`.
+> **Error counters:** Each error type has its own counter, exported via a Prometheus metric and shown in `/api/v1/system/status`.
 
 ---
 
 ## 2.10 Deployment & Service
 
-> Hướng dẫn triển khai hệ thống dưới dạng service trên Linux embedded (CarPC).
+> Guidance for deploying the system as a service on embedded Linux (CarPC).
 
 ### systemd Service
 
@@ -840,7 +838,7 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 ```
 
-### Docker (tùy chọn)
+### Docker (optional)
 
 ```dockerfile
 FROM python:3.12-slim
@@ -868,7 +866,7 @@ sudo ip link set up can0
 
 ### Environment Variables (override config)
 
-| Variable | Default | Mô tả |
+| Variable | Default | Description |
 |---|---|---|
 | `CANHMI_CONFIG` | `config/system.json` | Path to main config file |
 | `CANHMI_LOG_LEVEL` | `INFO` | Override logging level |
@@ -879,29 +877,29 @@ sudo ip link set up can0
 
 ## 2.11 Security
 
-> Bảo mật cho API, WebSocket, và CAN write path.
+> Security for the API, WebSocket, and CAN write path.
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Authentication | API key (header `X-API-Key`) cho REST. JWT (optional) cho multi-user. WS: token via query param `?token=` |
-| Authorization | Signal write access kiểm tra `writable` flag trong `signal_config`. Chỉ signal có `writable=true` mới cho phép PUT |
-| Input validation | Pydantic model validate tất cả request body. Signal value phải nằm trong `[min, max]` range từ config/can.json |
-| Rate limiting | Global: 100 req/s (configurable). Write: 10 req/s per signal. Trả HTTP 429 + `Retry-After` |
+| Authentication | API key (header `X-API-Key`) for REST. Optional JWT for multi-user. WS: token via query param `?token=` |
+| Authorization | Signal write access checks the `writable` flag in `signal_config`. Only signals with `writable=true` may be written via PUT |
+| Input validation | Pydantic models validate all request bodies. Signal values must be within the `[min, max]` range from config/can.json |
+| Rate limiting | Global: 100 req/s (configurable). Write: 10 req/s per signal. Return HTTP 429 + `Retry-After` |
 | TLS | Production: HTTPS (reverse proxy nginx/caddy). Dev: plain HTTP OK |
-| Secret management | API key không hard-code; đọc từ env var `CANHMI_API_KEY` hoặc secret file. Config file không commit secret |
-| CAN bus safety | Validate signal value range trước khi encode. Reject out-of-range writes (HTTP 400). Log tất cả write operations |
-| CORS | Whitelist origins trong config (`api.cors_origins`). Không dùng `*` trong production |
-| Headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy` cho frontend |
+| Secret management | API key is not hard-coded; read from env var `CANHMI_API_KEY` or a secret file. Do not commit secrets in the config file |
+| CAN bus safety | Validate signal value ranges before encoding. Reject out-of-range writes (HTTP 400). Log all write operations |
+| CORS | Whitelist origins in config (`api.cors_origins`). Do not use `*` in production |
+| Headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy` for the frontend |
 
 ---
 
-## 3. Cấu trúc thư mục dự án
+## 3. Project Directory Structure
 
 ```
 car-hmi/
 ├── docs/
-│   └── requirement.md          # Tài liệu yêu cầu (file này)
-├── README.md                   # Hướng dẫn cài đặt & chạy
+│   └── requirement.md          # Requirements document (this file)
+├── README.md                   # Installation & run guide
 ├── pyproject.toml              # Project metadata & dependencies
 ├── ruff.toml                   # Ruff linter configuration
 ├── Dockerfile                  # Container image
@@ -1004,7 +1002,7 @@ car-hmi/
 
 ---
 
-## 4. Luồng dữ liệu (Data Flow)
+## 4. Data Flow
 
 ```
 [1] CAN Simulator (CANSimulator)
@@ -1037,14 +1035,14 @@ car-hmi/
                    [5] FastAPI ──► [2] CAN Writer (writer.py encode+send) ──► CAN Bus ──► [1] Simulator
 ```
 
-**Luồng ghi ngược (Write-back):**
+**Write-back flow:**
 
-1. User nhập giá trị mới trên Web Dashboard
-2. Frontend gọi `PUT /signals/{signal_name}` với giá trị mới (`WriteSignalRequest`)
-3. FastAPI validate (Pydantic) → chuyển cho CAN Writer
-4. CAN Writer encode signal thành CAN frame (via DatabaseLoader) → gửi lên bus (async, với Lock)
-5. CAN Simulator (hoặc ECU thật) nhận và phản hồi
-6. Response: 202 ACCEPTED với `{"signal_name": ..., "value": ..., "queued_at": ...}`
+1. The user enters a new value in the Web Dashboard
+2. The frontend calls `PUT /signals/{signal_name}` with the new value (`WriteSignalRequest`)
+3. FastAPI validates it (Pydantic) → passes it to the CAN Writer
+4. CAN Writer encodes the signal into a CAN frame (via DatabaseLoader) → sends it to the bus (async, with Lock)
+5. CAN Simulator (or the real ECU) receives it and responds
+6. Response: 202 ACCEPTED with `{"signal_name": ..., "value": ..., "queued_at": ...}`
 
 ---
 
@@ -1079,21 +1077,20 @@ httpx>=0.27              # Async HTTP client (test FastAPI)
 ruff>=0.5                # Linter + formatter
 locust>=2.29             # Performance / load testing (optional)
 ```
-
 ### Testing Strategy
 
-| Loại test | Phạm vi | Công cụ |
+| Test type | Scope | Tooling |
 |---|---|---|
-| Unit test | Từng module riêng lẻ (simulator, reader, processor, storage) | `pytest` + `pytest-asyncio` |
-| Integration test | API endpoints + WebSocket + CAN I/O kết hợp | `httpx` + `pytest` |
-| E2E test | Full stack: Simulator → Reader → Processor → API → Dashboard | Manual / Playwright (tùy chọn) |
-| Performance test | Throughput, latency theo NFR | `locust` hoặc custom benchmark |
+| Unit test | Each individual module (simulator, reader, processor, storage) | `pytest` + `pytest-asyncio` |
+| Integration test | API endpoints + WebSocket + combined CAN I/O | `httpx` + `pytest` |
+| E2E test | Full stack: Simulator → Reader → Processor → API → Dashboard | Manual / Playwright (optional) |
+| Performance test | Throughput, latency per NFR | `locust` or custom benchmark |
 
-**Mock & Fixtures:**
-- CAN bus: dùng `python-can` virtual interface (`VirtualBus`) cho unit/integration test — không cần hardware.
-- Storage: dùng in-memory SQLite (`:memory:`) cho test nhanh; file-based cho integration.
-- API: `httpx.AsyncClient` + `TestClient` từ FastAPI.
-- Clock: mock `time.time()` / `asyncio.get_event_loop().time()` cho deterministic timing tests.
+**Mocks & Fixtures:**
+- CAN bus: use the `python-can` virtual interface (`VirtualBus`) for unit/integration tests — no hardware required.
+- Storage: use in-memory SQLite (`:memory:`) for fast tests; file-based SQLite for integration tests.
+- API: `httpx.AsyncClient` + `TestClient` from FastAPI.
+- Clock: mock `time.time()` / `asyncio.get_event_loop().time()` for deterministic timing tests.
 
 **Coverage targets:**
 
@@ -1125,7 +1122,7 @@ jobs:
 
 ---
 
-## 6. Cấu hình (Configuration)
+## 6. Configuration
 
 ### system.json
 
@@ -1222,106 +1219,106 @@ jobs:
 
 ---
 
-## 7. Cách chạy hệ thống
+## 7. How to Run the System
 
 ### Development (local)
 
 ```bash
-# 1. Cài đặt
+# 1. Install
 pip install -e ".[dev]"
 
-# 2. Chạy toàn bộ stack (simulator + reader + processor + API + frontend)
+# 2. Run the full stack (simulator + reader + processor + API + frontend)
 python -m src.core.runner --config config/system.json
 
-# 3. Hoặc chạy từng phần riêng
-python -m src.can_simulator --dbc-dir db/can_db/ --a2l-dir db/ecu_db/ # Chỉ simulator
-python -m src.api.app --config config/system.json                     # Chỉ API server
+# 3. Or run individual parts
+python -m src.can_simulator --dbc-dir db/can_db/ --a2l-dir db/ecu_db/ # Simulator only
+python -m src.api.app --config config/system.json                     # API server only
 
-# 4. Mở dashboard
-# Truy cập http://localhost:8000 trên trình duyệt
+# 4. Open the dashboard
+# Access http://localhost:8000 in the browser
 
-# 5. Chạy tests
+# 5. Run tests
 pytest --cov=src --cov-report=term-missing -q
 ruff check src/ tests/
 ```
 
 ### Production (systemd / Docker)
 
-Xem chi tiết tại **Section 2.10 — Deployment & Service**:
+See details in **Section 2.10 — Deployment & Service**:
 - **systemd:** copy `systemd/can-hmi.service` → `/etc/systemd/system/`, `systemctl enable --now can-hmi`
 - **Docker:** `docker build -t can-hmi . && docker run -p 8000:8000 can-hmi`
-- **CAN bus setup:** xem hướng dẫn `vcan` / `socketcan` trong section 2.10
+- **CAN bus setup:** see the `vcan` / `socketcan` guidance in section 2.10
 
 ---
 
-## 8. Tiêu chí chấp nhận (Acceptance Criteria)
+## 8. Acceptance Criteria
 
-| # | Tiêu chí | Trạng thái |
+| # | Criterion | Status |
 |---|---|---|
-| AC-1 | CAN Simulator phát frame đúng theo CANdb (candb), đúng cycle time | ⬜ |
-| AC-2 | CAN Reader decode chính xác tất cả signal trong CANdb/candb | ⬜ |
-| AC-3 | Signal Processor áp dụng smoothing, phát alarm khi vượt ngưỡng | ⬜ |
-| AC-4 | Storage lưu được ≥ 1000 sample/s mà không mất dữ liệu | ⬜ |
-| AC-5 | REST API trả về snapshot signal với latency < 50 ms | ⬜ |
-| AC-6 | WebSocket push signal update với latency < 100 ms (end-to-end) | ⬜ |
-| AC-7 | Web Dashboard hiển thị real-time gauge/chart cập nhật mượt | ⬜ |
-| AC-8 | User có thể ghi giá trị signal từ Dashboard → CAN bus thành công | ⬜ |
-| AC-9 | Tất cả unit test pass, coverage ≥ 80% | ⬜ |
-| AC-10 | Hệ thống chạy ổn định ≥ 1 giờ liên tục không crash | ⬜ |
-| AC-11 | Graceful shutdown: flush storage, drain writer queue, close WS trong ≤ `shutdown_timeout_sec` | ⬜ |
-| AC-12 | Config validation báo lỗi rõ ràng khi YAML không hợp lệ (field name, expected vs got) | ⬜ |
-| AC-13 | Alarm lifecycle: trigger → persist alarm_log → WS push → ACK → resolve hoạt động đầy đủ | ⬜ |
-| AC-14 | Security: chỉ signal có `writable=true` cho phép PUT; API key required cho REST | ⬜ |
-| AC-15 | CAN bus reconnect tự động sau bus-off, trong ≤ 5 giây (P95) | ⬜ |
-| AC-16 | Error taxonomy: tất cả error codes được log và error counter export qua `/api/v1/system/status` | ⬜ |
+| AC-1 | CAN Simulator emits frames correctly according to CANdb (candb), with the correct cycle time | ⬜ |
+| AC-2 | CAN Reader accurately decodes all signals in CANdb/candb | ⬜ |
+| AC-3 | Signal Processor applies smoothing and raises alarms when thresholds are exceeded | ⬜ |
+| AC-4 | Storage can persist ≥ 1000 samples/s without data loss | ⬜ |
+| AC-5 | REST API returns signal snapshots with latency < 50 ms | ⬜ |
+| AC-6 | WebSocket pushes signal updates with latency < 100 ms (end-to-end) | ⬜ |
+| AC-7 | Web Dashboard shows smoothly updating real-time gauges/charts | ⬜ |
+| AC-8 | Users can write signal values from the Dashboard → CAN bus successfully | ⬜ |
+| AC-9 | All unit tests pass, coverage ≥ 80% | ⬜ |
+| AC-10 | The system runs stably for ≥ 1 continuous hour without crashing | ⬜ |
+| AC-11 | Graceful shutdown: flush storage, drain writer queue, close WS within ≤ `shutdown_timeout_sec` | ⬜ |
+| AC-12 | Config validation reports clear errors when YAML is invalid (field name, expected vs got) | ⬜ |
+| AC-13 | Alarm lifecycle: trigger → persist in alarm_log → WS push → ACK → resolve works completely | ⬜ |
+| AC-14 | Security: only signals with `writable=true` allow PUT; API key required for REST | ⬜ |
+| AC-15 | CAN bus reconnects automatically after bus-off, within ≤ 5 seconds (P95) | ⬜ |
+| AC-16 | Error taxonomy: all error codes are logged and error counters are exported via `/api/v1/system/status` | ⬜ |
 
 ### Non-Functional Requirements (NFR)
 
-| NFR | Yêu cầu |
+| NFR | Requirement |
 |---|---|
 | Latency | End-to-end CAN → WebSocket ≤ 100 ms (P95) |
-| Throughput | Xử lý ≥ 1 000 signals/s sustained |
-| Memory | RSS ≤ 512 MB trong điều kiện vận hành bình thường |
-| Startup | Cold start → ready ≤ 5 giây |
-| Config validation | Báo lỗi rõ ràng khi config YAML không hợp lệ. Dùng **Pydantic `BaseSettings`** để validate schema (type, range, required fields). Những field thiếu hoặc sai type sẽ báo lỗi ngay khi startup với message rõ ràng (field name, expected type, got value) |
-| Graceful shutdown | Khi nhận SIGTERM/SIGINT: flush storage buffer, close CAN bus, close WS connections |
-| Disk usage | SQLite DB ≤ 2 GB (with retention 30 ngày). Config: `storage.max_disk_mb: 2048` |
-| CAN reconnect | Bus-off → reconnect ≤ 5 giây (P95). Max 5 retries trước khi alert Supervisor |
-| Error rate | Decode error rate ≤ 0.1% tổng số frame nhận được (sustained) |
+| Throughput | Sustained processing ≥ 1 000 signals/s |
+| Memory | RSS ≤ 512 MB under normal operating conditions |
+| Startup | Cold start → ready ≤ 5 seconds |
+| Config validation | Report clear errors when config YAML is invalid. Use **Pydantic `BaseSettings`** to validate schema (type, range, required fields). Missing fields or incorrect types must fail immediately at startup with a clear message (field name, expected type, actual value) |
+| Graceful shutdown | On SIGTERM/SIGINT: flush storage buffer, close CAN bus, close WS connections |
+| Disk usage | SQLite DB ≤ 2 GB (with 30-day retention). Config: `storage.max_disk_mb: 2048` |
+| CAN reconnect | Bus-off → reconnect ≤ 5 seconds (P95). Max 5 retries before alerting Supervisor |
+| Error rate | Decode error rate ≤ 0.1% of total received frames (sustained) |
 
 ---
 
-## 9. Roadmap triển khai
+## 9. Implementation Roadmap
 
-| Phase | Nội dung | Ưu tiên |
+| Phase | Content | Priority |
 |---|---|---|
-| **Phase 1** | CAN Simulator + CANdb (candb) + CAN Reader/Writer | 🔴 Cao |
-| **Phase 2** | Signal Processor + Storage (SQLite) + Alarm detection | 🔴 Cao |
-| **Phase 3** | FastAPI REST + WebSocket endpoints + Config validation (Pydantic) | 🔴 Cao |
-| **Phase 4** | Web Dashboard (gauge, chart, table, edit) + Offline fallback | 🟡 Trung bình |
-| **Phase 5** | Alarm lifecycle (ACK/resolve/history) + Notification (email/webhook/toast) | 🟡 Trung bình |
-| **Phase 6** | Security (2.11) + Rate-limit + Error Taxonomy (2.9) + Deployment (2.10, systemd/Docker) | 🟢 Thấp |
-| **Phase 7** | Mở rộng: CAN FD, TimescaleDB, multi-bus, Prometheus metrics | 🟢 Thấp |
+| **Phase 1** | CAN Simulator + CANdb (candb) + CAN Reader/Writer | 🔴 High |
+| **Phase 2** | Signal Processor + Storage (SQLite) + Alarm detection | 🔴 High |
+| **Phase 3** | FastAPI REST + WebSocket endpoints + Config validation (Pydantic) | 🔴 High |
+| **Phase 4** | Web Dashboard (gauge, chart, table, edit) + Offline fallback | 🟡 Medium |
+| **Phase 5** | Alarm lifecycle (ACK/resolve/history) + Notification (email/webhook/toast) | 🟡 Medium |
+| **Phase 6** | Security (2.11) + Rate limiting + Error Taxonomy (2.9) + Deployment (2.10, systemd/Docker) | 🟢 Low |
+| **Phase 7** | Extensions: CAN FD, TimescaleDB, multi-bus, Prometheus metrics | 🟢 Low |
 
 ---
 
 ## 10. Glossary
 
-| Thuật ngữ | Giải nghĩa |
+| Term | Definition |
 |---|---|
-| CAN | Controller Area Network — giao thức truyền thông nối tiếp giữa các ECU trên xe |
-| CAN FD | CAN with Flexible Data-rate — mở rộng CAN với payload lớn hơn (lên tới 64 bytes) và bitrate cao hơn |
-| DBC | Database CAN — định dạng file mô tả CAN messages và signals (Vector standard) |
-| A2L | ASAM MCD-2 MC description file — mô tả measurement và calibration data của ECU |
-| CANdb / candb | Custom JSON-based CAN database format dùng trong project này |
-| DLC | Data Length Code — số byte dữ liệu trong một CAN frame (0–8 với CAN 2.0, 0–64 với CAN FD) |
-| ECU | Electronic Control Unit — bộ điều khiển điện tử trên xe |
-| Bus-off | Trạng thái lỗi của CAN controller khi error counter vượt ngưỡng, node tự ngắt khỏi bus |
-| mDNS | Multicast DNS — phát hiện dịch vụ trên mạng LAN không cần DNS server |
-| RTSP | Real Time Streaming Protocol — giao thức stream video |
-| GStreamer | Framework xử lý multimedia (dùng cho video DMS/OMS) |
-| DMS / OMS | Driver Monitoring System / Occupant Monitoring System — camera giám sát tài xế / hành khách |
-| HMI | Human-Machine Interface — giao diện người–máy |
-| NFR | Non-Functional Requirement — yêu cầu phi chức năng (hiệu năng, bảo mật, ...) |
-| RSS | Resident Set Size — lượng RAM thực tế process đang dùng |
-| ASGI | Asynchronous Server Gateway Interface — chuẩn giao tiếp cho Python async web servers |
+| CAN | Controller Area Network — serial communication protocol between ECUs in a vehicle |
+| CAN FD | CAN with Flexible Data-rate — CAN extension with larger payloads (up to 64 bytes) and higher bitrates |
+| DBC | Database CAN — file format describing CAN messages and signals (Vector standard) |
+| A2L | ASAM MCD-2 MC description file — describes ECU measurement and calibration data |
+| CANdb / candb | Custom JSON-based CAN database format used in this project |
+| DLC | Data Length Code — number of data bytes in a CAN frame (0–8 for CAN 2.0, 0–64 for CAN FD) |
+| ECU | Electronic Control Unit — electronic control module in the vehicle |
+| Bus-off | CAN controller error state when the error counter exceeds the threshold and the node disconnects itself from the bus |
+| mDNS | Multicast DNS — service discovery on the LAN without requiring a DNS server |
+| RTSP | Real Time Streaming Protocol — video streaming protocol |
+| GStreamer | Multimedia processing framework (used for DMS/OMS video) |
+| DMS / OMS | Driver Monitoring System / Occupant Monitoring System — driver / passenger monitoring cameras |
+| HMI | Human-Machine Interface — the user interface |
+| NFR | Non-Functional Requirement — non-functional requirement (performance, security, ...) |
+| RSS | Resident Set Size — the actual RAM currently used by the process |
+| ASGI | Asynchronous Server Gateway Interface — interface standard for Python async web servers |

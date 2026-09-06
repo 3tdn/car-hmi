@@ -1,80 +1,80 @@
 # Camera Live View — MJPEG Stream Proxy
 
-## Bối cảnh
+## Background
 
-Camera của xe phát video dạng MJPEG qua một URL cố định trên mạng nội bộ CarPC:
+The vehicle camera publishes MJPEG video through a fixed URL on the CarPC local network:
 
 ```
 http://192.168.2.119:8080/stream
 ```
 
-MJPG server phía camera chỉ cho phép **DUY NHẤT 1 kết nối đồng thời** (có mutex ở
-phía nguồn) — nếu 2 client cùng mở kết nối trực tiếp tới camera, kết nối thứ 2 sẽ
-bị từ chối hoặc treo.
+The MJPG server on the camera side allows **ONLY 1 concurrent connection** (there is a mutex at
+the source) — if 2 clients open direct connections to the camera at the same time, the second
+connection is rejected or hangs.
 
-Trong khi đó, HMI cần cho phép **nhiều thiết bị đầu cuối** (mỗi thiết bị là 1 user)
-cùng xem stream cùng lúc. Giải pháp: CarPC (backend) mở **đúng 1** kết nối tới
-camera, đọc byte-stream MJPEG và **fan-out** (broadcast) dữ liệu đó cho nhiều client
-tải qua HTTP tới CarPC. Mỗi client không đụng trực tiếp tới camera nên không vi phạm
-giới hạn 1-connection của nguồn.
+Meanwhile, the HMI needs to allow **multiple end devices** (each device is one user)
+to watch the stream simultaneously. The solution: CarPC (backend) opens **exactly 1** connection to
+the camera, reads the MJPEG byte stream, and **fans out** (broadcasts) that data to multiple clients
+downloading over HTTP from CarPC. Each client never touches the camera directly, so the source's
+1-connection limit is not violated.
 
-## Những thay đổi đã thực hiện
+## Changes implemented
 
 ### Backend
 
-| File | Thay đổi |
+| File | Change |
 |---|---|
-| `src/core/camera_stream.py` | **Mới.** `CameraStreamProxy` — quản lý 1 kết nối upstream MJPEG duy nhất, fan-out chunk byte cho nhiều subscriber (mỗi client 1 `asyncio.Queue`), tự động reconnect khi lỗi, drop chunk cũ cho client chậm để tránh nghẽn broadcast. |
-| `src/api/routes/camera.py` | **Mới.** `GET /api/camera/stream` (StreamingResponse MJPEG, mỗi client subscribe qua proxy) và `GET /api/camera/status` (trạng thái kết nối, số viewer, lỗi gần nhất). |
-| `src/core/config.py` | Thêm `CameraConfig` (enabled, stream_url, timeouts, reconnect interval, chunk size, queue size, startup_wait) và field `camera` trong `AppConfig`. |
-| `config/system.json` | Thêm section `"camera"` với `stream_url = "http://192.168.2.119:8080/stream"`, `enabled = true`. |
-| `src/api/app.py` | Đọc `camera` config qua `read_config()`, khởi tạo `CameraStreamProxy` nếu `enabled`, lưu vào `app.state.camera_proxy`, đăng ký router `/api/camera`, và cleanup khi shutdown qua `app.router.on_shutdown`. |
-| `src/api/models.py` | Thêm `CameraStatusResponse`. |
-| `pyproject.toml` | Thêm `httpx` vào dependencies chính (trước đây chỉ có ở `dev`) — dùng để mở kết nối streaming bất đồng bộ tới camera. |
+| `src/core/camera_stream.py` | **New.** `CameraStreamProxy` — manages a single upstream MJPEG connection, fans out byte chunks to multiple subscribers (one `asyncio.Queue` per client), automatically reconnects on failure, and drops old chunks for slow clients to avoid broadcast congestion. |
+| `src/api/routes/camera.py` | **New.** `GET /api/camera/stream` (MJPEG `StreamingResponse`, each client subscribes through the proxy) and `GET /api/camera/status` (connection status, viewer count, most recent error). |
+| `src/core/config.py` | Add `CameraConfig` (enabled, stream_url, timeouts, reconnect interval, chunk size, queue size, startup_wait) and the `camera` field in `AppConfig`. |
+| `config/system.json` | Add a `"camera"` section with `stream_url = "http://192.168.2.119:8080/stream"`, `enabled = true`. |
+| `src/api/app.py` | Read `camera` config via `read_config()`, initialize `CameraStreamProxy` when `enabled`, store it in `app.state.camera_proxy`, register router `/api/camera`, and clean it up on shutdown via `app.router.on_shutdown`. |
+| `src/api/models.py` | Add `CameraStatusResponse`. |
+| `pyproject.toml` | Add `httpx` to the main dependencies (it previously existed only in `dev`) — used to open the asynchronous streaming connection to the camera. |
 
 ### Frontend
 
-| File | Thay đổi |
+| File | Change |
 |---|---|
-| `frontend/index.html` | Thêm card "Camera Live View" với `<img id="camera-stream-img">` trỏ tới `/api/camera/stream` (MJPEG hiển thị native qua thẻ `<img>`) và badge trạng thái kết nối. |
-| `frontend/js/api.js` | Thêm `cameraStreamUrl()` và `fetchCameraStatus()`. |
-| `frontend/js/app.js` | Thêm `initCameraStream()` — set `src` cho `<img>`, poll `/api/camera/status` mỗi 5s để cập nhật badge/viewer count, tự động retry khi stream lỗi. |
+| `frontend/index.html` | Add a "Camera Live View" card with `<img id="camera-stream-img">` pointing to `/api/camera/stream` (MJPEG displayed natively through the `<img>` tag) and a connection status badge. |
+| `frontend/js/api.js` | Add `cameraStreamUrl()` and `fetchCameraStatus()`. |
+| `frontend/js/app.js` | Add `initCameraStream()` — sets the `<img>` `src`, polls `/api/camera/status` every 5s to update the badge/viewer count, and automatically retries when the stream fails. |
 
 ### Tests
 
-| File | Thay đổi |
+| File | Change |
 |---|---|
-| `tests/test_camera_stream.py` | **Mới.** Mock `httpx.AsyncClient` để test `CameraStreamProxy` (fan-out 1 upstream → nhiều subscriber, viewer count, timeout content-type) và route `/api/camera/status` (200 khi có proxy, 503 khi chưa cấu hình). |
+| `tests/test_camera_stream.py` | **New.** Mock `httpx.AsyncClient` to test `CameraStreamProxy` (fan-out from 1 upstream → multiple subscribers, viewer count, timeout content-type) and route `/api/camera/status` (200 when a proxy exists, 503 when not configured). |
 
-### Khác
+### Other
 
-- `ruff.toml`: thêm `src/core/camera_stream.py` vào danh sách ignore rule `S110` (reconnect loop bắt Exception rộng nhưng có log, không phải bug).
+- `ruff.toml`: add `src/core/camera_stream.py` to the ignore list for rule `S110` (the reconnect loop catches a broad `Exception` but logs it, so this is not a bug).
 
-## Cách hoạt động (luồng xử lý)
+## How it works (processing flow)
 
 ```
 Client A ──┐
 Client B ──┼─→ GET /api/camera/stream (CarPC) ──┐
 Client C ──┘                                     │
                                                   ▼
-                                     CameraStreamProxy (1 kết nối duy nhất)
+                                     CameraStreamProxy (single connection)
                                                   │
                                                   ▼
                                    http://192.168.2.119:8080/stream (camera)
 ```
 
-1. Client đầu tiên gọi `GET /api/camera/stream` → proxy chưa có kết nối upstream nên
-   tự khởi động (`open_subscription()`), chờ tối đa `startup_wait_sec` để xác định
-   `Content-Type`/boundary thật từ camera.
-2. Các client tiếp theo dùng chung kết nối upstream đã mở — không tạo thêm kết nối
-   tới camera.
-3. Mỗi chunk byte đọc được từ camera được broadcast (copy) cho tất cả subscriber
-   đang mở.
-4. Khi client cuối cùng đóng kết nối, proxy tự động dừng upstream (giải phóng tài
-   nguyên); khi có subscriber mới, proxy reconnect.
-5. Nếu upstream lỗi/rớt mạng, proxy tự retry sau `reconnect_interval_sec`.
+1. The first client calls `GET /api/camera/stream` → the proxy has no upstream connection yet, so
+   it starts itself (`open_subscription()`), waits up to `startup_wait_sec` to determine the real
+   `Content-Type`/boundary from the camera.
+2. Subsequent clients share the same open upstream connection — no additional connections
+   to the camera are created.
+3. Each byte chunk read from the camera is broadcast (copied) to all currently open
+   subscribers.
+4. When the last client closes the connection, the proxy automatically stops the upstream (releasing
+   resources); when a new subscriber appears, the proxy reconnects.
+5. If the upstream fails or the network drops, the proxy retries automatically after `reconnect_interval_sec`.
 
-## Cấu hình (`config/system.json` → `camera`)
+## Configuration (`config/system.json` → `camera`)
 
 ```json
 {
@@ -93,15 +93,15 @@ Client C ──┘                                     │
 
 ## API
 
-| Method | Path | Mô tả |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/api/camera/stream` | Trả về MJPEG stream (multipart/x-mixed-replace), dùng trực tiếp làm `src` của thẻ `<img>`. |
+| GET | `/api/camera/stream` | Returns the MJPEG stream (`multipart/x-mixed-replace`), used directly as the `src` of an `<img>` tag. |
 | GET | `/api/camera/status` | `{ enabled, stream_url, connected, viewer_count, last_error }`. |
 
-## Lưu ý / TODO
+## Notes / TODO
 
-- Cần xác nhận với SIMI lý do camera chỉ hỗ trợ 1 kết nối đồng thời (mutex) — hiện
-  tại giải pháp proxy fan-out phía CarPC đã giải quyết được giới hạn này ở tầng
-  ứng dụng, không cần thay đổi phía camera.
-- Route hiện chưa yêu cầu API key (giống pattern `restraints`/`system`); có thể bổ
-  sung `dependencies=[auth_dep]` nếu cần hạn chế truy cập stream.
+- Need to confirm with SIMI why the camera supports only 1 concurrent connection (mutex) — for now,
+  the fan-out proxy solution on the CarPC side already solves this limitation at the application
+  layer, with no camera-side changes required.
+- The route currently does not require an API key (following the `restraints`/`system` pattern); `dependencies=[auth_dep]`
+  can be added if stream access needs to be restricted.

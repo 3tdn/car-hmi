@@ -1,4 +1,4 @@
-"""Pipeline xử lý tín hiệu — chuỗi các giai đoạn xử lý (mẫu Pipeline)."""
+"""Signal processing pipeline — a sequence of processing stages (Pipeline pattern)."""
 
 from __future__ import annotations
 
@@ -11,25 +11,25 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessingStage(ABC):
-    """Lớp cơ sở trừu tượng cho một giai đoạn pipeline."""
+    """Abstract base class for a pipeline stage."""
 
     @abstractmethod
     async def process(self, signals: dict[str, float]) -> dict[str, float]: ...
 
 
 class SignalPipeline:
-    """Xử lý khung đã giải mã qua chuỗi các giai đoạn theo thứ tự.
+    """Process decoded frames through an ordered chain of stages.
 
-    Tiêu thụ các đối tượng ``DecodedFrame`` từ ``asyncio.Queue``, chạy chúng
-    qua tất cả ``ProcessingStage``, sau đó:
-    - Phát giá trị đã xử lý lên ``SignalStore`` (trong bộ nhớ, thời gian thực)
-    - Đệm giá trị cho lần ghi batch vào repository (SQLite)
+    Consumes ``DecodedFrame`` objects from ``asyncio.Queue``, runs them
+    through all ``ProcessingStage`` instances, then:
+    - Publish processed values to ``SignalStore`` (in-memory, real-time)
+    - Buffer values for batch writes to the repository (SQLite)
 
-    Flush theo lô
-    ----------------
-    Bản ghi được ghi vào storage khi một trong hai điều kiện xảy ra:
-    - Bộ đệm đạt ``batch_size`` bản ghi, hoặc
-    - Đã qua ``batch_interval_sec`` giây kể từ lần flush gần nhất.
+    Batch flushing
+    --------------
+    Records are written to storage when either of these conditions occurs:
+    - The buffer reaches ``batch_size`` records, or
+    - ``batch_interval_sec`` seconds have elapsed since the last flush.
     """
 
     def __init__(
@@ -61,7 +61,7 @@ class SignalPipeline:
         self._running = True
         logger.info("Signal pipeline started (%d stages)", len(self._stages))
         while self._running:
-            # --- 1. Chờ frame đầu tiên với timeout ---
+            # --- 1. Wait for the first frame with a timeout ---
             # Avoid asyncio.wait_for() — Python 3.10 has a known bug where
             # CancelledError is converted to TimeoutError and can escape the
             # except clause.  Using asyncio.wait() with FIRST_COMPLETED
@@ -92,30 +92,30 @@ class SignalPipeline:
                 logger.debug("Signal pipeline task cancelled, shutting down")
                 return
 
-            # --- 2. Drain toàn bộ queue: giữ giá trị mới nhất mỗi signal ---
-            # Drain không giới hạn số frame cho đến khi queue rỗng.
-            # Với tải cao, nhiều frame cùng signal_id nằm chờ trong queue;
-            # merged.update() ghi đè liên tục → chỉ giá trị MỚI NHẤT được xử lý.
-            # Đảm bảo tín hiệu cập nhật thường xuyên không tích lũy giá trị cũ
+            # --- 2. Drain the entire queue: keep the latest value for each signal ---
+            # Drain without a frame limit until the queue is empty.
+            # Under high load, many frames for the same signal_id may be waiting in the queue;
+            # merged.update() overwrites continuously → only the NEWEST value is processed.
+            # This ensures frequently updated signals do not accumulate stale values
             # trong buffer storage hay SignalStore.
             merged: dict[str, float] = dict(frame.signals)
             drained = 1
             while True:
                 try:
                     extra = self._queue.get_nowait()
-                    merged.update(extra.signals)  # giá trị mới hơn ghi đè
+                    merged.update(extra.signals)  # newer values overwrite older ones
                     drained += 1
                 except asyncio.QueueEmpty:
                     break
 
-            # --- 3. Xử lý batch đã merge ---
+            # --- 3. Process the merged batch ---
             try:
                 await self._process_signals(merged)
             except Exception as exc:
                 logger.exception("Pipeline error (dropping batch of %d): %s", drained, exc)
 
     async def _process_signals(self, signals: dict[str, float]) -> None:
-        """Xử lý dict tín hiệu đã merge qua tất cả stages."""
+        """Process the merged signal dict through all stages."""
         for stage in self._stages:
             try:
                 signals = await stage.process(signals)
@@ -127,15 +127,15 @@ class SignalPipeline:
                 return
 
         now = time.time()
-        # Phát lên SignalStore — bulk update: 1 lock thay vì N lock
+        # Publish to SignalStore — bulk update: 1 lock instead of N locks
         await self._store.bulk_update(signals, timestamp=now)
 
-        # Đệm cho ghi batch vào storage — đọc unit đồng bộ để tránh N lần acquire asyncio.Lock
+        # Buffer for batch storage writes — read units synchronously to avoid N asyncio.Lock acquisitions
         for name, value in signals.items():
             unit = self._store.get_unit(name)
             self._buffer.append((name, value, unit))
 
-        # Flush nếu đạt ngưỡng batch
+        # Flush when the batch threshold is reached
         buffer_full = len(self._buffer) >= self._batch_size
         interval_elapsed = time.monotonic() - self._last_flush >= self._batch_interval
         if buffer_full or interval_elapsed:
@@ -159,7 +159,7 @@ class SignalPipeline:
         logger.debug("Flushed %d signal records to storage", len(items))
 
     async def flush(self) -> None:
-        """Flush bộ đệm còn lại — gọi khi tắt giữ nãt."""
+        """Flush the remaining buffer — call this during graceful shutdown."""
         logger.info("Final pipeline flush (%d records)...", len(self._buffer))
         await self._flush_buffer()
 
@@ -167,5 +167,5 @@ class SignalPipeline:
         self._running = False
 
     def set_input_queue(self, new_queue: asyncio.Queue) -> None:
-        """Hoán đổi queue đầu vào của pipeline. Caller chịu trách nhiệm chuyển dữ liệu nếu cần."""
+        """Swap the pipeline input queue. The caller is responsible for moving data if needed."""
         self._queue = new_queue

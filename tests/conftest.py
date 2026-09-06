@@ -21,9 +21,9 @@ def _now_text() -> str:
 
 def _phase_vi(phase: str) -> str:
     return {
-        "setup": "chuẩn bị",
-        "call": "thực thi",
-        "teardown": "dọn dẹp",
+        "setup": "setup",
+        "call": "execution",
+        "teardown": "teardown",
     }.get(phase, phase)
 
 
@@ -33,66 +33,66 @@ def _normalize_spaces(text: str) -> str:
 
 def _describe_test_case_vi(item: pytest.Item) -> str:
     token_map = {
-        "load": "nạp",
-        "loads": "nạp",
-        "decode": "giải mã",
-        "encode": "mã hóa",
-        "verify": "xác minh",
-        "check": "kiểm tra",
-        "validate": "xác thực dữ liệu",
-        "should": "phải",
-        "returns": "trả về",
-        "return": "trả về",
-        "missing": "thiếu",
-        "unknown": "không xác định",
-        "raises": "phát sinh lỗi",
-        "roundtrip": "vòng lặp mã hóa-giải mã",
+        "load": "load",
+        "loads": "load",
+        "decode": "decode",
+        "encode": "encode",
+        "verify": "verify",
+        "check": "check",
+        "validate": "validate data",
+        "should": "should",
+        "returns": "returns",
+        "return": "return",
+        "missing": "missing",
+        "unknown": "unknown",
+        "raises": "raises an error",
+        "roundtrip": "encode-decode round trip",
         "little": "little",
         "endian": "endian",
-        "signed": "có dấu",
-        "unsigned": "không dấu",
-        "insert": "chèn",
-        "extract": "trích xuất",
-        "custom": "tùy chỉnh",
-        "auto": "tự động",
-        "allocate": "cấp phát",
-        "start": "bắt đầu",
+        "signed": "signed",
+        "unsigned": "unsigned",
+        "insert": "insert",
+        "extract": "extract",
+        "custom": "custom",
+        "auto": "automatic",
+        "allocate": "allocate",
+        "start": "start",
         "bit": "bit",
         "bits": "bit",
-        "message": "thông điệp",
-        "msg": "thông điệp",
+        "message": "message",
+        "msg": "message",
         "frame": "khung",
         "json": "JSON",
         "none": "None",
-        "empty": "rỗng",
-        "auth": "xác thực",
+        "empty": "empty",
+        "auth": "auth",
         "api": "API",
         "ws": "WebSocket",
         "websocket": "WebSocket",
-        "signal": "tín hiệu",
-        "signals": "tín hiệu",
-        "profile": "hồ sơ",
-        "profiles": "hồ sơ",
-        "alarm": "cảnh báo",
-        "alarms": "cảnh báo",
-        "config": "cấu hình",
-        "health": "sức khỏe hệ thống",
-        "ready": "trạng thái sẵn sàng",
+        "signal": "signal",
+        "signals": "signals",
+        "profile": "profile",
+        "profiles": "profiles",
+        "alarm": "alarm",
+        "alarms": "alarms",
+        "config": "config",
+        "health": "system health",
+        "ready": "ready state",
         "camera": "camera",
-        "stream": "luồng",
-        "metric": "chỉ số",
-        "metrics": "chỉ số",
-        "devmode": "chế độ bảo trì",
-        "runtime": "chạy thực tế",
-        "integration": "tích hợp",
-        "security": "bảo mật",
-        "injection": "tiêm đầu vào",
-        "bypass": "vượt qua kiểm soát",
+        "stream": "stream",
+        "metric": "metric",
+        "metrics": "metrics",
+        "devmode": "Dev Mode",
+        "runtime": "runtime",
+        "integration": "integration",
+        "security": "security",
+        "injection": "injection",
+        "bypass": "bypass",
         "bus": "CAN bus",
-        "parser": "bộ phân tích",
-        "processor": "bộ xử lý",
-        "storage": "lưu trữ",
-        "core": "lõi hệ thống",
+        "parser": "parser",
+        "processor": "processor",
+        "storage": "storage",
+        "core": "core",
     }
 
     raw_name = item.name
@@ -105,7 +105,7 @@ def _describe_test_case_vi(item: pytest.Item) -> str:
     if not readable:
         readable = item.name
 
-    return f"Mô tả tự động: Kiểm tra {readable}."
+    return f"Auto description: Check {readable}."
 
 
 def _ensure_report_file(config: pytest.Config) -> Path:
@@ -144,7 +144,7 @@ def _timeout_guard(seconds: int, nodeid: str, phase: str) -> Generator[None, Non
 
     def _raise_timeout(signum: int, frame: object) -> None:  # noqa: ARG001
         raise _CaseTimeoutError(
-            f"Timeout {seconds}s khi test đang ở pha '{_phase_vi(phase)}' ({nodeid})."
+            f"Timeout {seconds}s while the test was in the '{_phase_vi(phase)}' phase ({nodeid})."
         )
 
     signal.signal(signal.SIGALRM, _raise_timeout)
@@ -161,26 +161,26 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--case-report-file",
         action="store",
         default=REPORT_DEFAULT,
-        help="File report realtime theo tung test case (tieng Viet).",
+        help="Realtime per-test-case report file.",
     )
     parser.addoption(
         "--case-timeout-seconds",
         action="store",
         default=str(CASE_TIMEOUT_SECONDS),
-        help="Timeout cho moi test case (giay). Mac dinh: 300.",
+        help="Timeout for each test case in seconds. Default: 300.",
     )
     parser.addoption(
         "--case-report-append",
         action="store_true",
         default=False,
-        help="Neu bat, se append vao file report thay vi ghi de moi lan chay.",
+        help="If enabled, append to the report file instead of overwriting it on each run.",
     )
 
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
-        "vi_desc(text): Mo ta tieng Viet cho test case trong report realtime.",
+        "vi_desc(text): Custom description for the test case in the realtime report.",
     )
     report_file = _ensure_report_file(config)
     header = (
@@ -206,11 +206,11 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
 
     vi_desc_marker = item.get_closest_marker("vi_desc")
     if vi_desc_marker and vi_desc_marker.args:
-        vi_desc = f"Mô tả: {_normalize_spaces(str(vi_desc_marker.args[0]))}"
+        vi_desc = f"Description: {_normalize_spaces(str(vi_desc_marker.args[0]))}"
     else:
         vi_desc = _describe_test_case_vi(item)
 
-    _append_report_line(item.config, f"[BAT DAU] {item.nodeid}")
+    _append_report_line(item.config, f"[START] {item.nodeid}")
     _append_report_line(item.config, f"  - Start: {start_text}")
     _append_report_line(item.config, f"  - {vi_desc}")
 
@@ -224,12 +224,12 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
     status = str(state.get("rt_outcome", "passed")).upper()
     reason = str(state.get("rt_reason", ""))
 
-    _append_report_line(item.config, f"[KET THUC] {item.nodeid}")
+    _append_report_line(item.config, f"[END] {item.nodeid}")
     _append_report_line(item.config, f"  - End: {end_text}")
     _append_report_line(item.config, f"  - Duration: {duration:.3f}s")
-    _append_report_line(item.config, f"  - Trang thai: {status}")
+    _append_report_line(item.config, f"  - Status: {status}")
     if reason:
-        _append_report_line(item.config, f"  - Chi tiet: {reason}")
+        _append_report_line(item.config, f"  - Details: {reason}")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -267,7 +267,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
             state["rt_reason"] = call.excinfo.exconly(tryshort=True)
         else:
             state["rt_outcome"] = "failed"
-            state["rt_reason"] = f"Loi setup: {call.excinfo.exconly(tryshort=True)}"
+            state["rt_reason"] = f"Setup error: {call.excinfo.exconly(tryshort=True)}"
     elif call.when == "call":
         if call.excinfo:
             if call.excinfo.errisinstance(pytest.skip.Exception):
@@ -284,4 +284,4 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
             state["rt_reason"] = call.excinfo.exconly(tryshort=True)
         else:
             state["rt_outcome"] = "failed"
-            state["rt_reason"] = f"Loi teardown: {call.excinfo.exconly(tryshort=True)}"
+            state["rt_reason"] = f"Teardown error: {call.excinfo.exconly(tryshort=True)}"

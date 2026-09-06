@@ -1,4 +1,4 @@
-"""Factory tạo ứng dụng FastAPI."""
+"""FastAPI application factory."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def create_app(
     api_key: str = "",
     cors_origins: list[str] | None = None,
 ) -> FastAPI:
-    """Xây dựng và cấu hình ứng dụng FastAPI."""
+    """Build and configure the FastAPI application."""
     app = FastAPI(
         title="CAN-HMI Signal API",
         version="0.1.0",
@@ -54,7 +54,7 @@ def create_app(
         allow_headers=["*"],
     )
 
-    # Trạng thái chia sẻ — truy cập qua request.app.state
+    # Shared state — access via request.app.state
     app.state.store = signal_store
     app.state.repo = repository
     app.state.readers = can_readers or []
@@ -90,8 +90,8 @@ def create_app(
 
     app.router.on_shutdown.append(_stop_profile_session_cleanup_task)
 
-    # Camera stream proxy — fan-out cho nhiều client dù camera upstream chỉ
-    # cho phép 1 kết nối đồng thời (mutex phía nguồn).
+    # Camera stream proxy — fan-out to multiple clients even though the upstream camera only
+    # allows 1 concurrent connection (source-side mutex).
     _cam_cfg = read_config().get("camera", {})
     if _cam_cfg.get("enabled", False):
         camera_proxy = CameraStreamProxy(
@@ -114,7 +114,7 @@ def create_app(
         app.state.camera_proxy = None
         logger.info("Camera stream disabled via config/system.json ('camera.enabled' = false)")
 
-    # Xài API key mặc định là 'auth disabled' cho môi trường local/demo.
+    # Treat default API keys as 'auth disabled' in local/demo environments.
     if api_key and api_key.strip().lower() in {"change-me-in-production", "changeme", "default"}:
         logger.warning("API key is set to a placeholder value; authentication disabled.")
         api_key = ""
@@ -123,7 +123,7 @@ def create_app(
 
     auth_dep = Depends(app.state.auth)
 
-    # Đăng ký các router
+    # Register routers
     app.include_router(signals.router, prefix="/signals", tags=["Signals"], dependencies=[auth_dep])
     app.include_router(alarms.router, prefix="/alarms", tags=["Alarms"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
@@ -132,15 +132,15 @@ def create_app(
     app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
     app.include_router(camera.router, prefix="/api/camera", tags=["Camera"])
     app.include_router(devmode.router, prefix="/api/devmode", tags=["Dev Mode"], dependencies=[auth_dep])
-    # /api/info — thông tin hệ thống theo demo spec
+    # /api/info — system information per the demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])
     # Profile management
     app.include_router(profiles.router, prefix="/api", tags=["Profiles"], dependencies=[auth_dep])
-    # Điểm cuối WebSocket (không có auth dep — auth xử lý trong handshake ws)
+    # WebSocket endpoint (no auth dep — auth is handled in the WS handshake)
     app.include_router(signals.ws_router, prefix="/ws", tags=["WebSocket"])
 
-    # Phục vụ frontend tích hợp sẵn tại gốc ứng dụng.
-    # Ưu tiên dist/ (npm build output); fallback về frontend/ (vanilla).
+    # Serve the bundled frontend at the application root.
+    # Prefer dist/ (npm build output); fall back to frontend/ (vanilla).
     project_root = Path(__file__).resolve().parents[2]
     frontend_dist = project_root / "frontend" / "dist"
     frontend_vanilla = project_root / "frontend"

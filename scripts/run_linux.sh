@@ -2,96 +2,96 @@
 ################################################################################
 # CAN-HMI Run Script — Linux/macOS
 ################################################################################
-# Mục đích: Khởi động ứng dụng CAN-HMI (FastAPI server + signal pipeline)
-# Yêu cầu: Python >= 3.10 được cài đặt (qua pyenv hoặc hệ thống)
+# Purpose: Start the CAN-HMI application (FastAPI server + signal pipeline)
+# Requirement: Python >= 3.10 must be installed (via pyenv or system Python)
 #
-# Cách dùng:
-#   bash scripts/run_linux.sh                     # Dùng cấu hình mặc định (config/system.json, port 8000)
-#   bash scripts/run_linux.sh config/system.json  # Chỉ định file cấu hình tùy ý
+# Usage:
+#   bash scripts/run_linux.sh                     # Use the default configuration (config/system.json, port 8000)
+#   bash scripts/run_linux.sh config/system.json  # Specify a custom configuration file
 #   bash scripts/run_linux.sh config/system.json INFO 9000  # Custom config + log level + port
 #
-# Các tham số:
-#   \$1 CONFIG    — Đường dẫn file cấu hình (mặc định: config/system.json)
-#   \$2 LOG_LEVEL — Mức độ logging: DEBUG|INFO|WARNING|ERROR (mặc định: INFO)
-#   \$3 PORT      — Cổng chạy API server (mặc định: 8000)
+# Parameters:
+#   \$1 CONFIG    — Configuration file path (default: config/system.json)
+#   \$2 LOG_LEVEL — Logging level: DEBUG|INFO|WARNING|ERROR (default: INFO)
+#   \$3 PORT      — API server port (default: 8000)
 #
-# Luồng xử lý:
-#   1. Kiểm tra & gán giá trị tham số
-#   2. Khởi động pyenv (nếu có)
-#   3. Dừng process đang chiếm dụng cổng (tránh port conflict)
-#   4. Kiểm tra venv — nếu không có sẽ chạy setup_linux.sh
-#   5. Chạy ứng dụng qua python -m src.core.runner
+# Execution flow:
+#   1. Validate and assign argument values
+#   2. Initialize pyenv (if available)
+#   3. Stop any process already using the port (avoid port conflicts)
+#   4. Check the venv — run setup_linux.sh if it is missing
+#   5. Run the application via python -m src.core.runner
 
 set -euo pipefail  # Exit on error, undefined variable, pipe failure
 
-# ── Tham số chạy với giá trị mặc định ────────────────────────────────────────
-CONFIG="${1:-config/system.json}"       # File cấu hình hệ thống
-LOG_LEVEL="${2:-INFO}"                   # Mức độ log (DEBUG/INFO/WARNING/ERROR)
-PORT="${3:-8000}"                        # Cổng API server
+# ── Runtime parameters with default values ────────────────────────────────────
+CONFIG="${1:-config/system.json}"       # System configuration file
+LOG_LEVEL="${2:-INFO}"                   # Log level (DEBUG/INFO/WARNING/ERROR)
+PORT="${3:-8000}"                        # API server port
 
-# ── Cấu hình Python & pyenv ──────────────────────────────────────────────────
-PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}" # Thư mục cài pyenv (mặc định: ~/.pyenv)
-PYTHON_VERSION="${PYTHON_VERSION:-3.12.3}" # Phiên bản Python cần thiết
+# ── Python & pyenv configuration ─────────────────────────────────────────────
+PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}" # pyenv installation directory (default: ~/.pyenv)
+PYTHON_VERSION="${PYTHON_VERSION:-3.12.3}" # Required Python version
 
 PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12.3}"
 
-# ── Hàm logging ──────────────────────────────────────────────────────────────
-log() { echo "[run] $*"; }  # In message với prefix "[run]" để dễ theo dõi log
+# ── Logging helper ───────────────────────────────────────────────────────────
+log() { echo "[run] $*"; }  # Print messages with a "[run]" prefix for easier log tracking
 
-# ── Bước 1: Khởi tạo pyenv trong shell session (nếu có) ────────────────────────
-# pyenv cho phép cài và quản lý nhiều phiên bản Python. Nếu có sẵn, ta khởi tạo
-# để script có thể dùng Python từ pyenv thay vì system Python.
+# ── Step 1: Initialize pyenv in the current shell session (if available) ─────
+# pyenv allows installing and managing multiple Python versions. If available,
+# initialize it so the script can use pyenv-managed Python instead of system Python.
 if [ -x "$PYENV_ROOT/bin/pyenv" ]; then
-    export PYENV_ROOT  # Thư mục cài pyenv
-    export PATH="$PYENV_ROOT/bin:$PATH"  # Thêm pyenv vào PATH
-    eval "$(pyenv init -)"  # Khởi tạo pyenv trong shell này
+    export PYENV_ROOT  # pyenv installation directory
+    export PATH="$PYENV_ROOT/bin:$PATH"  # Add pyenv to PATH
+    eval "$(pyenv init -)"  # Initialize pyenv in this shell
 fi
 
-# ── Bước 2: Hàm dừng process chiếm dụng cổng ─────────────────────────────────
-# Tránh lỗi "port already in use" bằng cách buộc dừng process cũ trên cùng cổng.
-# Hữu ích khi restart ứng dụng nhiều lần hoặc debug.
+# ── Step 2: Helper to stop any process using the port ─────────────────────────
+# Avoid "port already in use" errors by force-stopping any old process on the same port.
+# Useful when restarting the application repeatedly or while debugging.
 stop_process_on_port() {
-    local port="$1"  # Cổng cần kiểm tra
+    local port="$1"  # Port to inspect
     local pids
     
-    # Lấy danh sách PID của process lắng nghe trên cổng TCP (lsof -ti)
-    # 2>/dev/null tắt error message, || true giúp script không exit nếu không tìm thấy
+    # Get the list of PIDs listening on the TCP port (lsof -ti)
+    # 2>/dev/null suppresses error messages; || true prevents exit if nothing is found
     pids=$(lsof -ti tcp:"$port" 2>/dev/null || true)
     
     if [ -n "$pids" ]; then
-        # Có process đang chiếm cổng → dừng từng process
+        # If a process is using the port, stop each one
         for pid in $pids; do
-            # Lấy tên process (ps -p $pid -o comm=) để log thông tin
+            # Get the process name (ps -p $pid -o comm=) for logging
             local name
             name=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
             log "Stopping '$name' (PID $pid) on port $port"
             
-            # Gửi signal SIGKILL (-9) để buộc dừng process
+            # Send SIGKILL (-9) to force-stop the process
             kill -9 "$pid" 2>/dev/null || true
         done
         
-        # Đợi OS kịp xóa port socket (tránh TIME_WAIT)
+        # Wait for the OS to release the port socket (avoid TIME_WAIT issues)
         sleep 0.8
         log "Port $port cleared."
     fi
 }
 
-# ── Bước 3: Kiểm tra và chuẩn bị Python interpreter ──────────────────────────
-# Ưu tiên: .venv/bin/python (venv cục bộ) → setup nếu cần → python3/python (system)
+# ── Step 3: Check and prepare the Python interpreter ─────────────────────────
+# Priority: .venv/bin/python (local venv) → setup if needed → python3/python (system)
 
-VENV_PY=".venv/bin/python"  # Đường dẫn Python trong virtual environment cục bộ
+VENV_PY=".venv/bin/python"  # Python path inside the local virtual environment
 
-# Nếu venv không tồn tại → chạy setup_linux.sh để tạo
+# If the venv does not exist, run setup_linux.sh to create it
 if [ ! -f "$VENV_PY" ]; then
     log "Virtualenv not found — running setup first..."
     
-    # Tính toán đường dẫn tuyệt đối của script hiện tại
+    # Compute the absolute path of the current script
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     SETUP_SCRIPT="$SCRIPT_DIR/setup_linux.sh"
     
     if [ -f "$SETUP_SCRIPT" ]; then
-        # Chạy setup script để tạo venv, cài pyenv, install dependencies
+        # Run the setup script to create the venv, install pyenv, and install dependencies
         bash "$SETUP_SCRIPT"
     else
         echo "setup_linux.sh not found at: $SETUP_SCRIPT" >&2
@@ -99,30 +99,30 @@ if [ ! -f "$VENV_PY" ]; then
     fi
 fi
 
-# Nếu venv vẫn chưa có (setup thất bại) → fallback để dùng system Python
+# If the venv is still missing (setup failed), fall back to system Python
 if [ ! -f "$VENV_PY" ]; then
     log ".venv still missing — falling back to system Python."
     
-    # Tìm python3 hoặc python trong system PATH
+    # Find python3 or python in the system PATH
     if command -v python3 &>/dev/null; then
-        VENV_PY="python3"  # Ưu tiên python3 (Python 3.x)
+        VENV_PY="python3"  # Prefer python3 (Python 3.x)
     elif command -v python &>/dev/null; then
-        VENV_PY="python"    # Fallback python (có thể là Python 2 hoặc 3)
+        VENV_PY="python"    # Fallback python (may be Python 2 or 3)
     else
-        # Không tìm thấy Python nào → lỗi
+        # No Python interpreter found → error
         echo "No Python interpreter found. Install Python >= 3.10 and retry." >&2
         exit 1
     fi
 fi
 
-# ── Bước 4: Dừng process cũ trên cổng (tránh port conflict) ────────────────────
+# ── Step 4: Stop old processes on the port (avoid port conflicts) ───────────
 stop_process_on_port "$PORT"
 
-# ── Bước 5: Chạy ứng dụng ─────────────────────────────────────────────────────
-# Khởi chạy CAN-HMI runner module với cấu hình đã xác định.
-# Tham số:
-#   --config   : Đường dẫn file cấu hình JSON
-#   --log-level: Mức độ logging (DEBUG/INFO/WARNING/ERROR)
-# Cổng API được đặt trong config/system.json, không phải tham số CLI
+# ── Step 5: Run the application ──────────────────────────────────────────────
+# Start the CAN-HMI runner module with the selected configuration.
+# Parameters:
+#   --config   : JSON configuration file path
+#   --log-level: Logging level (DEBUG/INFO/WARNING/ERROR)
+# The API port is set in config/system.json, not via a CLI argument
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
 "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"

@@ -203,58 +203,58 @@ class ReadinessResponse(BaseModel):
 class SystemMetricsResponse(BaseModel):
     """System resource and application process information (CarPC metrics)."""
 
-    timestamp: float = Field(..., description="Unix timestamp khi thu thập số liệu")
+    timestamp: float = Field(..., description="Unix timestamp when metrics were collected")
 
     # CPU
-    cpu_percent: float = Field(..., description="Mức sử dụng CPU tổng thể (%)")
-    cpu_percent_per_core: list[float] = Field(..., description="Mức sử dụng từng nhân CPU (%)")
-    cpu_count_logical: int = Field(..., description="Số nhân CPU logic")
-    cpu_count_physical: int = Field(..., description="Số nhân CPU vật lý")
-    cpu_freq_current_mhz: float = Field(..., description="Tần số CPU hiện tại (MHz)")
-    cpu_freq_max_mhz: float = Field(..., description="Tần số CPU tối đa (MHz)")
+    cpu_percent: float = Field(..., description="Overall CPU usage (%)")
+    cpu_percent_per_core: list[float] = Field(..., description="Per-core CPU usage (%)")
+    cpu_count_logical: int = Field(..., description="Logical CPU core count")
+    cpu_count_physical: int = Field(..., description="Physical CPU core count")
+    cpu_freq_current_mhz: float = Field(..., description="Current CPU frequency (MHz)")
+    cpu_freq_max_mhz: float = Field(..., description="Maximum CPU frequency (MHz)")
 
     # Process
-    process_cpu_percent: float = Field(..., description="Mức sử dụng CPU của tiến trình ứng dụng (%)")
-    process_memory_rss_mb: float = Field(..., description="Bộ nhớ RSS của tiến trình (MB)")
-    process_memory_vms_mb: float = Field(..., description="Bộ nhớ ảo (VMS) của tiến trình (MB)")
-    process_memory_percent: float = Field(..., description="Phần trăm RAM hệ thống mà tiến trình sử dụng")
-    process_threads: int = Field(..., description="Số luồng (thread) của tiến trình")
-    process_open_files: int = Field(..., description="Số file descriptor đang mở")
-    process_pid: int = Field(..., description="PID của tiến trình ứng dụng")
+    process_cpu_percent: float = Field(..., description="Application process CPU usage (%)")
+    process_memory_rss_mb: float = Field(..., description="Process RSS memory (MB)")
+    process_memory_vms_mb: float = Field(..., description="Process virtual memory (VMS) (MB)")
+    process_memory_percent: float = Field(..., description="Percentage of system RAM used by the process")
+    process_threads: int = Field(..., description="Process thread count")
+    process_open_files: int = Field(..., description="Number of open file descriptors")
+    process_pid: int = Field(..., description="Application process PID")
 
     # RAM
-    ram_total_mb: float = Field(..., description="Tổng RAM vật lý (MB)")
-    ram_available_mb: float = Field(..., description="RAM còn khả dụng (MB)")
-    ram_used_mb: float = Field(..., description="RAM đang được sử dụng (MB)")
-    ram_percent: float = Field(..., description="Mức sử dụng RAM (%)")
+    ram_total_mb: float = Field(..., description="Total physical RAM (MB)")
+    ram_available_mb: float = Field(..., description="Available RAM (MB)")
+    ram_used_mb: float = Field(..., description="RAM currently in use (MB)")
+    ram_percent: float = Field(..., description="RAM usage (%)")
 
     # Swap
-    swap_total_mb: float = Field(..., description="Tổng dung lượng swap (MB)")
-    swap_used_mb: float = Field(..., description="Swap đang sử dụng (MB)")
-    swap_percent: float = Field(..., description="Mức sử dụng swap (%)")
+    swap_total_mb: float = Field(..., description="Total swap capacity (MB)")
+    swap_used_mb: float = Field(..., description="Swap currently in use (MB)")
+    swap_percent: float = Field(..., description="Swap usage (%)")
 
     # Disk
-    disk_total_gb: float = Field(..., description="Tổng dung lượng ổ đĩa (GB)")
-    disk_used_gb: float = Field(..., description="Dung lượng ổ đĩa đã dùng (GB)")
-    disk_free_gb: float = Field(..., description="Dung lượng ổ đĩa còn trống (GB)")
-    disk_percent: float = Field(..., description="Mức sử dụng ổ đĩa (%)")
+    disk_total_gb: float = Field(..., description="Total disk capacity (GB)")
+    disk_used_gb: float = Field(..., description="Used disk space (GB)")
+    disk_free_gb: float = Field(..., description="Free disk space (GB)")
+    disk_percent: float = Field(..., description="Disk usage (%)")
 
     # Network I/O
-    net_bytes_sent: int = Field(..., description="Tổng số byte đã gửi qua mạng")
-    net_bytes_recv: int = Field(..., description="Tổng số byte đã nhận qua mạng")
-    net_packets_sent: int = Field(..., description="Tổng số gói tin đã gửi")
-    net_packets_recv: int = Field(..., description="Tổng số gói tin đã nhận")
+    net_bytes_sent: int = Field(..., description="Total bytes sent over the network")
+    net_bytes_recv: int = Field(..., description="Total bytes received over the network")
+    net_packets_sent: int = Field(..., description="Total packets sent")
+    net_packets_recv: int = Field(..., description="Total packets received")
 
     # Application-specific
-    queue_size: int = Field(..., description="Số phần tử hiện có trong hàng đợi xử lý tín hiệu")
-    queue_maxsize: int = Field(..., description="Kích thước tối đa của hàng đợi")
-    queue_usage_percent: float = Field(..., description="Mức sử dụng hàng đợi (%)")
-    heap_allocated_mb: float = Field(..., description="Bộ nhớ heap Python đang cấp phát (MB)")
-    gc_objects: int = Field(..., description="Số đối tượng Python đang được Garbage Collector theo dõi")
-    asyncio_tasks: int = Field(..., description="Số tác vụ asyncio đang chạy")
-    uptime_seconds: float = Field(..., description="Thời gian ứng dụng đã chạy (giây)")
-    python_version: str = Field(..., description="Phiên bản Python đang sử dụng")
-    platform: str = Field(..., description="Thông tin hệ điều hành / nền tảng")
+    queue_size: int = Field(..., description="Current number of items in the signal processing queue")
+    queue_maxsize: int = Field(..., description="Maximum queue size")
+    queue_usage_percent: float = Field(..., description="Queue usage (%)")
+    heap_allocated_mb: float = Field(..., description="Allocated Python heap memory (MB)")
+    gc_objects: int = Field(..., description="Number of Python objects tracked by the Garbage Collector")
+    asyncio_tasks: int = Field(..., description="Number of running asyncio tasks")
+    uptime_seconds: float = Field(..., description="Application uptime (seconds)")
+    python_version: str = Field(..., description="Python version in use")
+    platform: str = Field(..., description="Operating system / platform information")
 
 
 # ── Profile models ──────────────────────────────────────────────────────────
@@ -290,12 +290,12 @@ def _normalize_profile_permissions(values: list[ProfilePermission]) -> list[Prof
 
 
 class ProfileCreate(BaseModel):
-    """Yêu cầu tạo profile mới — POST /api/profile."""
+    """Request to create a new profile — POST /api/profile."""
 
-    name: str = Field(..., description="Tên profile (duy nhất)")
-    signals: list["ProfileSignal"] = Field(default_factory=list, description="Danh sách signal và permission riêng cho từng signal")
-    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
-    description: str | None = Field(None, description="Mô tả ngắn về profile")
+    name: str = Field(..., description="Profile name (unique)")
+    signals: list["ProfileSignal"] = Field(default_factory=list, description="List of signals and per-signal permissions")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Arbitrary data for the frontend")
+    description: str | None = Field(None, description="Short profile description")
 
     @field_validator("name")
     @classmethod
@@ -319,15 +319,15 @@ class ProfileCreate(BaseModel):
         return normalized or None
 
 class ProfileUpdate(BaseModel):
-    """Yêu cầu cập nhật profile (optimistic lock) — PUT /api/profile."""
+    """Request to update a profile (optimistic lock) — PUT /api/profile."""
 
-    name: str = Field(..., description="Tên profile cần cập nhật")
-    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
-    exinfo: dict[str, Any] | None = Field(None, description="Dữ liệu tùy ý dành cho frontend (bỏ trống để giữ nguyên)")
-    description: str | None = Field(None, description="Mô tả ngắn")
+    name: str = Field(..., description="Profile name to update")
+    signals: list["ProfileSignal"] = Field(..., description="List of signals and per-signal permissions")
+    exinfo: dict[str, Any] | None = Field(None, description="Arbitrary data for the frontend (leave empty to keep unchanged)")
+    description: str | None = Field(None, description="Short description")
     section_id: str = Field(
         ...,
-        description="section_id hiện tại (lấy từ GET /api/profile). Dùng để tránh ghi đè đồng thời — 409 nếu mismatch.",
+        description="Current section_id (from GET /api/profile). Used to prevent concurrent overwrites — 409 on mismatch.",
     )
 
     @field_validator("name")
@@ -360,28 +360,28 @@ class ProfileUpdate(BaseModel):
         return normalized
 
 class ProfileSetActiveRequest(BaseModel):
-    """Yêu cầu đổi active profile trên server."""
+    """Request to change the active profile on the server."""
 
-    name: str = Field(..., description="Tên profile sẽ trở thành active")
+    name: str = Field(..., description="Profile name to become active")
 
 
 class ProfileResponse(BaseModel):
-    """Thông tin một profile."""
+    """Profile information."""
 
-    name: str = Field(..., description="Tên profile")
-    signals: list["ProfileSignal"] = Field(..., description="Danh sách signal và permission riêng cho từng signal")
-    exinfo: dict[str, Any] = Field(default_factory=dict, description="Dữ liệu tùy ý dành cho frontend")
-    description: str | None = Field(None, description="Mô tả")
-    section_id: str = Field(..., description="Hash dùng cho optimistic locking")
+    name: str = Field(..., description="Profile name")
+    signals: list["ProfileSignal"] = Field(..., description="List of signals and per-signal permissions")
+    exinfo: dict[str, Any] = Field(default_factory=dict, description="Arbitrary data for the frontend")
+    description: str | None = Field(None, description="Description")
+    section_id: str = Field(..., description="Hash used for optimistic locking")
 
 
 class ProfileSignal(BaseModel):
-    """Signal scope trong profile với permission riêng cho signal."""
+    """Signal scope in a profile with signal-specific permissions."""
 
-    name: str = Field(..., description="Tên signal")
+    name: str = Field(..., description="Signal name")
     permission: list[ProfilePermission] = Field(
         default_factory=lambda: ["read"],
-        description="Quyền cho signal: read, write, full",
+        description="Permissions for the signal: read, write, full",
     )
 
     @field_validator("name")
@@ -399,96 +399,96 @@ class ProfileSignal(BaseModel):
 
 
 class ProfilesResponse(BaseModel):
-    """Danh sách tất cả profiles."""
+    """List of all profiles."""
 
     profiles: list[ProfileResponse]
     total: int
-    active: str | None = Field(None, description="Tên profile đang active")
-    global_active: str | None = Field(None, description="Tên active profile ở mức global")
-    client_id: str | None = Field(None, description="Client ID nếu request có gửi X-Client-Id")
+    active: str | None = Field(None, description="Currently active profile name")
+    global_active: str | None = Field(None, description="Globally active profile name")
+    client_id: str | None = Field(None, description="Client ID if the request includes X-Client-Id")
 
 
 class ActiveProfileResponse(BaseModel):
-    """Kết quả đổi active profile."""
+    """Active profile change result."""
 
-    active: str = Field(..., description="Tên profile đang active sau khi cập nhật")
-    global_active: str | None = Field(None, description="Tên active profile ở mức global")
-    client_id: str | None = Field(None, description="Client ID nếu cập nhật theo session client")
-    warnings: list[AccessWarning] = Field(default_factory=list, description="Cảnh báo nếu trạng thái không thay đổi")
+    active: str = Field(..., description="Active profile name after the update")
+    global_active: str | None = Field(None, description="Globally active profile name")
+    client_id: str | None = Field(None, description="Client ID if updated for a client session")
+    warnings: list[AccessWarning] = Field(default_factory=list, description="Warnings if the state did not change")
 
 
 class ClientProfileSession(BaseModel):
-    """Phiên profile hiện tại của một client."""
+    """Current profile session for a client."""
 
-    client_id: str = Field(..., description="Client ID từ header X-Client-Id")
-    active: str = Field(..., description="Tên profile active cho client này")
-    updated_at: float = Field(..., description="Unix timestamp lần cập nhật gần nhất")
-    last_seen: float = Field(..., description="Unix timestamp heartbeat gần nhất")
-    status: Literal["online", "offline"] = Field(..., description="Trạng thái online/offline theo TTL")
+    client_id: str = Field(..., description="Client ID from the X-Client-Id header")
+    active: str = Field(..., description="Active profile name for this client")
+    updated_at: float = Field(..., description="Unix timestamp of the latest update")
+    last_seen: float = Field(..., description="Unix timestamp of the latest heartbeat")
+    status: Literal["online", "offline"] = Field(..., description="Online/offline status based on TTL")
 
 
 class ProfileSessionProfileStat(BaseModel):
-    """Thống kê số session theo từng profile active."""
+    """Session counts by active profile."""
 
-    profile_name: str = Field(..., description="Tên profile đang được session kích hoạt")
-    total: int = Field(..., description="Tổng số session đang active profile này")
-    online: int = Field(..., description="Số session online của profile này")
-    offline: int = Field(..., description="Số session offline của profile này")
+    profile_name: str = Field(..., description="Profile name currently active for the session")
+    total: int = Field(..., description="Total sessions currently using this active profile")
+    online: int = Field(..., description="Number of online sessions for this profile")
+    offline: int = Field(..., description="Number of offline sessions for this profile")
 
 
 class ProfileSessionsResponse(BaseModel):
-    """Danh sách session active profile theo từng client."""
+    """List of active-profile sessions by client."""
 
-    sessions: list[ClientProfileSession] = Field(default_factory=list, description="Danh sách map client -> active profile")
-    total: int = Field(..., description="Tổng số session client")
-    online_total: int = Field(0, description="Tổng số session đang online")
-    offline_total: int = Field(0, description="Tổng số session đang offline")
+    sessions: list[ClientProfileSession] = Field(default_factory=list, description="List mapping client -> active profile")
+    total: int = Field(..., description="Total client sessions")
+    online_total: int = Field(0, description="Total online sessions")
+    offline_total: int = Field(0, description="Total offline sessions")
     by_profile: list[ProfileSessionProfileStat] = Field(
         default_factory=list,
-        description="Thống kê số session active theo từng profile",
+        description="Statistics for active sessions by profile",
     )
-    global_active: str | None = Field(None, description="Active profile mặc định ở mức global")
-    ttl_seconds: int = Field(..., description="TTL dùng để đánh giá online/offline")
-    server_time: float = Field(..., description="Unix timestamp hiện tại trên server")
+    global_active: str | None = Field(None, description="Default active profile at the global level")
+    ttl_seconds: int = Field(..., description="TTL used to determine online/offline status")
+    server_time: float = Field(..., description="Current Unix timestamp on the server")
 
 
 class ProfileHeartbeatResponse(BaseModel):
-    """Kết quả cập nhật heartbeat cho client session."""
+    """Client session heartbeat update result."""
 
-    client_id: str = Field(..., description="Client ID đã được heartbeat")
-    active: str | None = Field(None, description="Profile đang active cho client hoặc fallback global")
-    last_seen: float = Field(..., description="Unix timestamp heartbeat mới nhất")
-    ttl_seconds: int = Field(..., description="TTL session hiện hành")
+    client_id: str = Field(..., description="Client ID whose heartbeat was updated")
+    active: str | None = Field(None, description="Active profile for the client, or the global fallback")
+    last_seen: float = Field(..., description="Unix timestamp of the latest heartbeat")
+    ttl_seconds: int = Field(..., description="Current session TTL")
 
 
 # ── System info model ────────────────────────────────────────────────────────
 
 
 class SystemInfoResponse(BaseModel):
-    """Thông tin tổng quan dự án và trạng thái hệ thống — GET /api/info."""
+    """Project overview and system status — GET /api/info."""
 
-    name: str = Field(..., description="Tên ứng dụng")
-    version: str = Field(..., description="Phiên bản API")
-    description: str = Field(..., description="Mô tả")
-    uptime_seconds: float = Field(..., description="Thời gian đã chạy (giây)")
-    bus_connected: bool = Field(..., description="CAN bus có kết nối không")
-    db_connected: bool = Field(..., description="Database có kết nối không")
-    signal_count: int = Field(..., description="Số tín hiệu đang có trong store")
+    name: str = Field(..., description="Application name")
+    version: str = Field(..., description="API version")
+    description: str = Field(..., description="Description")
+    uptime_seconds: float = Field(..., description="Uptime (seconds)")
+    bus_connected: bool = Field(..., description="Whether the CAN bus is connected")
+    db_connected: bool = Field(..., description="Whether the database is connected")
+    signal_count: int = Field(..., description="Number of signals currently in the store")
 
 
 # Processor config models (runtime API)
 class ProcessorConfigResponse(BaseModel):
-    """Cấu hình hiện tại của processor pipeline."""
+    """Current processor pipeline configuration."""
 
-    max_queue_size: int = Field(..., description="Kích thước tối đa của hàng đợi tín hiệu")
-    queue_policy: str = Field(..., description="Chính sách khi hàng đợi đầy: 'drop_oldest' hoặc 'reject'")
+    max_queue_size: int = Field(..., description="Maximum signal queue size")
+    queue_policy: str = Field(..., description="Policy when the queue is full: 'drop_oldest' or 'reject'")
 
 
 class UpdateProcessorConfigRequest(BaseModel):
-    """Yêu cầu cập nhật cấu hình processor (PATCH)."""
+    """Request to update the processor configuration (PATCH)."""
 
-    max_queue_size: int | None = Field(None, description="Kích thước hàng đợi mới")
-    queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Chính sách xử lý khi hàng đợi đầy")
+    max_queue_size: int | None = Field(None, description="New queue size")
+    queue_policy: Literal["drop_oldest", "reject"] | None = Field(None, description="Handling policy when the queue is full")
 
 
 # ── Dev Mode models ──────────────────────────────────────────────────────────

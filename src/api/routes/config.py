@@ -1,4 +1,4 @@
-"""Route REST cho cấu hình hiển thị tín hiệu và ngưỡng cảnh báo theo từng tín hiệu."""
+"""REST routes for per-signal display configuration and alarm thresholds."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _config_error(code: str, message: str, *, signal_name: str | None = None) ->
 
 @router.get("", summary="List all signal configurations")
 async def list_signal_configs(request: Request) -> list[SignalConfigResponse]:
-    # TODO: tải từ bảng signal_config (Giai đoạn 4)
+    # TODO: load from the signal_config table (Phase 4)
     cfg = request.app.state.store
     snapshot = await cfg.get_snapshot()
     return [
@@ -62,7 +62,7 @@ async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest
 
     updates = body.model_dump(exclude_unset=True)
 
-    # Mặc định từ bản ghi DB hiện có nếu có, ngược lại lấy từ signal store
+    # Default from the existing DB record if available; otherwise read from the signal store
     unit = updates.get("unit", existing.unit if existing else getattr(sv, "unit", None))
     min_value = updates.get("min_value", existing.min_value if existing else None)
     max_value = updates.get("max_value", existing.max_value if existing else None)
@@ -70,7 +70,7 @@ async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest
     widget_type = updates.get("widget_type", existing.widget_type if existing else None)
     writable = updates.get("writable", existing.writable if existing else False)
 
-    # Lưu vào bảng signal_config
+    # Save to the signal_config table
     record = SignalConfigRecord(
         signal_name=signal_name,
         unit=unit,

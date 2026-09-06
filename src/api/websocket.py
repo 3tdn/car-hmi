@@ -158,7 +158,7 @@ class ConnectionManager:
         - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
         - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
         """
-        # Normalize: demo format (type/signals) hoặc legacy (action/channels)
+        # Normalize: demo format (type/signals) or legacy (action/channels)
         msg_type = data.get("type", "")
         if msg_type in ("subscribe", "unsubscribe"):
             action = msg_type
@@ -166,7 +166,7 @@ class ConnectionManager:
         else:
             action = data.get("action", "subscribe")
             raw_ch = data.get("channels", data.get("signals", []))
-        # signals có thể là string "*" hoặc list
+        # signals may be a string "*" or a list
         channels = [raw_ch] if isinstance(raw_ch, str) else list(raw_ch)
         mode = data.get("mode", "continuous")
         # Optional per-connection rate limiting requested by client (ms)
@@ -299,11 +299,11 @@ class ConnectionManager:
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
-        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
+        """Push a signal frame in the demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
         await self.broadcast_signals([(signal_name, value, timestamp)])
 
     async def broadcast_signals(self, updates: list[tuple[str, float, float]]) -> None:
-        """Push 1 WS frame chứa nhiều signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
+        """Push 1 WS frame containing multiple signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
         if not updates:
             return
 
@@ -312,7 +312,7 @@ class ConnectionManager:
         latest_ts = max(ts for _, _, ts in updates)
         iso_ts = datetime.datetime.fromtimestamp(latest_ts, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-        # Last-write-wins theo signal_name trong cùng một batch.
+        # Last-write-wins by signal_name within the same batch.
         merged: dict[str, dict] = {}
         for signal_name, value, _ in updates:
             entry = {
@@ -339,14 +339,14 @@ class ConnectionManager:
         await self._broadcast_to_subscribers(payload, channel="alarms")
 
     async def broadcast_metrics(self, metrics: dict) -> None:
-        """Push metrics snapshot tới subscribers đã đăng ký channel 'metrics'."""
+        """Push a metrics snapshot to subscribers that registered the 'metrics' channel."""
         payload = json.dumps({"type": "metrics", **metrics})
         await self._broadcast_to_subscribers(payload, channel="metrics")
 
     # ── Internal broadcast helpers ───────────────────────────────────────────
 
     async def _broadcast(self, text: str, topic: SubscriptionTopic) -> None:
-        """Legacy broadcast cho /ws/signals, /ws/alarms, /ws/all."""
+        """Legacy broadcast for /ws/signals, /ws/alarms, /ws/all."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._connections.items())
@@ -379,7 +379,7 @@ class ConnectionManager:
         signal_name: str | None = None,
         channel: str | None = None,
     ) -> None:
-        """Broadcast tới WS connections dùng giao thức subscribe mới."""
+        """Broadcast to WS connections using the new subscribe protocol."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._subscriptions.items())
@@ -458,7 +458,7 @@ class ConnectionManager:
         entries: list[dict],
         iso_ts: str,
     ) -> None:
-        """Broadcast signal batch tới subscribe-based WS theo filter từng kết nối."""
+        """Broadcast a signal batch to subscribe-based WS connections according to each connection's filter."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._subscriptions.items())

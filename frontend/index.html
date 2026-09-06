@@ -480,11 +480,11 @@
     });
     document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
     document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('settings_reset', 'Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('settings_reset', 'Reset the configuration to defaults? This will overwrite config/system.json')) return;
       try {
         const json = await _fetchJson(`${API_BASE}/config/general/reset`, { method: 'POST', headers: _headers() });
         document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
-        window.showUiNotice?.('Đã reset cấu hình chung về mặc định (file được ghi đè).', { source: 'settings', code: 'settings_reset_ok' });
+        window.showUiNotice?.('General configuration has been reset to defaults (file overwritten).', { source: 'settings', code: 'settings_reset_ok' });
       } catch (e) {
         showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
         window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_reset_failed' });
@@ -514,11 +514,11 @@
     });
     document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
     document.getElementById('alarms-reset').addEventListener('click', async () => {
-      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('alarms_reset', 'Reset alarms về mặc định (rỗng)?')) return;
+      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('alarms_reset', 'Reset alarms to the default empty state?')) return;
       try {
         const json = await _fetchJson(`${API_BASE}/config/alarms/reset`, { method: 'POST', headers: _headers() });
         document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
-        window.showUiNotice?.('Alarms đã được reset.', { source: 'alarms', code: 'alarms_reset_ok' });
+        window.showUiNotice?.('Alarms have been reset.', { source: 'alarms', code: 'alarms_reset_ok' });
       } catch (e) {
         showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
         window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_reset_failed' });

@@ -1,4 +1,4 @@
-"""Route kiểm tra sức khỏe, trạng thái sẵn dùng và thông tin tài nguyên hệ thống."""
+"""Routes for health checks, readiness status, and system resource information."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
-    """Đánh giá nhanh sức khỏe reader dựa trên thread + last frame + cờ fatal."""
+    """Quickly assess reader health based on thread status, last frame, and the fatal flag."""
     if not readers:
         return {
             "readers_present": False,
@@ -58,7 +58,7 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
     summary="Get project & system information",
 )
 async def system_info(request: Request) -> SystemInfoResponse:
-    """Thông tin tổng quan dự án: tên, phiên bản, uptime, trạng thái kết nối, số tín hiệu."""
+    """Project overview: name, version, uptime, connection status, signal count."""
     uptime = time.time() - request.app.state.start_time
     readers = getattr(request.app.state, "readers", None)
     stale_threshold_sec = float(getattr(request.app.state, "reader_stale_threshold_sec", 30.0))
@@ -126,10 +126,10 @@ async def ready(request: Request) -> ReadinessResponse:
 @router.get(
     "/metrics",
     response_model=SystemMetricsResponse,
-    summary="Thông tin tài nguyên CarPC (CPU, RAM, disk, queue, heap…)",
+    summary="CarPC resource information (CPU, RAM, disk, queue, heap…)",
 )
 async def system_metrics(request: Request) -> SystemMetricsResponse:
-    """Thu thập và trả về thông tin tài nguyên hệ thống CarPC."""
+    """Collect and return CarPC system resource information."""
     rx_queue = getattr(request.app.state, "rx_queue", None)
     start_time = getattr(request.app.state, "start_time", 0.0)
     m = collect_system_metrics(rx_queue=rx_queue, start_time=start_time)

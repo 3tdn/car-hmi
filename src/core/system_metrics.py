@@ -18,8 +18,8 @@ class SystemMetrics:
     timestamp: float = 0.0
 
     # ── CPU ──────────────────────────────────────────────────────────────────
-    cpu_percent: float = 0.0  # %CPU tổng hệ thống
-    cpu_percent_per_core: list[float] = field(default_factory=list)  # %CPU mỗi core
+    cpu_percent: float = 0.0  # total system CPU %
+    cpu_percent_per_core: list[float] = field(default_factory=list)  # per-core CPU %
     cpu_count_logical: int = 0
     cpu_count_physical: int = 0
     cpu_freq_current_mhz: float = 0.0
@@ -126,7 +126,7 @@ def collect_system_metrics(
     m.swap_used_mb = round(sw.used / _MB, 1)
     m.swap_percent = sw.percent
 
-    # ── Disk (partition chứa working directory) ──────────────────────────────
+    # ── Disk (partition containing the working directory) ───────────────────
     try:
         disk = psutil.disk_usage(os.getcwd())
         m.disk_total_gb = round(disk.total / _GB, 2)
@@ -154,9 +154,9 @@ def collect_system_metrics(
             else 0.0
         )
 
-    # Python heap approximation (tổng kích thước gc tracked objects)
+    # Python heap approximation (total size of GC-tracked objects)
     m.gc_objects = len(gc.get_objects())
-    # sys.getsizeof không đệ quy; dùng memory_info RSS làm chỉ số chính
+    # sys.getsizeof is not recursive; use memory_info RSS as the primary indicator
     m.heap_allocated_mb = m.process_memory_rss_mb
 
     # asyncio tasks

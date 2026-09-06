@@ -1,4 +1,4 @@
-"""Route REST cho lịch sử cảnh báo, xác nhận và giải quyết."""
+"""REST routes for alarm history, acknowledgment, and resolution."""
 
 from __future__ import annotations
 

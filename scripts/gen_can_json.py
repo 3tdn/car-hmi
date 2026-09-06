@@ -36,7 +36,7 @@ from dbc_utils import load_json, write_json, parse_dbc_messages
 logger = logging.getLogger("gen_can_json")
 
 def infer_signal_tags(signal_name: str) -> list[str]:
-    """Suy ra tag từ các phần của tên signal match `[A-Z0-9]+`"""
+    """Infer tags from signal name parts that match `[A-Z0-9]+`."""
     return [part for part in signal_name.split("_") if re.match(r'^[A-Z0-9]+$', part)]
 
 

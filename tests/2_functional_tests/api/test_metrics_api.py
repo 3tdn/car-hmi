@@ -113,7 +113,7 @@ async def client():
 @pytest.mark.asyncio
 
 async def test_system_metrics_endpoint(client):
-    """GET /system/metrics trả về JSON đầy đủ thông tin tài nguyên."""
+    """GET /system/metrics returns a complete JSON payload with resource details."""
     resp = await client.get("/system/metrics")
     assert resp.status_code == 200
     data = resp.json()
@@ -147,12 +147,12 @@ async def test_system_metrics_endpoint(client):
     assert data["timestamp"] > 0
 
 async def test_system_metrics_cpu_cores(client):
-    """cpu_percent_per_core phải có đúng số phần tử = cpu_count_logical."""
+    """cpu_percent_per_core must contain exactly cpu_count_logical elements."""
     resp = await client.get("/system/metrics")
     data = resp.json()
     assert len(data["cpu_percent_per_core"]) == data["cpu_count_logical"]
 
 async def test_system_metrics_no_auth_required(client):
-    """System metrics endpoint không yêu cầu auth (giống /health)."""
+    """System metrics endpoint does not require auth (like /health)."""
     resp = await client.get("/system/metrics")
     assert resp.status_code == 200

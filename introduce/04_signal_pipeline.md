@@ -1,11 +1,11 @@
-# 04 — Luồng dữ liệu & Signal Pipeline
+# 04 — Data Flow & Signal Pipeline
 
-> Mô tả chi tiết từng bước dữ liệu đi từ CAN Bus → WebSocket client  
-> Phiên bản: 0.8.0
+> Detailed description of each step as data moves from CAN Bus → WebSocket client  
+> Version: 0.8.0
 
 ---
 
-## 1. Tổng quan luồng dữ liệu (End-to-End)
+## 1. End-to-end data flow overview
 
 ```
 [Vehicle ECU / Simulator]          [Vehicle ECU / Simulator]
@@ -51,15 +51,15 @@
 [Web Dashboard / Client]
 ```
 
-> **Multi-channel**: Hệ thống hỗ trợ N kênh CAN song song. Mỗi kênh có
-> DatabaseLoader & CANReader riêng, tất cả đổ vào chung 1 Queue.
-> `CANWriterRouter` đảm bảo lệnh ghi đi đúng kênh (O(1) lookup).
+> **Multi-channel**: The system supports N CAN channels in parallel. Each channel has
+> its own DatabaseLoader & CANReader, and all of them feed into one shared Queue.
+> `CANWriterRouter` ensures write commands go to the correct channel (O(1) lookup).
 
 ---
 
 ## 2. CAN Frame Decode
 
-### Ví dụ thực tế
+### Real example
 
 **can.json** (`config/can.json`):
 ```json
@@ -77,16 +77,16 @@
 }
 ```
 
-**CAN frame nhận được**:
+**Received CAN frame**:
 ```
 Message ID: 0x100 (256)
 Data:       [0x1A, 0x15, 0xC8, 0x13, ...]
 ```
 
-**Sau decode**:
+**After decode**:
 ```python
 {
-    "VehicleSpeed": 84.1,    # 0x151A * 0.01 = 54.02... (ví dụ minh họa)
+    "VehicleSpeed": 84.1,    # 0x151A * 0.01 = 54.02... (illustrative example)
     "EngineRPM": 2500.0
 }
 ```
@@ -110,18 +110,18 @@ _signal_to_msg: dict[str, int]        ← reverse index
 
 ---
 
-## 3. Signal Processing Pipeline — Chi tiết 4 Stage
+## 3. Signal Processing Pipeline — Details of the 4 stages
 
 ### Stage 1: SmoothingFilter
 
-**Mục đích**: Làm mượt nhiễu tín hiệu analog (cảm biến, ADC).
+**Purpose**: Smooth analog signal noise (sensors, ADC).
 
-**Thuật toán**: Sliding window (Moving Average) hoặc EMA (Exponential Moving Average).
-EMA sử dụng alpha cố định = 2/(window+1), đảm bảo tính nhất quán bất kể vị trí trong chuỗi.
+**Algorithm**: Sliding window (Moving Average) or EMA (Exponential Moving Average).
+EMA uses a fixed alpha = 2/(window+1), ensuring consistency regardless of position in the series.
 
 ```
-Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 giá trị gần nhất)
-Output: 84.74                              (trung bình)
+Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 most recent values)
+Output: 84.74                              (average)
 ```
 
 **Config** (`system.json`):
@@ -137,7 +137,7 @@ Output: 84.74                              (trung bình)
 
 ### Stage 2: RateLimiter
 
-**Mục đích**: Tránh spam tín hiệu thay đổi quá nhanh ra WebSocket và DB. ECU có thể gửi cùng message ID ở 10 ms/frame nhưng frontend chỉ cần 50 ms/frame.
+**Purpose**: Prevent rapidly changing signals from spamming WebSocket and DB. The ECU may send the same message ID every 10 ms/frame, but the frontend only needs 50 ms/frame.
 
 ```
 last_update["VehicleSpeed"] = T
@@ -158,9 +158,9 @@ frame arrives at T + 60ms → Δt = 60ms > 50ms → PASS
 
 ### Stage 3: ComputedSignals
 
-**Mục đích**: Tính toán tín hiệu phái sinh (virtual signals) không có trực tiếp trên bus.
+**Purpose**: Calculate derived (virtual) signals that are not available directly on the bus.
 
-**Ví dụ công thức**:
+**Example formulas**:
 ```python
 # Engine Power (kW)
 power_kw = engine_rpm * torque_nm / 9549.0
@@ -169,7 +169,7 @@ power_kw = engine_rpm * torque_nm / 9549.0
 battery_power = battery_voltage * battery_current / 1000.0
 ```
 
-Các formula được đăng ký thông qua:
+The formulas are registered through:
 ```python
 computed.add_formula("EnginePower", lambda s: s.get("EngineRPM", 0) * s.get("ActualTorque", 0) / 9549.0)
 ```
@@ -178,9 +178,9 @@ computed.add_formula("EnginePower", lambda s: s.get("EngineRPM", 0) * s.get("Act
 
 ### Stage 4: AlarmChecker
 
-**Mục đích**: Phát hiện tín hiệu vượt ngưỡng và kích hoạt cảnh báo.
+**Purpose**: Detect signals that exceed thresholds and trigger alarms.
 
-**Ngưỡng** (`config/alarms.json`):
+**Thresholds** (`config/alarms.json`):
 ```json
 {
   "alarms": {
@@ -196,25 +196,25 @@ value <= warning_low    →  status = "warning",   level = "warning"
 otherwise               →  status = "ok"
 ```
 
-**Khi alarm kích hoạt**:
-1. `AlarmChecker` emit `Alarm` event qua handler callback
-2. Handler (`AppRunner._on_alarm`) chạy:
-   - INSERT vào `alarm_log` table trong SQLite
-   - `ConnectionManager.broadcast_alarm()` → push JSON qua WebSocket tới tất cả subscribers kênh `alarms`
+**When an alarm is triggered**:
+1. `AlarmChecker` emits an `Alarm` event through a handler callback
+2. The handler (`AppRunner._on_alarm`) runs:
+   - INSERT into the `alarm_log` table in SQLite
+   - `ConnectionManager.broadcast_alarm()` → push JSON over WebSocket to all subscribers of the `alarms` channel
 
 ---
 
 ## 4. Backpressure — Queue Policy
 
-Khi pipeline xử lý chậm hơn CAN reader produce (v.d. CPU bận, DB slow):
+When the pipeline processes more slowly than the CAN reader produces (e.g. CPU busy, DB slow):
 
-| Policy | Hành vi |
+| Policy | Behavior |
 |---|---|
-| `drop_oldest` | Xóa frame cũ nhất trong queue, thêm frame mới (mặc định) |
-| `block` | CANReader block cho đến khi queue có chỗ |
-| `reject` | Bỏ qua frame mới, log warning |
+| `drop_oldest` | Remove the oldest frame in the queue, add the new frame (default) |
+| `block` | CANReader blocks until the queue has space |
+| `reject` | Drop the new frame, log a warning |
 
-Thay đổi live (không restart app):
+Change live (no app restart):
 ```
 POST /config/processor
 {"queue_policy": "drop_oldest", "max_queue_size": 5000}
@@ -224,13 +224,13 @@ POST /config/processor
 
 ## 5. Storage — Batch Insert
 
-Để tránh ghi DB quá nhiều lần (mỗi signal update một lần):
+To avoid writing to the DB too often (once per signal update):
 
 ```
 Signal updates → Buffer list[SignalRecord]
                       │
-              Buffer đầy (batch_size=100)
-                   hoặc
+              Buffer full (batch_size=100)
+                   or
               Timer tick (batch_interval_sec=2.0)
                       │
                       ▼
@@ -259,7 +259,7 @@ ConnectionManager._broadcast_signal("VehicleSpeed", 84.1, timestamp)
         │
         └── Subscribe /ws/subscribe clients:
                for each client:
-                 if client.wants_signal("VehicleSpeed"):  # hoặc "*"
+                 if client.wants_signal("VehicleSpeed"):  # or "*"
                    if rate_ok (min_interval_s):
                      await ws.send_text(payload)
 ```
@@ -277,7 +277,7 @@ Server → Stream:    {"type":"alarm","signal_name":"EngineRPM","level":"critica
 
 ## 7. Metrics Push
 
-`AppRunner._metrics_broadcaster()` chạy mỗi 3 giây, thu thập system metrics qua `psutil` và push tới WebSocket clients đã subscribe kênh `"metrics"`:
+`AppRunner._metrics_broadcaster()` runs every 3 seconds, collects system metrics via `psutil`, and pushes them to WebSocket clients that subscribed to the `"metrics"` channel:
 
 ```json
 {
@@ -291,7 +291,7 @@ Server → Stream:    {"type":"alarm","signal_name":"EngineRPM","level":"critica
 }
 ```
 
-Frontend dev mode hiển thị panel metrics real-time từ stream này.
+Frontend dev mode shows a real-time metrics panel from this stream.
 
 ---
 
@@ -304,34 +304,34 @@ can-hmi                    (CLI entry point: src/core/runner.py:main())
 AppRunner.start()
     ├── _setup_logging()
     ├── DatabaseLoader.load()            ← load config/can.json
-    ├── SignalStore.bulk_update()      ← seed tất cả signal names + units
-    ├── init_db() / SQLiteRepository  ← create tables nếu chưa có
-    ├── create_bus()                  ← mở CAN interface
-    ├── SignalPipeline + stages        ← thêm 4 stage
+    ├── SignalStore.bulk_update()      ← seed all signal names + units
+    ├── init_db() / SQLiteRepository  ← create tables if missing
+    ├── create_bus()                  ← open CAN interface
+    ├── SignalPipeline + stages        ← add 4 stages
     ├── CANReader                     ← async producer
     ├── CANWriter                     ← encode + send
     ├── CANSimulator (if enabled)     ← virtual bus producer
     ├── FastAPI + uvicorn             ← serve REST + WS + static frontend
     ├── Watchdog task                 ← health monitoring
-    └── Metrics broadcaster task      ← push metrics qua WS
+    └── Metrics broadcaster task      ← push metrics over WS
          │
-         └── asyncio.gather(*tasks)   ← tất cả chạy song song
+         └── asyncio.gather(*tasks)   ← all run in parallel
 ```
 
 ---
 
 ## 9. Graceful Shutdown
 
-Khi nhận `SIGINT` hoặc `SIGTERM`:
+When receiving `SIGINT` or `SIGTERM`:
 
 ```
 AppRunner.shutdown()
-    ├── _shutting_down = True         ← dừng watchdog + metrics loops
-    ├── CANReader.stop()             ← drain queue, đóng bus
-    ├── CANSimulator.stop()          ← nếu đang chạy
-    ├── SignalPipeline.flush()       ← flush buffer còn lại vào DB
-    ├── SQLiteRepository.close()     ← đóng DB connection
+    ├── _shutting_down = True         ← stop watchdog + metrics loops
+    ├── CANReader.stop()             ← drain queue, close bus
+    ├── CANSimulator.stop()          ← if running
+    ├── SignalPipeline.flush()       ← flush remaining buffer to DB
+    ├── SQLiteRepository.close()     ← close DB connection
     └── FastAPI shutdown             ← close WebSocket connections
 ```
 
-Timeout mặc định: 10 giây trước khi force exit.
+Default timeout: 10 seconds before forcing exit.

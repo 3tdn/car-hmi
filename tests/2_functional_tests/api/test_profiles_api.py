@@ -113,7 +113,7 @@ async def client():
 @pytest.mark.asyncio
 
 async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
-    """POST/GET profile phải lưu và trả về trường permission."""
+    """POST/GET profile must persist and return the permission field."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -153,7 +153,7 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     assert saved_map["FuelLevel"] == ["read", "write"]
 
 async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_path):
-    """Tạo profile mới sau bootstrap phải có full permission."""
+    """Creating a new profile after bootstrap requires full permission."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -185,7 +185,7 @@ async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_p
     assert resp.status_code == 403
 
 async def test_set_active_profile_success(monkeypatch, tmp_path):
-    """PUT /api/profile/active đổi active profile khi có full permission."""
+    """PUT /api/profile/active switches the active profile when full permission is present."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -223,7 +223,7 @@ async def test_set_active_profile_success(monkeypatch, tmp_path):
     assert saved["active"] == "operator"
 
 async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path):
-    """PUT /api/profile/active bị chặn với profile thiếu full permission."""
+    """PUT /api/profile/active is blocked for profiles without full permission."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -258,7 +258,7 @@ async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path
     assert detail["required_permission"] == "full"
 
 async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path):
-    """PUT /api/profile/active cho phép đổi profile khi bật dev mode header."""
+    """PUT /api/profile/active allows switching profiles when the dev mode header is enabled."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -296,7 +296,7 @@ async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path
     assert data["active"] == "operator"
 
 async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_path):
-    """PUT /api/profile/active với X-Client-Id chỉ cập nhật session của client đó."""
+    """PUT /api/profile/active with X-Client-Id updates only that client's session."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -351,7 +351,7 @@ async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_pat
     assert list_global.json()["active"] == "admin"
 
 async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_path):
-    """GET /api/profile/sessions trả map client -> active profile."""
+    """GET /api/profile/sessions returns the client -> active profile mapping."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -404,7 +404,7 @@ async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_pat
     assert by_profile["admin"]["total"] == 1
 
 async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
-    """POST /api/profile/heartbeat cập nhật last_seen cho client session."""
+    """POST /api/profile/heartbeat updates last_seen for the client session."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -441,7 +441,7 @@ async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
     assert data["last_seen"] > (time.time() - 10)
 
 async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
-    """POST /api/profile/heartbeat trả 400 nếu thiếu X-Client-Id."""
+    """POST /api/profile/heartbeat returns 400 if X-Client-Id is missing."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -467,7 +467,7 @@ async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
     assert detail["code"] == "client_id_required"
 
 async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
-    """POST /api/profile/offline đánh dấu session offline ngay."""
+    """POST /api/profile/offline marks the session offline immediately."""
     import src.api.routes.profiles as profile_routes
 
     monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 30)
@@ -515,7 +515,7 @@ async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
     assert by_client["client-a"]["status"] == "offline"
 
 async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, tmp_path):
-    """POST /api/profile/offline phải nhả lock Dev Mode của cùng client ngay lập tức."""
+    """POST /api/profile/offline must release that client's Dev Mode lock immediately."""
     import src.api.routes.profiles as profile_routes
 
     reset_seat_lock_registry()
@@ -578,7 +578,7 @@ async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, t
     reset_seat_lock_registry()
 
 def test_release_devmode_locks_for_offline_sessions(monkeypatch, tmp_path):
-    """Cleanup helper chỉ xử lý owner đang giữ lock và nhả owner offline."""
+    """Cleanup helper only processes owners holding locks and releases offline owners."""
     import src.api.routes.profiles as profile_routes
 
     reset_seat_lock_registry()
@@ -710,7 +710,7 @@ def test_release_devmode_locks_owner_filter_soak_quantifies_scan_reduction(monke
     reset_seat_lock_registry()
 
 async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatch, tmp_path):
-    """Không prune theo timeout; chỉ trim session offline nằm ngoài top 50 mới nhất."""
+    """Do not prune by timeout; only trim offline sessions outside the newest top 50."""
     import src.api.routes.profiles as profile_routes
 
     monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 5)
@@ -761,7 +761,7 @@ async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatc
     assert "offline-client" not in by_client
 
 async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp_path):
-    """Session offline vẫn được giữ nếu tổng session chưa vượt ngưỡng lưu lịch sử."""
+    """An offline session is still kept if total sessions have not exceeded the history retention threshold."""
     import src.api.routes.profiles as profile_routes
 
     monkeypatch.setattr(profile_routes, "SESSION_ONLINE_TTL_SECONDS", 5)
@@ -808,7 +808,7 @@ async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp
     assert by_profile["admin"]["offline"] == 1
 
 async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_path):
-    """GET /api/profile ưu tiên profile theo session của client-id."""
+    """GET /api/profile prefers the profile from the client-id session."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -846,7 +846,7 @@ async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_pat
     assert resp.json()["name"] == "viewer"
 
 async def test_set_active_profile_not_found(monkeypatch, tmp_path):
-    """PUT /api/profile/active trả 404 nếu profile đích không tồn tại."""
+    """PUT /api/profile/active returns 404 if the target profile does not exist."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
@@ -877,7 +877,7 @@ async def test_set_active_profile_not_found(monkeypatch, tmp_path):
     assert detail["profile_name"] == "missing-profile"
 
 async def test_delete_profile_removes_profile_and_matching_sessions(monkeypatch, tmp_path):
-    """DELETE /api/profile/{name} xóa profile và session đang trỏ tới profile đó."""
+    """DELETE /api/profile/{name} removes the profile and any sessions pointing to it."""
     import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"

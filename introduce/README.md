@@ -1,39 +1,39 @@
-# CAN-HMI — Hệ thống giám sát và điều khiển tín hiệu CAN Bus cho CarPC
+# CAN-HMI — CAN Bus Signal Monitoring and Control System for CarPC
 
-> Tài liệu giới thiệu nội bộ — dành cho developer / lead review  
-> Cập nhật: 2026-03-22 | Phiên bản: 0.8.0
-
----
-
-## 1. Tổng quan
-
-**CAN-HMI** là một phần mềm backend + frontend chạy trên **CarPC** (máy tính nhúng trên xe), có nhiệm vụ:
-
-- **Đọc** tín hiệu thời gian thực từ các ECU xe qua **CAN Bus** (giao thức CAN 2.0B)
-- **Giải mã** frame CAN thành các giá trị tín hiệu vật lý theo `config/can.json` (v.d. `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
-- **Xử lý**: làm mượt tín hiệu, giới hạn tốc độ cập nhật, tính toán tín hiệu phái sinh, phát cảnh báo khi vượt ngưỡng
-- **Lưu trữ** chuỗi thời gian vào SQLite, hỗ trợ truy vấn lịch sử
-- **Phục vụ** REST API + WebSocket (FastAPI) để frontend web hiển thị dashboard real-time
-- **Ghi ngược** tín hiệu trở lại CAN Bus khi người dùng thay đổi thông số từ giao diện
-
-Hệ thống được thiết kế để chạy **không cần phần cứng thực** nhờ có **CAN Simulator** tích hợp sẵn.
+> Internal introduction document — for developer / lead review  
+> Updated: 2026-03-22 | Version: 0.8.0
 
 ---
 
-## 2. Mục tiêu kỹ thuật
+## 1. Overview
 
-| Mục tiêu | Giá trị |
+**CAN-HMI** is a backend + frontend software system that runs on **CarPC** (the embedded computer in the vehicle) and is responsible for:
+
+- **Reading** real-time signals from vehicle ECUs over **CAN Bus** (CAN 2.0B protocol)
+- **Decoding** CAN frames into physical signal values according to `config/can.json` (for example `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
+- **Processing**: smoothing signals, limiting update rate, calculating derived signals, and raising alarms when thresholds are exceeded
+- **Storing** time series in SQLite, with support for historical queries
+- **Serving** REST API + WebSocket (FastAPI) for the frontend web dashboard to display real-time data
+- **Writing back** signals to the CAN Bus when the user changes parameters from the UI
+
+The system is designed to run **without real hardware** thanks to the built-in **CAN Simulator**.
+
+---
+
+## 2. Technical goals
+
+| Goal | Value |
 |---|---|
-| Ngôn ngữ | Python ≥ 3.10 |
-| Độ trễ đọc → WebSocket | ≤ 50 ms |
-| Tốc độ xử lý | ≥ 1 000 signal updates/giây |
-| Kích thước queue tối đa | 10 000 frame |
-| Lưu trữ | SQLite, mặc định giữ 30 ngày |
-| Triển khai | systemd service (`can-hmi.service`) hoặc Docker |
+| Language | Python ≥ 3.10 |
+| Read → WebSocket latency | ≤ 50 ms |
+| Processing rate | ≥ 1 000 signal updates/second |
+| Maximum queue size | 10 000 frame |
+| Storage | SQLite, default retention 30 days |
+| Deployment | systemd service (`can-hmi.service`) or Docker |
 
 ---
 
-## 3. Kiến trúc tổng thể
+## 3. Overall architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -65,55 +65,55 @@ Hệ thống được thiết kế để chạy **không cần phần cứng th�
 
 ---
 
-## 4. Các module chính
+## 4. Main modules
 
-| Module | Thư mục | Mô tả |
+| Module | Directory | Description |
 |---|---|---|
-| **CAN I/O** | `src/can_io/` | Đọc/ghi CAN frame, giải mã từ can.json |
-| **Signal Processor** | `src/processor/` | Pipeline xử lý tín hiệu (4 stage) |
-| **Signal Store** | `src/core/signal_store.py` | Cache in-memory, Observer pattern |
-| **Storage** | `src/storage/` | SQLite repository, export CSV/JSON |
+| **CAN I/O** | `src/can_io/` | Read/write CAN frames, decode from can.json |
+| **Signal Processor** | `src/processor/` | Signal processing pipeline (4 stages) |
+| **Signal Store** | `src/core/signal_store.py` | In-memory cache, Observer pattern |
+| **Storage** | `src/storage/` | SQLite repository, CSV/JSON export |
 | **FastAPI Backend** | `src/api/` | REST routes, WebSocket, auth |
-| **CAN Simulator** | `src/can_simulator/` | Giả lập ECU, hỗ trợ scenario YAML |
-| **Config Manager** | `src/core/config_manager.py` | CRUD cấu hình YAML runtime |
-| **Runner** | `src/core/runner.py` | Orchestrator khởi động toàn bộ hệ thống |
+| **CAN Simulator** | `src/can_simulator/` | ECU simulator, supports scenario YAML |
+| **Config Manager** | `src/core/config_manager.py` | Runtime YAML configuration CRUD |
+| **Runner** | `src/core/runner.py` | Orchestrator that starts the whole system |
 
 ---
 
-## 5. Tài liệu chi tiết
+## 5. Detailed documentation
 
-| File | Nội dung |
+| File | Content |
 |---|---|
-| [01_architecture.md](01_architecture.md) | Kiến trúc module, design patterns, sơ đồ |
-| [02_api_reference.md](02_api_reference.md) | Toàn bộ REST endpoints + WebSocket protocol |
-| [03_tech_stack.md](03_tech_stack.md) | Công nghệ, thư viện, môi trường |
-| [04_signal_pipeline.md](04_signal_pipeline.md) | Luồng dữ liệu từ CAN Bus → Dashboard |
+| [01_architecture.md](01_architecture.md) | Module architecture, design patterns, diagrams |
+| [02_api_reference.md](02_api_reference.md) | All REST endpoints + WebSocket protocol |
+| [03_tech_stack.md](03_tech_stack.md) | Technologies, libraries, environment |
+| [04_signal_pipeline.md](04_signal_pipeline.md) | Data flow from CAN Bus → Dashboard |
 
 ---
 
 ## 6. Quick Start (dev mode)
 
 ```bash
-# 1. Cài đặt
+# 1. Install
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scriptsctivate          # Windows
 pip install -e ".[dev]"
 
-# 2. Chạy ứng dụng (simulator bật sẵn)
+# 2. Run the application (simulator enabled by default)
 can-hmi --config config/system.json
 
-# 3. Mở dashboard
+# 3. Open the dashboard
 # http://localhost:8000
 
-# 4. Chạy tests
+# 4. Run tests
 pytest
 ```
 
 ---
 
-## 7. Trạng thái phát triển  
+## 7. Development status  
 
-| Phase | Nội dung | Trạng thái |
+| Phase | Content | Status |
 |---|---|---|
 | 1 | Foundation (config, project structure, all files) | ✅ DONE |
 | 2 | CAN Reader (python-can, async producer, can.json parser) | ✅ DONE |
@@ -126,8 +126,8 @@ pytest
 
 ---
 
-## 8. Liên hệ & Ghi chú
+## 8. Contact & Notes
 
-- Tất cả sơ đồ PlantUML nằm trong `diagram/` (C4 Level 1–2, Component, Class, ER, Sequence, Activity, Deployment)
-- Tài liệu yêu cầu đầy đủ: `docs/requirement.md`
-- Cấu hình runtime: `config/system.json`, `config/alarms.json`, `config/signals.json`
+- All PlantUML diagrams are in `diagram/` (C4 Level 1–2, Component, Class, ER, Sequence, Activity, Deployment)
+- Full requirements document: `docs/requirement.md`
+- Runtime configuration: `config/system.json`, `config/alarms.json`, `config/signals.json`

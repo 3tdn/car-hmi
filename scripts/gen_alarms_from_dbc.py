@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Tạo/gộp `config/alarms.json` từ các file DBC.
+"""Generate/merge `config/alarms.json` from DBC files.
 
-Cách dùng:
+Usage:
   python scripts/gen_alarms_from_dbc.py --dbc path/to/file.dbc [--out config/alarms.json] [--dry-run] [--overwrite]
 """
 from __future__ import annotations

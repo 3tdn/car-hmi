@@ -1,4 +1,4 @@
-"""Factory tạo các instance ``can.BusABC`` từ AppConfig."""
+"""Factory that creates ``can.BusABC`` instances from AppConfig."""
 
 from __future__ import annotations
 
@@ -13,21 +13,21 @@ logger = logging.getLogger(__name__)
 
 
 def create_bus(cfg: CANConfig, **kwargs: Any) -> can.BusABC:
-    """Tạo và trả về instance ``can.Bus`` từ cấu hình CAN đã cho.
+    """Create and return a ``can.Bus`` instance from the given CAN configuration.
 
-    Hỗ trợ tất cả giao diện mà python-can cung cấp:
+    Supports all interfaces provided by python-can:
     virtual, socketcan, pcan, vector, kvaser, serial, ixxat, …
 
-    Tham số:
-        cfg:    Phần ``CANConfig`` từ ``AppConfig``.
-        kwargs: Tham số từ khóa được chuyển tiếp tới ``can.Bus()`` (đè lên giá trị cfg).
+    Args:
+        cfg:    The ``CANConfig`` section from ``AppConfig``.
+        kwargs: Keyword arguments forwarded to ``can.Bus()`` (overriding cfg values).
 
-    Kết quả:
-        Một instance ``can.Bus`` đã mở.
+    Returns:
+        An open ``can.Bus`` instance.
 
-    Ngoại lệ:
-        can.CanInterfaceNotImplementedError: nếu giao diện không khảdụng.
-        can.CanInitializationError: nếu không mở được bus (thiếu phần cứng, v.v.).
+    Raises:
+        can.CanInterfaceNotImplementedError: if the interface is unavailable.
+        can.CanInitializationError: if the bus cannot be opened (missing hardware, etc.).
     """
     params: dict[str, Any] = {
         "interface": cfg.interface,
@@ -36,7 +36,7 @@ def create_bus(cfg: CANConfig, **kwargs: Any) -> can.BusABC:
     }
     params.update(kwargs)
 
-    # virtualbus không cần tham số bitrate
+    # A virtual bus does not require a bitrate parameter
     if params["interface"] == "virtual":
         params.pop("bitrate", None)
 
@@ -52,5 +52,5 @@ def create_bus(cfg: CANConfig, **kwargs: Any) -> can.BusABC:
 
 
 def create_virtual_bus(channel: str = "vcan0") -> can.BusABC:
-    """Factory tiện lợi tạo bus CAN ảo (không cần phần cứng)."""
+    """Convenience factory for creating a virtual CAN bus (no hardware required)."""
     return can.Bus(interface="virtual", channel=channel)

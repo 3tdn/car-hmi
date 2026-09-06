@@ -1,8 +1,8 @@
 """Shared fixtures/helpers for end-to-end scenario tests.
 
-Scenario tests trong `tests/5_scenario/` mô phỏng luồng nghiệp vụ thật (nhiều
-request nối tiếp nhau) thay vì kiểm tra 1 endpoint đơn lẻ. Các helper dưới đây
-được tái dùng giữa các file test_scenario_*.py.
+Scenario tests in `tests/5_scenario/` simulate real business flows (multiple
+sequential requests) instead of checking a single isolated endpoint. The
+helpers below are reused across the `test_scenario_*.py` files.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from src.core.signal_store import SignalStore
 
 
 class FakeRepo:
-    """Repository giả — scenario test không cần lưu SQLite thật."""
+    """Fake repository — scenario tests do not need real SQLite persistence."""
 
     async def query_signals(self, **_):
         return []
@@ -56,7 +56,7 @@ class FakeRepo:
 
 
 class FakeWriter:
-    """CAN writer giả — ghi nhận mọi lần ghi để assert lại trong test."""
+    """Fake CAN writer — records every write so tests can assert it later."""
 
     def __init__(self):
         self.writes: list[tuple[str, float]] = []
@@ -87,7 +87,7 @@ def write_profiles_file(
     client_sessions: dict | None = None,
     sessions_path: Path | None = None,
 ) -> None:
-    """Ghi file profiles.json (+ profile_sessions.json tuỳ chọn) cho scenario test."""
+    """Write profiles.json (+ optional profile_sessions.json) for scenario tests."""
     payload = {"active": active, "profiles": profiles}
     path.write_text(json.dumps(payload), encoding="utf-8")
     if sessions_path is not None:
@@ -105,9 +105,9 @@ async def build_app(
     initial_signals: dict[str, float] | None = None,
     unavailable_signals: set[str] | None = None,
 ):
-    """Dựng FastAPI app dùng profiles.json/profile_sessions.json tạm trong tmp_path.
+    """Build a FastAPI app using temporary profiles.json/profile_sessions.json in tmp_path.
 
-    Trả về tuple (app, writer) để test vừa gọi API vừa assert side-effect ghi CAN.
+    Returns the tuple (app, writer) so tests can both call the API and assert CAN-write side effects.
     """
     import src.api.routes.profiles as profile_routes
 
@@ -136,7 +136,7 @@ async def build_app(
 
 @pytest.fixture(autouse=True)
 def _clean_seat_lock_registry():
-    """Mỗi scenario test bắt đầu/kết thúc với devmode lock registry sạch."""
+    """Each scenario test starts and ends with a clean devmode lock registry."""
     reset_seat_lock_registry()
     yield
     reset_seat_lock_registry()
@@ -144,20 +144,20 @@ def _clean_seat_lock_registry():
 
 @pytest.fixture
 def app_builder():
-    """Trả về hàm async `build_app` để test tự gọi với (monkeypatch, tmp_path, ...).
+    """Return the async `build_app` function so tests can call it themselves with (monkeypatch, tmp_path, ...).
 
-    Đóng gói dưới dạng fixture (thay vì import trực tiếp) vì thư mục
-    `5_scenario` không phải tên package hợp lệ để import bằng dotted path.
+    It is wrapped as a fixture (instead of being imported directly) because the
+    `5_scenario` directory is not a valid package name for dotted-path imports.
     """
     return build_app
 
 
 @pytest.fixture
 def app_builder_sync(monkeypatch, tmp_path):
-    """Biến thể đồng bộ của `build_app`, dùng cho test WebSocket qua `TestClient`.
+    """Synchronous variant of `build_app`, used for WebSocket tests via `TestClient`.
 
-    `starlette.testclient.TestClient` chạy trong một event loop riêng nên các
-    test WS cần app đã dựng xong (sync) thay vì phải `await` trong test.
+    `starlette.testclient.TestClient` runs in a separate event loop, so WS
+    tests need the app to be fully built (sync) instead of having to `await` it.
     """
     import asyncio
 

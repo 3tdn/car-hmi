@@ -1,45 +1,45 @@
 # Dev Mode & ELK API Specification
 
-## Mục tiêu
+## Objectives
 
-Tài liệu này mô tả API cần thiết cho hai chức năng chính trong giao diện developer:
+This document describes the APIs required for two main features in the developer UI:
 
-1. Dev Mode: cho phép chọn ghế để gửi signal cùng lúc
-2. ELK (E-Locking): theo dõi trạng thái kết nối và ELK của từng seat và reset trạng thái failure .
+1. Dev Mode: allows selecting seats so signals can be sent to them simultaneously
+2. ELK (E-Locking): monitors the connection state and ELK state of each seat, and resets the failure state.
 
 ---
 
-## 1. Quy ước chung
+## 1. Common conventions
 
 - Seat ID: `fl`, `fr`, `rl1`, `rl2`, `rr1`
-- Thời gian: ISO 8601 UTC, ví dụ `2026-08-13T15:21:37.312Z`
-- Default timeout: `60` giây (`block_timeout_sec`)
-- `block_timeout_sec` hợp lệ từ `1` đến `3600` giây.
-- Các API quản lý lock yêu cầu header `X-Client-Id` khác rỗng.
-- Server luôn là nơi quản lý lock/dev-mode session; FE chỉ gửi yêu cầu và hiển thị trạng thái.
-- Nếu một ghế không connected hoặc ECU lỗi, BE phải trả trạng thái `disabled` hoặc `error` tương ứng và không cho phép apply signal.
+- Time: ISO 8601 UTC, for example `2026-08-13T15:21:37.312Z`
+- Default timeout: `60` seconds (`block_timeout_sec`)
+- Valid `block_timeout_sec` range: `1` to `3600` seconds.
+- Lock-management APIs require a non-empty `X-Client-Id` header.
+- The server is always responsible for managing locks/dev-mode sessions; FE only sends requests and displays status.
+- If a seat is not connected or its ECU has failed, BE must return status `disabled` or `error` accordingly and must not allow the signal to be applied.
 
-### Trạng thái chuẩn
+### Standard states
 
-- `selected`: ghế được chọn trong Dev Mode
-- `disabled`: FE phải gray out chức năng Dev Mode của ghế đó
+- `selected`: the seat is selected in Dev Mode
+- `disabled`: FE must gray out Dev Mode functionality for that seat
 - `lock`: ELK lock
 - `unlock`: ELK unlock
 - `failure`: ELK failure
-- `ok`: không có fail nào trong hệ thống
-- `failure_detected`: tổng trạng thái hệ thống nếu có ít nhất 1 ELK failure
+- `ok`: there is no failure anywhere in the system
+- `failure_detected`: overall system state when at least 1 ELK failure exists
 
 ---
 
-## 2. Dev Mode — chọn ghế
+## 2. Dev Mode — seat selection
 
 ### Endpoint
 
 - `POST /api/devmode/seats/select`
 
-### Mục đích
+### Purpose
 
-FE báo backend ghế nào đang được chọn cho Dev Mode. Khi có hành động này, backend sẽ tạo timeout để chặn các mode khác hoạt động trên các ghế liên quan trong khoảng thời gian xác định.
+FE tells the backend which seats are currently selected for Dev Mode. When this action occurs, the backend creates a timeout that blocks other modes from operating on the related seats for a specified period.
 
 ### Request body
 
@@ -56,9 +56,9 @@ FE báo backend ghế nào đang được chọn cho Dev Mode. Khi có hành đ�
 }
 ```
 
-### Response thành công
+### Successful response
 
-Chỉ trả về các ghế thực sự được update.
+Only seats that were actually updated are returned.
 
 ```json
 {
@@ -71,9 +71,9 @@ Chỉ trả về các ghế thực sự được update.
 }
 ```
 
-### Response lỗi theo từng ghế
+### Error response per seat
 
-Khi có ghế reject, server chỉ trả về các ghế bị update hoặc bị reject; không trả thêm thông tin cho ghế không được cập nhật.
+When some seats are rejected, the server returns only the seats that were updated or rejected; it does not include extra information for seats that were not changed.
 
 ```json
 {
@@ -96,25 +96,25 @@ Khi có ghế reject, server chỉ trả về các ghế bị update hoặc bị
 }
 ```
 
-- Nếu tất cả ghế đều bị reject: HTTP status `409 Conflict`
-- Nếu một phần ghế apply ok, server vẫn trả `200 OK` và chỉ đánh dấu lỗi ở các ghế bị reject
+- If all seats are rejected: HTTP status `409 Conflict`
+- If only some seats apply successfully, the server still returns `200 OK` and marks errors only on the rejected seats
 
-### Khoá ghi theo ghế (block các section khác)
+### Per-seat write lock (blocks other sections)
 
-- Khoá được cấp cho “section” = giá trị header `X-Client-Id` của FE.
-- Request thiếu `X-Client-Id` bị từ chối với HTTP `400 Bad Request`.
-- Khi ghế bị khoá, mọi request ghi từ section khác lên tín hiệu của ghế đó bị chặn:
-  - `PUT /signals/{signal_name}` → `423 Locked`, detail có `code = devmode_seat_locked`
-  - `POST /signals/batch_update` → tín hiệu bị bỏ qua và trả warning `devmode_seat_locked`
-- Ghế được suy ra từ token trong tên tín hiệu (`ACR_FL_RetractRequest`, `HB_Request_FL`, `ISB_FL_ColorRed` → `fl`).
-- Khoá tự hết hạn sau `block_timeout_sec` (mặc định `60`, cấu hình tại `devmode.block_timeout_sec` trong `config/system.json`).
-- FE nên gia hạn khoá bằng cách gọi lại `POST /api/devmode/seats/select` (nửa chu kỳ timeout).
+- The lock is granted to the “section” = the value of FE header `X-Client-Id`.
+- A request without `X-Client-Id` is rejected with HTTP `400 Bad Request`.
+- When a seat is locked, every write request from another section to signals for that seat is blocked:
+  - `PUT /signals/{signal_name}` → `423 Locked`, with detail containing `code = devmode_seat_locked`
+  - `POST /signals/batch_update` → the locked signal is skipped and warning `devmode_seat_locked` is returned
+- The seat is inferred from the token in the signal name (`ACR_FL_RetractRequest`, `HB_Request_FL`, `ISB_FL_ColorRed` → `fl`).
+- The lock automatically expires after `block_timeout_sec` (default `60`, configured at `devmode.block_timeout_sec` in `config/system.json`).
+- FE should renew the lock by calling `POST /api/devmode/seats/select` again (at half the timeout interval).
 
-### Endpoint phụ trợ
+### Supporting endpoints
 
-- `GET /api/devmode/catalog` — danh sách seat, các họ signal và state để FE dựng tab + nút bấm
-- `GET /api/devmode/status` — trạng thái khoá hiện tại của từng ghế (`selected`, `owned`, `connected`, `expires_at`, `remaining_sec`)
-- `POST /api/devmode/exit` — thoát Dev Mode, nhả toàn bộ khoá của section hiện tại
+- `GET /api/devmode/catalog` — list of seats, signal families, and states so FE can build the tabs + buttons
+- `GET /api/devmode/status` — current lock state for each seat (`selected`, `owned`, `connected`, `expires_at`, `remaining_sec`)
+- `POST /api/devmode/exit` — exit Dev Mode and release all locks owned by the current section
 
 #### Response `GET /api/devmode/catalog`
 
@@ -136,27 +136,27 @@ Khi có ghế reject, server chỉ trả về các ghế bị update hoặc bị
 }
 ```
 
-- `status_stale_timeout_sec` là ngưỡng thời gian stale dùng để đánh dấu signal status / ELK không còn fresh trong View B.
-- FE đọc field này để tính `Status Unknown` khi signal thiếu hoặc quá cũ.
+- `status_stale_timeout_sec` is the stale threshold used to mark signal status / ELK as no longer fresh in View B.
+- FE reads this field to determine `Status Unknown` when a signal is missing or too old.
 
 #### Auto-renew lock behavior
 
-- Khi FE chọn ít nhất 1 ghế trong Dev Mode, frontend tự động gia hạn lock theo chu kỳ khoảng nửa `block_timeout_sec`.
-- Mỗi lần renew, FE gửi lại `POST /api/devmode/seats/select` với map các seat đang được chọn.
-- Nếu renew thất bại vì seat bị lock bởi section khác hoặc backend trả lỗi, FE ghi log và không bỏ lock tự động trừ khi người dùng rời Dev Mode hoặc timeout hết hạn.
-- Mục tiêu là giữ lock cho section hiện tại sống trong suốt phiên Dev Mode mà không cần user thao tác thêm.
+- When FE selects at least 1 seat in Dev Mode, the frontend automatically renews the lock on a cycle of about half `block_timeout_sec`.
+- On every renewal, FE resends `POST /api/devmode/seats/select` with a map of the currently selected seats.
+- If renewal fails because a seat is locked by another section or the backend returns an error, FE logs it and does not drop the lock automatically unless the user leaves Dev Mode or the timeout expires.
+- The goal is to keep the current section's lock alive throughout the Dev Mode session without requiring extra user action.
 
 ---
 
-## 3. Dev Mode — gửi signal
+## 3. Dev Mode — send signals
 
 ### Endpoint
 
 - `POST /api/devmode/signals`
 
-### Mục đích
+### Purpose
 
-FE yêu cầu backend inject hoặc set state của một signal cho nhiều ghế cùng lúc trong Dev Mode.
+FE asks the backend to inject or set the state of a signal for multiple seats at the same time in Dev Mode.
 
 ### Request body
 
@@ -175,9 +175,9 @@ FE yêu cầu backend inject hoặc set state của một signal cho nhiều gh�
 }
 ```
 
-### Response thành công
+### Successful response
 
-Chỉ trả về các ghế thực sự được update. Tên signal là tên chung của họ signal, ví dụ `HB_Request`.
+Only seats that were actually updated are returned. The signal name is the shared family name, for example `HB_Request`.
 
 ```json
 {
@@ -212,60 +212,60 @@ Chỉ trả về các ghế thực sự được update. Tên signal là tên ch
 
 ### Value mapping
 
-- `ACR_RetractRequest`: tham khảo tín hiệu tương ứng ACR_FL_RetractRequest, (`5` hoặc `10->25`)
-- `ABL_RetractRequest`: tham khảo tín hiệu tương ứng ABL_FL_RetractRequest, (`0->5`, `11`, `12`)
-- `ISB_Color`: mã màu dạng integer hoặc hex-to-dec, ví dụ `rgb(0, 255, 0) => 65280`
+- `ACR_RetractRequest`: refer to the corresponding signal `ACR_FL_RetractRequest`, (`5` or `10->25`)
+- `ABL_RetractRequest`: refer to the corresponding signal `ABL_FL_RetractRequest`, (`0->5`, `11`, `12`)
+- `ISB_Color`: color code as integer or hex-to-dec, for example `rgb(0, 255, 0) => 65280`
 - `HB_Request`: `0`, `1`, `2`
 
-### Ánh xạ sang tín hiệu CAN thật
+### Mapping to actual CAN signals
 
-| Họ signal | Tín hiệu ghi lên bus |
+| Signal family | Signal written to the bus |
 | --- | --- |
 | `ACR_RetractRequest` | `ACR_{SEAT}_RetractRequest` |
 | `ABL_RetractRequest` | `ABL_{SEAT}_RetractRequest` |
 | `HB_Request` | `HB_Request_{SEAT}` |
-| `ISB_Color` | `ISB_{SEAT}_ColorRed` + `ISB_{SEAT}_ColorGreen` + `ISB_{SEAT}_ColorBlue` (tách RGB) |
+| `ISB_Color` | `ISB_{SEAT}_ColorRed` + `ISB_{SEAT}_ColorGreen` + `ISB_{SEAT}_ColorBlue` (split RGB) |
 
-Ghế nào không có tín hiệu tương ứng trong DBC (ví dụ `HB_Request_FL`) sẽ trả về
-`error = signal_not_available` cho ghế đó, các ghế còn lại vẫn được apply.
+If a seat does not have a corresponding signal in the DBC (for example `HB_Request_FL`), that seat returns
+`error = signal_not_available`, while the remaining seats are still applied.
 
 ---
 
-## 4. ELK (E-Locking) — dùng signals có sẵn
+## 4. ELK (E-Locking) — use existing signals
 
-### Mục đích
+### Purpose
 
-- `No Failure`: FE đọc trực tiếp trạng thái ELK từ các signal CAN đang stream qua hệ thống hiện có.
-- `Failure Detected`: FE đánh dấu fail khi signal ELK báo `-1`, hoặc khi các signal CAN status không cập nhật trong timeout.
-- Nếu có ít nhất 1 seat đang `failure`, trạng thái hệ thống là `failure_detected`.
+- `No Failure`: FE reads ELK state directly from the CAN signals already streamed by the existing system.
+- `Failure Detected`: FE marks failure when the ELK signal reports `-1`, or when CAN signal status is not updated within the timeout.
+- If at least 1 seat is in `failure`, the overall system state is `failure_detected`.
 
-### Signal nguồn trong DBC v7 (TBD là chưa có trong DBC v7, chỉ là placeholder)
+### Source signals in DBC v7 (TBD means not yet present in DBC v7, only a placeholder)
 
-Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới:
+Use only signals that already exist in DBC v7; do not create any new API/WS:
 - `ELK_FL_ActuatorStatus`, `ELK_FR_ActuatorStatus`, `ELK_RL1_ActuatorStatus`, `ELK_RL2_ActuatorStatus`, `ELK_RR1_ActuatorStatus`
 - `COM_Status_PumaFLCan`, `COM_Status_PumaFRCan`, `COM_Status_PumaRL1Can`, `COM_Status_PumaRL2Can`, `COM_Status_PumaRR1Can`
 - `COM_Status_PumaFLEthernet`, `COM_Status_PumaFREthernet`, `COM_Status_PumaRL1Ethernet`, `COM_Status_PumaRL2Ethernet`, `COM_Status_PumaRR1Ethernet`
 - `COM_Status_PantherCan`, `COM_Status_PantherEthernet`
 - `COM_Status_NvidiaJetsonCan`, `COM_Status_NvidiaJetsonEthernet`
-- `ELK_ResetErrorFlags`: nếu cần gửi lệnh reset từ HMI/FE, dùng REST write signal đã có sẵn thay vì endpoint riêng
+- `ELK_ResetErrorFlags`: if HMI/FE needs to send a reset command, use the existing REST signal write instead of a dedicated endpoint
 
-### API/WS hiện có để dùng
+### Existing API/WS to use
 
-- WebSocket hiện có: `WS /ws/signals`
-- REST hiện có:
-  - `GET /signals/available` để lấy metadata + signal names
-  - `GET /signals/{signal_name}` để lấy giá trị mới nhất
-  - `PUT /signals/{signal_name}` để write một signal
-  - `POST /signals/batch_update` để write nhiều signal cùng lúc
+- Existing WebSocket: `WS /ws/signals`
+- Existing REST:
+  - `GET /signals/available` to fetch metadata + signal names
+  - `GET /signals/{signal_name}` to get the latest value
+  - `PUT /signals/{signal_name}` to write one signal
+  - `POST /signals/batch_update` to write multiple signals at once
 
-### Quy tắc xử lý
+### Processing rules
 
-- `status` và `can_communication` được suy ra từ các signal CAN đã có; không tạo endpoint riêng cho từng seat.
-- Signal connectivity bị thiếu hoặc không cập nhật trong `reader.stale_threshold_sec` được coi là `not_connected`.
-- FE subscribe các signal ELK/CAN status qua WS hiện có, hoặc poll qua `GET /signals/{signal_name}` nếu cần.
-- `failure_detected` được suy ra từ dữ liệu signal hoặc timeout mất signal, hoặc ELK_*_ActuatorStatus có giá trị `1` hoặc `2`.
-- Nếu một ghế không connected hoặc ECU lỗi, FE đánh dấu `disabled` / `failure` dựa trên giá trị signal hoặc timeout.
-- unknown : `ELK_*_ActuatorStatus` với giá trị `3` sau khi nhấn reset và chưa nhận được phản hồi từ ECU, FE hiển thị `Status Unknown` (gray) cho ghế đó.
+- `status` and `can_communication` are derived from existing CAN signals; there is no dedicated endpoint per seat.
+- Signal connectivity that is missing or not updated within `reader.stale_threshold_sec` is treated as `not_connected`.
+- FE subscribes to ELK/CAN status signals through the existing WS, or polls via `GET /signals/{signal_name}` if needed.
+- `failure_detected` is derived from signal data, signal timeout, or `ELK_*_ActuatorStatus` having value `1` or `2`.
+- If a seat is not connected or its ECU has failed, FE marks it as `disabled` / `failure` based on the signal value or timeout.
+- unknown: when `ELK_*_ActuatorStatus` has value `3` after reset is pressed and no response has yet been received from the ECU, FE shows `Status Unknown` (gray) for that seat.
 
 ### Status mapping
 
@@ -275,17 +275,17 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 - `1`: ELK `failure at previous` - yellow
 - `2`: ELK `failure now` - red
 - `3`: invalid state, wait response after reset - gray
-- missing hoặc stale signal: `Status Unknown` (không phải `No Failure`)
+- missing or stale signal: `Status Unknown` (not `No Failure`)
 
 ### Reset error flag
 
-- Nếu cần reset lỗi trên ECU: dùng signal có sẵn `ELK_ResetErrorFlags` qua `PUT /signals/ELK_ResetErrorFlags` với payload:
+- If ECU error reset is needed: use the existing signal `ELK_ResetErrorFlags` via `PUT /signals/ELK_ResetErrorFlags` with payload:
 
 ```json
 { "value": 1 }
 ```
 
-- FE hiện tại gửi `1` khi user click `Reset E-Locking Failure Memory`.
+- FE currently sends `1` when the user clicks `Reset E-Locking Failure Memory`.
 
 ---
 
@@ -323,7 +323,7 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
   "rate_ms": 1000
 }
 ```
-* "signals" or "channels" can be used interchangeably in the request body, but "signals" is preferred for clarity.
+* `"signals"` or `"channels"` can be used interchangeably in the request body, but `"signals"` is preferred for clarity.
 
 ### Ack format
 
@@ -354,7 +354,7 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 }
 ```
 
-### Note về value
+### Note about values
 - `0`: CAN communication lost / disconnected - red
 - `1`: CAN communication OK / connected - green
 - `0`: ELK `no failure` - green
@@ -362,7 +362,7 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 - `2`: ELK `failure now` - red
 - `3`: invalid state, wait response after reset - gray
 
-> Không có Ethernet và một số signal status trong DBC v7
+> Ethernet and some status signals are not present in DBC v7
   COM_Status_PumaFLEthernet
   COM_Status_PumaFREthernet
   COM_Status_PumaRL1Ethernet
@@ -375,8 +375,8 @@ Chỉ dùng các signal hiện có trong DBC v7, không tạo thêm API/WS mới
 ---
 
 ## 6. SEAL AIRBAG
-- Nếu cần Inflate/Exflate airbag dùng signal có sẵn `SEAL_AirbagRequestInflate`/`SEAL_AirbagRequestExflate`
-qua `PUT /signals/SEAL_InflateAirbag` hoặc `PUT /signals/SEAL_ExflateAirbag` với payload:
+- If Inflate/Exflate airbag control is needed, use the existing signals `SEAL_AirbagRequestInflate`/`SEAL_AirbagRequestExflate`
+via `PUT /signals/SEAL_InflateAirbag` or `PUT /signals/SEAL_ExflateAirbag` with payload:
 
 ```json
 { "value": 1 }
@@ -384,30 +384,30 @@ qua `PUT /signals/SEAL_InflateAirbag` hoặc `PUT /signals/SEAL_ExflateAirbag` v
 
 ---
 
-## 7. Tóm tắt API chính
+## 7. Main API summary
 
-- `GET /signals/available` => check xem signal đã có trong candb ko
-- `GET /signals/{signal_name}` => lấy giá trị hiện tại của 1 signal
-- `PUT /signals/{signal_name}` => update giá trị của 1 signal
-- `POST /api/devmode/signals` => update giá trị của signal của 1 loạt ghế trong Dev Mode
-- `POST /signals/batch_update` => update giá trị của nhiều signal cùng lúc (nếu ko đùng các api POST /api/devmode/signals)
+- `GET /signals/available` => check whether the signal exists in candb
+- `GET /signals/{signal_name}` => get the current value of a signal
+- `PUT /signals/{signal_name}` => update the value of a signal
+- `POST /api/devmode/signals` => update the value of a signal for a group of seats in Dev Mode
+- `POST /signals/batch_update` => update multiple signal values at once (if not using `POST /api/devmode/signals`)
 - `WS /ws/signals`
 
-## 8. Tóm tắt View Dev Mode
-View dev-mode: (phân biệt giữa dev-mode và view user)
-Devmode có 2 view.
+## 8. Dev Mode view summary
+Dev-mode view: (distinguished from the user view)
+Devmode has 2 views.
 view a:
-Trong view có 5 switch tượng trưng cho 5 ghế ngồi có thể được select hoặc không
-có 4 tab (ACR, ABL, ISB, HB tương ứng với các signal `ACR_RetractRequest`, `ABL_RetractRequest`, `ISB_Color`, `HB_Request`), mỗi tab có n buton tương ứng với n states của mỗi signal.
-chức năng trong view này là có thể chuyển state của signal cho nhiều ghế 1 lần.
-note khi bật switch của ghế nào lên nhớ thông báo để cho backend biết và tạo timeout 1min để chặn các mode khác hoạt động trên ghế đó
+The view has 5 switches representing the 5 seats, each of which can be selected or not.
+There are 4 tabs (ACR, ABL, ISB, HB corresponding to the signals `ACR_RetractRequest`, `ABL_RetractRequest`, `ISB_Color`, `HB_Request`); each tab has n buttons corresponding to the n states of each signal.
+The function of this view is to change the signal state for multiple seats at once.
+note: when turning on a seat switch, remember to notify the backend so it can create a 1-minute timeout to block other modes from operating on that seat
 View b:
-trong view có các thành phần:
-PUMA mỗi ghế: có show các tín hiệu CAN, Ethernet, elk
-PANTHER (máy tính PANTHER): có show các tín hiệu CAN, Ethernet
-NVIDIA JETSON (máy tính NVIDIA JETSON): có show các tín hiệu CAN, Ethernet
-mỗi thành phần show các trạng thái (connect-disconnect) của các tín hiệu
+the view contains these components:
+PUMA per seat: shows CAN, Ethernet, ELK signals
+PANTHER (PANTHER computer): shows CAN, Ethernet signals
+NVIDIA JETSON (NVIDIA JETSON computer): shows CAN, Ethernet signals
+each component shows the connection/disconnection status of the signals
 
 
 
-thêm 1 button để request "reset Elocking Failure Memery"
+add 1 button to request "reset Elocking Failure Memory"
