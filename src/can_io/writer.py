@@ -39,8 +39,8 @@ class CANWriter:
         self,
         bus: can.BusABC,
         db: DatabaseLoader,
-        signal_store: "SignalStore | None" = None,
-        writer_config: "WriterConfig | None" = None,
+        signal_store: SignalStore | None = None,
+        writer_config: WriterConfig | None = None,
     ) -> None:
         """
         Args:
@@ -68,6 +68,13 @@ class CANWriter:
 
         # Periodic task management: msg_id → asyncio.Task
         self._periodic_tasks: dict[int, asyncio.Task] = {}
+        # Keep references to fire-and-forget tasks so they aren't garbage-collected mid-flight
+        self._background_tasks: set[asyncio.Task] = set()
+
+    async def set_bus(self, bus: can.BusABC) -> None:
+        """Switch to a replacement bus after the paired reader reconnects."""
+        async with self._lock:
+            self._bus = bus
 
     async def send_signal(self, name: str, value: float) -> None:
         """Encode a single signal and transmit the corresponding CAN frame.
@@ -146,7 +153,9 @@ class CANWriter:
         # Keep this off the await chain so the HTTP response can return right after the CAN frame
         # has been sent, without being blocked by WebSocket broadcasting.
         if self._store is not None and sent:
-            asyncio.create_task(self._store.bulk_update(sent, timestamp=ts))
+            task = asyncio.create_task(self._store.bulk_update(sent, timestamp=ts))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
         return sent
 
@@ -197,7 +206,9 @@ class CANWriter:
         msg_def: object,
         sig_values: dict[str, float],
     ) -> None:
-        """Repeatedly send a CAN frame every ``periodic_time_step`` ms for ``periodic_duration`` ms."""
+        """Repeatedly send a CAN frame every ``periodic_time_step`` ms for
+        ``periodic_duration`` ms.
+        """
         interval = self._periodic_time_step_ms / 1000.0
         deadline = time.monotonic() + self._periodic_duration_ms / 1000.0
         try:

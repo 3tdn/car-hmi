@@ -106,6 +106,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("devmode-subtab-b")?.addEventListener("click", () => showDevmodeSubview("b"));
   document.getElementById("devmode-exit-btn")?.addEventListener("click", leaveDevmode);
   document.getElementById("devmode-elk-reset-btn")?.addEventListener("click", resetElockingFailureMemory);
+  document.getElementById("devmode-can-retry-btn")?.addEventListener("click", retryCan);
+  document.getElementById("devmode-reboot-btn")?.addEventListener("click", rebootCarHmiService);
 
   window.addEventListener("beforeunload", () => {
     clearInterval(devmodeState.renewTimer);
@@ -293,6 +295,47 @@ async function leaveDevmode(options = {}) {
     if (!options.quiet) devmodeLog(`Exit Dev Mode failed: ${error.message || error}`, "error");
   }
   updateLockBadge();
+}
+
+function setCanActionStatus(message, level = "") {
+  const statusEl = document.getElementById("devmode-can-action-status");
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  if (level) statusEl.dataset.level = level;
+  else delete statusEl.dataset.level;
+}
+
+async function retryCan() {
+  const button = document.getElementById("devmode-can-retry-btn");
+  if (!button) return;
+  button.disabled = true;
+  setCanActionStatus("Scheduling CAN reconnect...");
+  try {
+    const result = await retryCanConnections();
+    const count = Number(result?.count || 0);
+    setCanActionStatus(
+      count ? `Reconnect scheduled for ${count} CAN reader${count === 1 ? "" : "s"}.` : "CAN recovery is already running.",
+      count ? "ok" : "",
+    );
+  } catch (error) {
+    setCanActionStatus(`CAN retry failed: ${error.message || error}`, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function rebootCarHmiService() {
+  if (!window.confirm("Reboot Car-HMI now? Signal updates will pause while the service restarts.")) return;
+  const button = document.getElementById("devmode-reboot-btn");
+  if (!button) return;
+  button.disabled = true;
+  setCanActionStatus("Reboot requested. Waiting for service restart...", "ok");
+  try {
+    await rebootCarHmi();
+  } catch (error) {
+    button.disabled = false;
+    setCanActionStatus(`Reboot request failed: ${error.message || error}`, "error");
+  }
 }
 
 // ── View A — signal family tabs & state buttons ──────────────────────────────

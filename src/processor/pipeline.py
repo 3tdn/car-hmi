@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -76,10 +77,8 @@ class SignalPipeline:
                 else:
                     get_task.cancel()
                     # Suppress CancelledError from the cancelled task
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
                         await get_task
-                    except (asyncio.CancelledError, Exception):
-                        pass
                     # Idle — flush buffer if interval elapsed
                     if time.monotonic() - self._last_flush >= self._batch_interval:
                         try:
@@ -92,15 +91,13 @@ class SignalPipeline:
                 logger.debug("Signal pipeline task cancelled, shutting down")
                 return
 
-            # --- 2. Drain the entire queue: keep the latest value for each signal ---
-            # Drain without a frame limit until the queue is empty.
+            # --- 2. Drain a bounded batch: keep the latest value for each signal ---
             # Under high load, many frames for the same signal_id may be waiting in the queue;
             # merged.update() overwrites continuously → only the NEWEST value is processed.
-            # This ensures frequently updated signals do not accumulate stale values
-            # trong buffer storage hay SignalStore.
+            # Bounded draining keeps the event loop responsive even if a backlog exists.
             merged: dict[str, float] = dict(frame.signals)
             drained = 1
-            while True:
+            while drained < self._batch_drain_size:
                 try:
                     extra = self._queue.get_nowait()
                     merged.update(extra.signals)  # newer values overwrite older ones
@@ -123,14 +120,18 @@ class SignalPipeline:
                 logger.error("Stage %s failed: %s — dropping batch", type(stage).__name__, exc)
                 return
             if not signals:
-                logger.debug("Stage %s returned empty signals — dropping batch", type(stage).__name__)
+                logger.debug(
+                    "Stage %s returned empty signals — dropping batch",
+                    type(stage).__name__,
+                )
                 return
 
         now = time.time()
         # Publish to SignalStore — bulk update: 1 lock instead of N locks
         await self._store.bulk_update(signals, timestamp=now)
 
-        # Buffer for batch storage writes — read units synchronously to avoid N asyncio.Lock acquisitions
+        # Buffer for batch storage writes — read units synchronously to avoid
+        # N asyncio.Lock acquisitions.
         for name, value in signals.items():
             unit = self._store.get_unit(name)
             self._buffer.append((name, value, unit))

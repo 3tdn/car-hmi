@@ -125,4 +125,16 @@ stop_process_on_port "$PORT"
 #   --log-level: Logging level (DEBUG/INFO/WARNING/ERROR)
 # The API port is set in config/system.json, not via a CLI argument
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
-"$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"
+while true; do
+    if "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"; then
+        exit 0
+    fi
+
+    exit_code=$?
+    if [[ "$exit_code" -ne 75 ]]; then
+        exit "$exit_code"
+    fi
+
+    log "Car-HMI reboot requested; restarting in 1 second..."
+    sleep 1
+done

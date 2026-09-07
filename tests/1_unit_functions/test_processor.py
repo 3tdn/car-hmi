@@ -139,6 +139,7 @@ async def test_alarm_checker_no_alarm_in_range():
 async def test_rate_limiter_allows_after_interval():
     """RateLimiter should allow a signal through once sufficient time has passed."""
     import asyncio
+
     from src.processor.filters import RateLimiter
 
     lim = RateLimiter(max_hz=100.0)  # 100 Hz → min 10 ms interval
@@ -262,17 +263,64 @@ async def test_pipeline_keeps_latest_signal_value(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_stop_while_idle(tmp_path):
+async def test_pipeline_respects_batch_drain_size():
+    """A large backlog should be processed in bounded batches, not drained all at once."""
+    import asyncio
+    import time
+    from unittest.mock import AsyncMock
+
+    from src.can_io.reader import DecodedFrame, RawCANFrame
+    from src.core.signal_store import SignalStore
+    from src.processor.pipeline import ProcessingStage, SignalPipeline
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
+    store = SignalStore()
+    repo = AsyncMock()
+    pipeline = SignalPipeline(
+        input_queue=queue,
+        signal_store=store,
+        repository=repo,
+        batch_size=100,
+        batch_interval_sec=60.0,
+        batch_drain_size=2,
+    )
+    seen_batches: list[dict[str, float]] = []
+
+    class StopAfterFirstBatch(ProcessingStage):
+        async def process(self, signals: dict[str, float]) -> dict[str, float]:
+            seen_batches.append(dict(signals))
+            pipeline.stop()
+            return signals
+
+    pipeline.add_stage(StopAfterFirstBatch())
+
+    for value in (1.0, 2.0, 3.0, 4.0, 5.0):
+        raw = RawCANFrame(
+            timestamp=time.time(),
+            bus="test",
+            msg_id=100,
+            is_extended=False,
+            is_fd=False,
+            data=bytes(8),
+        )
+        await queue.put(DecodedFrame(raw=raw, signals={"Speed": value}))
+
+    await asyncio.wait_for(pipeline.start(), timeout=1.0)
+
+    assert seen_batches == [{"Speed": 2.0}]
+    assert queue.qsize() == 3
+
+
+@pytest.mark.asyncio
+async def test_pipeline_stop_while_idle():
     """Pipeline.stop() should exit cleanly even when queue is empty."""
     import asyncio
+    from unittest.mock import AsyncMock
 
     from src.core.signal_store import SignalStore
     from src.processor.pipeline import SignalPipeline
-    from src.storage.database import init_db
-    from src.storage.repository import SQLiteRepository
 
-    conn = await init_db(str(tmp_path / "test.db"))
-    repo = SQLiteRepository(conn)
+    repo = AsyncMock()
     store = SignalStore()
     queue: asyncio.Queue = asyncio.Queue(maxsize=10)
     pipeline = SignalPipeline(
@@ -290,7 +338,6 @@ async def test_pipeline_stop_while_idle(tmp_path):
         await asyncio.wait_for(task, timeout=2.5)
     except asyncio.CancelledError:
         pass
-    except asyncio.TimeoutError:
+    except TimeoutError:
         task.cancel()
         pytest.fail("Pipeline did not stop within timeout")
-    await conn.close()

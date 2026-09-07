@@ -94,7 +94,7 @@ def _setup_logging(cfg: AppConfig) -> None:
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
 
 
-def _db_total_size(db_path: "Path") -> int:
+def _db_total_size(db_path: Path) -> int:
     """Total size of the .db + .db-wal + .db-shm files (bytes)."""
     total = 0
     for suffix in ("", "-wal", "-shm"):
@@ -147,6 +147,8 @@ class AppRunner:
         self._start_time: float = 0.0
         self._uvicorn_server = None
         self._ping_unavailable_logged = False
+        self._reboot_requested = False
+        self._reboot_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         """Start all components and block until shutdown."""
@@ -182,6 +184,9 @@ class AppRunner:
             # from self._tasks while we are waiting here.
             tasks = tuple(self._tasks)
             results = await asyncio.gather(*tasks, return_exceptions=True)
+            if self._reboot_requested:
+                logger.info("Car-HMI reboot request completed; exiting for supervisor restart")
+                return
             # Detect critical task failures and trigger shutdown
             for task, result in zip(tasks, results):
                 if isinstance(result, Exception):
@@ -310,6 +315,22 @@ class AppRunner:
             self._bus_factories.append(bus_factory)
             self._buses.append(bus)
 
+            writer = CANWriter(
+                bus=bus,
+                db=db_loader,
+                signal_store=self.store,
+                writer_config=self.config.writer,
+            )
+            self._writers.append(writer)
+
+            async def _replace_channel_bus(
+                replacement_bus,
+                channel_index=idx,
+                channel_writer=writer,
+            ) -> None:
+                await channel_writer.set_bus(replacement_bus)
+                self._buses[channel_index] = replacement_bus
+
             reader = CANReader(
                 bus=bus,
                 db=db_loader,
@@ -318,11 +339,11 @@ class AppRunner:
                 queue_policy=proc_cfg.queue_policy,
                 max_rate_hz=proc_cfg.max_update_rate_hz,
                 priority_sec=self.config.reader.frequency_piority,
+                stale_threshold_sec=self.config.reader.stale_threshold_sec,
+                on_bus_reconnected=_replace_channel_bus,
             )
             self._readers.append(reader)
 
-            writer = CANWriter(bus=bus, db=db_loader, signal_store=self.store, writer_config=self.config.writer)
-            self._writers.append(writer)
             writer_router.register(db_loader, writer)
 
             logger.info(
@@ -385,6 +406,7 @@ class AppRunner:
     def _load_alarm_configs(self) -> list:
         """Load alarm-threshold configuration from config/alarms.json."""
         import json
+
         from src.core.config import load_config
         from src.processor.alarms import AlarmConfig
 
@@ -831,6 +853,7 @@ class AppRunner:
 
             reader_metrics = None
             reader_fatal: list[dict] = []
+            can_connected = True
             if self._readers:
                 try:
                     reader_metrics = {
@@ -847,10 +870,20 @@ class AppRunner:
                                     "last_error": state.get("last_error"),
                                 }
                             )
+                        if not (
+                            state.get("thread_alive")
+                            and not state.get("fatal_error")
+                            and state.get("last_recv_age_sec") is not None
+                            and state["last_recv_age_sec"] <= self.config.reader.stale_threshold_sec
+                        ):
+                            can_connected = False
                 except Exception:
                     reader_metrics = None
 
             logger.info("Watchdog — alive tasks: %s | rx_queue_size=%s | reader_metrics=%s", alive, rx_q_size, reader_metrics)
+
+            if self._readers and not can_connected:
+                await self._set_can_status_disconnected()
 
             if reader_fatal:
                 logger.critical(
@@ -859,6 +892,29 @@ class AppRunner:
                 )
                 await self.shutdown()
                 raise RuntimeError(f"Unrecoverable CAN reader failure: {reader_fatal}")
+
+    async def _set_can_status_disconnected(self) -> None:
+        """Mark all COM_Status_*Can signals offline while the bus is unavailable."""
+        snapshot = await self.store.get_snapshot()
+        offline = {
+            name: 0.0
+            for name in snapshot
+            if name.startswith("COM_Status_") and name.endswith("Can")
+        }
+        if offline:
+            await self.store.bulk_update(offline, timestamp=time.time())
+
+    async def retry_can_connections(self) -> list[bool]:
+        """Request immediate reconnect processing for every configured CAN reader."""
+        return [await reader.request_reconnect() for reader in self._readers]
+
+    async def request_reboot(self) -> bool:
+        """Gracefully stop this process; systemd Restart=on-failure starts it again."""
+        if self._shutting_down or self._reboot_requested:
+            return False
+        self._reboot_requested = True
+        self._reboot_task = asyncio.create_task(self.shutdown(), name="reboot")
+        return True
 
     async def shutdown(self) -> None:
         """Shut down cleanly: flush the pipeline, stop readers, and close the DB."""
@@ -947,6 +1003,11 @@ class AppRunner:
     def is_shutting_down(self) -> bool:
         return self._shutting_down
 
+    @property
+    def reboot_requested(self) -> bool:
+        """True when the reboot API requested a supervisor-managed restart."""
+        return self._reboot_requested
+
 
 # ── CLI entry-point ────────────────────────────────────────────────────────────
 
@@ -979,6 +1040,8 @@ def main() -> None:
         asyncio.run(runner.start())
     except KeyboardInterrupt:
         sys.exit(0)
+    if runner.reboot_requested:
+        sys.exit(75)
 
 
 if __name__ == "__main__":

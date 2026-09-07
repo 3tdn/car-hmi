@@ -852,6 +852,23 @@ body {
 .devmode-log__line { padding: 2px 0; color: var(--muted); }
 .devmode-log__line--error { color: var(--crit); }
 
+.devmode-can-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.devmode-can-controls h4 { margin: 0 0 3px; font-size: 0.86rem; }
+.devmode-can-action-status { color: var(--muted); font-size: 0.75rem; }
+.devmode-can-action-status[data-level="error"] { color: var(--crit); }
+.devmode-can-action-status[data-level="ok"] { color: var(--ok); }
+.devmode-can-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn--danger { border-color: var(--crit); color: var(--crit); }
+.btn--danger:hover { background: var(--crit); color: #fff; }
+
 /* Component status grid (view B) */
 .component-grid {
   display: grid;

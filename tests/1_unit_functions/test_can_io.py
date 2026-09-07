@@ -79,6 +79,53 @@ async def test_enqueue_refreshes_stale_priority_signal():
     assert second.signals == {"Speed": 10.0}
 
 
+def test_recv_loop_deduplicates_before_event_loop_callback():
+    """Repeated raw frames should not create event-loop callback backlog."""
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    class FakeBus:
+        INTERFACE = "virtual"
+        channel = "vcan0"
+
+        def __init__(self, responses):
+            self._responses = list(responses)
+
+        def recv(self, timeout=0.2):
+            item = self._responses.pop(0)
+            if isinstance(item, BaseException):
+                raise item
+            return item
+
+    class FakeLoop:
+        def __init__(self):
+            self.calls = []
+
+        def call_soon_threadsafe(self, callback, *args):
+            self.calls.append((callback, args))
+
+    msg = can.Message(arbitration_id=100, data=b"\x01", timestamp=1.0)
+    bus = FakeBus([msg, msg, msg, can.CanError("stop")])
+    db_mock = Mock()
+    db_mock.messages = {100: SimpleNamespace(name="TestMsg", signals={"Speed": None})}
+    db_mock.decode_frame.return_value = {"Speed": 10.0}
+    queue_mock = asyncio.Queue(maxsize=10)
+    reader = CANReader(bus=bus, db=db_mock, queue=queue_mock)
+    loop = FakeLoop()
+
+    reader._running = True
+    reader._recv_loop(loop)
+
+    assert len(loop.calls) == 1
+    assert loop.calls[0][0] == reader._enqueue_frame_sync
+    assert db_mock.decode_frame.call_count == 1
+
+
 @pytest.mark.asyncio
 async def test_reconnect_success_first_attempt():
     import asyncio
@@ -153,7 +200,7 @@ async def test_reconnect_exponential_backoff():
     reader.stop = Mock()
 
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-        await reader._reconnect()
+        await reader._reconnect(max_retries=3)
 
         # Verify sleep was called 3 times with delays 1, 2, 4
         assert mock_sleep.call_count == 3
@@ -221,6 +268,38 @@ async def test_reconnect_no_bus_factory():
         reader.stop.assert_called_once()
 
 
+def test_reconnect_delay_uses_longer_retry_cycles():
+    from src.can_io.reader import CANReader
+
+    initial_retries = 5
+    assert CANReader._reconnect_delay(1, initial_retries) == 1
+    assert CANReader._reconnect_delay(5, initial_retries) == 16
+    assert CANReader._reconnect_delay(6, initial_retries) == 30
+    assert CANReader._reconnect_delay(15, initial_retries) == 30
+    assert CANReader._reconnect_delay(16, initial_retries) == 60
+    assert CANReader._reconnect_delay(26, initial_retries) == 120
+    assert CANReader._reconnect_delay(100, initial_retries) == 3600
+
+
+def test_reader_detects_silent_bus_after_stale_threshold():
+    import time
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=Mock(),
+        queue=Mock(),
+        stale_threshold_sec=1.0,
+    )
+    reader._last_recv_monotonic = time.monotonic() - 1.1
+
+    assert reader._is_bus_stale() is True
+
+
 @pytest.mark.asyncio
 async def test_reconnect_exhaust_retries():
     import asyncio
@@ -252,7 +331,7 @@ async def test_reconnect_exhaust_retries():
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         patch("src.can_io.reader.logger") as mock_logger,
     ):
-        await reader._reconnect()
+        await reader._reconnect(max_retries=3)
 
         # Verify sleep was called 3 times with delays 1, 2, 4
         assert mock_sleep.call_count == 3

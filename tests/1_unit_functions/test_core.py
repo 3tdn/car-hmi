@@ -160,6 +160,27 @@ def test_status_monitor_targets_split_ethernet_and_can_references():
     assert can_refs["COM_Status_PantherCan"] == "COM_Status_PumaFLCan"
 
 
+def test_main_exits_with_restart_code_after_api_reboot(monkeypatch):
+    import sys
+
+    from src.core import runner as runner_module
+
+    class RebootingRunner:
+        reboot_requested = True
+
+        async def start(self):
+            return None
+
+    monkeypatch.setattr(runner_module, "load_config", lambda _path: AppConfig())
+    monkeypatch.setattr(runner_module, "AppRunner", lambda _cfg: RebootingRunner())
+    monkeypatch.setattr(sys, "argv", ["can-hmi"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        runner_module.main()
+
+    assert exc_info.value.code == 75
+
+
 # ── SignalStore ───────────────────────────────────────────────────────────────
 
 
