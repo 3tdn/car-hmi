@@ -1,8 +1,9 @@
-"""CAN database parser — loads from the can.json file.
+"""CAN database parser — loads from a DBC file or the legacy can.json file.
 
 Responsibilities
 ----------------
-- Load the can.json file containing message/signal definitions
+- Load message/signal definitions directly from a ``.dbc`` file (via cantools),
+  or from the legacy can.json export
 - Automatically allocate ``start_bit`` when the value is ``null``
 - Automatically compute ``minimum``/``maximum`` when missing
 - Decode raw CAN frames into ``dict[signal_name, float]``
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +43,7 @@ class ParsedSignal:
     description: str
     db_source: str  # source file from which the signal was loaded
     receivers: list[str] = field(default_factory=list)
+    states: list[dict] = field(default_factory=list)  # enum states [{value, description}], if any
 
 
 @dataclass
@@ -55,6 +58,83 @@ class ParsedMessage:
     db_source: str
     cycle_ms: int | None = None
     description: str = ""
+
+
+# ── DBC naming / comment conventions (shared by DatabaseLoader and CANSimulator) ──
+
+
+def normalize_signal_name(name: str) -> str:
+    """Canonical signal name: drop trailing lowercase suffixes (_bool, _status, _flag, _kmh, ...)."""
+    name = (name or "").strip()
+    return re.sub(r"_[a-z]\w*$", "", name) if name else ""
+
+
+def split_comment_states(comment: str) -> tuple[str, list[dict]]:
+    """Split a DBC signal comment into ``(clean_description, states)``.
+
+    Recognizes the project convention (see ``scripts/dbc_utils.py``), e.g.:
+    ``"Main comment | Signalvalues: 0: Off, 1: On"`` or ``"... | Signalvalues: level 1-10 x"``.
+    """
+    if not comment or "Signalvalues:" not in comment or "bit encoding" in comment.lower():
+        return comment or "", []
+    main_comment, states_part = comment.split("Signalvalues:", 1)
+    main_comment = main_comment.rstrip(" ").rstrip("|").strip()
+    return main_comment, _parse_states_from_comment(states_part.strip())
+
+
+def _parse_states_from_comment(states_part: str) -> list[dict]:
+    """Parse enum states out of a ``Signalvalues:`` string (see ``split_comment_states``)."""
+    states: list[dict] = []
+    if not states_part:
+        return states
+    parts = re.split(r"[;,]|\n", states_part)
+    if len(parts) == 1:
+        description = parts[0].replace("0-max ", "").rstrip().rstrip(".").strip()
+        return [{"value": 0, "description": description}]
+    idx = 0
+    for part in parts:
+        part = part.rstrip().rstrip(".").strip()
+        if re.search(r"\s+[:\-=]\s+", part):
+            val_str, desc = re.split(r"\s+[:\-=]\s+", part, maxsplit=1)
+            val_str = val_str.strip()
+            try:
+                val = int(val_str)
+            except ValueError:
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = val_str  # keep as string if not int or float
+            states.append({"value": val, "description": desc})
+        elif re.search(r"\d+-\d+", part):
+            m = re.match(r"(.*?)(\d+)-(\d+)(.*)", part)
+            if m:
+                prefix, start, end, suffix = m.groups()
+                start, end = map(int, (start, end))
+                if start <= end:
+                    for i in range(start, end + 1):
+                        states.append({"value": idx, "description": f"{prefix}{i}{suffix}"})
+                        idx += 1
+                else:
+                    states.append({"value": idx, "description": part})
+                    idx += 1
+            else:
+                states.append({"value": idx, "description": part})
+                idx += 1
+        else:
+            states.append({"value": idx, "description": part})
+            idx += 1
+    return states
+
+
+def states_as_ints(states: list[dict]) -> list[int]:
+    """Extract numeric ``value``s from a states list, skipping non-numeric entries."""
+    result: list[int] = []
+    for s in states:
+        try:
+            result.append(int(s["value"]))
+        except (TypeError, ValueError, KeyError):
+            continue
+    return result
 
 
 # ── Bit-manipulation helpers ───────────────────────────────────────────────
@@ -164,11 +244,11 @@ def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> byte
     return bytes(data)
 
 
-# ── DatabaseLoader — load from can.json ───────────────────────────────────
+# ── DatabaseLoader — load from a DBC file or can.json ─────────────────────
 
 
 class DatabaseLoader:
-    """Load a CAN database from the ``can.json`` file.
+    """Load a CAN database directly from a ``.dbc`` file, or from the legacy ``can.json``.
 
     Supports:
     - Automatically allocating ``start_bit`` when the value is ``null``
@@ -178,7 +258,8 @@ class DatabaseLoader:
     Usage::
 
         loader = DatabaseLoader()
-        loader.load("config/can.json")
+        loader.load_dbc("db/can_db/p_v2.dbc")   # preferred: read directly from DBC
+        loader.load("config/can.json")           # legacy: read from can.json export
         messages = loader.messages   # dict[msg_id → ParsedMessage]
         signals  = loader.signals    # dict[signal_name → ParsedSignal]
     """
@@ -201,58 +282,158 @@ class DatabaseLoader:
         except Exception as exc:
             raise ValueError(f"JSON parse failed {resolved}: {exc}") from exc
 
+        def _iter_messages():
+            for msg_name, md in raw.get("messages", {}).items():
+                raw_id = md.get("id")
+                if raw_id is None:
+                    logger.warning("Skip message '%s' — missing 'id' field", msg_name)
+                    continue
+                msg_id = int(raw_id)
+                dlc = int(md.get("size", md.get("dlc", 8)))
+                senders = md.get("senders", [])
+                description = md.get("comment", md.get("description", ""))
+
+                raw_sigs: list[dict] = []
+                for sig_name, sd in md.get("signals", {}).items():
+                    raw_len = sd.get("length")
+                    if raw_len is None:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — missing 'length'", sig_name, msg_name,
+                        )
+                        continue
+                    length = int(raw_len)
+                    if length <= 0:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — invalid length=%d",
+                            sig_name, msg_name, length,
+                        )
+                        continue
+                    factor = float(sd.get("factor", 1.0))
+                    if factor == 0.0:
+                        logger.warning(
+                            "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
+                            sig_name, msg_name,
+                        )
+                        factor = 1.0
+                    raw_sigs.append({
+                        "name": sig_name,
+                        "start_bit": sd.get("start_bit"),
+                        "length": length,
+                        "is_signed": bool(sd.get("is_signed", False)),
+                        "big_endian": sd.get("byte_order", "little_endian") == "big_endian",
+                        "factor": factor,
+                        "offset": float(sd.get("offset", 0.0)),
+                        "minimum": sd.get("minimum", sd.get("min")),
+                        "maximum": sd.get("maximum", sd.get("max")),
+                        "unit": sd.get("unit", "") or "",
+                        "comment": sd.get("comment", sd.get("description", "")) or "",
+                        "receivers": sd.get("receivers", []),
+                        "states": sd.get("states", []),
+                    })
+                yield msg_name, msg_id, dlc, senders, description, raw_sigs
+
+        self._ingest(_iter_messages(), resolved.name)
+        self._loaded_files.append(str(resolved))
+
+    def load_dbc(self, path: str | Path) -> None:
+        """Load message/signal definitions directly from a DBC file (via cantools).
+
+        Bypasses the can.json export step entirely — bit layout, factor/offset and
+        min/max are read straight from the DBC and fed through the same bit-allocation
+        / range auto-fill pipeline used by :meth:`load`.
+        """
+        resolved = Path(path)
+        if not resolved.exists():
+            raise FileNotFoundError(f"DBC file not found: {resolved}")
+        try:
+            import cantools
+        except ImportError as exc:
+            raise RuntimeError(
+                "cantools is required to load DBC files (pip install cantools)"
+            ) from exc
+        try:
+            db = cantools.database.load_file(str(resolved))
+        except Exception as exc:
+            raise ValueError(f"DBC parse failed {resolved}: {exc}") from exc
+
+        def _num(value: object, default: float = 0.0) -> float:
+            if value is None:
+                return float(default)
+            if hasattr(value, "item"):  # numpy scalar
+                try:
+                    return float(value.item())  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+            try:
+                return float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return float(default)
+
+        def _iter_messages():
+            for msg in getattr(db, "messages", []):
+                msg_id = int(msg.frame_id)
+                dlc = int(getattr(msg, "length", 8) or 8)
+                senders = list(getattr(msg, "senders", []) or [])
+                description = getattr(msg, "comment", None) or ""
+                msg_name = msg.name or f"{msg_id:#x}"
+
+                raw_sigs: list[dict] = []
+                for sig in getattr(msg, "signals", []):
+                    sig_name = normalize_signal_name(getattr(sig, "name", ""))
+                    if not sig_name:
+                        continue
+                    length = int(getattr(sig, "length", 0) or 0)
+                    if length <= 0:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — invalid length", sig_name, msg_name,
+                        )
+                        continue
+                    factor = _num(getattr(sig, "scale", getattr(sig, "factor", 1.0)), 1.0)
+                    if factor == 0.0:
+                        logger.warning(
+                            "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
+                            sig_name, msg_name,
+                        )
+                        factor = 1.0
+                    start_bit = getattr(sig, "start", None)
+                    minimum = getattr(sig, "minimum", None)
+                    maximum = getattr(sig, "maximum", None)
+                    comment = getattr(sig, "comment", None) or ""
+                    if isinstance(comment, dict):
+                        comment = next(iter(comment.values()), "")
+                    comment, states = split_comment_states(comment)
+                    unit = getattr(sig, "unit", None)
+                    if not unit and len(states) == 1:
+                        # a lone "state" with no numeric enum is really just a unit annotation
+                        unit = (states[0].get("description") or "").replace("0-max ", "")
+                        states = []
+                    raw_sigs.append({
+                        "name": sig_name,
+                        "start_bit": int(start_bit) if start_bit is not None else None,
+                        "length": length,
+                        "is_signed": bool(getattr(sig, "is_signed", False)),
+                        "big_endian": getattr(sig, "byte_order", "little_endian") == "big_endian",
+                        "factor": factor,
+                        "offset": _num(getattr(sig, "offset", 0.0), 0.0),
+                        "minimum": _num(minimum) if minimum is not None else None,
+                        "maximum": _num(maximum) if maximum is not None else None,
+                        "unit": unit or "",
+                        "comment": comment,
+                        "receivers": list(getattr(sig, "receivers", []) or []),
+                        "states": states,
+                    })
+                yield msg_name, msg_id, dlc, senders, description, raw_sigs
+
+        self._ingest(_iter_messages(), resolved.name)
+        self._loaded_files.append(str(resolved))
+
+    def _ingest(self, messages_iter, source_name: str) -> None:
+        """Shared bit-allocation / range auto-fill pipeline for JSON and DBC sources."""
         skipped_no_bit = 0
         auto_filled_range = 0
         loaded_msg_count = 0
 
-        for msg_name, md in raw.get("messages", {}).items():
-            raw_id = md.get("id")
-            if raw_id is None:
-                logger.warning("Skip message '%s' — missing 'id' field", msg_name)
-                continue
-            msg_id = int(raw_id)
-            dlc = int(md.get("size", md.get("dlc", 8)))
-            senders = md.get("senders", [])
-            description = md.get("comment", md.get("description", ""))
-
-            # Collect raw signals first so start_bit can be allocated
-            raw_sigs: list[dict] = []
-            for sig_name, sd in md.get("signals", {}).items():
-                raw_len = sd.get("length")
-                if raw_len is None:
-                    logger.warning(
-                        "Skip signal '%s' in '%s' — missing 'length'", sig_name, msg_name,
-                    )
-                    continue
-                length = int(raw_len)
-                if length <= 0:
-                    logger.warning(
-                        "Skip signal '%s' in '%s' — invalid length=%d",
-                        sig_name, msg_name, length,
-                    )
-                    continue
-                factor = float(sd.get("factor", 1.0))
-                if factor == 0.0:
-                    logger.warning(
-                        "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
-                        sig_name, msg_name,
-                    )
-                    factor = 1.0
-                raw_sigs.append({
-                    "name": sig_name,
-                    "start_bit": sd.get("start_bit"),
-                    "length": length,
-                    "is_signed": bool(sd.get("is_signed", False)),
-                    "big_endian": sd.get("byte_order", "little_endian") == "big_endian",
-                    "factor": factor,
-                    "offset": float(sd.get("offset", 0.0)),
-                    "minimum": sd.get("minimum", sd.get("min")),
-                    "maximum": sd.get("maximum", sd.get("max")),
-                    "unit": sd.get("unit", "") or "",
-                    "comment": sd.get("comment", sd.get("description", "")) or "",
-                    "receivers": sd.get("receivers", []),
-                })
-
+        for msg_name, msg_id, dlc, senders, description, raw_sigs in messages_iter:
             # Find used bits (LSB-indexed) — pass 1
             total_bits = dlc * 8
             used: list[bool] = [False] * total_bits
@@ -348,8 +529,9 @@ class DatabaseLoader:
                     minimum=sig_min_f,
                     maximum=sig_max_f,
                     description=rs["comment"],
-                    db_source=resolved.name,
+                    db_source=source_name,
                     receivers=rs.get("receivers", []),
+                    states=rs.get("states", []),
                 )
 
             if parsed_sigs:
@@ -359,7 +541,7 @@ class DatabaseLoader:
                     dlc=dlc,
                     senders=senders,
                     signals=parsed_sigs,
-                    db_source=resolved.name,
+                    db_source=source_name,
                     description=description or "",
                 )
                 if msg_id in self._messages:
@@ -379,11 +561,10 @@ class DatabaseLoader:
                     self._signal_to_msg[sig_name] = msg_id
                 loaded_msg_count += 1
 
-        self._loaded_files.append(str(resolved))
         logger.info(
-            "can.json loaded: %s — %d messages, %d signals "
+            "%s loaded: %d messages, %d signals "
             "(skipped %d no-startbit, auto-filled %d ranges)",
-            resolved.name,
+            source_name,
             loaded_msg_count,
             len(self._signals),
             skipped_no_bit,

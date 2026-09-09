@@ -12,7 +12,8 @@ from src.can_io.bus_factory import create_bus, create_virtual_bus
 from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
 from src.can_io.writer import CANWriter
-from src.core.config import CANConfig
+from src.core.config import CANConfig, WriterConfig
+from src.core.signal_store import SignalStore
 
 
 @pytest.fixture
@@ -103,6 +104,45 @@ async def test_writer_send_signal(virtual_bus_pair, json_db):
     msg = bus_rx.recv(timeout=1.0)
     assert msg is not None
     assert msg.arbitration_id == 100
+
+
+@pytest.mark.asyncio
+async def test_writer_preserves_unwritten_signals_by_default(virtual_bus_pair, json_db):
+    """Single-signal writes preserve the latest values of sibling signals by default."""
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.update("Temp", 90.0)
+    writer = CANWriter(bus=bus_tx, db=json_db, signal_store=store)
+
+    await writer.send_signal("Speed", 65.0)
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    decoded = json_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded["Speed"] == pytest.approx(65.0)
+    assert decoded["Temp"] == pytest.approx(90.0)
+
+
+@pytest.mark.asyncio
+async def test_writer_zeroes_unwritten_signals_for_batch_write(virtual_bus_pair, json_db):
+    """The zero policy takes precedence over cached SignalStore values for batch writes."""
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.update("Temp", 90.0)
+    writer = CANWriter(
+        bus=bus_tx,
+        db=json_db,
+        signal_store=store,
+        writer_config=WriterConfig(use_prevalue_for_unwritten_signal=False),
+    )
+
+    await writer.send_signals_batch({"Speed": 65.0})
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    decoded = json_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded["Speed"] == pytest.approx(65.0)
+    assert decoded["Temp"] == pytest.approx(0.0)
 
 
 @pytest.mark.asyncio

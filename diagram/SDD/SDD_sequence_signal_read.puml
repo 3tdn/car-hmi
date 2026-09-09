@@ -22,7 +22,7 @@ note over runner
 end note
 reader -> bus : connect(interface, channel, bitrate)
 activate reader
-reader -> reader : DatabaseLoader.load(can_json_path)
+reader -> reader : DatabaseLoader.load_dbc(can_db_file)
 note right of reader : Queue policy: drop_oldest | reject
 
 == Continuous Read Loop ==

@@ -84,18 +84,6 @@ def update_config_partial(update: Dict[str, Any], path: str | Path | None = None
     return cfg
 
 
-def read_alarms(path: str | Path | None = None) -> Dict[str, Any]:
-    p = Path(path) if path else Path("config/alarms.json")
-    if not p.exists():
-        return {}
-    return json.loads(p.read_text(encoding="utf-8")) or {}
-
-
-def write_alarms(data: Dict[str, Any], path: str | Path | None = None) -> None:
-    p = Path(path) if path else Path("config/alarms.json")
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
 def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
     """Write a minimal default AppConfig to disk and return the dict.
 
@@ -104,38 +92,8 @@ def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
     from src.core.config import AppConfig, CANConfig
 
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    default_can = CANConfig(can_db_dirs=["db/can_db/"])
+    default_can = CANConfig(can_db_file="db/can_db/p_v2.dbc")
     cfg = AppConfig(can=[default_can])
     default = cfg.model_dump()
     write_config(default, p)
     return default
-
-
-def write_default_alarms(path: str | Path | None = None) -> Dict[str, Any]:
-    """Reset alarms to an empty 'alarms' mapping (sensible default).
-
-    Returns the written structure.
-    """
-    p = Path(path) if path else Path("config/alarms.json")
-    # Try to populate default alarms for all known signals with null thresholds.
-    try:
-        from src.can_io.parser import DatabaseLoader
-
-        loader = DatabaseLoader()
-        loader.load("config/can.json")
-        signals = list(loader.signals.keys())
-    except Exception:
-        signals = []
-
-    alarms: dict[str, dict[str, None]] = {}
-    for s in signals:
-        alarms[s] = {
-            "critical_high": None,
-            "warning_high": None,
-            "warning_low": None,
-            "critical_low": None,
-        }
-
-    data = {"alarms": alarms}
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    return data

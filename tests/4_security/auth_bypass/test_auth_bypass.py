@@ -13,9 +13,6 @@ class _FakeRepo:
     async def query_signals(self, **_):
         return []
 
-    async def query_alarms(self, **_):
-        return []
-
 
 @pytest.mark.asyncio
 async def test_signals_endpoint_rejects_missing_api_key():

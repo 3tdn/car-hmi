@@ -79,18 +79,15 @@ async def test_broadcast_signal_no_connections(mgr):
 async def test_broadcast_signal_to_subscribers(mgr):
     ws_all = FakeWebSocket()
     ws_signals = FakeWebSocket()
-    ws_alarms = FakeWebSocket()
 
     await mgr.connect(ws_all, {SubscriptionTopic.ALL})
     await mgr.connect(ws_signals, {SubscriptionTopic.SIGNALS})
-    await mgr.connect(ws_alarms, {SubscriptionTopic.ALARMS})
 
     await mgr.broadcast_signal("Speed", 80.0, 1000.0)
 
-    # ALL and SIGNALS should receive, ALARMS should not
+    # ALL and SIGNALS should receive signal updates.
     assert len(ws_all.sent) == 1
     assert len(ws_signals.sent) == 1
-    assert len(ws_alarms.sent) == 0
 
     payload = json.loads(ws_all.sent[0])
     assert "timestamp" in payload
@@ -101,28 +98,6 @@ async def test_broadcast_signal_to_subscribers(mgr):
     assert sig["name"] == "Speed"
     assert sig["std_name"] == "Speed"
     assert sig["value"] == 80.0
-
-
-@pytest.mark.asyncio
-async def test_broadcast_alarm_to_subscribers(mgr):
-    ws_all = FakeWebSocket()
-    ws_signals = FakeWebSocket()
-    ws_alarms = FakeWebSocket()
-
-    await mgr.connect(ws_all, {SubscriptionTopic.ALL})
-    await mgr.connect(ws_signals, {SubscriptionTopic.SIGNALS})
-    await mgr.connect(ws_alarms, {SubscriptionTopic.ALARMS})
-
-    await mgr.broadcast_alarm({"signal": "CoolantTemp", "level": "critical", "value": 115.0})
-
-    # ALL and ALARMS should receive, SIGNALS should not
-    assert len(ws_all.sent) == 1
-    assert len(ws_alarms.sent) == 1
-    assert len(ws_signals.sent) == 0
-
-    payload = json.loads(ws_alarms.sent[0])
-    assert payload["type"] == "alarm"
-    assert payload["signal"] == "CoolantTemp"
 
 
 @pytest.mark.asyncio
@@ -213,23 +188,6 @@ async def test_subscribe_wildcard(mgr):
     await mgr.broadcast_signal("Speed", 80.0, 1000.0)
     await mgr.broadcast_signal("RPM", 3000.0, 1001.0)
     assert len(ws.sent) == 2
-
-
-@pytest.mark.asyncio
-async def test_subscribe_alarms_channel(mgr):
-    ws = FakeWebSocket()
-    await mgr.connect_subscribe(ws)
-    await mgr.process_subscribe_command(ws, {
-        "action": "subscribe",
-        "channels": ["alarms"],
-        "mode": "continuous",
-    })
-    ws.sent.clear()
-
-    await mgr.broadcast_alarm({"signal": "Temp", "level": "warning"})
-    assert len(ws.sent) == 1
-    payload = json.loads(ws.sent[0])
-    assert payload["type"] == "alarm"
 
 
 @pytest.mark.asyncio

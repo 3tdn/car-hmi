@@ -61,7 +61,7 @@
 
 ### Real example
 
-**can.json** (`config/can.json`):
+**Legacy CAN JSON example** (supported for parser compatibility only; runtime uses DBC):
 ```json
 {
   "messages": {
@@ -91,13 +91,13 @@ Data:       [0x1A, 0x15, 0xC8, 0x13, ...]
 }
 ```
 
-### DatabaseLoader — Load can.json
+### DatabaseLoader — Load DBC (preferred) or can.json (legacy)
 
 ```
-load("config/can.json")
+load_dbc("db/can_db/p_v2.dbc")   # or: load("config/can.json")
        │
        ▼
-Parse JSON → build message/signal dicts:
+Parse DBC → build message/signal dicts:
   Built-in bit extraction / insertion
   Auto start_bit allocation (if null)
   Auto min/max calculation
@@ -303,7 +303,7 @@ can-hmi                    (CLI entry point: src/core/runner.py:main())
     ▼
 AppRunner.start()
     ├── _setup_logging()
-    ├── DatabaseLoader.load()            ← load config/can.json
+    ├── DatabaseLoader.load_dbc()        ← load can[].can_db_file
     ├── SignalStore.bulk_update()      ← seed all signal names + units
     ├── init_db() / SQLiteRepository  ← create tables if missing
     ├── create_bus()                  ← open CAN interface

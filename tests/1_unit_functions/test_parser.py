@@ -270,3 +270,70 @@ class TestDatabaseLoader:
         assert msg is not None
         decoded = loader.decode_frame(100, msg.data)
         assert decoded["Speed"] == pytest.approx(65.0, abs=0.01)
+
+
+# ── DatabaseLoader (DBC via cantools) ──────────────────────────────────────
+
+
+_SAMPLE_DBC = """VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: ECU1
+
+BO_ 100 TestMsg: 8 ECU1
+ SG_ Speed : 0|16@1+ (0.01,0) [0|655.35] "km/h" ECU1
+
+BO_ 200 TempMsg: 4 ECU1
+ SG_ Temp : 0|8@1+ (1,-40) [-40|215] "degC" ECU1
+
+BO_ 300 FlagMsg: 1 ECU1
+ SG_ IgnitionStatus_bool : 0|1@1+ (1,0) [0|1] "" ECU1
+"""
+
+
+class TestDatabaseLoaderDbc:
+    @staticmethod
+    def _sample_dbc(tmp_path: Path) -> Path:
+        dbc_file = tmp_path / "sample.dbc"
+        dbc_file.write_text(_SAMPLE_DBC, encoding="utf-8")
+        return dbc_file
+
+    def test_load_dbc(self, tmp_path):
+        loader = DatabaseLoader()
+        loader.load_dbc(str(self._sample_dbc(tmp_path)))
+        assert 100 in loader.messages
+        assert 200 in loader.messages
+        assert "Speed" in loader.signals
+        assert "Temp" in loader.signals
+
+    def test_load_dbc_decode_encode_roundtrip(self, tmp_path):
+        loader = DatabaseLoader()
+        loader.load_dbc(str(self._sample_dbc(tmp_path)))
+        msg = loader.encode_signal("Speed", 65.0)
+        assert msg is not None
+        assert msg.arbitration_id == 100
+        decoded = loader.decode_frame(100, msg.data)
+        assert decoded["Speed"] == pytest.approx(65.0, abs=0.01)
+
+    def test_load_dbc_missing_file_raises(self, tmp_path):
+        loader = DatabaseLoader()
+        with pytest.raises(FileNotFoundError):
+            loader.load_dbc(str(tmp_path / "no_such.dbc"))
+
+    def test_load_dbc_signal_min_max(self, tmp_path):
+        loader = DatabaseLoader()
+        loader.load_dbc(str(self._sample_dbc(tmp_path)))
+        temp = loader.signals["Temp"]
+        assert temp.minimum == pytest.approx(-40.0)
+        assert temp.maximum == pytest.approx(215.0)
+        assert temp.unit == "degC"
+
+    def test_load_dbc_strips_lowercase_suffix_from_signal_name(self, tmp_path):
+        """Trailing lowercase suffixes (_bool, _status, _flag, ...) are stripped, matching gen_can_json.py."""
+        loader = DatabaseLoader()
+        loader.load_dbc(str(self._sample_dbc(tmp_path)))
+        assert "IgnitionStatus" in loader.signals
+        assert "IgnitionStatus_bool" not in loader.signals

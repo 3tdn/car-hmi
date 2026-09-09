@@ -4,24 +4,18 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_json_path": "config/can0.json",
-      "can_db_files": ["db/candb/p_v2.dbc"]
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
     }
   ],
   "simulator": {
     "enabled": true,
     "random_mode": false,
     "default_cycle_ms": 10,
-    "can_json_path": "config/can0.json"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
     "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
-  },
-  "adap": {
-    "enabled": true,
-    "default_cycle_ms": 10,
-    "can_json_path": "config/can0.json"
   },
   "api": {
     "host": "0.0.0.0",
@@ -86,11 +80,6 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
-  "alarms": {
-    "enabled": false,
-    "config_path": "config/alarms.json",
-    "check_interval_sec": 0.5
-  },
   "reader": {
     "frequency_piority": 1,
     "only_send_signal_update": true,
@@ -101,7 +90,8 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000
+    "periodic_duration": 10000,
+    "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
     "timeout_sec": 10

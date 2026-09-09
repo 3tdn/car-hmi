@@ -86,14 +86,8 @@ class SignalMetadata(BaseModel):
     states: list[dict] | None = Field(None, description="List of enum states [{value, description}], or None for continuous numeric signals")
     group_name: str | None = Field(None, description="Functional group (for example: engine, body)")
     widget_type: str | None = Field(None, description="Frontend widget type")
-    # Alarm thresholds
-    alarm_warning_high: float | None = Field(None, description="High warning threshold")
-    alarm_warning_low: float | None = Field(None, description="Low warning threshold")
-    alarm_critical_high: float | None = Field(None, description="High critical threshold")
-    alarm_critical_low: float | None = Field(None, description="Low critical threshold")
     # Current snapshot (optional, included for convenience)
     value: float | None = Field(None, description="Current value (snapshot, optional)")
-    status: str | None = Field(None, description="Current alarm status (ok/warning/critical)")
     timestamp: float | None = Field(None, description="Unix timestamp of the latest read")
 
 
@@ -112,7 +106,7 @@ class SubscribeRequest(BaseModel):
     """Client → Server over WS: subscribe/unsubscribe.
 
     Demo format (preferred):
-        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "subscribe", "signals": ["SignalName", "*", "metrics"]}
         {"type": "unsubscribe", "signals": ["SignalName"]}
         {"type": "ping"}
     Legacy format (backward compat):
@@ -127,30 +121,6 @@ class SubscribeRequest(BaseModel):
         "continuous",
         description="continuous = stream continuously, once = send once then stop",
     )
-
-
-# ── Alarm models ─────────────────────────────────────────────────────────
-
-
-class AlarmResponse(BaseModel):
-    """Detailed information about an alarm event."""
-
-    id: int = Field(..., description="Auto-increment alarm ID in the database")
-    signal_name: str = Field(..., description="Signal name that triggered the alarm")
-    level: str = Field(..., description="Alarm level: 'warning' or 'critical'")
-    value: float = Field(..., description="Signal value at the time of trigger")
-    threshold: float = Field(..., description="Threshold crossed to trigger the alarm")
-    description: str = Field(..., description="Alarm description")
-    triggered_at: float = Field(..., description="Unix timestamp when the alarm triggered")
-    acknowledged: bool = Field(..., description="True if the user has acknowledged the alarm")
-    resolved_at: float | None = Field(None, description="Unix timestamp when the alarm was resolved (None if still active)")
-
-
-class AlarmListResponse(BaseModel):
-    """List of alarms returned by the API."""
-
-    items: list[AlarmResponse] = Field(..., description="List of alarms")
-    total: int = Field(..., description="Total alarm count")
 
 
 # ── Configuration models ────────────────────────────────────────────────────────

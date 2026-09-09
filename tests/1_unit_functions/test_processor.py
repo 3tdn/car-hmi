@@ -1,4 +1,4 @@
-"""Unit tests for signal processing pipeline, filters, and alarms."""
+"""Unit tests for signal processing pipeline, filters, and computed signals."""
 
 from __future__ import annotations
 
@@ -28,22 +28,6 @@ async def test_rate_limiter_drops_fast_updates():
     assert "rpm" not in r2
 
 
-@pytest.mark.asyncio
-async def test_alarm_checker_critical_high():
-    from src.processor.alarms import AlarmChecker, AlarmConfig
-
-    alarms_fired: list = []
-    checker = AlarmChecker([AlarmConfig(signal="temp", critical_high=100.0)])
-    checker.add_alarm_handler(lambda a: alarms_fired.append(a))
-
-    async def async_handler(a):
-        alarms_fired.append(a)
-
-    checker._alarm_handlers = [async_handler]
-    await checker.process({"temp": 105.0})
-    assert len(alarms_fired) == 1
-    assert alarms_fired[0].level == "critical"
-
 
 @pytest.mark.asyncio
 async def test_computed_signals_formula():
@@ -69,70 +53,6 @@ async def test_computed_signals_exception_safety():
     assert "bad" not in result
     assert result.get("ok") == pytest.approx(1.0)
     assert result["rpm"] == pytest.approx(100.0)
-
-
-@pytest.mark.asyncio
-async def test_alarm_checker_warning_high():
-    from src.processor.alarms import AlarmChecker, AlarmConfig
-
-    fired: list = []
-
-    async def handler(a):
-        fired.append(a)
-
-    checker = AlarmChecker([AlarmConfig(signal="temp", warning_high=80.0, critical_high=100.0)])
-    checker.add_alarm_handler(handler)
-    await checker.process({"temp": 85.0})  # above warning, below critical
-    assert len(fired) == 1
-    assert fired[0].level == "warning"
-    assert fired[0].signal == "temp"
-
-
-@pytest.mark.asyncio
-async def test_alarm_checker_warning_low():
-    from src.processor.alarms import AlarmChecker, AlarmConfig
-
-    fired: list = []
-
-    async def handler(a):
-        fired.append(a)
-
-    checker = AlarmChecker([AlarmConfig(signal="temp", warning_low=20.0, critical_low=5.0)])
-    checker.add_alarm_handler(handler)
-    await checker.process({"temp": 12.0})  # between critical_low and warning_low
-    assert len(fired) == 1
-    assert fired[0].level == "warning"
-
-
-@pytest.mark.asyncio
-async def test_alarm_checker_below_critical_low():
-    from src.processor.alarms import AlarmChecker, AlarmConfig
-
-    fired: list = []
-
-    async def handler(a):
-        fired.append(a)
-
-    checker = AlarmChecker([AlarmConfig(signal="temp", critical_low=5.0)])
-    checker.add_alarm_handler(handler)
-    await checker.process({"temp": 2.0})
-    assert len(fired) == 1
-    assert fired[0].level == "critical"
-
-
-@pytest.mark.asyncio
-async def test_alarm_checker_no_alarm_in_range():
-    from src.processor.alarms import AlarmChecker, AlarmConfig
-
-    fired: list = []
-
-    async def handler(a):
-        fired.append(a)
-
-    checker = AlarmChecker([AlarmConfig(signal="temp", warning_low=20.0, warning_high=80.0)])
-    checker.add_alarm_handler(handler)
-    await checker.process({"temp": 50.0})  # within normal range
-    assert len(fired) == 0
 
 
 @pytest.mark.asyncio

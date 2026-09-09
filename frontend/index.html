@@ -12,7 +12,6 @@
     <div style="display:flex; gap:8px; margin-left:12px;">
       <button id="btn-profiles" class="btn">Profiles</button>
       <button id="btn-settings" class="btn">Settings</button>
-      <button id="btn-alarms" class="btn">Alarms</button>
       <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
         <span style="font-size:0.9rem;color:var(--muted);">Mode</span>
         <select id="mode-select" aria-label="Frontend mode">
@@ -433,7 +432,7 @@
   <script src="js/adaptive.js"></script>
   <script src="js/devmode.js"></script>
   <script>
-    // Modal containers for settings and alarms
+    // Modal container for settings
     const settingsModal = document.createElement('div');
     settingsModal.id = 'settings-modal';
     settingsModal.style.display = 'none';
@@ -450,23 +449,6 @@
       </div>
     `;
     document.body.appendChild(settingsModal);
-
-    const alarmsModal = document.createElement('div');
-    alarmsModal.id = 'alarms-modal';
-    alarmsModal.style.display = 'none';
-    alarmsModal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal">
-        <h3>Alarms Config (config/alarms.json)</h3>
-        <textarea id="alarms-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
-        <div style="margin-top:8px;text-align:right;">
-          <button id="alarms-reset">Reset</button>
-          <button id="alarms-cancel">Cancel</button>
-          <button id="alarms-save">Save</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(alarmsModal);
 
     // Wire buttons
     document.getElementById('btn-settings').addEventListener('click', async () => {
@@ -503,39 +485,6 @@
       }
     });
 
-    document.getElementById('btn-alarms').addEventListener('click', async () => {
-      const editor = document.getElementById('alarms-editor');
-      editor.value = '';
-      try {
-        const json = await _fetchJson(`${API_BASE}/config/alarms`, { headers: _headers() });
-        editor.value = JSON.stringify(json, null, 2);
-      } catch (e) { editor.value = 'Failed to load alarms: '+e; }
-      alarmsModal.style.display = 'block';
-    });
-    document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
-    document.getElementById('alarms-reset').addEventListener('click', async () => {
-      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('alarms_reset', 'Reset alarms to the default empty state?')) return;
-      try {
-        const json = await _fetchJson(`${API_BASE}/config/alarms/reset`, { method: 'POST', headers: _headers() });
-        document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
-        window.showUiNotice?.('Alarms have been reset.', { source: 'alarms', code: 'alarms_reset_ok' });
-      } catch (e) {
-        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
-        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_reset_failed' });
-      }
-    });
-    document.getElementById('alarms-save').addEventListener('click', async () => {
-      const editor = document.getElementById('alarms-editor');
-      try {
-        const body = JSON.parse(editor.value);
-        await _fetchJson(`${API_BASE}/config/alarms`, { method: 'POST', headers: _headers(), body: JSON.stringify(body) });
-        alarmsModal.style.display = 'none';
-        window.showUiNotice?.('Alarms config updated.', { source: 'alarms', code: 'alarms_save_ok' });
-      } catch (e) {
-        showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
-        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'alarms', code: 'alarms_save_failed' });
-      }
-    });
   </script>
 </body>
 </html>
