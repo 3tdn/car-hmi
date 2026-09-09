@@ -73,8 +73,6 @@ def _describe_test_case_vi(item: pytest.Item) -> str:
         "signals": "signals",
         "profile": "profile",
         "profiles": "profiles",
-        "alarm": "alarm",
-        "alarms": "alarms",
         "config": "config",
         "health": "system health",
         "ready": "ready state",

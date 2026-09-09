@@ -166,7 +166,7 @@ async def list_signals(request: Request):
 @router.get(
     "/available",
     response_model=SignalMetadataListResponse,
-    summary="List all available signals with metadata and alarm thresholds",
+    summary="List all available signals with metadata",
 )
 async def list_available_signals(request: Request):
     """Return the full metadata list for all signals.
@@ -174,8 +174,6 @@ async def list_available_signals(request: Request):
     The client calls this once at startup to get the structure, then only subscribes
     to lightweight value + timestamp updates over WebSocket.
     """
-    from src.core.config_manager import read_alarms
-
     store = request.app.state.store
     snapshot = await store.get_snapshot()
     profile_name, profile, warnings = _batch_access_context(request, "read")
@@ -183,10 +181,6 @@ async def list_available_signals(request: Request):
         return SignalMetadataListResponse(signals_info=[], total=0, warnings=warnings)
 
     signal_configs = _dbc_signal_configs()
-
-    # Load alarm configs
-    alarm_raw = read_alarms()
-    alarm_configs = alarm_raw.get("alarms", {})
 
     items: list[SignalMetadata] = []
     skipped: list[str] = []
@@ -196,7 +190,6 @@ async def list_available_signals(request: Request):
     for name in sorted(all_names):
         sv = snapshot.get(name)
         sig_cfg = signal_configs.get(name, {})
-        alm_cfg = alarm_configs.get(name, {})
         std_name = name
         can_read = profile is None or profile_allows_signal(profile, name, [std_name], required="read")
         if profile is not None and not can_read:
@@ -214,12 +207,7 @@ async def list_available_signals(request: Request):
                 states=sig_cfg.get("states"),
                 group_name=None,
                 widget_type=None,
-                alarm_warning_high=alm_cfg.get("warning_high"),
-                alarm_warning_low=alm_cfg.get("warning_low"),
-                alarm_critical_high=alm_cfg.get("critical_high"),
-                alarm_critical_low=alm_cfg.get("critical_low"),
                 value=sv.value if sv and can_read else None,
-                status=sv.status if sv and can_read else None,
                 timestamp=sv.timestamp if sv and can_read else None,
             )
         )
@@ -407,7 +395,7 @@ async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None), pr
     """Primary WebSocket endpoint — compatible with the demo API.
 
     Client → Server:
-        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "subscribe", "signals": ["SignalName", "*", "metrics"]}
         {"type": "unsubscribe", "signals": ["SignalName"]}
         {"type": "ping"}  →  {"type": "pong"}
     Server → Client (signal frame):
@@ -421,16 +409,6 @@ async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None), pr
         return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle_subscribe(websocket, profile_name=profile_name)
-
-
-@ws_router.websocket("/alarms")
-async def ws_alarms(websocket: WebSocket, api_key: str | None = Query(None)):
-    auth = websocket.app.state.auth
-    if not auth.verify(api_key):
-        await websocket.close(code=4401)
-        return
-    mgr: ConnectionManager = websocket.app.state.ws_manager
-    await mgr.handle(websocket, topics={SubscriptionTopic.ALARMS})
 
 
 @ws_router.websocket("/all")

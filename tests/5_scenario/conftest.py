@@ -24,26 +24,11 @@ class FakeRepo:
     async def query_signals(self, **_):
         return []
 
-    async def query_alarms(self, **_):
-        return []
-
-    async def get_alarm_by_id(self, _alarm_id):
-        return None
-
     async def insert_signal(self, _record):
         pass
 
     async def insert_signals_bulk(self, _records):
         pass
-
-    async def insert_alarm(self, _alarm):
-        return 1
-
-    async def acknowledge_alarm(self, _alarm_id):
-        return True
-
-    async def resolve_alarm(self, _alarm_id):
-        return True
 
     async def delete_old_signals(self, _older_than):
         return 0

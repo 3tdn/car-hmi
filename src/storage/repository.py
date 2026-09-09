@@ -23,19 +23,6 @@ class SignalRecord:
 
 
 @dataclass
-class AlarmRecord:
-    id: int | None
-    signal_name: str
-    level: str
-    value: float
-    threshold: float
-    description: str
-    triggered_at: float
-    acknowledged: bool = False
-    resolved_at: float | None = None
-
-
-@dataclass
 class SignalConfigRecord:
     signal_name: str
     unit: str | None
@@ -47,7 +34,7 @@ class SignalConfigRecord:
 
 
 class ISignalRepository(ABC):
-    """Contract for all signal / alarm storage operations."""
+    """Contract for signal storage operations."""
 
     @abstractmethod
     async def insert_signal(self, record: SignalRecord) -> None: ...
@@ -64,30 +51,6 @@ class ISignalRepository(ABC):
         limit: int = 100,
         offset: int = 0,
     ) -> list[SignalRecord]: ...
-
-    @abstractmethod
-    async def insert_alarm(self, alarm: AlarmRecord) -> int: ...
-
-    @abstractmethod
-    async def query_alarms(
-        self,
-        signal_name: str | None = None,
-        level: str | None = None,
-        acknowledged: bool | None = None,
-        start: float | None = None,
-        end: float | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[AlarmRecord]: ...
-
-    @abstractmethod
-    async def get_alarm_by_id(self, alarm_id: int) -> AlarmRecord | None: ...
-
-    @abstractmethod
-    async def acknowledge_alarm(self, alarm_id: int) -> bool: ...
-
-    @abstractmethod
-    async def resolve_alarm(self, alarm_id: int) -> bool: ...
 
     @abstractmethod
     async def delete_old_signals(self, older_than: float) -> int: ...
@@ -214,104 +177,6 @@ class SQLiteRepository(ISignalRepository):
                     logger.warning("Skip VACUUM this cycle: database is busy (%s)", exc)
                     return
                 raise
-
-    # ── Alarm operations ──────────────────────────────────────────────────────
-
-    async def insert_alarm(self, alarm: AlarmRecord) -> int:
-        cur = await self._conn.execute(
-            """INSERT INTO alarm_log
-               (signal_name, level, value, threshold, description, triggered_at)
-               VALUES (?,?,?,?,?,?)""",
-            (
-                alarm.signal_name,
-                alarm.level,
-                alarm.value,
-                alarm.threshold,
-                alarm.description,
-                alarm.triggered_at,
-            ),
-        )
-        await self._conn.commit()
-        return cur.lastrowid  # type: ignore[return-value]
-
-    async def query_alarms(
-        self,
-        signal_name: str | None = None,
-        level: str | None = None,
-        acknowledged: bool | None = None,
-        start: float | None = None,
-        end: float | None = None,
-        limit: int = 100,
-        offset: int = 0,
-    ) -> list[AlarmRecord]:
-        clauses, params = [], []
-        if signal_name:
-            clauses.append("signal_name = ?")
-            params.append(signal_name)
-        if level:
-            clauses.append("level = ?")
-            params.append(level)
-        if acknowledged is not None:
-            clauses.append("acknowledged = ?")
-            params.append(int(acknowledged))
-        if start is not None:
-            clauses.append("triggered_at >= ?")
-            params.append(start)
-        if end is not None:
-            clauses.append("triggered_at <= ?")
-            params.append(end)
-        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
-        params += [limit, offset]
-        sql = f"SELECT * FROM alarm_log {where} ORDER BY triggered_at DESC LIMIT ? OFFSET ?"
-        async with self._conn.execute(sql, params) as cur:
-            rows = await cur.fetchall()
-        return [
-            AlarmRecord(
-                r["id"],
-                r["signal_name"],
-                r["level"],
-                r["value"],
-                r["threshold"],
-                r["description"] or "",
-                r["triggered_at"],
-                bool(r["acknowledged"]),
-                r["resolved_at"],
-            )
-            for r in rows
-        ]
-
-    async def get_alarm_by_id(self, alarm_id: int) -> AlarmRecord | None:
-        sql = "SELECT * FROM alarm_log WHERE id = ?"
-        async with self._conn.execute(sql, (alarm_id,)) as cur:
-            row = await cur.fetchone()
-        if not row:
-            return None
-        return AlarmRecord(
-            row["id"],
-            row["signal_name"],
-            row["level"],
-            row["value"],
-            row["threshold"],
-            row["description"] or "",
-            row["triggered_at"],
-            bool(row["acknowledged"]),
-            row["resolved_at"],
-        )
-
-    async def acknowledge_alarm(self, alarm_id: int) -> bool:
-        cur = await self._conn.execute(
-            "UPDATE alarm_log SET acknowledged=1 WHERE id=? AND acknowledged=0", (alarm_id,)
-        )
-        await self._conn.commit()
-        return cur.rowcount > 0
-
-    async def resolve_alarm(self, alarm_id: int) -> bool:
-        cur = await self._conn.execute(
-            "UPDATE alarm_log SET resolved_at=? WHERE id=? AND resolved_at IS NULL",
-            (time.time(), alarm_id),
-        )
-        await self._conn.commit()
-        return cur.rowcount > 0
 
     # ── Config operations ─────────────────────────────────────────────────────
 

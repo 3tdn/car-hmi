@@ -851,9 +851,8 @@ function refreshPermissionDecorations() {
     updateSignalRowAccess(row, row.dataset.signalName, row.dataset.writable === 'true');
   });
   const settingsBtn = document.getElementById('btn-settings');
-  const alarmsBtn = document.getElementById('btn-alarms');
   const profilesBtn = document.getElementById('btn-profiles');
-  [settingsBtn, alarmsBtn, profilesBtn].forEach((btn) => {
+  [settingsBtn, profilesBtn].forEach((btn) => {
     if (!btn) return;
     const allowed = hasProfilePermission('full');
     btn.classList.toggle('btn--permission-warn', !allowed);
@@ -1119,14 +1118,6 @@ async function loadSnapshot() {
       console.warn("Snapshot fetch also failed:", e2);
     }
   }
-  try {
-    const { items } = await fetchActiveAlarms();
-    // Only render up to 3 alarms in the UI
-    (items || []).slice(0, 3).forEach(renderAlarm);
-  } catch (e) {
-    console.warn("Alarm fetch failed:", e);
-    showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
-  }
 }
 
 // ── WebSocket handler (new subscribe protocol + legacy fallback) ───────────
@@ -1182,13 +1173,12 @@ function connect() {
 
       // Subscribe channels depending on frontend mode.
       if (FRONTEND_MODE === 'dev') {
-        subConn.subscribe(["*", "alarms", "metrics"], "continuous");
+        subConn.subscribe(["*", "metrics"], "continuous");
       } else {
         // A wildcard profile can subscribe to every signal; other profiles use the legacy whitelist.
         const channels = getProfileSignals().some((item) => item.name === '*')
           ? ["*"]
           : USER_SIGNAL_WHITELIST.slice();
-        // channels.push('alarms', 'metrics');
         subConn.subscribe(channels, 'continuous');
       }
         // If metrics polling was started earlier, stop it since subscribe will push metrics.
@@ -1258,9 +1248,7 @@ function handleMessage(msg) {
     });
     return;
   }
-  if (msg.type === "alarm") {
-    renderAlarm(msg);
-  } else if (msg.type === "metrics") {
+  if (msg.type === "metrics") {
     renderMetrics(msg);
   } else if (msg.type === "subscribe_ack") {
     // Current backend ack format.

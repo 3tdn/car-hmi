@@ -117,7 +117,7 @@ class AppRunner:
     4. CAN bus (open interface)
     5. CAN Reader (decode → queue)
     6. CAN Writer (encode → bus)
-    7. Signal Pipeline (filter → alarm → store → DB)
+    7. Signal Pipeline (filter → store → DB)
     8. CAN Simulator (optional, dev mode)
     9. FastAPI server (REST + WebSocket)
     10. Watchdog (system health monitoring)
@@ -205,7 +205,6 @@ class AppRunner:
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
-        from src.processor.alarms import AlarmChecker
         from src.processor.computed import ComputedSignals
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
@@ -280,12 +279,6 @@ class AppRunner:
         )
         self._pipeline.add_stage(RateLimiter(max_hz=proc_cfg.max_update_rate_hz))
         self._pipeline.add_stage(ComputedSignals())
-
-        alarm_configs = self._load_alarm_configs()
-        if alarm_configs:
-            checker = AlarmChecker(alarm_configs)
-            checker.add_alarm_handler(self._on_alarm)
-            self._pipeline.add_stage(checker)
 
         # 4. Check the simulator early — before opening the bus ──────────────────
         # Automatically disable it if any channel uses real hardware (non-virtual)
@@ -380,83 +373,6 @@ class AppRunner:
                 )
             else:
                 logger.warning("Status monitor enabled but no valid targets configured")
-
-
-    def _load_alarm_configs(self) -> list:
-        """Load alarm-threshold configuration from config/alarms.json."""
-        import json
-        from src.core.config import load_config
-        from src.processor.alarms import AlarmConfig
-
-        # Respect a top-level flag in system config to temporarily disable alarms
-        try:
-            sys_cfg = load_config("config/system.json")
-            alarms_enabled = getattr(sys_cfg, "alarms", {}).get("enabled", True) if hasattr(sys_cfg, "alarms") else True
-        except Exception:
-            alarms_enabled = True
-
-        if not alarms_enabled:
-            logger.info("Alarms disabled via config/system.json — skipping alarm load")
-            return []
-
-        alarm_path = Path("config/alarms.json")
-        if not alarm_path.exists():
-            logger.warning("config/alarms.json not found — no alarm thresholds loaded")
-            return []
-        raw = json.loads(alarm_path.read_text(encoding="utf-8"))
-        configs = []
-        for signal_name, entry in raw.get("alarms", {}).items():
-            configs.append(
-                AlarmConfig(
-                    signal=signal_name,
-                    critical_high=entry.get("critical_high"),
-                    warning_high=entry.get("warning_high"),
-                    warning_low=entry.get("warning_low"),
-                    critical_low=entry.get("critical_low"),
-                )
-            )
-        logger.info("Loaded %d alarm threshold configs", len(configs))
-        return configs
-
-    async def _on_alarm(self, alarm) -> None:
-        """Store an alarm and push it over WebSocket."""
-        import time
-
-        from src.storage.repository import AlarmRecord
-
-        try:
-            alarm_id = await self._repo.insert_alarm(
-                AlarmRecord(
-                    id=None,
-                    signal_name=alarm.signal,
-                    level=alarm.level,
-                    value=alarm.value,
-                    threshold=alarm.threshold,
-                    description=alarm.description,
-                    triggered_at=alarm.timestamp or time.time(),
-                )
-            )
-            logger.warning(
-                "ALARM [%s] %s = %s (threshold %s)",
-                alarm.level,
-                alarm.signal,
-                alarm.value,
-                alarm.threshold,
-            )
-            if self._ws_manager:
-                await self._ws_manager.broadcast_alarm(
-                    {
-                        "id": alarm_id,
-                        "signal_name": alarm.signal,
-                        "level": alarm.level,
-                        "value": alarm.value,
-                        "threshold": alarm.threshold,
-                        "description": alarm.description,
-                        "triggered_at": alarm.timestamp,
-                    }
-                )
-        except Exception as exc:
-            logger.error("Failed to store/broadcast alarm: %s", exc)
 
     async def _build_simulator(self, sim_cfg) -> object | None:
         """Build CANSimulator if simulator configuration exists."""

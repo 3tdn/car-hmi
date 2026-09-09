@@ -1,7 +1,7 @@
-"""WebSocket connection manager for pushing real-time signals and alerts.
+"""WebSocket connection manager for pushing real-time signals and metrics.
 
 Supports:
-- Legacy topic-based subscription (backward-compat): /ws/signals, /ws/alarms, /ws/all
+- Legacy topic-based subscription (backward-compat): /ws/signals, /ws/all
 - New per-signal subscription: /ws/subscribe — client sends a JSON command to select channels
 """
 
@@ -28,18 +28,16 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionTopic(str, Enum):
     SIGNALS = "signals"
-    ALARMS = "alarms"
     ALL = "all"
 
 
 class _ClientSubscription:
     """State for a single WS connection using the new subscribe protocol."""
 
-    __slots__ = ("signal_names", "subscribe_alarms", "subscribe_metrics", "once_channels", "min_interval_s", "profile_name")
+    __slots__ = ("signal_names", "subscribe_metrics", "once_channels", "min_interval_s", "profile_name")
 
     def __init__(self) -> None:
         self.signal_names: set[str] = set()  # empty = receive no signals; "*" = all
-        self.subscribe_alarms: bool = False
         self.subscribe_metrics: bool = False
         # Channels requested in "once" mode — they will be removed after the first send
         self.once_channels: set[str] = set()
@@ -63,7 +61,7 @@ class ConnectionManager:
         # New per-signal subscription connections
         self._subscriptions: dict[WebSocket, _ClientSubscription] = {}
         # Track last send time per websocket + stream key for rate-limiting.
-        # Key format: (ws, "sig:<name>") or (ws, "ch:<alarms|metrics>").
+        # Key format: (ws, "sig:<name>") or (ws, "ch:metrics").
         self._last_sent: dict[tuple[WebSocket, str], float] = {}
         # Latest signal values for building full subscribed payloads.
         self._latest_signals: dict[str, dict] = {}
@@ -155,7 +153,7 @@ class ConnectionManager:
         """Handle subscribe/unsubscribe commands from the client.
 
         Supports both formats:
-        - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
+        - Demo format: {"type": "subscribe", "signals": ["name", "*", "metrics"]}
         - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
         """
         # Normalize: demo format (type/signals) or legacy (action/channels)
@@ -213,12 +211,7 @@ class ConnectionManager:
             for ch in channels:
                 ch_lower = ch.lower()
                 if action == "subscribe":
-                    if ch_lower == "alarms":
-                        if not has_read_permission:
-                            continue
-                        sub.subscribe_alarms = True
-                        accepted_channels.append("alarms")
-                    elif ch_lower == "metrics":
+                    if ch_lower == "metrics":
                         if not has_read_permission:
                             continue
                         sub.subscribe_metrics = True
@@ -268,14 +261,12 @@ class ConnectionManager:
                     if mode == "once":
                         if ch == "*":
                             sub.once_channels.update(accepted_channels)
-                        elif ch in {"alarms", "metrics"}:
+                        elif ch == "metrics":
                             sub.once_channels.add(ch)
                         else:
                             sub.once_channels.add(ch)
                 elif action == "unsubscribe":
-                    if ch_lower == "alarms":
-                        sub.subscribe_alarms = False
-                    elif ch_lower == "metrics":
+                    if ch_lower == "metrics":
                         sub.subscribe_metrics = False
                     elif ch == "*":
                         sub.signal_names.discard("*")
@@ -333,11 +324,6 @@ class ConnectionManager:
         # Subscribe WS clients receive filtered batch according to subscription.
         await self._broadcast_signal_batch_to_subscribers(entries, iso_ts)
 
-    async def broadcast_alarm(self, alarm: dict) -> None:
-        payload = json.dumps({"type": "alarm", **alarm})
-        await self._broadcast(payload, SubscriptionTopic.ALARMS)
-        await self._broadcast_to_subscribers(payload, channel="alarms")
-
     async def broadcast_metrics(self, metrics: dict) -> None:
         """Push a metrics snapshot to subscribers that registered the 'metrics' channel."""
         payload = json.dumps({"type": "metrics", **metrics})
@@ -346,7 +332,7 @@ class ConnectionManager:
     # ── Internal broadcast helpers ───────────────────────────────────────────
 
     async def _broadcast(self, text: str, topic: SubscriptionTopic) -> None:
-        """Legacy broadcast for /ws/signals, /ws/alarms, /ws/all."""
+        """Legacy broadcast for /ws/signals and /ws/all."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._connections.items())
@@ -407,10 +393,6 @@ class ConnectionManager:
                         once_key = signal_name
                     elif "*" in sub.once_channels:
                         once_key = "*"
-            elif channel == "alarms" and sub.subscribe_alarms:
-                should_send = True
-                if "alarms" in sub.once_channels:
-                    once_key = "alarms"
             elif channel == "metrics" and sub.subscribe_metrics:
                 should_send = True
                 if "metrics" in sub.once_channels:
@@ -443,8 +425,6 @@ class ConnectionManager:
                 sub.once_channels.discard(key)
                 if key == "*":
                     sub.signal_names.discard("*")
-                elif key == "alarms":
-                    sub.subscribe_alarms = False
                 elif key == "metrics":
                     sub.subscribe_metrics = False
                 else:
@@ -552,7 +532,7 @@ class ConnectionManager:
     # ── Handle loops ─────────────────────────────────────────────────────────
 
     async def handle(self, ws: WebSocket, topics: set[SubscriptionTopic] | None = None) -> None:
-        """Legacy handler: keep the connection alive for /ws/signals, /ws/alarms, and /ws/all."""
+        """Legacy handler: keep the connection alive for /ws/signals and /ws/all."""
         await self.connect(ws, topics)
         try:
             while True:

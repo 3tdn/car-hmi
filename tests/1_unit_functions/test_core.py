@@ -166,11 +166,10 @@ def test_status_monitor_targets_split_ethernet_and_can_references():
 @pytest.mark.asyncio
 async def test_signal_store_update_and_get():
     store = SignalStore()
-    await store.update("Speed", 80.0, status="ok", timestamp=1000.0)
+    await store.update("Speed", 80.0, timestamp=1000.0)
     sv = await store.get("Speed")
     assert sv is not None
     assert sv.value == pytest.approx(80.0)
-    assert sv.status == "ok"
     assert sv.timestamp == 1000.0
 
 

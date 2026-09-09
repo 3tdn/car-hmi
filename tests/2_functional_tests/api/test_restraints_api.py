@@ -18,9 +18,6 @@ class _FakeRepo:
     async def query_signals(self, **_):
         return []
 
-    async def query_alarms(self, **_):
-        return []
-
 
 async def _build_client(monkeypatch, tmp_path, *, initial_signals=None, video_names=()):
     import src.api.routes.restraints as restraints_route

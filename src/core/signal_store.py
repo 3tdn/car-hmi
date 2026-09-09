@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SignalValue:
     value: float
-    status: str = "ok"  # ok | warning | critical
     timestamp: float = 0.0
     unit: str | None = None
 
@@ -34,7 +33,6 @@ class SignalStore:
         self,
         name: str,
         value: float,
-        status: str = "ok",
         timestamp: float = 0.0,
         unit: str | None = None,
     ) -> None:
@@ -44,7 +42,7 @@ class SignalStore:
         use_unit = (
             unit if unit is not None else (getattr(existing, "unit", None) if existing else None)
         )
-        sv = SignalValue(value=value, status=status, timestamp=timestamp, unit=use_unit)
+        sv = SignalValue(value=value, timestamp=timestamp, unit=use_unit)
         async with self._lock:
             self._signals[name] = sv
         await self._notify(name, sv)
@@ -52,7 +50,6 @@ class SignalStore:
     async def bulk_update(
         self,
         updates: dict[str, float],
-        status: str = "ok",
         timestamp: float = 0.0,
         units: dict[str, str] | None = None,
     ) -> None:
@@ -66,7 +63,7 @@ class SignalStore:
                 use_unit = units[name]
             elif existing is not None:
                 use_unit = getattr(existing, "unit", None)
-            sv = SignalValue(value=value, status=status, timestamp=timestamp, unit=use_unit)
+            sv = SignalValue(value=value, timestamp=timestamp, unit=use_unit)
             entries.append((name, sv))
         async with self._lock:
             for name, sv in entries:

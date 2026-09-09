@@ -80,11 +80,6 @@
     "queue_policy": "drop_oldest",
     "batch_drain_size": 200
   },
-  "alarms": {
-    "enabled": false,
-    "config_path": "config/alarms.json",
-    "check_interval_sec": 0.5
-  },
   "reader": {
     "frequency_piority": 1,
     "only_send_signal_update": true,
