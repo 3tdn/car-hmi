@@ -138,7 +138,7 @@ All runtime behaviour is controlled via `config/system.json`. Key sections:
 | `processor`   | `smoothing_window`, `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_heartbeat_interval_sec`, `ws_metrics_interval_sec` |
 | `storage`     | `engine` (`sqlite`), `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
-| `writer`      | `rate_limit_per_sec`, `burst` for CAN write commands                             |
+| `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`) |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
 | `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
 | `logging`     | `level`, `file_path`, `max_size_mb`, `backup_count` for rotating file log        |

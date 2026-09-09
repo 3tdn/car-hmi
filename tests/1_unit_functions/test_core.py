@@ -41,6 +41,15 @@ def test_reader_config_defaults():
     assert cfg.only_send_signal_update is False
 
 
+def test_writer_config_use_prevalue_for_unwritten_signal():
+    from src.core.config import WriterConfig
+
+    assert WriterConfig().use_prevalue_for_unwritten_signal is True
+    assert WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal is False
+    with pytest.raises(ValueError):
+        WriterConfig(use_prevalue_for_unwritten_signal="invalid")
+
+
 def test_app_config_can_is_list():
     """AppConfig.can must be a list of CANConfig."""
     app_cfg = AppConfig()

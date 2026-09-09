@@ -326,8 +326,8 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
     """Write multiple CAN signals at once.
 
     Signals belonging to the same CAN message are grouped together and sent as a single
-    frame (read-modify-write: preserve the values of other signals
-    in the same message that are not included in the batch).
+    frame. Other signals in the same message that are not included in the
+    batch use ``writer.use_prevalue_for_unwritten_signal`` from ``system.json``.
     REST writes are broadcast immediately to all subscribed WS clients.
     """
     writer = getattr(request.app.state, "writer", None)

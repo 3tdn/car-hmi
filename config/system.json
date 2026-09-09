@@ -90,7 +90,8 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000
+    "periodic_duration": 10000,
+    "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
     "timeout_sec": 10

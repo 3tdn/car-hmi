@@ -156,6 +156,10 @@ class WriterConfig(BaseModel):
     # Time between repeated sends (ms) when periodic_mode=True
     periodic_duration: int = 10000
     # Stop repeated sends after periodic_duration ms from the first send
+    use_prevalue_for_unwritten_signal: bool = True
+    # How to encode signals in a written CAN message that are not included in the request:
+    #   True  — reuse their latest SignalStore value when available (read-modify-write)
+    #   False — encode their physical value as 0
 
 
 class ReaderConfig(BaseModel):

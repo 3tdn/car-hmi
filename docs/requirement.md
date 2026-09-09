@@ -1174,7 +1174,8 @@ jobs:
   },
   "writer": {
     "rate_limit_per_sec": 10,
-    "burst": 5
+    "burst": 5,
+    "use_prevalue_for_unwritten_signal": true
   },
   "shutdown": { "timeout_sec": 10 },
   "supervisor": { "watchdog_interval_sec": 5 },
