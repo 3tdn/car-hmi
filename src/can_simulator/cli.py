@@ -27,7 +27,7 @@ def main() -> None:
     bus = can.Bus(interface=can_cfg.interface, channel=can_cfg.channel)
     sim = CANSimulator(
         bus=bus,
-        can_json_path=cfg.simulator.can_json_path,
+        can_db_file=cfg.simulator.can_db_file,
         cycle_ms=cfg.simulator.default_cycle_ms,
         repeat=True,
         random_mode=cfg.simulator.random_mode,

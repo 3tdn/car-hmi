@@ -851,9 +851,8 @@ function refreshPermissionDecorations() {
     updateSignalRowAccess(row, row.dataset.signalName, row.dataset.writable === 'true');
   });
   const settingsBtn = document.getElementById('btn-settings');
-  const alarmsBtn = document.getElementById('btn-alarms');
   const profilesBtn = document.getElementById('btn-profiles');
-  [settingsBtn, alarmsBtn, profilesBtn].forEach((btn) => {
+  [settingsBtn, profilesBtn].forEach((btn) => {
     if (!btn) return;
     const allowed = hasProfilePermission('full');
     btn.classList.toggle('btn--permission-warn', !allowed);
@@ -895,14 +894,15 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   if (!writable) {
     writeCell = `<td class="signal-write signal-write--ro">—</td>`;
   } else if (states && states.length > 0) {
-    // Enum signal: render a <select> with named states
+    // Enum signal: suggest named states via a datalist, but still allow any raw value to be typed/written
+    const listId = `states-${sanitizeId(signalName)}`;
     const options = states
-      .map((s) => `<option value="${s.value}">${s.value} — ${s.description}</option>`)
+      .map((s) => `<option value="${s.value}">${s.description}</option>`)
       .join("");
     writeCell = `<td class="signal-write">
-        <select class="write-select" aria-label="Write value for ${signalName}">
-          ${options}
-        </select>
+        <input class="write-input" type="number" step="any" list="${listId}"
+               aria-label="Write value for ${signalName}" />
+        <datalist id="${listId}">${options}</datalist>
         <button class="write-btn btn" data-signal="${signalName}">Set</button>
        </td>`;
   } else {
@@ -930,8 +930,8 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
     const btn = row.querySelector(".write-btn");
     btn.dataset.defaultTitle = 'Write signal';
     btn.addEventListener("click", () => handleWriteSignal(signalName, row));
-    const inp = row.querySelector(".write-input, .write-select");
-    if (inp && inp.tagName === "INPUT") {
+    const inp = row.querySelector(".write-input");
+    if (inp) {
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Enter") handleWriteSignal(signalName, row);
       });
@@ -944,9 +944,8 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
 
 async function handleWriteSignal(signalName, row) {
   const inp = row.querySelector(".write-input");
-  const sel = row.querySelector(".write-select");
   const btn = row.querySelector(".write-btn");
-  const raw = sel ? sel.value : (inp ? inp.value.trim() : "");
+  const raw = inp ? inp.value.trim() : "";
   if (raw === "") return;
   const value = parseFloat(raw);
   if (isNaN(value)) {
@@ -1119,14 +1118,6 @@ async function loadSnapshot() {
       console.warn("Snapshot fetch also failed:", e2);
     }
   }
-  try {
-    const { items } = await fetchActiveAlarms();
-    // Only render up to 3 alarms in the UI
-    (items || []).slice(0, 3).forEach(renderAlarm);
-  } catch (e) {
-    console.warn("Alarm fetch failed:", e);
-    showPermissionWarnings(normalizeWarnings(e.payload || e), 'alarms');
-  }
 }
 
 // ── WebSocket handler (new subscribe protocol + legacy fallback) ───────────
@@ -1182,13 +1173,12 @@ function connect() {
 
       // Subscribe channels depending on frontend mode.
       if (FRONTEND_MODE === 'dev') {
-        subConn.subscribe(["*", "alarms", "metrics"], "continuous");
+        subConn.subscribe(["*", "metrics"], "continuous");
       } else {
         // A wildcard profile can subscribe to every signal; other profiles use the legacy whitelist.
         const channels = getProfileSignals().some((item) => item.name === '*')
           ? ["*"]
           : USER_SIGNAL_WHITELIST.slice();
-        // channels.push('alarms', 'metrics');
         subConn.subscribe(channels, 'continuous');
       }
         // If metrics polling was started earlier, stop it since subscribe will push metrics.
@@ -1258,9 +1248,7 @@ function handleMessage(msg) {
     });
     return;
   }
-  if (msg.type === "alarm") {
-    renderAlarm(msg);
-  } else if (msg.type === "metrics") {
+  if (msg.type === "metrics") {
     renderMetrics(msg);
   } else if (msg.type === "subscribe_ack") {
     // Current backend ack format.

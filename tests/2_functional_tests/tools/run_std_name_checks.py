@@ -21,9 +21,6 @@ class FakeRepo:
     async def query_signals(self, **_):
         return []
 
-    async def query_alarms(self, **_):
-        return []
-
 
 class FakeWriter:
     def __init__(self):

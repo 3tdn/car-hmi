@@ -1,4 +1,4 @@
-"""REST routes for per-signal display configuration and alarm thresholds."""
+"""REST routes for runtime and per-signal display configuration."""
 
 from __future__ import annotations
 
@@ -145,38 +145,6 @@ async def reset_general_config(request: Request):
 
     default = write_default_bus(path="config/system.json")
     return {"ok": True, "default": default}
-
-
-@router.get("/alarms", summary="Get alarms config (raw YAML as JSON)")
-async def get_alarms_config():
-    from src.core.config_manager import read_alarms
-
-    data = read_alarms()
-    return data
-
-
-@router.post("/alarms", summary="Update alarms config (JSON body)")
-async def post_alarms_config(body: dict, request: Request):
-    require_profile_permission(request, "full")
-    from src.core.config_manager import write_alarms
-
-    try:
-        write_alarms(body)
-    except (ValueError, OSError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_config_error("alarms_config_update_failed", str(exc)),
-        ) from exc
-    return {"ok": True}
-
-
-@router.post("/alarms/reset", summary="Reset alarms config to empty default")
-async def reset_alarms_config(request: Request):
-    require_profile_permission(request, "full")
-    from src.core.config_manager import write_default_alarms
-
-    written = write_default_alarms(path="config/alarms.json")
-    return {"ok": True, "written": written}
 
 
 @router.post("/processor", response_model=ProcessorConfigResponse, summary="Update processor config")

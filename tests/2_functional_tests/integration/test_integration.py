@@ -14,7 +14,6 @@ from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
 from src.can_io.writer import CANWriter
 from src.core.signal_store import SignalStore
-from src.processor.alarms import AlarmChecker, AlarmConfig
 from src.processor.computed import ComputedSignals
 from src.processor.pipeline import SignalPipeline
 from src.storage.database import init_db
@@ -122,55 +121,6 @@ async def test_pipeline_processes_frame(tmp_path, db_loader):
     await conn.close()
 
 
-@pytest.mark.asyncio
-async def test_pipeline_with_alarm(tmp_path, db_loader):
-    """AlarmChecker fires alarm when threshold exceeded; alarm stored in DB."""
-    conn = await init_db(str(tmp_path / "test.db"))
-    repo = SQLiteRepository(conn)
-    store = SignalStore()
-
-    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
-    pipeline = SignalPipeline(
-        input_queue=queue,
-        signal_store=store,
-        repository=repo,
-        batch_size=1,
-        batch_interval_sec=60.0,
-    )
-
-    # Add alarm checker: CoolantTemp critical ≥ 110
-    fired_alarms = []
-
-    async def alarm_recorder(alarm):
-        fired_alarms.append(alarm)
-
-    checker = AlarmChecker([AlarmConfig(signal="CoolantTemp", critical_high=110.0)])
-    checker.add_alarm_handler(alarm_recorder)
-    pipeline.add_stage(checker)
-
-    task = asyncio.create_task(pipeline.start())
-
-    # Send a frame with CoolantTemp=120 → should trigger critical alarm
-    from src.can_io.reader import RawCANFrame
-
-    raw = RawCANFrame(
-        timestamp=time.time(), bus="test", msg_id=100, is_extended=False, is_fd=False, data=bytes(8)
-    )
-    frame = DecodedFrame(raw=raw, signals={"CoolantTemp": 120.0})
-    await queue.put(frame)
-    await asyncio.sleep(0.5)
-
-    assert len(fired_alarms) == 1
-    assert fired_alarms[0].level == "critical"
-    assert fired_alarms[0].signal == "CoolantTemp"
-
-    pipeline.stop()
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    await conn.close()
 
 
 @pytest.mark.asyncio

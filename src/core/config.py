@@ -18,16 +18,9 @@ class CANConfig(BaseModel):
     # OS channel name (vcan0, can0) or device name depending on the interface
     bitrate: int = 500_000
     # Bus bitrate in bit/s (500_000 = classic CAN, 2_000_000 = nominal CAN FD)
-    can_json_path: str = "config/can.json"
-    # JSON file describing messages/signals for this channel (exported from DBC by gen_can_json.py)
-    can_db_files: list[str] = Field(default_factory=list)
-    # List of DBC / A2L file paths to load additionally (supplementing can_json_path)
-    can_db_dirs: list[str] = Field(default_factory=list)
-    # Directory containing DBC/A2L files; all valid files in the directory will be loaded
-    a2l_dirs: list[str] = Field(default_factory=list)
-    # Directory containing A2L (ASAP2) files used to load ECU signal definitions
-    can_db_format: Literal["auto", "dbc", "a2l"] = "auto"
-    # DB format: "auto" = detect from file extension, "dbc" or "a2l" = force a specific format
+    can_db_file: str = "db/can_db/p_v2.dbc"
+    # DBC file describing messages/signals for this channel — read directly (via cantools)
+    # by CANReader/CANWriter, no can.json export step needed.
 
 
 class SimulatorConfig(BaseModel):
@@ -40,9 +33,8 @@ class SimulatorConfig(BaseModel):
     # If False, the simulator transmits values incremented by 1 unit (or 1 state)
     default_cycle_ms: int = 50
     # Transmit period per message in ms; reducing it increases bus load
-    can_json_path: str = "config/can.json"
-    # JSON file containing the messages the simulator will transmit
-    # (typically the combined can.json)
+    can_db_file: str = "db/can_db/p_v2.dbc"
+    # DBC file containing the messages the simulator will transmit (read directly via cantools)
 
 
 class APIConfig(BaseModel):
@@ -165,6 +157,10 @@ class WriterConfig(BaseModel):
     # Time between repeated sends (ms) when periodic_mode=True
     periodic_duration: int = 10000
     # Stop repeated sends after periodic_duration ms from the first send
+    use_prevalue_for_unwritten_signal: bool = True
+    # How to encode signals in a written CAN message that are not included in the request:
+    #   True  — reuse their latest SignalStore value when available (read-modify-write)
+    #   False — encode their physical value as 0
 
 
 class ReaderConfig(BaseModel):

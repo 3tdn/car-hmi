@@ -30,7 +30,7 @@ def test_load_config_from_file():
 def test_can_config_defaults():
     cfg = CANConfig(interface="virtual", channel="vcan0")
     assert cfg.bitrate == 500_000
-    assert cfg.can_json_path == "config/can.json"
+    assert cfg.can_db_file == "db/can_db/p_v2.dbc"
 
 
 def test_reader_config_defaults():
@@ -39,6 +39,15 @@ def test_reader_config_defaults():
     cfg = ReaderConfig()
     assert cfg.frequency_piority == pytest.approx(0.0)
     assert cfg.only_send_signal_update is False
+
+
+def test_writer_config_use_prevalue_for_unwritten_signal():
+    from src.core.config import WriterConfig
+
+    assert WriterConfig().use_prevalue_for_unwritten_signal is True
+    assert WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal is False
+    with pytest.raises(ValueError):
+        WriterConfig(use_prevalue_for_unwritten_signal="invalid")
 
 
 def test_app_config_can_is_list():
@@ -53,8 +62,8 @@ def test_app_config_multi_channel():
     """AppConfig accepts multiple CAN channels."""
     app_cfg = AppConfig(
         can=[
-            CANConfig(channel="vcan0", can_json_path="config/can.json"),
-            CANConfig(channel="vcan1", can_json_path="config/can1.json"),
+            CANConfig(channel="vcan0", can_db_file="db/can_db/p_v2.dbc"),
+            CANConfig(channel="vcan1", can_db_file="db/can_db/p_v2.dbc"),
         ]
     )
     assert len(app_cfg.can) == 2
@@ -94,7 +103,7 @@ def test_load_config_custom(tmp_path):
                         "interface": "virtual",
                         "channel": "test_ch",
                         "bitrate": 250000,
-                        "can_json_path": "config/can.json",
+                        "can_db_file": "db/can_db/p_v2.dbc",
                     }
                 ],
                 "api": {"host": "127.0.0.1", "port": 9000},
@@ -187,11 +196,10 @@ def test_main_exits_with_restart_code_after_api_reboot(monkeypatch):
 @pytest.mark.asyncio
 async def test_signal_store_update_and_get():
     store = SignalStore()
-    await store.update("Speed", 80.0, status="ok", timestamp=1000.0)
+    await store.update("Speed", 80.0, timestamp=1000.0)
     sv = await store.get("Speed")
     assert sv is not None
     assert sv.value == pytest.approx(80.0)
-    assert sv.status == "ok"
     assert sv.timestamp == 1000.0
 
 

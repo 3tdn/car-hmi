@@ -22,20 +22,6 @@ CREATE TABLE IF NOT EXISTS signal_log (
 CREATE INDEX IF NOT EXISTS idx_signal_log_name_ts
     ON signal_log (signal_name, timestamp);
 
-CREATE TABLE IF NOT EXISTS alarm_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    signal_name TEXT    NOT NULL,
-    level       TEXT    NOT NULL CHECK (level IN ('info','warning','critical')),
-    value       REAL    NOT NULL,
-    threshold   REAL    NOT NULL,
-    description TEXT,
-    triggered_at  REAL NOT NULL,
-    acknowledged  INTEGER NOT NULL DEFAULT 0,
-    resolved_at   REAL
-);
-CREATE INDEX IF NOT EXISTS idx_alarm_log_name_ts
-    ON alarm_log (signal_name, triggered_at);
-
 CREATE TABLE IF NOT EXISTS signal_config (
     signal_name TEXT PRIMARY KEY,
     unit        TEXT,

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import time
+from functools import lru_cache
+from pathlib import Path
 
 import can
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
@@ -48,7 +51,40 @@ def _seat_lock_warning(signal_name: str, lock) -> dict:
 
 
 def _infer_signal_tags(signal_name: str) -> list[str]:
-    return [part for part in signal_name.split("_") if part.isalpha() and part.isupper()]
+    return [part for part in signal_name.split("_") if re.match(r'^[A-Z0-9]+$', part)]
+
+
+_CARPC_SENDER_NAME = "CAR_PC"  # signals CarPC transmits (writable via PUT /signals/{name})
+
+
+@lru_cache(maxsize=1)
+def _dbc_signal_configs() -> dict[str, dict]:
+    """Signal metadata (min/max/unit/writable/states/tag), merged from every can_db_file in system.json."""
+    from src.can_io.parser import DatabaseLoader
+    from src.core.config_manager import read_config
+
+    configs: dict[str, dict] = {}
+    for ch in read_config().get("can", []):
+        can_db_file = ch.get("can_db_file")
+        if not can_db_file or not Path(can_db_file).exists():
+            continue
+        loader = DatabaseLoader()
+        try:
+            loader.load_dbc(can_db_file)
+        except (FileNotFoundError, ValueError, RuntimeError):
+            continue
+        for msg in loader.messages.values():
+            writable = _CARPC_SENDER_NAME in msg.senders
+            for sig_name, sig in msg.signals.items():
+                configs.setdefault(sig_name, {
+                    "min_value": sig.minimum,
+                    "max_value": sig.maximum,
+                    "unit": sig.unit or None,
+                    "writable": writable,
+                    "states": sig.states or None,
+                    "tag": _infer_signal_tags(sig_name) or None,
+                })
+    return configs
 
 
 def _batch_access_context(request: Request, required: str) -> tuple[str | None, dict | None, list[dict]]:
@@ -130,7 +166,7 @@ async def list_signals(request: Request):
 @router.get(
     "/available",
     response_model=SignalMetadataListResponse,
-    summary="List all available signals with metadata and alarm thresholds",
+    summary="List all available signals with metadata",
 )
 async def list_available_signals(request: Request):
     """Return the full metadata list for all signals.
@@ -138,39 +174,13 @@ async def list_available_signals(request: Request):
     The client calls this once at startup to get the structure, then only subscribes
     to lightweight value + timestamp updates over WebSocket.
     """
-    import json
-    from pathlib import Path
-
-    from src.core.config_manager import read_alarms, read_config
-
     store = request.app.state.store
     snapshot = await store.get_snapshot()
     profile_name, profile, warnings = _batch_access_context(request, "read")
     if warnings and profile is not None:
         return SignalMetadataListResponse(signals_info=[], total=0, warnings=warnings)
 
-    # Load signal configs from all can_json_path files listed in system.json
-    signal_configs: dict[str, dict] = {}
-    sys_cfg = read_config()
-    for ch in sys_cfg.get("can", []):
-        can_json_path = Path(ch.get("can_json_path", ""))
-        if not can_json_path.exists():
-            continue
-        ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
-        for msg_data in ch_raw.get("messages", {}).values():
-            for sig_name, sig_data in msg_data.get("signals", {}).items():
-                signal_configs.setdefault(sig_name, {
-                    "min_value": sig_data.get("minimum"),
-                    "max_value": sig_data.get("maximum"),
-                    "unit": sig_data.get("unit") or None,
-                    "writable": bool(sig_data.get("TX", False)),
-                    "states": sig_data.get("states") or None,
-                    "tag": sig_data.get("tag") or _infer_signal_tags(sig_name) or None,
-                })
-
-    # Load alarm configs
-    alarm_raw = read_alarms()
-    alarm_configs = alarm_raw.get("alarms", {})
+    signal_configs = _dbc_signal_configs()
 
     items: list[SignalMetadata] = []
     skipped: list[str] = []
@@ -180,7 +190,6 @@ async def list_available_signals(request: Request):
     for name in sorted(all_names):
         sv = snapshot.get(name)
         sig_cfg = signal_configs.get(name, {})
-        alm_cfg = alarm_configs.get(name, {})
         std_name = name
         can_read = profile is None or profile_allows_signal(profile, name, [std_name], required="read")
         if profile is not None and not can_read:
@@ -198,12 +207,7 @@ async def list_available_signals(request: Request):
                 states=sig_cfg.get("states"),
                 group_name=None,
                 widget_type=None,
-                alarm_warning_high=alm_cfg.get("warning_high"),
-                alarm_warning_low=alm_cfg.get("warning_low"),
-                alarm_critical_high=alm_cfg.get("critical_high"),
-                alarm_critical_low=alm_cfg.get("critical_low"),
                 value=sv.value if sv and can_read else None,
-                status=sv.status if sv and can_read else None,
                 timestamp=sv.timestamp if sv and can_read else None,
             )
         )
@@ -322,8 +326,8 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
     """Write multiple CAN signals at once.
 
     Signals belonging to the same CAN message are grouped together and sent as a single
-    frame (read-modify-write: preserve the values of other signals
-    in the same message that are not included in the batch).
+    frame. Other signals in the same message that are not included in the
+    batch use ``writer.use_prevalue_for_unwritten_signal`` from ``system.json``.
     REST writes are broadcast immediately to all subscribed WS clients.
     """
     writer = getattr(request.app.state, "writer", None)
@@ -391,7 +395,7 @@ async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None), pr
     """Primary WebSocket endpoint — compatible with the demo API.
 
     Client → Server:
-        {"type": "subscribe", "signals": ["SignalName", "*", "alarms", "metrics"]}
+        {"type": "subscribe", "signals": ["SignalName", "*", "metrics"]}
         {"type": "unsubscribe", "signals": ["SignalName"]}
         {"type": "ping"}  →  {"type": "pong"}
     Server → Client (signal frame):
@@ -405,16 +409,6 @@ async def ws_signals(websocket: WebSocket, api_key: str | None = Query(None), pr
         return
     mgr: ConnectionManager = websocket.app.state.ws_manager
     await mgr.handle_subscribe(websocket, profile_name=profile_name)
-
-
-@ws_router.websocket("/alarms")
-async def ws_alarms(websocket: WebSocket, api_key: str | None = Query(None)):
-    auth = websocket.app.state.auth
-    if not auth.verify(api_key):
-        await websocket.close(code=4401)
-        return
-    mgr: ConnectionManager = websocket.app.state.ws_manager
-    await mgr.handle(websocket, topics={SubscriptionTopic.ALARMS})
 
 
 @ws_router.websocket("/all")

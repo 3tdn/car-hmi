@@ -10,7 +10,7 @@
 **CAN-HMI** is a backend + frontend software system that runs on **CarPC** (the embedded computer in the vehicle) and is responsible for:
 
 - **Reading** real-time signals from vehicle ECUs over **CAN Bus** (CAN 2.0B protocol)
-- **Decoding** CAN frames into physical signal values according to `config/can.json` (for example `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
+- **Decoding** CAN frames into physical signal values according to the configured DBC file (`can[].can_db_file`; for example `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
 - **Processing**: smoothing signals, limiting update rate, calculating derived signals, and raising alarms when thresholds are exceeded
 - **Storing** time series in SQLite, with support for historical queries
 - **Serving** REST API + WebSocket (FastAPI) for the frontend web dashboard to display real-time data

@@ -17,42 +17,11 @@ class _FakeRepo:
     async def query_signals(self, **_):
         return []
 
-    async def query_alarms(self, **_):
-        return []
-
-    async def get_alarm_by_id(self, alarm_id):
-        import time
-
-        from src.storage.repository import AlarmRecord
-
-        if alarm_id == 1:
-            return AlarmRecord(
-                id=1,
-                signal_name="CoolantTemp",
-                level="critical",
-                value=110.0,
-                threshold=100.0,
-                description="over temp",
-                triggered_at=time.time(),
-                acknowledged=False,
-                resolved_at=None,
-            )
-        return None
-
     async def insert_signal(self, r):
         pass
 
     async def insert_signals_bulk(self, records):
         pass
-
-    async def insert_alarm(self, a):
-        return 1
-
-    async def acknowledge_alarm(self, i):
-        return True
-
-    async def resolve_alarm(self, i):
-        return True
 
     async def delete_old_signals(self, o):
         return 0

@@ -227,7 +227,7 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
   - `_signals: dict[str, ParsedSignal]`: Signal name → parsed definition
   - `_signal_to_msg: dict[str, int]`: Signal name → message ID (fast lookup)
   - `_loaded_files: list[str]`: Track which files have been loaded
-  - `load(path)`: Parse JSON, auto-allocate missing start_bit, auto-compute min/max
+  - `load_dbc(path)`: Parse a runtime DBC file through `cantools`; `load(path)` remains for legacy JSON compatibility
   - `encode_signal(name, value)`: Find signal's message, encode to `can.Message`
   - `encode_message(msg_id, signals)`: Encode multiple signals into message
   - `decode_message(msg_id, data)`: Decode byte frame to signal dict
@@ -633,7 +633,7 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
 - **Purpose**: REST CRUD for signals + WebSocket streaming
 - **REST Endpoints**:
   - `GET /signals` — List all latest signal values
-  - `GET /signals/available` — Full metadata for all signals (join can.json + system.json configs)
+  - `GET /signals/available` — Full metadata for all signals (loaded from configured DBC files + alarm config)
   - `GET /signals/{signal_name}` — Get latest value for 1 signal
   - `GET /signals/{signal_name}/history` — Query historical values (time range, limit, offset)
   - `PUT /signals/{signal_name}` — Write value to CAN bus (triggers CANWriter)
@@ -1206,9 +1206,9 @@ Server → Client (Metrics):
 - Writer config (rate limit per second, burst)
 - Logging config (level, file path, rotation)
 
-**`config/can.json`** (CAN Database)
-- Message definitions (ID, name, DLC, cycle time)
-- Signal definitions (name, start bit, length, sign, byte order, factor, offset, unit, min/max)
+**`db/can_db/*.dbc`** (CAN Database)
+- The DBC file referenced by each `can[].can_db_file` defines messages (ID, name, DLC, cycle time)
+- It also defines signals (name, start bit, length, sign, byte order, factor, offset, unit, min/max)
 
 **`config/alarms.json`** (Alarm Thresholds)
 - Per-signal alarm thresholds (warning_high/low, critical_high/low)
@@ -1375,16 +1375,12 @@ AppConfig (BaseModel)
 │  ├─ interface: str (virtual, socketcan, kvaser, …)
 │  ├─ channel: str (vcan0, can0, /dev/…)
 │  ├─ bitrate: int
-│  ├─ can_json_path: str
-│  ├─ can_db_files: list[str]
-│  ├─ can_db_dirs: list[str]
-│  ├─ a2l_dirs: list[str]
-│  └─ can_db_format: str (auto, dbc, a2l)
+│  └─ can_db_file: str (DBC path, read directly via cantools)
 │
 ├─ simulator: SimulatorConfig
 │  ├─ enabled: bool
 │  ├─ default_cycle_ms: int
-│  └─ can_json_path: str
+│  └─ can_db_file: str (DBC path)
 │
 ├─ api: APIConfig
 │  ├─ host: str

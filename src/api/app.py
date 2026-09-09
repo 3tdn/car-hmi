@@ -15,7 +15,6 @@ from fastapi.staticfiles import StaticFiles
 from src.api.auth import APIKeyAuth
 from src.api.routes import (
     adaptive_restraint,
-    alarms,
     camera,
     config,
     devmode,
@@ -128,7 +127,6 @@ def create_app(
 
     # Register routers
     app.include_router(signals.router, prefix="/signals", tags=["Signals"], dependencies=[auth_dep])
-    app.include_router(alarms.router, prefix="/alarms", tags=["Alarms"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
     app.include_router(
         adaptive_restraint.router, prefix="/adaptive_restraint", tags=["Adaptive Restraint"]

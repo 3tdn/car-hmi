@@ -23,14 +23,12 @@
  *   GET  /signals/available          → fetchAvailableSignals()
  *   PUT  /signals/{name}             → writeSignal(name, value)
  *   POST /signals/batch_update       → batchWriteSignals(writes)
- *   GET  /alarms                     → fetchActiveAlarms()
- *   POST /alarms/{id}/acknowledge    → acknowledgeAlarm(id)
  *   GET  /system/metrics             → fetchSystemMetrics()
  *
  * WebSocket (demo-compatible):
  *   Endpoint:  ws[s]://host/ws/signals
  *   Client → Server:
- *     {"type": "subscribe",   "signals": ["SignalName", "*", "alarms", "metrics"]}
+ *     {"type": "subscribe",   "signals": ["SignalName", "*", "metrics"]}
  *     {"type": "unsubscribe", "signals": ["SignalName"]}
  *     {"type": "ping"}
  *   Server → Client (signal frame):
@@ -319,7 +317,7 @@ async function fetchSignals() {
 
 /**
  * Full metadata for all signals (called once at startup).
- * Includes: unit, min/max, alarm thresholds, writable flag, current value.
+ * Includes: unit, min/max, writable flag, current value.
  * @returns {Promise<{signals_info:Array, total:number}>}
  */
 async function fetchAvailableSignals() {
@@ -434,33 +432,11 @@ async function rebootCarHmi() {
     headers: _devHeaders(),
   });
 }
-
-// ── Alarms ────────────────────────────────────────────────────────────────────
-
-/**
- * List of alarms not yet acknowledged.
- * @returns {Promise<{items:Array, total:number}>}
- */
-async function fetchActiveAlarms() {
-  return _fetchJson(`${API_BASE}/alarms?acknowledged=false&limit=50`, { headers: _headers() });
-}
-
-/**
- * Acknowledge an alarm by ID.
- * @param {number} alarmId
- */
-async function acknowledgeAlarm(alarmId) {
-  return _fetchJson(`${API_BASE}/alarms/${alarmId}/acknowledge`, {
-    method:  "POST",
-    headers: _headers(),
-  });
-}
-
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
 
 /**
  * Open a fixed WebSocket to a topic (no subscribe control, legacy).
- * @param {"signals"|"alarms"|"all"} topic
+ * @param {"signals"|"all"} topic
  * @param {function(object): void} onMessage
  * @returns {WebSocket}
  */
@@ -482,7 +458,6 @@ function openWebSocket(topic, onMessage) {
  * Demo-compatible:
  *   subscribe(["*"])             → receive all signals
  *   subscribe(["A", "B"])        → receive signals A and B
- *   subscribe(["*", "alarms"])   → signals + alarm events
  *   subscribe(["metrics"])       → metrics only
  *   ping()                       → server returns {"type": "pong"}
  *
@@ -509,7 +484,7 @@ function openSubscriptionWS(onMessage, onOpen) {
 
   /**
    * Subscribe to signals/channels.
-   * @param {string[]|string} signals  — e.g. ["EngineSpeed", "*", "alarms", "metrics"]
+   * @param {string[]|string} signals  — e.g. ["EngineSpeed", "*", "metrics"]
    * @param {"continuous"|"once"} [mode="continuous"]
    * @param {{rate_ms?:number}} [opts]
    */
@@ -621,4 +596,3 @@ async function fetchCameraStatus() {
   if (!resp.ok) throw new Error(`GET /api/camera/status → ${resp.status}`);
   return resp.json();
 }
-

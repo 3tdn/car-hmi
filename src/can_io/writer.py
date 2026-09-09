@@ -24,11 +24,15 @@ class CANWriter:
     All write operations are serialized through ``asyncio.Lock`` to avoid
     concurrent frame transmission from multiple async callers.
 
-    If ``signal_store`` is provided, ``send_signal`` will:
-    1. Read the current values of signals in the same message (read-modify-write)
-       so other signals in the same CAN frame are not zeroed out.
-    2. Update SignalStore directly after a successful send, because SocketCAN
-       does not loop back frames from the same socket by default (recv_own_msgs=False).
+    ``WriterConfig.use_prevalue_for_unwritten_signal`` determines how signals in
+    the same message that are not included in a write are encoded: reuse their
+    current SignalStore value (the default) or encode their physical value as zero.
+
+    If ``signal_store`` is provided and the setting is ``True``,
+    ``send_signal`` reads the current values of signals in the same message
+    (read-modify-write) so they are not zeroed out.
+    After a successful send, SignalStore is updated directly because SocketCAN
+    does not loop back frames from the same socket by default (recv_own_msgs=False).
 
     When ``periodic_mode=True`` (from WriterConfig), each ``send_signals_batch``
     sends immediately, then continues retransmitting at ``periodic_time_step`` ms intervals
@@ -61,10 +65,14 @@ class CANWriter:
             self._periodic_mode = writer_config.periodic_mode
             self._periodic_time_step_ms = writer_config.periodic_time_step
             self._periodic_duration_ms = writer_config.periodic_duration
+            self._use_prevalue_for_unwritten_signal = (
+                writer_config.use_prevalue_for_unwritten_signal
+            )
         else:
             self._periodic_mode = False
             self._periodic_time_step_ms = 20
             self._periodic_duration_ms = 10000
+            self._use_prevalue_for_unwritten_signal = True
 
         # Periodic task management: msg_id → asyncio.Task
         self._periodic_tasks: dict[int, asyncio.Task] = {}
@@ -79,8 +87,8 @@ class CANWriter:
     async def send_signal(self, name: str, value: float) -> None:
         """Encode a single signal and transmit the corresponding CAN frame.
 
-        Delegates to ``send_signals_batch`` so both paths share the same
-        read-modify-write logic (preserving the other signals in the same message).
+        Delegates to ``send_signals_batch`` so both paths apply the configured
+        unwritten-signal setting consistently.
 
         Args:
             name:  Signal name as defined in the DBC/CANdb database.
@@ -95,10 +103,9 @@ class CANWriter:
     async def send_signals_batch(self, signals: dict[str, float]) -> dict[str, float]:
         """Group multiple signals by message ID and send exactly one frame per message.
 
-        For each CAN message referenced in ``signals``:
-        - Read the current values of all remaining signals in the message from
-          SignalStore (read-modify-write) so they are not zeroed out.
-        - Override them with the new values in ``signals``.
+        For each CAN message referenced in ``signals``, use the configured
+        unwritten-signal setting for remaining signals, then override them with
+        the new values in ``signals``.
         - Encode and send a single CAN frame for that message.
 
         Args:
@@ -166,9 +173,17 @@ class CANWriter:
         sig_values: dict[str, float],
         ts: float,
     ) -> None:
-        """Perform read-modify-write and then send one CAN frame for ``msg_id``."""
+        """Apply the unwritten-signal setting and send one CAN frame for ``msg_id``."""
         signals_to_encode: dict[str, float] = {}
-        if self._store is not None:
+        if not self._use_prevalue_for_unwritten_signal:
+            # Populate every signal explicitly so zero means physical value 0,
+            # including signals whose DBC offset is non-zero.
+            signals_to_encode = {
+                sig_name: 0.0
+                for sig_name in msg_def.signals
+                if sig_name not in sig_values
+            }
+        elif self._store is not None:
             for sig_name in msg_def.signals:
                 if sig_name in sig_values:
                     continue
