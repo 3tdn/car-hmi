@@ -1294,7 +1294,7 @@
       "size": 8,
       "senders": [],
       "signals": {
-        "SPS_FR_SeatDirectionX": {
+        "SPS_RR1_SeatDirectionX": {
           "start_bit": null,
           "length": 12,
           "byte_order": "little_endian",
@@ -1313,7 +1313,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatDirectionZ": {
+        "SPS_RR1_SeatDirectionZ": {
           "start_bit": 12,
           "length": 12,
           "byte_order": "little_endian",
@@ -1332,7 +1332,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatBackRestPosition": {
+        "SPS_RR1_SeatBackRestPosition": {
           "start_bit": 24,
           "length": 12,
           "byte_order": "little_endian",
@@ -1351,7 +1351,7 @@
             "FR"
           ]
         },
-        "SPS_FR_FootRestPosition": {
+        "SPS_RR1_FootRestPosition": {
           "start_bit": 36,
           "length": 12,
           "byte_order": "little_endian",
@@ -1370,7 +1370,7 @@
             "FR"
           ]
         },
-        "SPS_FR_HeadRestPosition": {
+        "SPS_RR1_HeadRestPosition": {
           "start_bit": 48,
           "length": 12,
           "byte_order": "little_endian",
@@ -1396,7 +1396,7 @@
       "size": 8,
       "senders": [],
       "signals": {
-        "SPS_FR_SeatDirectionX": {
+        "SPS_RL2_SeatDirectionX": {
           "start_bit": null,
           "length": 12,
           "byte_order": "little_endian",
@@ -1415,7 +1415,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatDirectionZ": {
+        "SPS_RL2_SeatDirectionZ": {
           "start_bit": 12,
           "length": 12,
           "byte_order": "little_endian",
@@ -1434,7 +1434,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatBackRestPosition": {
+        "SPS_RL2_SeatBackRestPosition": {
           "start_bit": 24,
           "length": 12,
           "byte_order": "little_endian",
@@ -1453,7 +1453,7 @@
             "FR"
           ]
         },
-        "SPS_FR_FootRestPosition": {
+        "SPS_RL2_FootRestPosition": {
           "start_bit": 36,
           "length": 12,
           "byte_order": "little_endian",
@@ -1472,7 +1472,7 @@
             "FR"
           ]
         },
-        "SPS_FR_HeadRestPosition": {
+        "SPS_RL2_HeadRestPosition": {
           "start_bit": 48,
           "length": 12,
           "byte_order": "little_endian",
@@ -1498,7 +1498,7 @@
       "size": 8,
       "senders": [],
       "signals": {
-        "SPS_FR_SeatDirectionX": {
+        "SPS_RL1_SeatDirectionX": {
           "start_bit": null,
           "length": 12,
           "byte_order": "little_endian",
@@ -1517,7 +1517,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatDirectionZ": {
+        "SPS_RL1_SeatDirectionZ": {
           "start_bit": 12,
           "length": 12,
           "byte_order": "little_endian",
@@ -1536,7 +1536,7 @@
             "FR"
           ]
         },
-        "SPS_FR_SeatBackRestPosition": {
+        "SPS_RL1_SeatBackRestPosition": {
           "start_bit": 24,
           "length": 12,
           "byte_order": "little_endian",
@@ -1555,7 +1555,7 @@
             "FR"
           ]
         },
-        "SPS_FR_FootRestPosition": {
+        "SPS_RL1_FootRestPosition": {
           "start_bit": 36,
           "length": 12,
           "byte_order": "little_endian",
@@ -1574,7 +1574,7 @@
             "FR"
           ]
         },
-        "SPS_FR_HeadRestPosition": {
+        "SPS_RL1_HeadRestPosition": {
           "start_bit": 48,
           "length": 12,
           "byte_order": "little_endian",

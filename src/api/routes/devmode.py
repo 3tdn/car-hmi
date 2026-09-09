@@ -8,7 +8,6 @@ sections until it expires or the owning section leaves Dev Mode.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from contextlib import suppress
@@ -183,21 +182,22 @@ def _normalize_seats(seats: dict[str, bool]) -> dict[str, bool]:
 
 @lru_cache(maxsize=1)
 def _dbc_signal_states() -> dict[str, list[dict]]:
-    """States per signal, merged from every can_json_path listed in config/system.json."""
+    """States per signal, merged from every can_db_file listed in config/system.json."""
+    from src.can_io.parser import DatabaseLoader
     from src.core.config_manager import read_config
 
     states: dict[str, list[dict]] = {}
     for channel in read_config().get("can", []):
-        path = Path(channel.get("can_json_path", ""))
-        if not path.exists():
+        can_db_file = channel.get("can_db_file")
+        if not can_db_file or not Path(can_db_file).exists():
             continue
+        loader = DatabaseLoader()
         try:
-            raw = json.loads(path.read_text(encoding="utf-8")) or {}
-        except (OSError, json.JSONDecodeError):
+            loader.load_dbc(can_db_file)
+        except (FileNotFoundError, ValueError, RuntimeError):
             continue
-        for message in raw.get("messages", {}).values():
-            for name, signal in message.get("signals", {}).items():
-                states[name] = signal.get("states") or []
+        for name, signal in loader.signals.items():
+            states[name] = signal.states
     return states
 
 

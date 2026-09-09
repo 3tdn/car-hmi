@@ -84,20 +84,22 @@ The system supports **reading/writing vehicle CAN bus signals**, processing data
 |---|---|
 | Purpose | Emit CAN frames according to CANdb / candb so development/testing can proceed without hardware |
 | Protocol | CAN 2.0B, with optional CAN FD extension support |
-| CANdb | Load `config/can.json` containing message/signal definitions to encode signal → CAN frame |
+| CANdb | Load the channel's `can_db_file` DBC definition to encode signal → CAN frame |
 | Scenarios | Support scenario files (JSON/YAML) defining time-based signal sequences |
 | Speed | Configurable cycle time per message (default 10–100 ms) |
 | Interface | `python-can` virtual interface (`virtual`, `socketcan`, `pcan`, `vector`) |
 | Noise | Optional added noise/jitter for realistic simulation |
 | CLI | `python -m src.can_simulator.cli --config config/system.json --scenario scenarios/city_drive.yaml` |
 
-> The simulator and processor load signal definitions from **`config/can.json`**. This file contains all message/signal metadata required for decode/encode.
+> The processor, simulator, `GET /signals/available`, and Dev Mode load signal definitions directly from each
+> configured `.dbc` file (`can[].can_db_file` or `simulator.can_db_file`) through `DatabaseLoader.load_dbc()`.
+> `DatabaseLoader.load()` retains support for legacy CAN JSON files, but they are not part of the runtime configuration.
 
 #### CANdb (candb) format
 
 The system must support reading/writing message/signal definition data in the **CANdb (candb)** format to simplify integration with description data from other tools.
 
-Simple example (JSON):
+Legacy JSON compatibility example (the runtime source is DBC):
 
 ```json
 {
@@ -118,21 +120,23 @@ Simple example (JSON):
 }
 ```
 
-> **Note:** DBC and A2L formats have been removed. The system uses **`config/can.json`** as the only source of message/signal definitions.
+> **Runtime source:** `DatabaseLoader.load_dbc()` reads `.dbc` files directly via `cantools` for CANReader,
+> CANWriter, the simulator, `/signals/available`, and Dev Mode. See `src/can_io/parser.py` and
+> `src/can_simulator/simulator.py`.
 
 Support requirements:
-- Load from **1 JSON file** (`config/can.json`).
+- Load one DBC file per CAN channel through `can[].can_db_file`.
 - The parser returns a common message/signal structure shared by the decoder/encoder.
 - Support `start_bit: null` (auto-allocation) and automatic min/max calculation.
 
-**Sample signals that need to be simulated (all signals in `config/can.json`):**
+**Sample signals that need to be simulated (from the configured DBC):**
 
 | Sample signal | Message (ID) | Unit | Range | Cycle |
 |---|---|---|---|---|
 | HMI_CrashSeverity | INC_HMI_CrashInfo (128) |  | 0–7 | TBD |
 | HMI_CrashImpactTrigger | INC_HMI_CrashInfo (128) |  | 0–1 | TBD |
 
-> **Note:** The full signal list is defined in `config/can.json`. The system automatically loads all signals from this file at startup.
+> **Note:** The full signal list is defined by the configured DBC files. The system loads them at startup.
 
 ---
 
@@ -142,10 +146,10 @@ Support requirements:
 
 | Item | Requirement |
 |---|---|
-| Library | `python-can` (CAN I/O) — custom parser based on `can.json` |
+| Library | `python-can` (CAN I/O) and `cantools` (DBC loading) |
 | Bus factory | `bus_factory.py` — Factory that creates CAN bus instances (supports virtual, socketcan, pcan, vector, kvaser, serial) |
-| Parser | `parser.py` — `DatabaseLoader` loads `config/can.json`, decodes/encodes CAN frames using custom bit manipulation |
-| Decode | Automatically decode frames → signals based on can.json (bit extraction + factor/offset) |
+| Parser | `parser.py` — `DatabaseLoader` loads DBC files directly, then decodes/encodes CAN frames using the parsed bit layout |
+| Decode | Automatically decode frames → signals based on DBC bit layout and factor/offset |
 | Encode + Send | Receive signal-change commands → encode → send CAN frame |
 | Async | Run non-blocking (`asyncio`) so the main loop is not blocked |
 | Filter | Support CAN ID filters (receive only relevant messages) |
@@ -158,14 +162,14 @@ Support requirements:
 **Decoded signal structure (after frame decode):**
 
 Standard format with 4 main parts:
-1) **Message config** — metadata from config/can.json
+1) **Message config** — metadata from the configured DBC
 2) **Raw message** — frame received from the CAN bus
-3) **Signal configs** — bit layout, factor/offset definitions from can.json
+3) **Signal configs** — bit layout and factor/offset definitions from the DBC
 4) **Decoded signal values** — real values after decoding (`raw × factor + offset`)
 
 ```json
 {
-    // --- 1) Message config (from config + can.json) ------------------------------
+    // --- 1) Message config (from the configured DBC) ------------------------------
     "message_config": {
         "msg_name": "SBS_WMS_FR_Response",
         "msg_id": 401,
@@ -883,7 +887,7 @@ sudo ip link set up can0
 |---|---|
 | Authentication | API key (header `X-API-Key`) for REST. Optional JWT for multi-user. WS: token via query param `?token=` |
 | Authorization | Signal write access checks the `writable` flag in `signal_config`. Only signals with `writable=true` may be written via PUT |
-| Input validation | Pydantic models validate all request bodies. Signal values must be within the `[min, max]` range from config/can.json |
+| Input validation | Pydantic models validate all request bodies. Signal values must be within the `[min, max]` range from the configured DBC |
 | Rate limiting | Global: 100 req/s (configurable). Write: 10 req/s per signal. Return HTTP 429 + `Retry-After` |
 | TLS | Production: HTTPS (reverse proxy nginx/caddy). Dev: plain HTTP OK |
 | Secret management | API key is not hard-coded; read from env var `CANHMI_API_KEY` or a secret file. Do not commit secrets in the config file |
@@ -936,7 +940,7 @@ car-hmi/
 │   ├── __init__.py
 │   ├── can_simulator/
 │   │   ├── __init__.py
-│   │   ├── simulator.py        # CANSimulator — reads can.json, generates random signals
+│   │   ├── simulator.py        # CANSimulator — reads .dbc directly, generates random signals
 │   │   ├── cli.py              # CLI entry-point
 │   │   └── config.json         # Simulator runtime config (mode, update_hz)
 │   ├── can_io/
@@ -1133,19 +1137,19 @@ jobs:
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_json_path": "config/can.json"
+      "can_db_file": "db/can_db/p_v2.dbc"
     },
     {
       "interface": "virtual",
       "channel": "vcan1",
       "bitrate": 500000,
-      "can_json_path": "config/can1.json"
+      "can_db_file": "db/can_db/p_v2.dbc"
     }
   ],
   "simulator": {
     "enabled": true,
     "default_cycle_ms": 50,
-    "can_json_path": "config/can.json"
+    "can_db_file": "db/can_db/p_v2.dbc"
   },
   "api": {
     "host": "0.0.0.0",

@@ -49,7 +49,7 @@
 | File | Responsibility |
 |---|---|
 | `bus_factory.py` | Create `can.BusABC` instances from config (socketcan, virtual, pcan, vector…) |
-| `parser.py` | Load and parse `config/can.json` into `ParsedMessage` / `ParsedSignal`. Decode/encode CAN frames using custom bit manipulation |
+| `parser.py` | Load and parse a `.dbc` file (via `cantools`) or the legacy `config/can.json` into `ParsedMessage` / `ParsedSignal`. Decode/encode CAN frames using custom bit manipulation |
 | `reader.py` | `CANReader`: async producer, reads frames from the bus → decodes → pushes into `asyncio.Queue`. Supports automatic reconnect and backpressure |
 | `writer.py` | `CANWriter`: encode signal value → CAN frame → send to bus. `CANWriterRouter`: route signal writes to the correct CAN channel |
 
@@ -57,10 +57,11 @@
 All readers feed into a shared `asyncio.Queue` → centralized pipeline processing.
 `CANWriterRouter` routes writable signals to the correct writer/channel in O(1).
 
-**DatabaseLoader** is the core class that loads can.json:
+**DatabaseLoader** is the core class that loads the CAN database, directly from DBC or from can.json:
 ```python
 db_loader = DatabaseLoader()
-db_loader.load("config/can.json")   # load all messages/signals
+db_loader.load_dbc("db/can_db/p_v2.dbc")  # preferred: read directly from DBC
+db_loader.load("config/can.json")          # legacy: read from can.json export
 frame = db_loader.decode_frame(msg_id, raw_bytes)  # → dict[str, float]
 msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 ```
@@ -162,11 +163,11 @@ Authentication: `X-API-Key` header (REST), `?token=` query param (WebSocket). If
 
 ### 2.6 `src/can_simulator/` — CAN Simulator
 
-Uses `CANSimulator` to read `can.json` directly and generate random values in `[minimum, maximum]`:
+Uses `CANSimulator` to read a `.dbc` file directly (via `DatabaseLoader.load_dbc()`) and generate random values in `[minimum, maximum]`:
 
 | Mode | Class | Description |
 |---|---|---|
-| `can_json` | `CANSimulator` | Generate random signals in [min, max] from can.json on a fixed cycle |
+| `can_dbc` | `CANSimulator` | Generate random signals in [min, max] from a DBC file on a fixed cycle |
 
 The simulator uses a dedicated **virtual bus**, isolated from the reader bus (python-can virtual allows multiple instances on the same channel).
 
@@ -234,11 +235,12 @@ can:
   interface: virtual          # socketcan / pcan / vector / virtual
   channel: vcan0
   bitrate: 500000
-  can_json_path: "config/can.json"
+  can_db_file: "db/can_db/p_v2.dbc"
 
 simulator:
   enabled: true
   default_cycle_ms: 100
+  can_db_file: "db/can_db/p_v2.dbc"
 
 processor:
   smoothing_window: 5

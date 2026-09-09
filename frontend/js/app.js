@@ -895,14 +895,15 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   if (!writable) {
     writeCell = `<td class="signal-write signal-write--ro">—</td>`;
   } else if (states && states.length > 0) {
-    // Enum signal: render a <select> with named states
+    // Enum signal: suggest named states via a datalist, but still allow any raw value to be typed/written
+    const listId = `states-${sanitizeId(signalName)}`;
     const options = states
-      .map((s) => `<option value="${s.value}">${s.value} — ${s.description}</option>`)
+      .map((s) => `<option value="${s.value}">${s.description}</option>`)
       .join("");
     writeCell = `<td class="signal-write">
-        <select class="write-select" aria-label="Write value for ${signalName}">
-          ${options}
-        </select>
+        <input class="write-input" type="number" step="any" list="${listId}"
+               aria-label="Write value for ${signalName}" />
+        <datalist id="${listId}">${options}</datalist>
         <button class="write-btn btn" data-signal="${signalName}">Set</button>
        </td>`;
   } else {
@@ -930,8 +931,8 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
     const btn = row.querySelector(".write-btn");
     btn.dataset.defaultTitle = 'Write signal';
     btn.addEventListener("click", () => handleWriteSignal(signalName, row));
-    const inp = row.querySelector(".write-input, .write-select");
-    if (inp && inp.tagName === "INPUT") {
+    const inp = row.querySelector(".write-input");
+    if (inp) {
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Enter") handleWriteSignal(signalName, row);
       });
@@ -944,9 +945,8 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
 
 async function handleWriteSignal(signalName, row) {
   const inp = row.querySelector(".write-input");
-  const sel = row.querySelector(".write-select");
   const btn = row.querySelector(".write-btn");
-  const raw = sel ? sel.value : (inp ? inp.value.trim() : "");
+  const raw = inp ? inp.value.trim() : "";
   if (raw === "") return;
   const value = parseFloat(raw);
   if (isNaN(value)) {

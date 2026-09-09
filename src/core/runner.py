@@ -217,11 +217,11 @@ class AppRunner:
         store_cfg = self.config.storage
         sim_cfg = self.config.simulator
 
-        # 1. CAN DB — load each channel from its own can.json ───────────────────
+        # 1. CAN DB — load each channel directly from its own DBC file ─────────
         all_signals: dict[str, object] = {}
         for ch_cfg in can_channels:
             db_loader = DatabaseLoader()
-            db_loader.load(ch_cfg.can_json_path)
+            db_loader.load_dbc(ch_cfg.can_db_file)
             self._db_loaders.append(db_loader)
             overlap_count = 0
             for sig_name in db_loader.signals:
@@ -462,9 +462,9 @@ class AppRunner:
         """Build CANSimulator if simulator configuration exists."""
         from src.can_simulator.simulator import CANSimulator
 
-        can_json_path = Path(sim_cfg.can_json_path)
-        if not can_json_path.exists():
-            logger.warning("can_json_path '%s' not found — simulator disabled", can_json_path)
+        can_db_file = Path(sim_cfg.can_db_file)
+        if not can_db_file.exists():
+            logger.warning("can_db_file '%s' not found — simulator disabled", can_db_file)
             return None
 
         sim_bus = self._bus_factories[0]() if self._bus_factories else None
@@ -474,7 +474,7 @@ class AppRunner:
         self._simulator_bus = sim_bus
         return CANSimulator(
             bus=sim_bus,
-            can_json_path=can_json_path,
+            can_db_file=can_db_file,
             cycle_ms=sim_cfg.default_cycle_ms,
             repeat=True,
             random_mode=getattr(sim_cfg, "random_mode", False),

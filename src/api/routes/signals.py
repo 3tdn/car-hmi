@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import time
+from functools import lru_cache
+from pathlib import Path
 
 import can
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
@@ -48,7 +51,40 @@ def _seat_lock_warning(signal_name: str, lock) -> dict:
 
 
 def _infer_signal_tags(signal_name: str) -> list[str]:
-    return [part for part in signal_name.split("_") if part.isalpha() and part.isupper()]
+    return [part for part in signal_name.split("_") if re.match(r'^[A-Z0-9]+$', part)]
+
+
+_CARPC_SENDER_NAME = "CAR_PC"  # signals CarPC transmits (writable via PUT /signals/{name})
+
+
+@lru_cache(maxsize=1)
+def _dbc_signal_configs() -> dict[str, dict]:
+    """Signal metadata (min/max/unit/writable/states/tag), merged from every can_db_file in system.json."""
+    from src.can_io.parser import DatabaseLoader
+    from src.core.config_manager import read_config
+
+    configs: dict[str, dict] = {}
+    for ch in read_config().get("can", []):
+        can_db_file = ch.get("can_db_file")
+        if not can_db_file or not Path(can_db_file).exists():
+            continue
+        loader = DatabaseLoader()
+        try:
+            loader.load_dbc(can_db_file)
+        except (FileNotFoundError, ValueError, RuntimeError):
+            continue
+        for msg in loader.messages.values():
+            writable = _CARPC_SENDER_NAME in msg.senders
+            for sig_name, sig in msg.signals.items():
+                configs.setdefault(sig_name, {
+                    "min_value": sig.minimum,
+                    "max_value": sig.maximum,
+                    "unit": sig.unit or None,
+                    "writable": writable,
+                    "states": sig.states or None,
+                    "tag": _infer_signal_tags(sig_name) or None,
+                })
+    return configs
 
 
 def _batch_access_context(request: Request, required: str) -> tuple[str | None, dict | None, list[dict]]:
@@ -138,10 +174,7 @@ async def list_available_signals(request: Request):
     The client calls this once at startup to get the structure, then only subscribes
     to lightweight value + timestamp updates over WebSocket.
     """
-    import json
-    from pathlib import Path
-
-    from src.core.config_manager import read_alarms, read_config
+    from src.core.config_manager import read_alarms
 
     store = request.app.state.store
     snapshot = await store.get_snapshot()
@@ -149,24 +182,7 @@ async def list_available_signals(request: Request):
     if warnings and profile is not None:
         return SignalMetadataListResponse(signals_info=[], total=0, warnings=warnings)
 
-    # Load signal configs from all can_json_path files listed in system.json
-    signal_configs: dict[str, dict] = {}
-    sys_cfg = read_config()
-    for ch in sys_cfg.get("can", []):
-        can_json_path = Path(ch.get("can_json_path", ""))
-        if not can_json_path.exists():
-            continue
-        ch_raw = json.loads(can_json_path.read_text(encoding="utf-8")) or {}
-        for msg_data in ch_raw.get("messages", {}).values():
-            for sig_name, sig_data in msg_data.get("signals", {}).items():
-                signal_configs.setdefault(sig_name, {
-                    "min_value": sig_data.get("minimum"),
-                    "max_value": sig_data.get("maximum"),
-                    "unit": sig_data.get("unit") or None,
-                    "writable": bool(sig_data.get("TX", False)),
-                    "states": sig_data.get("states") or None,
-                    "tag": sig_data.get("tag") or _infer_signal_tags(sig_name) or None,
-                })
+    signal_configs = _dbc_signal_configs()
 
     # Load alarm configs
     alarm_raw = read_alarms()

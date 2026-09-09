@@ -121,9 +121,10 @@ Can be swapped to **TimescaleDB** / **InfluxDB** by implementing the `ISignalRep
 
 | Format | File | Parser | Notes |
 |---|---|---|---|
-| **CAN JSON** | `config/can.json` | `DatabaseLoader` (built-in bit manipulation) | The only supported format |
+| **DBC** | `db/can_db/*.dbc` | `DatabaseLoader.load_dbc()` (via `cantools`) | Preferred — read directly by CANReader/CANWriter, no JSON export step |
+| **CAN JSON** (legacy) | External/legacy JSON export | `DatabaseLoader.load()` (built-in bit manipulation) | Supported for compatibility only; runtime, `/signals/available`, and Dev Mode use DBC |
 
-> **Note:** DBC, KCD, SYM, and A2L formats have been removed. `cantools` is no longer a dependency.
+> **Note:** `cantools` is a runtime dependency again (used by `load_dbc()`). KCD/SYM/A2L formats are still not supported.
 
 ---
 

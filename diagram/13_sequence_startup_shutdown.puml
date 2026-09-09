@@ -32,7 +32,7 @@ db -> db : CREATE TABLE IF NOT EXISTS\nsignal_log, signal_config
 db --> runner : DB ready
 
 loop for each CAN channel in config.can
-    runner -> parser : DatabaseLoader.load(can_json_path) [channel_i]
+    runner -> parser : DatabaseLoader.load_dbc(can_db_file) [channel_i]
     parser --> runner : db_loader
     runner -> reader : CANReader(bus=bus, db=db_loader, queue=rx_queue) [channel_i]
     reader -> reader : connect to CAN bus (channel_i)
@@ -40,8 +40,8 @@ loop for each CAN channel in config.can
 end
 
 opt simulator enabled
-    runner -> sim : CANSimulator(can_json_path, cycle_ms)
-    sim -> sim : load can.json (messages + signals)
+    runner -> sim : CANSimulator(can_db_file, cycle_ms)
+    sim -> sim : load DBC (messages + signals)
     sim --> runner : Simulator ready
 end
 

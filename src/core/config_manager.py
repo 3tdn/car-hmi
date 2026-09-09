@@ -104,7 +104,7 @@ def write_default_bus(path: str | Path | None = None) -> Dict[str, Any]:
     from src.core.config import AppConfig, CANConfig
 
     p = Path(path) if path else DEFAULT_CONFIG_PATH
-    default_can = CANConfig(can_db_dirs=["db/can_db/"])
+    default_can = CANConfig(can_db_file="db/can_db/p_v2.dbc")
     cfg = AppConfig(can=[default_can])
     default = cfg.model_dump()
     write_config(default, p)

@@ -4,13 +4,13 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 ## Features
 
-- **Multi-channel CAN I/O** — Read and write CAN frames via `python-can` across multiple independent bus channels; decode/encode signals using per-channel `can_json_path` databases
+- **Multi-channel CAN I/O** — Read and write CAN frames via `python-can` across multiple independent bus channels; decode/encode signals using per-channel `can_db_file` DBC databases (read directly via `cantools`, no JSON export step)
 - **Signal Processing** — Smoothing (moving average), rate limiting, computed signals, alarm thresholds with `info / warning / critical` levels
 - **REST + WebSocket API** — FastAPI-based API for live signal streaming, full signal metadata, alarm history, CAN write commands, and system metrics
 - **Per-signal WebSocket subscription** — Clients subscribe to specific signal names, `alarms`, or `metrics` channels via a structured JSON protocol on `/ws/subscribe`
 - **Storage** — Async SQLite persistence with configurable batch inserts, retention policy, and data export to CSV / JSON
 - **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
-- **Simulator** — Built-in CAN simulator for development without hardware; driven by the `can.json` signal definitions
+- **Simulator** — Built-in CAN simulator for development without hardware; driven directly by the `can_db_file` DBC signal definitions
 - **Standardized signal names (`std_name`)** — API responses include `std_name` for compatibility; it is identical to `signal_name`.
 - **API Key Auth** — Optional `X-API-Key` header authentication; disabled automatically when key is set to placeholder values
 
@@ -133,8 +133,8 @@ All runtime behaviour is controlled via `config/system.json`. Key sections:
 
 | Section       | Description                                                                      |
 |---------------|----------------------------------------------------------------------------------|
-| `can`         | **Array** of bus channels — each with `interface`, `channel`, `bitrate`, `can_json_path`, `can_db_files` |
-| `simulator`   | Enable/disable, `default_cycle_ms`, `can_json_path` for the built-in simulator   |
+| `can`         | **Array** of bus channels — each with `interface`, `channel`, `bitrate`, `can_db_file` (DBC path read directly by CANReader/CANWriter) |
+| `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
 | `processor`   | `smoothing_window`, `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_heartbeat_interval_sec`, `ws_metrics_interval_sec` |
 | `storage`     | `engine` (`sqlite`), `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
@@ -815,7 +815,7 @@ The web dashboard includes `Settings` and `Alarms` buttons in the header. Use th
 
 Notes:
 - The modal editors send JSON to the backend endpoints under `/config/*`. The backend persists changes to disk and attempts a live apply where supported.
-- Always backup `config/system.json` if you have customized critical paths (`can_json_path`, `sqlite_path`) before resetting.
+- Always backup `config/system.json` if you have customized critical paths (`can_db_file`, `sqlite_path`) before resetting.
 
 ## Frontend Modes
 
