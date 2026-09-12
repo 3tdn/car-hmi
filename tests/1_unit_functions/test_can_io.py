@@ -122,8 +122,99 @@ def test_recv_loop_deduplicates_before_event_loop_callback():
     reader._recv_loop(loop)
 
     assert len(loop.calls) == 1
-    assert loop.calls[0][0] == reader._enqueue_frame_sync
+    assert loop.calls[0][0] == reader._drain_pending_frames
     assert db_mock.decode_frame.call_count == 1
+    loop.calls[0][0](*loop.calls[0][1])
+    assert queue_mock.get_nowait().signals == {"Speed": 10.0}
+
+
+def test_reader_allowlist_rejects_unknown_id_before_decode_and_cache():
+    """Frames outside the DBC allowlist must not consume decode or cache state."""
+    import asyncio
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    db_mock = Mock()
+    db_mock.messages = {100: Mock()}
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=db_mock,
+        queue=asyncio.Queue(),
+        filter_ids=set(db_mock.messages),
+        max_rate_hz=5000.0,
+    )
+
+    frame = reader._prepare_frame(
+        can.Message(arbitration_id=200, data=b"\x01"),
+        arrival=1.0,
+    )
+
+    assert frame is None
+    db_mock.decode_frame.assert_not_called()
+    assert reader._last_enqueue == {}
+    assert reader._last_msg_data == {}
+
+
+def test_recv_loop_coalesces_continuously_changing_frames_before_callback():
+    """Changing payloads must not bypass the bounded callback ingress."""
+    import asyncio
+    from types import SimpleNamespace
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    class FakeBus:
+        INTERFACE = "virtual"
+        channel = "vcan0"
+
+        def __init__(self, count: int):
+            self._count = count
+            self._index = 0
+
+        def recv(self, timeout=0.2):
+            if self._index >= self._count:
+                raise can.CanError("stop")
+            value = self._index % 256
+            self._index += 1
+            return can.Message(arbitration_id=100, data=bytes([value]), timestamp=1.0)
+
+    class FakeDB:
+        def __init__(self):
+            self.messages = {100: SimpleNamespace(name="TestMsg", signals={"Speed": None})}
+
+        def decode_frame(self, _msg_id, data):
+            return {"Speed": float(data[0])}
+
+    class FakeLoop:
+        def __init__(self):
+            self.calls = []
+
+        def call_soon_threadsafe(self, callback, *args):
+            self.calls.append((callback, args))
+
+        def call_soon(self, callback, *args):
+            self.calls.append((callback, args))
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=1)
+    reader = CANReader(bus=FakeBus(3_000), db=FakeDB(), queue=queue, max_rate_hz=0)
+    loop = FakeLoop()
+
+    reader._running = True
+    reader._recv_loop(loop)
+
+    assert len(loop.calls) == 1
+    metrics = reader.get_metrics()
+    assert metrics["received_frames"] == 3_000
+    assert metrics["coalesced_frames"] == 2_999
+    assert metrics["pending_frames"] == 1
+
+    loop.calls.pop(0)[0]()
+    assert queue.qsize() == 1
+    assert queue.get_nowait().signals == {"Speed": 183.0}
 
 
 @pytest.mark.asyncio
@@ -148,6 +239,10 @@ async def test_reconnect_success_first_attempt():
         max_reconnect_retries=3,
     )
     reader._running = True
+    reader._last_enqueue[100] = 1.0
+    reader._last_msg_data[100] = b"old"
+    reader._last_signal_values["Speed"] = 10.0
+    reader._signal_last_enqueue_time["Speed"] = 1.0
 
     # Mock stop so we can verify it's not called
     reader.stop = Mock()
@@ -164,9 +259,41 @@ async def test_reconnect_success_first_attempt():
         # Verify factory was called and bus was replaced
         bus_factory_mock.assert_called_once()
         assert reader._bus == bus_factory_mock.return_value
+        assert reader._last_enqueue == {}
+        assert reader._last_msg_data == {}
+        assert reader._last_signal_values == {}
+        assert reader._signal_last_enqueue_time == {}
 
         # Verify stop was not called
         reader.stop.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_silent_reopened_bus_keeps_advancing_reconnect_backoff():
+    import asyncio
+    from unittest.mock import AsyncMock, Mock, patch
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=Mock(),
+        queue=asyncio.Queue(),
+        bus_factory=Mock(return_value=Mock(spec=can.BusABC)),
+        max_reconnect_retries=5,
+    )
+    reader._running = True
+    reader._reconnect_attempt = 5
+
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        await reader._reconnect(max_retries=1)
+
+    mock_sleep.assert_awaited_once_with(30)
+    assert reader._reconnect_attempt == 6
+    assert reader._last_recv_monotonic == 0.0
+    assert reader._bus_opened_monotonic > 0.0
 
 
 @pytest.mark.asyncio
@@ -297,6 +424,26 @@ def test_reader_detects_silent_bus_after_stale_threshold():
     )
     reader._last_recv_monotonic = time.monotonic() - 1.1
 
+    assert reader._is_bus_stale() is True
+
+
+def test_reader_detects_bus_that_is_silent_from_startup():
+    import time
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=Mock(),
+        queue=Mock(),
+        stale_threshold_sec=1.0,
+    )
+    reader._bus_opened_monotonic = time.monotonic() - 1.1
+
+    assert reader._last_recv_monotonic == 0.0
     assert reader._is_bus_stale() is True
 
 

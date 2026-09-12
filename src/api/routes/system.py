@@ -21,8 +21,13 @@ router = APIRouter()
 def _require_control_auth(request: Request) -> None:
     """Allow state-changing system operations only for authenticated Dev Mode calls."""
     auth = getattr(request.app.state, "auth", None)
+    if auth is None or not auth.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="System controls require a configured non-placeholder API key",
+        )
     api_key = request.headers.get("X-API-Key")
-    if auth is None or not auth.verify(api_key):
+    if not auth.verify(api_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
     if not is_dev_mode(request):
         raise HTTPException(
@@ -54,7 +59,10 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
                 "fatal_error": None,
             }
         last_ts = float(state.get("last_frame_timestamp") or 0.0)
-        state["frame_recent"] = bool(last_ts > 0 and (now - last_ts) <= stale_threshold_sec)
+        state["frame_recent"] = bool(
+            stale_threshold_sec <= 0
+            or (last_ts > 0 and (now - last_ts) <= stale_threshold_sec)
+        )
         states.append(state)
 
     readers_thread_alive = all(bool(s.get("thread_alive")) for s in states)

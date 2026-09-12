@@ -120,7 +120,9 @@ When some seats are rejected, the server returns only the seats that were update
 
 The Dev Mode Network & ELK Status view provides two system-level controls. They
 require both a valid `X-API-Key` and `X-Dev-Mode: true`; requests without Dev
-Mode return `403 Forbidden`.
+Mode return `403 Forbidden`. These controls return `503 Service Unavailable`
+when API authentication is disabled by an empty or placeholder key; configure a
+real API key before using system controls.
 
 | Endpoint | Purpose | Response |
 | --- | --- | --- |

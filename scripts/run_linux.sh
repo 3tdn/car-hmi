@@ -127,10 +127,17 @@ stop_process_on_port "$PORT"
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
 while true; do
     if "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"; then
-        exit 0
+        exit_code=0
+    else
+        # Capture the runner status inside the else branch. The exit status of
+        # an `if` statement with no matching branch is 0, which would lose the
+        # dedicated reboot code if `$?` were read after `fi`.
+        exit_code=$?
     fi
 
-    exit_code=$?
+    if [[ "$exit_code" -eq 0 ]]; then
+        exit 0
+    fi
     if [[ "$exit_code" -ne 75 ]]; then
         exit "$exit_code"
     fi

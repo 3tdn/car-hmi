@@ -22,6 +22,11 @@ class APIKeyAuth:
             return True
         return bool(key) and secrets.compare_digest(key, self._key)
 
+    @property
+    def is_enabled(self) -> bool:
+        """Whether a non-placeholder API key is configured."""
+        return bool(self._key)
+
     async def __call__(self, key: str | None = Security(_API_KEY_HEADER)) -> None:
         if not self._key:
             return  # auth disabled (configured with an empty key)

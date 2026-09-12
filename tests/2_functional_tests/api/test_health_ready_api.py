@@ -137,6 +137,24 @@ async def test_ready_false_when_reader_frames_stale():
     assert data["details"]["readers_recent_frames"] is False
 
 
+async def test_ready_ignores_frame_age_when_stale_detection_is_disabled():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    app = create_app(
+        store,
+        _FakeRepo(),
+        can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=0.0)],
+        api_key="",
+    )
+    app.state.reader_stale_threshold_sec = 0.0
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/system/ready")
+
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+
+
 async def test_retry_can_endpoint_requires_auth_and_schedules_reconnect(client):
     runner = _FakeRunner()
     client._transport.app.state.runner = runner
@@ -173,3 +191,25 @@ async def test_reboot_endpoint_requires_auth_and_schedules_reboot(client):
     assert response.status_code == 202
     assert response.json() == {"status": "reboot_scheduled"}
     assert runner.reboot_calls == 1
+
+
+async def test_system_controls_are_disabled_without_real_api_key():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="change-me-in-production")
+    runner = _FakeRunner()
+    app.state.runner = runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        retry = await client.post(
+            "/system/can/retry",
+            headers={"X-Dev-Mode": "true"},
+        )
+        reboot = await client.post(
+            "/system/reboot",
+            headers={"X-Dev-Mode": "true"},
+        )
+
+    assert retry.status_code == 503
+    assert reboot.status_code == 503
+    assert runner.retry_calls == 0
+    assert runner.reboot_calls == 0

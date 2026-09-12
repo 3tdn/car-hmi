@@ -272,7 +272,8 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
 - **Key Methods**:
   - `async start()`: Accept frames until stop(), spawn recv thread
   - `_spawn_recv_thread()`: Create dedicated OS thread for `bus.recv()`
-  - `_recv_loop()`: Thread entry point—filters, deduplicates, rate-gates, and decodes before posting changed frames via `call_soon_threadsafe()`
+  - `_recv_loop()`: Thread entry point—filters, deduplicates, rate-gates, and decodes frames
+  - `_submit_frame()`: Coalesces the latest changed signals per CAN ID and permits at most one pending event-loop ingress callback
   - `_enqueue_frame_sync()`: Called in event loop thread—places an already prepared frame onto the bounded queue
   - `_decode()`: Wrapper calling `db.decode_message()`, return `DecodedFrame`
   - `request_reconnect()`: Closes the current receiver safely and starts one reconnect task
@@ -281,14 +282,15 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
 
 - **Performance**:
   - Dedicated recv thread avoids `run_in_executor()` overhead (~10 µs → ~0.5 µs per frame)
-  - Deduplicating before event-loop scheduling prevents an unbounded callback backlog under sustained CAN traffic
+  - Deduplicating and coalescing before event-loop scheduling prevents an unbounded callback backlog even when payloads change continuously
   - Rate gating per message ID prevents queue fill-up with high-frequency simulator
   - The pipeline drains a bounded `batch_drain_size` and merges values within each batch, keeping the event loop responsive during a backlog
 
 - **CAN outage recovery**:
-  - If traffic stops after a reader has received frames, `reader.stale_threshold_sec` triggers a bus close and reconnect.
+  - If traffic is silent from startup or stops later, `reader.stale_threshold_sec` triggers a bus close and reconnect.
+  - Reconnect backoff resets only after the replacement bus receives a frame, not merely when its socket opens.
   - Reconnects use 5 fast exponential attempts (`1s` to `16s`), then 10 attempts each at `30s`, `1m`, `2m`, and longer intervals, capped at one retry per hour.
-  - While any CAN reader is stale, `COM_Status_*Can` signals are set to `0` by the runner watchdog.
+  - While a CAN reader is stale, the `COM_Status_*Can` signals owned by its channel DBC are set to `0`; healthy channels remain unchanged.
 
 #### `writer.py` — **CANWriter** & **CANWriterRouter** (CAN Frame Transmission)
 

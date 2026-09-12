@@ -42,7 +42,7 @@ class CANReader:
     Decoded frames are pushed into an asyncio.Queue for SignalPipeline.
     Supports:
     - Allowlist filtering by CAN ID (optional)
-    - Automatic reconnection on bus errors (exponential backoff 1 s → 30 s)
+    - Automatic reconnection on bus errors or stale traffic (staged backoff up to 1 hour)
     - A callback for cleanly reopening the bus during reconnect
     """
 
@@ -93,6 +93,7 @@ class CANReader:
         self._rate_limited_count = 0
         self._last_frame_timestamp: float = 0.0
         self._last_recv_monotonic: float = 0.0
+        self._bus_opened_monotonic: float = 0.0
         self._fatal_error: str | None = None
         self._last_error: str | None = None
         # Per-ID rate gate: min interval in seconds (0 = disabled)
@@ -115,21 +116,34 @@ class CANReader:
         self._event_loop: asyncio.AbstractEventLoop | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
         self._reconnecting = False
+        self._reconnect_attempt = 0
+        # Cross-thread ingress coalescing. At most one event-loop callback may
+        # be outstanding, while the latest signal values are retained per CAN
+        # message. This bounds pending work by the number of active CAN IDs
+        # instead of the number of received frames.
+        self._pending_lock = threading.Lock()
+        self._pending_frames: dict[int, DecodedFrame] = {}
+        self._drain_scheduled = False
+        self._received_count = 0
+        self._coalesced_count = 0
+        self._ingress_callbacks_scheduled = 0
 
     async def start(self) -> None:
         """Start reading CAN frames — runs until ``stop()`` is called.
 
         Architecture:
-                - A dedicated thread calls ``bus.recv()`` in a tight loop (no asyncio overhead per frame).
-                - Frames are filtered/deduplicated in the recv thread before the latest changed values
-                    are posted back to the event loop through lightweight ``call_soon_threadsafe``.
-                - Reduces overhead from ~10 µs/frame (run_in_executor) and avoids event-loop callback backlog.
+        - A dedicated thread calls ``bus.recv()`` in a tight loop (no asyncio overhead per frame).
+        - Frames are filtered/deduplicated in the recv thread.
+        - Changed values are coalesced per CAN ID behind at most one pending
+          ``call_soon_threadsafe`` callback.
+        - This bounds event-loop ingress independently of the raw frame rate.
         - Suitable for rates of 5,000-10,000 frames/s on 8 Mbps CAN FD.
         """
         self._running = True
         self._fatal_error = None
         event_loop = asyncio.get_running_loop()
         self._event_loop = event_loop
+        self._bus_opened_monotonic = time.monotonic()
         logger.info(
             "CAN Reader started (interface=%s, channel=%s, %d msgs in DB)",
             getattr(self._bus, "INTERFACE", "?"),
@@ -141,13 +155,17 @@ class CANReader:
             while self._running:
                 await asyncio.sleep(0.5)
                 # Watchdog: if the thread dies unexpectedly, try reconnecting
-                if not self._recv_thread.is_alive() and self._running:
+                if (
+                    not self._recv_thread.is_alive()
+                    and self._running
+                    and not self._reconnecting
+                ):
                     logger.warning("CAN recv thread exited unexpectedly — reconnecting...")
                     await self.request_reconnect()
-                elif self._is_bus_stale():
+                elif not self._reconnecting and self._is_bus_stale():
                     logger.warning(
                         "CAN bus has been silent for %.1fs — closing and reconnecting",
-                        time.monotonic() - self._last_recv_monotonic,
+                        self._bus_silence_age_sec() or 0.0,
                     )
                     await self.request_reconnect()
         finally:
@@ -173,12 +191,19 @@ class CANReader:
         return t
 
     def _is_bus_stale(self) -> bool:
-        """Return True when an established CAN bus has gone silent for too long."""
+        """Return True when the current CAN bus has received no frame for too long."""
+        silence_age = self._bus_silence_age_sec()
         return (
             self._stale_threshold_sec > 0.0
-            and self._last_recv_monotonic > 0.0
-            and (time.monotonic() - self._last_recv_monotonic) >= self._stale_threshold_sec
+            and silence_age is not None
+            and silence_age >= self._stale_threshold_sec
         )
+
+    def _bus_silence_age_sec(self) -> float | None:
+        freshness_start = self._last_recv_monotonic or self._bus_opened_monotonic
+        if not freshness_start:
+            return None
+        return max(0.0, time.monotonic() - freshness_start)
 
     async def _close_recv_thread(self) -> None:
         """Close the current bus and wait briefly for its blocked recv() to return."""
@@ -225,8 +250,13 @@ class CANReader:
                 msg: can.Message | None = bus.recv(timeout=0.2)
                 if msg is None:
                     continue
+                self._received_count += 1
                 self._last_frame_timestamp = msg.timestamp if msg.timestamp else time.time()
                 self._last_recv_monotonic = time.monotonic()
+                self._last_error = None
+                # Opening a socket is not enough to prove recovery. Reset the
+                # staged backoff only after the replacement bus delivers data.
+                self._reconnect_attempt = 0
                 # Copy data before posting — some backends reuse internal buffers
                 msg_copy = can.Message(
                     arbitration_id=msg.arbitration_id,
@@ -241,7 +271,7 @@ class CANReader:
                 arrival = time.monotonic()
                 frame = self._prepare_frame(msg_copy, arrival)
                 if frame is not None:
-                    event_loop.call_soon_threadsafe(self._enqueue_frame_sync, frame)
+                    self._submit_frame(event_loop, frame)
             except can.CanError as exc:
                 self._error_count += 1
                 self._last_error = str(exc)
@@ -258,6 +288,67 @@ class CANReader:
         frame = self._prepare_frame(msg, arrival)
         if frame is not None:
             self._enqueue_frame_sync(frame)
+
+    def _submit_frame(
+        self,
+        event_loop: asyncio.AbstractEventLoop,
+        frame: DecodedFrame,
+    ) -> None:
+        """Coalesce thread-side frames and schedule at most one loop callback."""
+        if self._event_loop is None:
+            self._event_loop = event_loop
+        should_schedule = False
+        with self._pending_lock:
+            msg_id = frame.raw.msg_id
+            pending = self._pending_frames.get(msg_id)
+            if pending is None:
+                self._pending_frames[msg_id] = frame
+            else:
+                pending.raw = frame.raw
+                pending.msg_name = frame.msg_name
+                pending.signals.update(frame.signals)
+                self._coalesced_count += 1
+
+            if not self._drain_scheduled:
+                self._drain_scheduled = True
+                self._ingress_callbacks_scheduled += 1
+                should_schedule = True
+
+        if not should_schedule:
+            return
+
+        try:
+            event_loop.call_soon_threadsafe(self._drain_pending_frames)
+        except RuntimeError:
+            # The event loop may already be closing during process shutdown.
+            with self._pending_lock:
+                self._drain_scheduled = False
+                self._pending_frames.clear()
+
+    def _drain_pending_frames(self) -> None:
+        """Move one coalesced ingress snapshot onto the bounded asyncio queue."""
+        with self._pending_lock:
+            frames = list(self._pending_frames.values())
+            self._pending_frames.clear()
+
+        for frame in frames:
+            self._enqueue_frame_sync(frame)
+
+        schedule_next = False
+        with self._pending_lock:
+            if self._pending_frames:
+                self._ingress_callbacks_scheduled += 1
+                schedule_next = True
+            else:
+                self._drain_scheduled = False
+
+        if schedule_next and self._event_loop is not None:
+            try:
+                self._event_loop.call_soon(self._drain_pending_frames)
+            except RuntimeError:
+                with self._pending_lock:
+                    self._drain_scheduled = False
+                    self._pending_frames.clear()
 
     def _prepare_frame(self, msg: can.Message, arrival: float = 0.0) -> DecodedFrame | None:
         """Filter, rate-gate, decode, and deduplicate a raw CAN message.
@@ -355,6 +446,9 @@ class CANReader:
         self._running = False
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
+        with self._pending_lock:
+            self._pending_frames.clear()
+            self._drain_scheduled = False
 
     def _is_stale_message(self, msg_id: int, now: float) -> bool:
         """True if any signal in the message has not been enqueued in more than _priority_sec seconds.
@@ -397,11 +491,13 @@ class CANReader:
         """Try to reopen the CAN bus with staged backoff up to one retry per hour."""
         retries = max_retries if max_retries is not None else self._max_retries
         bounded_retries = max_retries is not None
-        attempt = 0
+        attempts_this_call = 0
         try:
             while self._running:
-                attempt += 1
-                delay = self._reconnect_delay(attempt, retries)
+                attempts_this_call += 1
+                self._reconnect_attempt += 1
+                attempt = self._reconnect_attempt
+                delay = self._reconnect_delay(attempt, self._max_retries)
                 logger.info("Reconnect attempt %d in %ds...", attempt, delay)
                 await asyncio.sleep(delay)
                 if not self._running:  # honour stop() during reconnect backoff
@@ -417,10 +513,18 @@ class CANReader:
                     self._bus = self._bus_factory()
                     if self._on_bus_reconnected is not None:
                         await self._on_bus_reconnected(self._bus)
-                    self._last_error = None
+                    # Force a complete first snapshot from the replacement bus;
+                    # otherwise unchanged data from before the outage could be
+                    # deduplicated forever when priority refresh is disabled.
+                    self._last_enqueue.clear()
+                    self._last_msg_data.clear()
+                    self._last_signal_values.clear()
+                    self._signal_last_enqueue_time.clear()
                     # Start the freshness clock at reopen time so a bus that
-                    # remains silent continues through the retry schedule.
-                    self._last_recv_monotonic = time.monotonic()
+                    # remains silent advances through the retry schedule. The
+                    # attempt counter resets only when _recv_loop gets a frame.
+                    self._last_recv_monotonic = 0.0
+                    self._bus_opened_monotonic = time.monotonic()
                     if self._event_loop is not None:
                         self._recv_thread = self._spawn_recv_thread(self._event_loop)
                     logger.info("CAN bus re-opened: %s", self._bus)
@@ -431,7 +535,7 @@ class CANReader:
                 except Exception as exc:
                     self._last_error = str(exc)
                     logger.warning("Reconnect attempt %d failed unexpectedly: %s", attempt, exc)
-                if bounded_retries and attempt >= retries:
+                if bounded_retries and attempts_this_call >= retries:
                     logger.critical(
                         "CAN bus reconnect failed after %d attempts — supervisor must intervene",
                         retries,
@@ -458,12 +562,12 @@ class CANReader:
             "dropped_frames": int(self._dropped_count),
             "error_count": int(self._error_count),
             "rate_limited_frames": int(self._rate_limited_count),
+            "received_frames": int(self._received_count),
+            "coalesced_frames": int(self._coalesced_count),
+            "ingress_callbacks_scheduled": int(self._ingress_callbacks_scheduled),
+            "pending_frames": self._pending_frame_count(),
             "last_frame_timestamp": float(self._last_frame_timestamp),
-            "last_recv_age_sec": (
-                max(0.0, time.monotonic() - self._last_recv_monotonic)
-                if self._last_recv_monotonic
-                else None
-            ),
+            "last_recv_age_sec": self._bus_silence_age_sec(),
             "thread_alive": bool(self._recv_thread and self._recv_thread.is_alive()),
             "running": bool(self._running),
             "fatal_error": self._fatal_error,
@@ -472,20 +576,21 @@ class CANReader:
 
     def get_runtime_state(self) -> dict:
         """Return the reader runtime state for watchdog/health checks."""
-        now_mono = time.monotonic()
         return {
             "running": bool(self._running),
             "thread_alive": bool(self._recv_thread and self._recv_thread.is_alive()),
             "last_frame_timestamp": float(self._last_frame_timestamp),
-            "last_recv_age_sec": (
-                max(0.0, now_mono - self._last_recv_monotonic)
-                if self._last_recv_monotonic
-                else None
-            ),
+            "last_recv_age_sec": self._bus_silence_age_sec(),
             "fatal_error": self._fatal_error,
             "last_error": self._last_error,
             "error_count": int(self._error_count),
+            "reconnecting": bool(self._reconnecting),
+            "reconnect_attempt": int(self._reconnect_attempt),
         }
+
+    def _pending_frame_count(self) -> int:
+        with self._pending_lock:
+            return len(self._pending_frames)
 
     @property
     def has_fatal_error(self) -> bool:

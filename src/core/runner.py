@@ -188,7 +188,7 @@ class AppRunner:
                 logger.info("Car-HMI reboot request completed; exiting for supervisor restart")
                 return
             # Detect critical task failures and trigger shutdown
-            for task, result in zip(tasks, results):
+            for task, result in zip(tasks, results, strict=True):
                 if isinstance(result, Exception):
                     logger.error("Task '%s' failed: %s", task.get_name(), result)
             if any(isinstance(r, Exception) for r in results):
@@ -328,6 +328,7 @@ class AppRunner:
                 bus=bus,
                 db=db_loader,
                 queue=rx_queue,
+                filter_ids=set(db_loader.messages),
                 bus_factory=bus_factory,
                 queue_policy=proc_cfg.queue_policy,
                 max_rate_hz=proc_cfg.max_update_rate_hz,
@@ -646,7 +647,7 @@ class AppRunner:
         try:
             await asyncio.wait_for(proc.wait(), timeout=timeout_sec)
             return proc.returncode == 0
-        except asyncio.TimeoutError:
+        except TimeoutError:
             with contextlib.suppress(ProcessLookupError):
                 proc.kill()
             with contextlib.suppress(Exception):
@@ -655,6 +656,22 @@ class AppRunner:
         except Exception:
             logger.debug("Ping failed for host %s", host, exc_info=True)
             return False
+
+    @staticmethod
+    def _can_reference_is_online(
+        reference_signal: str,
+        signal_value,
+        *,
+        now: float,
+        interval_sec: float,
+    ) -> bool:
+        """Evaluate a CAN freshness reference without treating a fresh offline flag as online."""
+        if signal_value is None:
+            return False
+        is_fresh = (now - float(signal_value.timestamp)) < interval_sec
+        if reference_signal.startswith("COM_Status_") and reference_signal.endswith("Can"):
+            return is_fresh and float(signal_value.value) > 0.0
+        return is_fresh
 
     async def _status_monitor(
         self,
@@ -683,14 +700,19 @@ class AppRunner:
                     updates.update(
                         {
                             signal_name: 1.0 if is_online else 0.0
-                            for (signal_name, _), is_online in zip(ping_targets.items(), checks)
+                            for (signal_name, _), is_online in zip(
+                                ping_targets.items(), checks, strict=True
+                            )
                         }
                     )
 
                 for signal_name, reference_signal in can_reference_targets.items():
                     ref_signal_value = await self.store.get(reference_signal)
-                    is_connected = bool(
-                        ref_signal_value is not None and (now - float(ref_signal_value.timestamp)) < interval_sec
+                    is_connected = self._can_reference_is_online(
+                        reference_signal,
+                        ref_signal_value,
+                        now=now,
+                        interval_sec=interval_sec,
                     )
                     updates[signal_name] = 1.0 if is_connected else 0.0
 
@@ -768,7 +790,9 @@ class AppRunner:
 
             reader_metrics = None
             reader_fatal: list[dict] = []
-            can_connected = True
+            any_can_connected = False
+            disconnected_status_signals: set[str] = set()
+            has_unmapped_disconnected_reader = False
             if self._readers:
                 try:
                     reader_metrics = {
@@ -785,19 +809,31 @@ class AppRunner:
                                     "last_error": state.get("last_error"),
                                 }
                             )
-                        if not (
-                            state.get("thread_alive")
-                            and not state.get("fatal_error")
-                            and state.get("last_recv_age_sec") is not None
-                            and state["last_recv_age_sec"] <= self.config.reader.stale_threshold_sec
+                        if self._reader_state_is_connected(
+                            state,
+                            self.config.reader.stale_threshold_sec,
                         ):
-                            can_connected = False
+                            any_can_connected = True
+                        else:
+                            mapped_statuses = self._can_status_signals_for_reader(idx)
+                            if mapped_statuses:
+                                disconnected_status_signals.update(mapped_statuses)
+                            else:
+                                has_unmapped_disconnected_reader = True
                 except Exception:
                     reader_metrics = None
 
             logger.info("Watchdog — alive tasks: %s | rx_queue_size=%s | reader_metrics=%s", alive, rx_q_size, reader_metrics)
 
-            if self._readers and not can_connected:
+            if disconnected_status_signals:
+                await self._set_can_status_disconnected(disconnected_status_signals)
+            elif (
+                self._readers
+                and not any_can_connected
+                and has_unmapped_disconnected_reader
+            ):
+                # Compatibility fallback for tests/custom readers that have no
+                # aligned DatabaseLoader. Production readers use the per-DBC map.
                 await self._set_can_status_disconnected()
 
             if reader_fatal:
@@ -808,13 +844,41 @@ class AppRunner:
                 await self.shutdown()
                 raise RuntimeError(f"Unrecoverable CAN reader failure: {reader_fatal}")
 
-    async def _set_can_status_disconnected(self) -> None:
+    @staticmethod
+    def _reader_state_is_connected(state: dict, stale_threshold_sec: float) -> bool:
+        """Assess reader connectivity while honoring zero as 'stale check disabled'."""
+        age = state.get("last_recv_age_sec")
+        age_is_healthy = stale_threshold_sec <= 0 or (
+            age is not None and age <= stale_threshold_sec
+        )
+        return bool(
+            state.get("thread_alive")
+            and not state.get("fatal_error")
+            and age_is_healthy
+        )
+
+    def _can_status_signals_for_reader(self, reader_index: int) -> set[str]:
+        """Return CAN status signals owned by the reader's channel DBC."""
+        if reader_index >= len(self._db_loaders):
+            return set()
+        return {
+            name
+            for name in self._db_loaders[reader_index].signals
+            if name.startswith("COM_Status_") and name.endswith("Can")
+        }
+
+    async def _set_can_status_disconnected(
+        self,
+        signal_names: set[str] | None = None,
+    ) -> None:
         """Mark all COM_Status_*Can signals offline while the bus is unavailable."""
         snapshot = await self.store.get_snapshot()
         offline = {
             name: 0.0
-            for name in snapshot
+            for name, signal in snapshot.items()
             if name.startswith("COM_Status_") and name.endswith("Can")
+            and (signal_names is None or name in signal_names)
+            and float(signal.value) != 0.0
         }
         if offline:
             await self.store.bulk_update(offline, timestamp=time.time())
@@ -859,7 +923,7 @@ class AppRunner:
             self._pipeline.stop()
             try:
                 await asyncio.wait_for(self._pipeline.flush(), timeout=5.0)
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 logger.warning("Pipeline flush timed out")
 
         # Signal uvicorn to stop gracefully *before* cancelling its task so
@@ -878,12 +942,12 @@ class AppRunner:
             if api_tasks:
                 try:
                     await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=api_shutdown_timeout)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("API shutdown timed out after %.1fs; forcing uvicorn exit", api_shutdown_timeout)
                     self._uvicorn_server.force_exit = True
                     try:
                         await asyncio.wait_for(asyncio.shield(api_tasks[0]), timeout=1.0)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning("API task still running after forced exit; continuing shutdown")
                 except asyncio.CancelledError:
                     raise

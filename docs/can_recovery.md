@@ -3,15 +3,18 @@
 ## Runtime behavior
 
 The CAN reader keeps socket receive work in a dedicated thread. It filters,
-deduplicates, rate-gates, and decodes a received frame before scheduling the
-changed frame on the asyncio event loop. This prevents repeated CAN frames from
-building an unbounded event-loop callback backlog.
+deduplicates, rate-gates, and decodes received frames, then coalesces the latest
+changed values per CAN ID. At most one ingress callback is pending on the
+asyncio event loop, so continuously changing frames cannot create an unbounded
+callback backlog.
 
 The signal pipeline processes at most `processor.batch_drain_size` frames per
 cycle and keeps the newest value for each signal within that batch.
 
-If an established CAN bus is silent for `reader.stale_threshold_sec` (default
-`30`), the reader closes the bus and starts reconnecting. Retry intervals are:
+If a CAN bus is silent from startup or after receiving traffic for
+`reader.stale_threshold_sec` (default `30`), the reader closes the bus and
+starts reconnecting. Opening a replacement socket does not reset the backoff;
+only the first frame received from it confirms recovery. Retry intervals are:
 
 1. Five fast attempts: `1s`, `2s`, `4s`, `8s`, `16s`.
 2. Ten attempts every `30s`.
@@ -19,9 +22,10 @@ If an established CAN bus is silent for `reader.stale_threshold_sec` (default
 4. Ten attempts every `2m`, with intervals continuing to double until `1h`.
 5. One retry every `1h` until the bus becomes available.
 
-When any CAN reader is unavailable or stale, the runner sets all
-`COM_Status_*Can` values to `0`. Fresh CAN frames resume normal processing once
-a reader reconnects.
+When a CAN reader is unavailable or stale, the runner sets the
+`COM_Status_*Can` values defined by that reader's channel DBC to `0`; healthy
+channels are left unchanged. Fresh CAN frames resume normal processing once a
+reader reconnects.
 
 Each CAN channel shares its bus between its reader and writer. When recovery
 opens a replacement bus, the reader awaits the channel callback that switches
@@ -30,7 +34,10 @@ therefore continue after a successful reconnect.
 
 ## Dev Mode actions
 
-Only authenticated Dev Mode requests can initiate recovery actions. Send both:
+Only authenticated Dev Mode requests can initiate recovery actions. System
+controls are disabled when the configured API key is empty or a known
+placeholder such as `change-me-in-production`. Configure a real key, then send
+both:
 
 ```http
 X-API-Key: <configured-key>
