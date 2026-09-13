@@ -84,6 +84,30 @@ class CANWriter:
         async with self._lock:
             self._bus = bus
 
+    def apply_runtime_config(self, writer_config: WriterConfig) -> None:
+        """Apply writer settings and stop periodic jobs when their mode changes."""
+        old_periodic = (
+            self._periodic_mode,
+            self._periodic_time_step_ms,
+            self._periodic_duration_ms,
+        )
+        self._periodic_mode = writer_config.periodic_mode
+        self._periodic_time_step_ms = writer_config.periodic_time_step
+        self._periodic_duration_ms = writer_config.periodic_duration
+        self._use_prevalue_for_unwritten_signal = (
+            writer_config.use_prevalue_for_unwritten_signal
+        )
+        new_periodic = (
+            self._periodic_mode,
+            self._periodic_time_step_ms,
+            self._periodic_duration_ms,
+        )
+        if old_periodic != new_periodic:
+            for task in self._periodic_tasks.values():
+                if not task.done():
+                    task.cancel()
+            self._periodic_tasks.clear()
+
     async def send_signal(self, name: str, value: float) -> None:
         """Encode a single signal and transmit the corresponding CAN frame.
 
@@ -224,6 +248,7 @@ class CANWriter:
         """Repeatedly send a CAN frame every ``periodic_time_step`` ms for
         ``periodic_duration`` ms.
         """
+        current_task = asyncio.current_task()
         interval = self._periodic_time_step_ms / 1000.0
         deadline = time.monotonic() + self._periodic_duration_ms / 1000.0
         try:
@@ -238,7 +263,11 @@ class CANWriter:
         except asyncio.CancelledError:
             logger.debug("Periodic sender cancelled for msg_id=%#x", msg_id)
         finally:
-            self._periodic_tasks.pop(msg_id, None)
+            # A cancelled sender can finish after a replacement sender has
+            # already been registered for the same message. Remove only this
+            # task so the replacement remains tracked and cancellable.
+            if self._periodic_tasks.get(msg_id) is current_task:
+                self._periodic_tasks.pop(msg_id, None)
             logger.debug(
                 "Periodic sender stopped for msg_id=%#x after %.1f ms",
                 msg_id,

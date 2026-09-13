@@ -605,3 +605,17 @@ class CANReader:
     def set_queue(self, queue: asyncio.Queue) -> None:
         """Swap the reference to the output queue (the caller is responsible for data migration)."""
         self._queue = queue
+
+    def apply_runtime_config(
+        self,
+        *,
+        queue_policy: str,
+        max_rate_hz: float,
+        priority_sec: float,
+        stale_threshold_sec: float,
+    ) -> None:
+        """Synchronize all reader settings that are safe to change live."""
+        self._policy = queue_policy
+        self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
+        self._priority_sec = max(0.0, float(priority_sec))
+        self._stale_threshold_sec = max(0.0, float(stale_threshold_sec))

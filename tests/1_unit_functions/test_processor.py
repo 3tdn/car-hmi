@@ -28,6 +28,35 @@ async def test_rate_limiter_drops_fast_updates():
     assert "rpm" not in r2
 
 
+def test_pipeline_and_rate_limiter_apply_runtime_config():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.signal_store import SignalStore
+    from src.processor.filters import RateLimiter
+    from src.processor.pipeline import SignalPipeline
+
+    pipeline = SignalPipeline(
+        input_queue=asyncio.Queue(maxsize=10),
+        signal_store=SignalStore(),
+        repository=AsyncMock(),
+    )
+    limiter = RateLimiter(max_hz=10.0)
+
+    pipeline.apply_runtime_config(
+        queue_policy="drop_oldest",
+        batch_size=12,
+        batch_interval_sec=0.4,
+        batch_drain_size=99,
+    )
+    limiter.set_max_hz(25.0)
+
+    assert pipeline._policy == "drop_oldest"
+    assert pipeline._batch_size == 12
+    assert pipeline._batch_interval == pytest.approx(0.4)
+    assert pipeline._batch_drain_size == 99
+    assert limiter._min_interval == pytest.approx(0.04)
+
 
 @pytest.mark.asyncio
 async def test_computed_signals_formula():

@@ -9,7 +9,7 @@
   ],
   "simulator": {
     "enabled": true,
-    "random_mode": false,
+    "random_mode": true,
     "default_cycle_ms": 10,
     "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
   },
@@ -36,7 +36,8 @@
       "read"
     ],
     "session_online_ttl_seconds": 600,
-    "session_history_limit": 50
+    "session_history_limit": 50,
+    "session_cleanup_interval_sec": 5.0
   },
   "camera": {
     "enabled": true,
@@ -90,7 +91,7 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000,
+    "periodic_duration": 5000,
     "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
@@ -109,5 +110,8 @@
     "file_path": "logs/can-hmi.log",
     "max_size_mb": 50,
     "backup_count": 5
+  },
+  "config_management": {
+    "backup_retention_count": 20
   }
 }

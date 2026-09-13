@@ -45,7 +45,10 @@ def test_writer_config_use_prevalue_for_unwritten_signal():
     from src.core.config import WriterConfig
 
     assert WriterConfig().use_prevalue_for_unwritten_signal is True
-    assert WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal is False
+    assert (
+        WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal
+        is False
+    )
     with pytest.raises(ValueError):
         WriterConfig(use_prevalue_for_unwritten_signal="invalid")
 
@@ -318,6 +321,98 @@ async def test_disconnected_reader_only_marks_its_channel_status_offline():
     assert rear_right is not None and rear_right.value == 1.0
 
 
+@pytest.mark.asyncio
+async def test_system_config_live_reload_synchronizes_runtime_references():
+    from types import SimpleNamespace
+
+    from src.core.runner import AppRunner
+
+    class ConfigSink:
+        def __init__(self):
+            self.calls = []
+
+        def apply_runtime_config(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
+
+    class RateSink:
+        def __init__(self):
+            self.max_hz = None
+
+        def set_max_hz(self, value):
+            self.max_hz = value
+
+    class WsSink:
+        def __init__(self):
+            self.only_updates = None
+
+        def set_only_send_signal_update(self, value):
+            self.only_updates = value
+
+    runner = AppRunner(AppConfig())
+    pipeline = ConfigSink()
+    reader = ConfigSink()
+    writer = ConfigSink()
+    rate = RateSink()
+    websocket = WsSink()
+    runner._pipeline = pipeline
+    runner._readers = [reader]
+    runner._writers = [writer]
+    runner._rate_limiter = rate
+    runner._ws_manager = websocket
+    runner._api_app = SimpleNamespace(state=SimpleNamespace())
+
+    updated = AppConfig(
+        processor={
+            "max_update_rate_hz": 25.0,
+            "queue_policy": "drop_oldest",
+            "batch_drain_size": 99,
+        },
+        storage={"batch_size": 12, "batch_interval_sec": 0.4},
+        reader={
+            "frequency_piority": 2.0,
+            "only_send_signal_update": True,
+            "stale_threshold_sec": 8.0,
+        },
+        writer={
+            "periodic_mode": True,
+            "periodic_time_step": 40,
+            "periodic_duration": 500,
+            "use_prevalue_for_unwritten_signal": False,
+        },
+        devmode={"pypass_check_CAN_status": True},
+    )
+    changed = [
+        "processor.max_update_rate_hz",
+        "processor.queue_policy",
+        "storage.batch_size",
+        "reader.frequency_piority",
+        "reader.only_send_signal_update",
+        "reader.stale_threshold_sec",
+        "writer.periodic_mode",
+        "devmode.pypass_check_CAN_status",
+    ]
+
+    result = await runner.apply_system_config(updated, changed)
+
+    assert result["applied"] == changed
+    assert pipeline.calls[-1][1]["batch_size"] == 12
+    assert reader.calls[-1][1]["priority_sec"] == 2.0
+    assert writer.calls[-1][0] == (updated.writer,)
+    assert rate.max_hz == 25.0
+    assert websocket.only_updates is True
+    assert runner._api_app.state.reader_stale_threshold_sec == 8.0
+    assert runner._api_app.state.devmode_bypass_can_status is True
+    assert runner.config is updated
+
+    reboot_config = updated.model_copy(deep=True)
+    reboot_config.api.port = 9000
+    await runner.apply_system_config(reboot_config, ["api.port"])
+    assert runner.pending_reboot_paths == {"api.port"}
+
+    await runner.apply_system_config(updated, ["api.port"])
+    assert runner.pending_reboot_paths == set()
+
+
 # ── SignalStore ───────────────────────────────────────────────────────────────
 
 
@@ -508,6 +603,7 @@ async def test_signal_store_get_snapshot_isolated():
     snap = await store.get_snapshot()
     # Mutate the snapshot
     from src.core.signal_store import SignalValue
+
     snap["A"] = SignalValue(value=999.0)
     # Internal store must be unchanged
     sv = await store.get("A")

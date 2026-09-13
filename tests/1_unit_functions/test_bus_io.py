@@ -146,6 +146,50 @@ async def test_writer_zeroes_unwritten_signals_for_batch_write(virtual_bus_pair,
 
 
 @pytest.mark.asyncio
+async def test_writer_runtime_config_preserves_replacement_periodic_task(
+    virtual_bus_pair, json_db
+):
+    """A cancelled sender must not remove a newer task for the same message."""
+    bus_tx, _ = virtual_bus_pair
+    writer = CANWriter(
+        bus=bus_tx,
+        db=json_db,
+        writer_config=WriterConfig(
+            periodic_mode=True,
+            periodic_time_step=1000,
+            periodic_duration=10000,
+        ),
+    )
+    old_task = asyncio.create_task(
+        writer._periodic_sender(100, json_db.messages[100], {"Speed": 1.0})
+    )
+    writer._periodic_tasks[100] = old_task
+    await asyncio.sleep(0)
+
+    writer.apply_runtime_config(
+        WriterConfig(
+            periodic_mode=False,
+            periodic_time_step=25,
+            periodic_duration=50,
+            use_prevalue_for_unwritten_signal=False,
+        )
+    )
+    replacement = asyncio.create_task(asyncio.sleep(10))
+    writer._periodic_tasks[100] = replacement
+    await old_task
+
+    assert writer._periodic_tasks[100] is replacement
+    assert writer._periodic_mode is False
+    assert writer._periodic_time_step_ms == 25
+    assert writer._periodic_duration_ms == 50
+    assert writer._use_prevalue_for_unwritten_signal is False
+
+    replacement.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await replacement
+
+
+@pytest.mark.asyncio
 async def test_writer_send_message(virtual_bus_pair, json_db):
     bus_tx, bus_rx = virtual_bus_pair
     writer = CANWriter(bus=bus_tx, db=json_db)
@@ -162,6 +206,23 @@ async def test_writer_unknown_signal_raises(virtual_bus_pair, json_db):
 
 
 # ── CANReader ─────────────────────────────────────────────────────────────────
+
+
+def test_reader_applies_runtime_config(virtual_bus_pair, json_db):
+    _, bus_rx = virtual_bus_pair
+    reader = CANReader(bus=bus_rx, db=json_db, queue=asyncio.Queue(maxsize=10))
+
+    reader.apply_runtime_config(
+        queue_policy="drop_oldest",
+        max_rate_hz=25.0,
+        priority_sec=2.5,
+        stale_threshold_sec=7.0,
+    )
+
+    assert reader._policy == "drop_oldest"
+    assert reader._min_interval == pytest.approx(0.04)
+    assert reader._priority_sec == pytest.approx(2.5)
+    assert reader._stale_threshold_sec == pytest.approx(7.0)
 
 
 @pytest.mark.asyncio

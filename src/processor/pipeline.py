@@ -170,3 +170,17 @@ class SignalPipeline:
     def set_input_queue(self, new_queue: asyncio.Queue) -> None:
         """Swap the pipeline input queue. The caller is responsible for moving data if needed."""
         self._queue = new_queue
+
+    def apply_runtime_config(
+        self,
+        *,
+        queue_policy: str,
+        batch_size: int,
+        batch_interval_sec: float,
+        batch_drain_size: int,
+    ) -> None:
+        """Synchronize pipeline knobs that do not require task recreation."""
+        self._policy = queue_policy
+        self._batch_size = int(batch_size)
+        self._batch_interval = float(batch_interval_sec)
+        self._batch_drain_size = int(batch_drain_size)

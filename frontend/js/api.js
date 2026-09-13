@@ -432,6 +432,52 @@ async function rebootCarHmi() {
     headers: _devHeaders(),
   });
 }
+
+/** Load system config together with server-owned field policy. */
+async function getSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system`, { headers: _headers() });
+}
+
+/** Apply a partial system config update. */
+async function patchSystemConfig(patch) {
+  return _fetchJson(`${API_BASE}/config/system`, {
+    method: "PATCH",
+    headers: _headers(),
+    body: JSON.stringify(patch),
+  });
+}
+
+async function createSystemConfigBackup() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+async function listSystemConfigBackups() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, { headers: _headers() });
+}
+
+async function restoreSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}/restore`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+async function resetSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reset`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+async function reloadSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reload`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
 
 /**

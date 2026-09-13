@@ -4,14 +4,14 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
     }
   ],
   "simulator": {
     "enabled": true,
     "random_mode": false,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
@@ -36,7 +36,8 @@
       "read"
     ],
     "session_online_ttl_seconds": 600,
-    "session_history_limit": 50
+    "session_history_limit": 50,
+    "session_cleanup_interval_sec": 5.0
   },
   "camera": {
     "enabled": true,
@@ -61,8 +62,8 @@
       "COM_Status_PumaRR1Ethernet": "192.168.1.105",
       "COM_Status_PantherEthernet": "192.168.1.100",
       "COM_Status_NvidiaJetsonEthernet": "192.168.2.119:8080",
-      "COM_Status_NvidiaJetsonCan": "OMS_FL_HandsOnWheel",
-      "COM_Status_PantherCan": "COM_Status_PumaFLCan"
+      "COM_Status_NvidiaJetsonCan": "COM_State_JetsonCan",
+      "COM_Status_PantherCan": "COM_Status_ElkCan"
     }
   },
   "storage": {
@@ -90,7 +91,8 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000
+    "periodic_duration": 10000,
+    "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
     "timeout_sec": 10
@@ -108,5 +110,8 @@
     "file_path": "logs/can-hmi.log",
     "max_size_mb": 50,
     "backup_count": 5
+  },
+  "config_management": {
+    "backup_retention_count": 20
   }
 }

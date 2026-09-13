@@ -131,6 +131,10 @@ car-hmi/
 
 All runtime behaviour is controlled via `config/system.json`. Key sections:
 
+Field update permissions and reload levels are documented in
+[`docs/system_config_management.md`](docs/system_config_management.md). The Settings GUI reads
+the same policy from the backend and supports multiple CAN channel cards.
+
 | Section       | Description                                                                      |
 |---------------|----------------------------------------------------------------------------------|
 | `can`         | **Array** of bus channels — each with `interface`, `channel`, `bitrate`, `can_db_file` (DBC path read directly by CANReader/CANWriter) |
@@ -170,6 +174,12 @@ Alarm thresholds are defined separately in `config/alarms.json` (per-signal `war
 | PATCH   | `/config/signal/{name}`           | Update a signal config                                          |
 | GET     | `/config/processor`               | Read processor runtime config                                   |
 | POST    | `/config/processor`               | Update processor config (live apply)                            |
+| GET     | `/config/system`                  | Read system config plus field policy/reload levels              |
+| PATCH   | `/config/system`                  | Safe partial update; preserve fields outside the patch          |
+| POST    | `/config/system/reload`           | Re-apply all live fields from disk                              |
+| POST    | `/config/system/reset`            | Reset from fixed `config/system_bk.json` template                |
+| GET/POST| `/config/system/backups`          | List/create fixed-path config backups                           |
+| POST    | `/config/system/backups/{id}/restore` | Restore backup (with pre-restore safety backup)              |
 | GET     | `/config/general`                 | Read full application config (JSON)                             |
 | PATCH   | `/config/general`                 | Patch application config (partial update)                       |
 | POST    | `/config/general/reset`           | Reset application config to defaults                            |
@@ -428,18 +438,22 @@ curl -X POST http://localhost:8000/config/processor \
 
 #### Application config (`system.json`)
 
+Runtime values stay in `config/system.json`; editable/reload policy, validation constraints,
+descriptions, and GUI hints are defined in `config/system.fields.json`.
+
 ```bash
-# Read full config
-curl http://localhost:8000/config/general -H "X-API-Key: your_api_key"
+# Read config plus editable/reload metadata
+curl http://localhost:8000/config/system -H "X-API-Key: your_api_key"
 
 # Partial update
-curl -X PATCH http://localhost:8000/config/general \
+curl -X PATCH http://localhost:8000/config/system \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key" \
   -d '{"api": {"port": 8080}}'
 
-# Reset to defaults
-curl -X POST http://localhost:8000/config/general/reset -H "X-API-Key: your_api_key"
+# Create a backup, then reset from the fixed project template
+curl -X POST http://localhost:8000/config/system/backups -H "X-API-Key: your_api_key"
+curl -X POST http://localhost:8000/config/system/reset -H "X-API-Key: your_api_key"
 ```
 
 #### Alarms config (`alarms.json`)
@@ -805,17 +819,18 @@ To apply changes to a running server use `POST /config/processor` (see [Config](
 
 > When increasing `max_queue_size` the server performs a best-effort migration: new frames go to the new queue and existing items are drained into it within a short timeout. This is not strictly atomic but preserves most in-flight frames. Prefer `drop_oldest` policy for large queues to avoid OOM under heavy load.
 
-## Frontend: Settings & Alarms UI
+## Frontend: System Settings UI
 
-The web dashboard includes `Settings` and `Alarms` buttons in the header. Use them to:
+The web dashboard includes a `Settings` button in the header. Use it to:
 
- - View and edit the full `config/system.json` (JSON editor in modal).
- - Reset the application config to defaults (Reset button in modal).
- - View and edit `config/alarms.json` and reset alarms to an empty default.
+- Edit system fields through a policy-driven form; each field is labeled `LIVE`, `REBOOT`, or `LOCKED`.
+- Add/remove and configure multiple CAN channels.
+- Create/list/restore backups, live-reload supported fields, reset from the project template, or reboot Car-HMI.
 
 Notes:
-- The modal editors send JSON to the backend endpoints under `/config/*`. The backend persists changes to disk and attempts a live apply where supported.
-- Always backup `config/system.json` if you have customized critical paths (`can_db_file`, `sqlite_path`) before resetting.
+- System config saves are partial updates, so fields outside the edited scope are preserved.
+- Reset and restore create a safety backup automatically. `api.api_key`, active resource paths, and unimplemented fields remain locked in the normal editor.
+- See [`docs/system_config_management.md`](docs/system_config_management.md) for the complete field policy.
 
 ## Frontend Modes
 

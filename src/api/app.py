@@ -25,7 +25,7 @@ from src.api.routes import (
 )
 from src.api.websocket import ConnectionManager
 from src.core.camera_stream import CameraStreamProxy
-from src.core.config_manager import read_config
+from src.core.config_manager import SystemConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ def create_app(
     can_readers=None,  # list[CANReader] | None
     api_key: str = "",
     cors_origins: list[str] | None = None,
+    system_config_manager: SystemConfigManager | None = None,
 ) -> FastAPI:
     """Build and configure the FastAPI application."""
     app = FastAPI(
@@ -60,14 +61,14 @@ def create_app(
     app.state.start_time = time.time()
     app.state.runner = None
 
-    _cfg = read_config()
+    config_manager = system_config_manager or SystemConfigManager()
+    app.state.system_config_manager = config_manager
+    _cfg = config_manager.read()
     _reader_cfg = _cfg.get("reader", {})
     _profile_cfg = _cfg.get("profiles", {})
     _devmode_cfg = _cfg.get("devmode", {})
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
-    app.state.devmode_bypass_can_status = bool(
-        _devmode_cfg.get("pypass_check_CAN_status", False)
-    )
+    app.state.devmode_bypass_can_status = bool(_devmode_cfg.get("pypass_check_CAN_status", False))
     app.state.profile_session_cleanup_task = None
 
     try:
@@ -94,7 +95,7 @@ def create_app(
 
     # Camera stream proxy — fan-out to multiple clients even though the upstream camera only
     # allows 1 concurrent connection (source-side mutex).
-    _cam_cfg = read_config().get("camera", {})
+    _cam_cfg = _cfg.get("camera", {})
     if _cam_cfg.get("enabled", False):
         camera_proxy = CameraStreamProxy(
             stream_url=_cam_cfg.get("stream_url", "http://192.168.2.119:8080/stream"),
