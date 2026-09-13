@@ -116,6 +116,23 @@ When some seats are rejected, the server returns only the seats that were update
 - `GET /api/devmode/status` — current lock state for each seat (`selected`, `owned`, `connected`, `expires_at`, `remaining_sec`)
 - `POST /api/devmode/exit` — exit Dev Mode and release all locks owned by the current section
 
+### CAN recovery controls
+
+The Dev Mode Network & ELK Status view provides two system-level controls. They
+require both a valid `X-API-Key` and `X-Dev-Mode: true`; requests without Dev
+Mode return `403 Forbidden`. These controls return `503 Service Unavailable`
+when API authentication is disabled by an empty or placeholder key; configure a
+real API key before using system controls.
+
+| Endpoint | Purpose | Response |
+| --- | --- | --- |
+| `POST /system/can/retry` | Close stale CAN connections and begin an immediate reconnect schedule for each reader. | `200 OK`, `{ "scheduled": [true], "count": 1 }` |
+| `POST /system/reboot` | Gracefully stop Car-HMI and let systemd restart it. | `202 Accepted`, `{ "status": "reboot_scheduled" }` |
+
+The same endpoints are also available under `/api/can/retry` and `/api/reboot`
+for the existing `/api` route convention. Reboot depends on the deployed
+systemd unit using `Restart=on-failure`.
+
 #### Response `GET /api/devmode/catalog`
 
 ```json

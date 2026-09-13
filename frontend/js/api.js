@@ -417,6 +417,21 @@ async function exitDevmode(options = {}) {
   });
 }
 
+/** Request an immediate reconnect attempt for every CAN reader. */
+async function retryCanConnections() {
+  return _fetchJson(`${API_BASE}/system/can/retry`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+/** Gracefully restart the Car-HMI service through the system supervisor. */
+async function rebootCarHmi() {
+  return _fetchJson(`${API_BASE}/system/reboot`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
 
 /**

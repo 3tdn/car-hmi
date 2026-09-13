@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
 import logging
 import time
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -58,6 +58,7 @@ def create_app(
     app.state.repo = repository
     app.state.readers = can_readers or []
     app.state.start_time = time.time()
+    app.state.runner = None
 
     _cfg = read_config()
     _reader_cfg = _cfg.get("reader", {})
@@ -70,7 +71,9 @@ def create_app(
     app.state.profile_session_cleanup_task = None
 
     try:
-        cleanup_interval_sec = max(1.0, float(_profile_cfg.get("session_cleanup_interval_sec", 5.0)))
+        cleanup_interval_sec = max(
+            1.0, float(_profile_cfg.get("session_cleanup_interval_sec", 5.0))
+        )
     except (TypeError, ValueError):
         cleanup_interval_sec = 5.0
     app.state.devmode_cleanup_interval_sec = cleanup_interval_sec
@@ -125,11 +128,15 @@ def create_app(
     # Register routers
     app.include_router(signals.router, prefix="/signals", tags=["Signals"], dependencies=[auth_dep])
     app.include_router(config.router, prefix="/config", tags=["Config"], dependencies=[auth_dep])
-    app.include_router(adaptive_restraint.router, prefix="/adaptive_restraint", tags=["Adaptive Restraint"])
+    app.include_router(
+        adaptive_restraint.router, prefix="/adaptive_restraint", tags=["Adaptive Restraint"]
+    )
     app.include_router(system.router, prefix="/system", tags=["System"])
     app.include_router(restraints.router, prefix="/api/restraints", tags=["Restraints"])
     app.include_router(camera.router, prefix="/api/camera", tags=["Camera"])
-    app.include_router(devmode.router, prefix="/api/devmode", tags=["Dev Mode"], dependencies=[auth_dep])
+    app.include_router(
+        devmode.router, prefix="/api/devmode", tags=["Dev Mode"], dependencies=[auth_dep]
+    )
     # /api/info — system information per the demo spec
     app.include_router(system.router, prefix="/api", tags=["System Info"])
     # Profile management

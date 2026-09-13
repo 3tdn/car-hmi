@@ -4,12 +4,36 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, status
 
-from src.api.models import HealthResponse, ReadinessResponse, SystemInfoResponse, SystemMetricsResponse
+from src.api.models import (
+    HealthResponse,
+    ReadinessResponse,
+    SystemInfoResponse,
+    SystemMetricsResponse,
+)
+from src.api.routes.profiles import is_dev_mode
 from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
 router = APIRouter()
+
+
+def _require_control_auth(request: Request) -> None:
+    """Allow state-changing system operations only for authenticated Dev Mode calls."""
+    auth = getattr(request.app.state, "auth", None)
+    if auth is None or not auth.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="System controls require a configured non-placeholder API key",
+        )
+    api_key = request.headers.get("X-API-Key")
+    if not auth.verify(api_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+    if not is_dev_mode(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dev Mode is required for this operation",
+        )
 
 
 def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
@@ -35,7 +59,10 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
                 "fatal_error": None,
             }
         last_ts = float(state.get("last_frame_timestamp") or 0.0)
-        state["frame_recent"] = bool(last_ts > 0 and (now - last_ts) <= stale_threshold_sec)
+        state["frame_recent"] = bool(
+            stale_threshold_sec <= 0
+            or (last_ts > 0 and (now - last_ts) <= stale_threshold_sec)
+        )
         states.append(state)
 
     readers_thread_alive = all(bool(s.get("thread_alive")) for s in states)
@@ -134,3 +161,26 @@ async def system_metrics(request: Request) -> SystemMetricsResponse:
     start_time = getattr(request.app.state, "start_time", 0.0)
     m = collect_system_metrics(rx_queue=rx_queue, start_time=start_time)
     return SystemMetricsResponse(**metrics_to_dict(m))
+
+
+@router.post("/can/retry", summary="Retry CAN connections")
+async def retry_can_connections(request: Request) -> dict:
+    """Close stale CAN buses and immediately begin their reconnect schedules."""
+    _require_control_auth(request)
+    runner = getattr(request.app.state, "runner", None)
+    if runner is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN runner unavailable")
+    scheduled = await runner.retry_can_connections()
+    return {"scheduled": scheduled, "count": sum(scheduled)}
+
+
+@router.post("/reboot", status_code=status.HTTP_202_ACCEPTED, summary="Reboot Car-HMI service")
+async def reboot(request: Request) -> dict:
+    """Gracefully exit so the systemd service restarts the Car-HMI process."""
+    _require_control_auth(request)
+    runner = getattr(request.app.state, "runner", None)
+    if runner is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN runner unavailable")
+    if not await runner.request_reboot():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Reboot already in progress")
+    return {"status": "reboot_scheduled"}

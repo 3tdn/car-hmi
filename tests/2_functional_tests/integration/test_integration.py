@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 
@@ -194,6 +195,52 @@ async def test_e2e_writer_to_reader(json_db_file):
         pass
     bus_tx.shutdown()
     bus_rx.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_writer_uses_reconnected_reader_bus(json_db_file):
+    """CAN writes must continue after the paired reader replaces its bus."""
+    channel = "reconnect_writer_test"
+
+    def create_bus():
+        return can.Bus(interface="virtual", channel=channel, receive_own_messages=True)
+
+    loader = DatabaseLoader()
+    loader.load(str(json_db_file))
+    initial_bus = create_bus()
+    writer = CANWriter(bus=initial_bus, db=loader)
+
+    async def replace_writer_bus(replacement_bus):
+        await writer.set_bus(replacement_bus)
+
+    queue: asyncio.Queue[DecodedFrame] = asyncio.Queue(maxsize=10)
+    reader = CANReader(
+        bus=initial_bus,
+        db=loader,
+        queue=queue,
+        bus_factory=create_bus,
+        on_bus_reconnected=replace_writer_bus,
+    )
+    reader_task = asyncio.create_task(reader.start())
+    try:
+        await writer.send_signal("EngineRPM", 1000.0)
+        first = await asyncio.wait_for(queue.get(), timeout=3.0)
+        assert first.signals["EngineRPM"] == pytest.approx(1000.0, abs=0.5)
+
+        reader._reconnecting = True
+        await reader._close_recv_thread()
+        await reader._reconnect(max_retries=1)
+
+        await writer.send_signal("EngineRPM", 2000.0)
+        second = await asyncio.wait_for(queue.get(), timeout=3.0)
+        assert second.signals["EngineRPM"] == pytest.approx(2000.0, abs=0.5)
+        assert writer._bus is reader._bus
+    finally:
+        reader.stop()
+        reader_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await reader_task
+        reader._bus.shutdown()
 
 
 @pytest.mark.asyncio

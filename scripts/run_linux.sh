@@ -125,4 +125,23 @@ stop_process_on_port "$PORT"
 #   --log-level: Logging level (DEBUG/INFO/WARNING/ERROR)
 # The API port is set in config/system.json, not via a CLI argument
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
-"$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"
+while true; do
+    if "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"; then
+        exit_code=0
+    else
+        # Capture the runner status inside the else branch. The exit status of
+        # an `if` statement with no matching branch is 0, which would lose the
+        # dedicated reboot code if `$?` were read after `fi`.
+        exit_code=$?
+    fi
+
+    if [[ "$exit_code" -eq 0 ]]; then
+        exit 0
+    fi
+    if [[ "$exit_code" -ne 75 ]]; then
+        exit "$exit_code"
+    fi
+
+    log "Car-HMI reboot requested; restarting in 1 second..."
+    sleep 1
+done

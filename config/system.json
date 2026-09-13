@@ -4,14 +4,14 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
     }
   ],
   "simulator": {
     "enabled": true,
     "random_mode": false,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
@@ -61,8 +61,8 @@
       "COM_Status_PumaRR1Ethernet": "192.168.1.105",
       "COM_Status_PantherEthernet": "192.168.1.100",
       "COM_Status_NvidiaJetsonEthernet": "192.168.2.119:8080",
-      "COM_Status_NvidiaJetsonCan": "OMS_FL_HandsOnWheel",
-      "COM_Status_PantherCan": "COM_Status_PumaFLCan"
+      "COM_Status_NvidiaJetsonCan": "COM_State_JetsonCan",
+      "COM_Status_PantherCan": "COM_Status_ElkCan"
     }
   },
   "storage": {

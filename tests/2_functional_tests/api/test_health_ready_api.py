@@ -10,7 +10,6 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
-from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
@@ -57,6 +56,20 @@ class _FakeWriter:
         for signal_name, value in values.items():
             self.writes.append((signal_name, value))
         return values, []
+
+
+class _FakeRunner:
+    def __init__(self):
+        self.retry_calls = 0
+        self.reboot_calls = 0
+
+    async def retry_can_connections(self):
+        self.retry_calls += 1
+        return [True, False]
+
+    async def request_reboot(self):
+        self.reboot_calls += 1
+        return True
 
 
 def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_path=None):
@@ -122,3 +135,81 @@ async def test_ready_false_when_reader_frames_stale():
     data = resp.json()
     assert data["ready"] is False
     assert data["details"]["readers_recent_frames"] is False
+
+
+async def test_ready_ignores_frame_age_when_stale_detection_is_disabled():
+    store = SignalStore()
+    await store.update("VehicleSpeed", 60.0)
+    app = create_app(
+        store,
+        _FakeRepo(),
+        can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=0.0)],
+        api_key="",
+    )
+    app.state.reader_stale_threshold_sec = 0.0
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/system/ready")
+
+    assert response.status_code == 200
+    assert response.json()["ready"] is True
+
+
+async def test_retry_can_endpoint_requires_auth_and_schedules_reconnect(client):
+    runner = _FakeRunner()
+    client._transport.app.state.runner = runner
+
+    unauthenticated = await client.post("/system/can/retry")
+    assert unauthenticated.status_code == 401
+
+    not_devmode = await client.post("/system/can/retry", headers={"X-API-Key": "test-key"})
+    assert not_devmode.status_code == 403
+
+    response = await client.post(
+        "/system/can/retry",
+        headers={"X-API-Key": "test-key", "X-Dev-Mode": "true"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"scheduled": [True, False], "count": 1}
+    assert runner.retry_calls == 1
+
+
+async def test_reboot_endpoint_requires_auth_and_schedules_reboot(client):
+    runner = _FakeRunner()
+    client._transport.app.state.runner = runner
+
+    unauthenticated = await client.post("/system/reboot")
+    assert unauthenticated.status_code == 401
+
+    not_devmode = await client.post("/system/reboot", headers={"X-API-Key": "test-key"})
+    assert not_devmode.status_code == 403
+
+    response = await client.post(
+        "/system/reboot",
+        headers={"X-API-Key": "test-key", "X-Dev-Mode": "true"},
+    )
+    assert response.status_code == 202
+    assert response.json() == {"status": "reboot_scheduled"}
+    assert runner.reboot_calls == 1
+
+
+async def test_system_controls_are_disabled_without_real_api_key():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="change-me-in-production")
+    runner = _FakeRunner()
+    app.state.runner = runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        retry = await client.post(
+            "/system/can/retry",
+            headers={"X-Dev-Mode": "true"},
+        )
+        reboot = await client.post(
+            "/system/reboot",
+            headers={"X-Dev-Mode": "true"},
+        )
+
+    assert retry.status_code == 503
+    assert reboot.status_code == 503
+    assert runner.retry_calls == 0
+    assert runner.reboot_calls == 0

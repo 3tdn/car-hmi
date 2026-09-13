@@ -131,11 +131,12 @@ class ProcessorConfig(BaseModel):
     max_update_rate_hz: float = 10.0
     # Maximum update rate for each signal into SignalStore (Hz); frames beyond this are dropped
     max_queue_size: int = 10_000
-    # Maximum size of the RX queue (number of DecodedFrame objects); increase it for high-load bursts
+    # Maximum size of the RX queue (number of DecodedFrame objects); increase for high-load bursts
     queue_policy: Literal["drop_oldest", "reject"] = "reject"
     # Behavior when the queue is full:
-    #   "drop_oldest" — discard the oldest frame and accept the new frame (prefer fresh data, recommended)
-    #   "reject"      — discard the newly arrived frame (leave the queue unchanged, may lose the latest signal updates)
+    #   "drop_oldest" — discard the oldest frame, keep the new one (fresh data, recommended)
+    #   "reject"      — discard the newly arrived frame (leave the queue unchanged,
+    #                   may lose the latest signal updates)
     batch_drain_size: int = 200
     # Maximum number of frames drained from the queue in each pipeline loop.
     # The pipeline merges frames with the same signal_id → only the latest value is kept, reducing
@@ -146,7 +147,7 @@ class WriterConfig(BaseModel):
     """Configuration for the CAN Writer (writing control commands to the bus)."""
 
     rate_limit_per_sec: int = 10
-    # Maximum number of frames written per second; prevents bus flooding when many commands arrive at once
+    # Maximum number of frames written per second; prevents bus flooding on command bursts
     burst: int = 5
     # Number of frames allowed to exceed rate_limit in a burst (token bucket burst size)
     periodic_mode: bool = False
@@ -178,7 +179,8 @@ class ReaderConfig(BaseModel):
     #   True  = send only signals that changed in the current batch
     stale_threshold_sec: float = 30.0
     # Maximum age threshold (seconds) for the most recent CAN frame.
-    # If this threshold is exceeded, health/readiness will treat the reader as stale.
+    # If this threshold is exceeded, health/readiness treats the reader as stale
+    # and CANReader closes/reconnects the silent bus.
 
 
 class ShutdownConfig(BaseModel):

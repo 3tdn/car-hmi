@@ -169,6 +169,155 @@ def test_status_monitor_targets_split_ethernet_and_can_references():
     assert can_refs["COM_Status_PantherCan"] == "COM_Status_PumaFLCan"
 
 
+def test_main_exits_with_restart_code_after_api_reboot(monkeypatch):
+    import sys
+
+    from src.core import runner as runner_module
+
+    class RebootingRunner:
+        reboot_requested = True
+
+        async def start(self):
+            return None
+
+    monkeypatch.setattr(runner_module, "load_config", lambda _path: AppConfig())
+    monkeypatch.setattr(runner_module, "AppRunner", lambda _cfg: RebootingRunner())
+    monkeypatch.setattr(sys, "argv", ["can-hmi"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        runner_module.main()
+
+    assert exc_info.value.code == 75
+
+
+def test_run_linux_restarts_only_after_exit_code_75(tmp_path, monkeypatch):
+    import os
+    import subprocess
+    from pathlib import Path
+
+    if os.name == "nt":
+        pytest.skip("run_linux.sh is not used on Windows")
+
+    fake_python = tmp_path / ".venv" / "bin" / "python"
+    fake_python.parent.mkdir(parents=True)
+    fake_python.write_text(
+        """#!/bin/sh
+count=0
+if [ -f "$CAR_HMI_TEST_COUNTER" ]; then
+    count=$(cat "$CAR_HMI_TEST_COUNTER")
+fi
+count=$((count + 1))
+echo "$count" > "$CAR_HMI_TEST_COUNTER"
+if [ "$count" -eq 1 ]; then
+    exit 75
+fi
+exit 0
+""",
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+    counter = tmp_path / "runner-count"
+    monkeypatch.setenv("CAR_HMI_TEST_COUNTER", str(counter))
+    script = Path(__file__).resolve().parents[2] / "scripts" / "run_linux.sh"
+
+    result = subprocess.run(
+        ["bash", str(script), "unused.json", "INFO", "65432"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert counter.read_text(encoding="utf-8").strip() == "2"
+    assert "restarting in 1 second" in result.stdout
+
+
+def test_reader_connectivity_allows_disabled_stale_threshold():
+    from src.core.runner import AppRunner
+
+    state = {
+        "thread_alive": True,
+        "fatal_error": None,
+        "last_recv_age_sec": None,
+    }
+
+    assert AppRunner._reader_state_is_connected(state, 0.0) is True
+    assert AppRunner._reader_state_is_connected(state, 30.0) is False
+
+
+def test_can_status_reference_requires_online_value_when_reference_is_status():
+    from src.core.runner import AppRunner
+    from src.core.signal_store import SignalValue
+
+    now = 100.0
+    offline_status = SignalValue(value=0.0, timestamp=99.0)
+    zero_measurement = SignalValue(value=0.0, timestamp=99.0)
+
+    assert (
+        AppRunner._can_reference_is_online(
+            "COM_Status_PumaFLCan",
+            offline_status,
+            now=now,
+            interval_sec=10.0,
+        )
+        is False
+    )
+    assert (
+        AppRunner._can_reference_is_online(
+            "OMS_FL_HandsOnWheel",
+            zero_measurement,
+            now=now,
+            interval_sec=10.0,
+        )
+        is True
+    )
+
+
+def test_can_status_signals_are_mapped_to_their_reader_dbc():
+    from types import SimpleNamespace
+
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    runner._db_loaders = [
+        SimpleNamespace(
+            signals={
+                "COM_Status_PumaFLCan": object(),
+                "COM_Status_PumaFLEthernet": object(),
+                "SeatPosition": object(),
+            }
+        ),
+        SimpleNamespace(signals={"COM_Status_PumaRRCan": object()}),
+    ]
+
+    assert runner._can_status_signals_for_reader(0) == {"COM_Status_PumaFLCan"}
+    assert runner._can_status_signals_for_reader(1) == {"COM_Status_PumaRRCan"}
+    assert runner._can_status_signals_for_reader(2) == set()
+
+
+@pytest.mark.asyncio
+async def test_disconnected_reader_only_marks_its_channel_status_offline():
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    await runner.store.bulk_update(
+        {
+            "COM_Status_PumaFLCan": 1.0,
+            "COM_Status_PumaRRCan": 1.0,
+        },
+        timestamp=10.0,
+    )
+
+    await runner._set_can_status_disconnected({"COM_Status_PumaFLCan"})
+
+    front_left = await runner.store.get("COM_Status_PumaFLCan")
+    rear_right = await runner.store.get("COM_Status_PumaRRCan")
+    assert front_left is not None and front_left.value == 0.0
+    assert rear_right is not None and rear_right.value == 1.0
+
+
 # ── SignalStore ───────────────────────────────────────────────────────────────
 
 

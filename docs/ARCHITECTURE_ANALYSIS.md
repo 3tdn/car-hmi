@@ -267,20 +267,30 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
   - `_policy: str`: Queue overflow policy ("drop_oldest" | "reject")
   - `_min_interval: float`: Rate gating per message ID (seconds)
   - `_last_enqueue: dict[int, float]`: Per-ID last enqueue timestamp (for rate gating)
+  - `_stale_threshold_sec: float`: Maximum allowed age of the latest received frame
 
 - **Key Methods**:
   - `async start()`: Accept frames until stop(), spawn recv thread
   - `_spawn_recv_thread()`: Create dedicated OS thread for `bus.recv()`
-  - `_recv_loop()`: Thread entry point—chained `bus.recv()` calls, post via `call_soon_threadsafe()`
-  - `_enqueue_sync()`: Called in event loop thread—filter, rate-gate, decode, enqueue
+  - `_recv_loop()`: Thread entry point—filters, deduplicates, rate-gates, and decodes frames
+  - `_submit_frame()`: Coalesces the latest changed signals per CAN ID and permits at most one pending event-loop ingress callback
+  - `_enqueue_frame_sync()`: Called in event loop thread—places an already prepared frame onto the bounded queue
   - `_decode()`: Wrapper calling `db.decode_message()`, return `DecodedFrame`
-  - `async _reconnect()`: Exponential backoff reconnection on bus error
+  - `request_reconnect()`: Closes the current receiver safely and starts one reconnect task
+  - `async _reconnect()`: Persistent staged reconnect schedule after bus error or stale traffic; awaits a channel callback so the paired writer uses the replacement bus
   - `async stop()`: Signal thread to exit, clean up
 
 - **Performance**:
   - Dedicated recv thread avoids `run_in_executor()` overhead (~10 µs → ~0.5 µs per frame)
+  - Deduplicating and coalescing before event-loop scheduling prevents an unbounded callback backlog even when payloads change continuously
   - Rate gating per message ID prevents queue fill-up with high-frequency simulator
-  - Batch merge in pipeline further reduces processing when queue is backed up
+  - The pipeline drains a bounded `batch_drain_size` and merges values within each batch, keeping the event loop responsive during a backlog
+
+- **CAN outage recovery**:
+  - If traffic is silent from startup or stops later, `reader.stale_threshold_sec` triggers a bus close and reconnect.
+  - Reconnect backoff resets only after the replacement bus receives a frame, not merely when its socket opens.
+  - Reconnects use 5 fast exponential attempts (`1s` to `16s`), then 10 attempts each at `30s`, `1m`, `2m`, and longer intervals, capped at one retry per hour.
+  - While a CAN reader is stale, the `COM_Status_*Can` signals owned by its channel DBC are set to `0`; healthy channels remain unchanged.
 
 #### `writer.py` — **CANWriter** & **CANWriterRouter** (CAN Frame Transmission)
 
