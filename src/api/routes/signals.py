@@ -29,7 +29,10 @@ from src.api.routes.profiles import (
     require_profile_permission,
 )
 from src.api.websocket import ConnectionManager, SubscriptionTopic
-from src.can_io.writer import CANWriteRejectedError
+from src.can_io.writer import (
+    CANWriteRejectedError,
+    is_message_writable_by_local_node,
+)
 from src.core.devmode_locks import get_seat_lock_registry
 
 router = APIRouter()
@@ -55,9 +58,6 @@ def _infer_signal_tags(signal_name: str) -> list[str]:
     return [part for part in signal_name.split("_") if re.match(r'^[A-Z0-9]+$', part)]
 
 
-_CARPC_SENDER_NAME = "CAR_PC"  # signals CarPC transmits (writable via PUT /signals/{name})
-
-
 @lru_cache(maxsize=1)
 def _dbc_signal_configs() -> dict[str, dict]:
     """Signal metadata (min/max/unit/writable/states/tag), merged from every can_db_file in system.json."""
@@ -75,7 +75,7 @@ def _dbc_signal_configs() -> dict[str, dict]:
         except (FileNotFoundError, ValueError, RuntimeError):
             continue
         for msg in loader.messages.values():
-            writable = _CARPC_SENDER_NAME in msg.senders
+            writable = is_message_writable_by_local_node(msg)
             for sig_name, sig in msg.signals.items():
                 configs.setdefault(sig_name, {
                     "min_value": sig.minimum,

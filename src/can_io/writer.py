@@ -19,6 +19,30 @@ logger = logging.getLogger(__name__)
 
 LOCAL_CAN_TX_NODE = "CAR_PC"
 
+_MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
+    "SBS_ELK_Activation": {
+        "ELK_FL_LockingRequest": "ELK_FL_LockingStatus",
+        "ELK_FR_LockingRequest": "ELK_FR_LockingStatus",
+        "ELK_RL1_LockingRequest": "ELK_RL1_LockingStatus",
+        "ELK_RL2_LockingRequest": "ELK_RL2_LockingStatus",
+        "ELK_RR1_LockingRequest": "ELK_RR1_LockingStatus",
+        "ELK_ResetErrorFlags": 0.0,
+    },
+    "INC_HMI_SensorFusionRequest": {
+        "HMI_SensorFusion_CapSensor": "OMS_State_CapSensor",
+        "HMI_SensorFusion_StrainGage": "OMS_State_StrainGauge",
+        "HMI_SensorFusion_Camera": "OMS_State_Camera",
+    },
+}
+
+
+def is_message_writable_by_local_node(msg_def: ParsedMessage) -> bool:
+    """Return whether the local CAN node may write this message."""
+    return (
+        not msg_def.senders
+        or LOCAL_CAN_TX_NODE in msg_def.senders
+    )
+
 
 class CANWriteRejectedError(ValueError):
     """Raised when a known DBC signal/message is not transmitted by this node."""
@@ -103,7 +127,7 @@ class CANWriter:
         signal_name: str | None = None,
     ) -> None:
         # Empty senders are kept writable for legacy JSON CAN databases.
-        if not msg_def.senders or LOCAL_CAN_TX_NODE in msg_def.senders:
+        if is_message_writable_by_local_node(msg_def):
             return
 
         subject = f"signal '{signal_name}' in " if signal_name is not None else ""
@@ -224,6 +248,23 @@ class CANWriter:
                 sv = await self._store.get(sig_name)
                 if sv is not None:
                     signals_to_encode[sig_name] = sv.value
+
+        mapped_sources = _MESSAGE_UNWRITTEN_SIGNAL_SOURCES.get(msg_def.name, {})
+        source_values = (
+            await self._store.get_snapshot()
+            if mapped_sources and self._store is not None
+            else {}
+        )
+        for target_name, source in mapped_sources.items():
+            if target_name in sig_values or target_name not in msg_def.signals:
+                continue
+            if isinstance(source, str):
+                source_value = source_values.get(source)
+                signals_to_encode[target_name] = (
+                    source_value.value if source_value is not None else 0.0
+                )
+            else:
+                signals_to_encode[target_name] = source
 
         signals_to_encode.update(sig_values)
 

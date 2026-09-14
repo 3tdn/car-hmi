@@ -4,14 +4,14 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
     }
   ],
   "simulator": {
     "enabled": true,
     "random_mode": false,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",

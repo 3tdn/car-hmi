@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 
 import pytest
 import pytest_asyncio
@@ -11,7 +10,6 @@ from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
 from src.can_io.writer import CANWriteRejectedError
-from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
@@ -125,6 +123,9 @@ async def test_available_signals_returns_metadata(client):
     # VehicleSpeed should be present from the fixture
     names = [item["signal_name"] for item in data["signals_info"]]
     assert "VehicleSpeed" in names
+    metadata = {item["signal_name"]: item for item in data["signals_info"]}
+    assert metadata["ELK_RL1_LockingRequest"]["writable"] is True
+    assert metadata["OMS_State_Camera"]["writable"] is False
     sample = data["signals_info"][0]
     # Metadata fields should exist (even if None)
     assert "unit" in sample

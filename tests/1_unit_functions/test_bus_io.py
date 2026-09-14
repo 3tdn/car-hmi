@@ -187,6 +187,147 @@ async def test_v8_oms_state_is_rx_only_and_sensor_fusion_request_is_tx(
     assert writer.validate_signal_tx("HMI_SensorFusion_Camera").msg_id == 0x84
 
 
+@pytest.fixture
+def v8_db():
+    loader = DatabaseLoader()
+    dbc_path = (
+        Path(__file__).resolve().parents[2]
+        / "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+    )
+    loader.load_dbc(dbc_path)
+    return loader
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preserve_unwritten", [False, True])
+async def test_elk_batch_uses_locking_statuses_for_unwritten_requests(
+    virtual_bus_pair,
+    v8_db,
+    preserve_unwritten,
+):
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.bulk_update(
+        {
+            "ELK_FL_LockingStatus": 1.0,
+            "ELK_FR_LockingStatus": 0.0,
+            "ELK_RL1_LockingStatus": 1.0,
+            "ELK_RL2_LockingStatus": 0.0,
+            "ELK_RR1_LockingStatus": 1.0,
+            "ELK_FL_LockingRequest": 0.0,
+            "ELK_RL1_LockingRequest": 0.0,
+            "ELK_RR1_LockingRequest": 0.0,
+        }
+    )
+    writer = CANWriter(
+        bus=bus_tx,
+        db=v8_db,
+        signal_store=store,
+        writer_config=WriterConfig(
+            use_prevalue_for_unwritten_signal=preserve_unwritten
+        ),
+    )
+
+    await writer.send_signals_batch({"ELK_FR_LockingRequest": 1.0})
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    assert msg.arbitration_id == 0x92
+    decoded = v8_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded == {
+        "ELK_ResetErrorFlags": 0.0,
+        "ELK_FL_LockingRequest": 1.0,
+        "ELK_FR_LockingRequest": 1.0,
+        "ELK_RR1_LockingRequest": 1.0,
+        "ELK_RL2_LockingRequest": 0.0,
+        "ELK_RL1_LockingRequest": 1.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_elk_batch_groups_two_explicit_requests_into_one_frame(
+    virtual_bus_pair,
+    v8_db,
+):
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.bulk_update(
+        {
+            "ELK_FL_LockingStatus": 0.0,
+            "ELK_FR_LockingStatus": 1.0,
+            "ELK_RL1_LockingStatus": 0.0,
+            "ELK_RL2_LockingStatus": 1.0,
+            "ELK_RR1_LockingStatus": 1.0,
+        }
+    )
+    writer = CANWriter(bus=bus_tx, db=v8_db, signal_store=store)
+
+    sent = await writer.send_signals_batch(
+        {
+            "ELK_FL_LockingRequest": 1.0,
+            "ELK_RR1_LockingRequest": 0.0,
+        }
+    )
+    assert sent == {
+        "ELK_FL_LockingRequest": 1.0,
+        "ELK_RR1_LockingRequest": 0.0,
+    }
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    assert msg.arbitration_id == 0x92
+    decoded = v8_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded == {
+        "ELK_ResetErrorFlags": 0.0,
+        "ELK_FL_LockingRequest": 1.0,
+        "ELK_FR_LockingRequest": 1.0,
+        "ELK_RR1_LockingRequest": 0.0,
+        "ELK_RL2_LockingRequest": 1.0,
+        "ELK_RL1_LockingRequest": 0.0,
+    }
+    assert bus_rx.recv(timeout=0.05) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preserve_unwritten", [False, True])
+async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
+    virtual_bus_pair,
+    v8_db,
+    preserve_unwritten,
+):
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.bulk_update(
+        {
+            "OMS_State_CapSensor": 1.0,
+            "OMS_State_StrainGauge": 0.0,
+            "OMS_State_Camera": 1.0,
+            "HMI_SensorFusion_CapSensor": 0.0,
+            "HMI_SensorFusion_Camera": 0.0,
+        }
+    )
+    writer = CANWriter(
+        bus=bus_tx,
+        db=v8_db,
+        signal_store=store,
+        writer_config=WriterConfig(
+            use_prevalue_for_unwritten_signal=preserve_unwritten
+        ),
+    )
+
+    await writer.send_signals_batch({"HMI_SensorFusion_StrainGage": 1.0})
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    assert msg.arbitration_id == 0x84
+    decoded = v8_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded == {
+        "HMI_SensorFusion_CapSensor": 1.0,
+        "HMI_SensorFusion_StrainGage": 1.0,
+        "HMI_SensorFusion_Camera": 1.0,
+    }
+
+
 # ── CANReader ─────────────────────────────────────────────────────────────────
 
 
