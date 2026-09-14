@@ -202,15 +202,15 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None) -> 
     state["rt_outcome"] = "passed"
     state["rt_reason"] = ""
 
-    vi_desc_marker = item.get_closest_marker("vi_desc")
-    if vi_desc_marker and vi_desc_marker.args:
-        vi_desc = f"Description: {_normalize_spaces(str(vi_desc_marker.args[0]))}"
-    else:
-        vi_desc = _describe_test_case_vi(item)
+    # vi_desc_marker = item.get_closest_marker("vi_desc")
+    # if vi_desc_marker and vi_desc_marker.args:
+    #     vi_desc = f"Description: {_normalize_spaces(str(vi_desc_marker.args[0]))}"
+    # else:
+    #     vi_desc = _describe_test_case_vi(item)
 
-    _append_report_line(item.config, f"[START] {item.nodeid}")
+    _append_report_line(item.config, f"[START] {item.nodeid.split('::')[0]}")
     _append_report_line(item.config, f"  - Start: {start_text}")
-    _append_report_line(item.config, f"  - {vi_desc}")
+    _append_report_line(item.config, f"  - Description: {item.name.replace('_', ' ')}")
 
     outcome = yield
     _ = outcome
