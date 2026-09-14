@@ -9,13 +9,19 @@ from typing import TYPE_CHECKING
 
 import can
 
-from src.can_io.parser import DatabaseLoader
+from src.can_io.parser import DatabaseLoader, ParsedMessage
 
 if TYPE_CHECKING:
     from src.core.config import WriterConfig
     from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
+
+LOCAL_CAN_TX_NODE = "CAR_PC"
+
+
+class CANWriteRejectedError(ValueError):
+    """Raised when a known DBC signal/message is not transmitted by this node."""
 
 
 class CANWriter:
@@ -54,11 +60,12 @@ class CANWriter:
                            dashboard updates after sending (optional).
             writer_config: Writer configuration (periodic mode, rate limit, ...).
         """
-        self._bus = bus
+        self._bus: can.BusABC | None = bus
         self._db = db
         self._store = signal_store
         self._lock = asyncio.Lock()
         self._sent_count = 0
+        self._bus_unavailable_reason: str | None = None
 
         # Periodic mode config
         if writer_config is not None:
@@ -79,10 +86,43 @@ class CANWriter:
         # Keep references to fire-and-forget tasks so they aren't garbage-collected mid-flight
         self._background_tasks: set[asyncio.Task] = set()
 
-    async def set_bus(self, bus: can.BusABC) -> None:
-        """Switch to a replacement bus after the paired reader reconnects."""
+    async def set_bus(
+        self,
+        bus: can.BusABC | None,
+        reason: str | None = None,
+    ) -> None:
+        """Switch buses, or detach before the paired reader closes the shared bus."""
         async with self._lock:
             self._bus = bus
+            self._bus_unavailable_reason = reason
+
+    def _require_tx_message(
+        self,
+        msg_def: ParsedMessage,
+        *,
+        signal_name: str | None = None,
+    ) -> None:
+        # Empty senders are kept writable for legacy JSON CAN databases.
+        if not msg_def.senders or LOCAL_CAN_TX_NODE in msg_def.senders:
+            return
+
+        subject = f"signal '{signal_name}' in " if signal_name is not None else ""
+        senders = ", ".join(msg_def.senders) or "unspecified"
+        raise CANWriteRejectedError(
+            f"CAN write rejected: {subject}message '{msg_def.name}' "
+            f"(msg_id={msg_def.msg_id:#x}) is not TX for local node "
+            f"'{LOCAL_CAN_TX_NODE}'; DBC sender(s): [{senders}]"
+        )
+
+    def validate_signal_tx(self, signal_name: str) -> ParsedMessage:
+        """Return the owning TX message or raise a precise validation error."""
+        msg_def = self._db.get_message_for_signal(signal_name)
+        if msg_def is None:
+            raise ValueError(
+                f"Signal '{signal_name}' not found in CAN database — cannot encode"
+            )
+        self._require_tx_message(msg_def, signal_name=signal_name)
+        return msg_def
 
     def apply_runtime_config(self, writer_config: WriterConfig) -> None:
         """Apply writer settings and stop periodic jobs when their mode changes."""
@@ -142,17 +182,11 @@ class CANWriter:
             ValueError: if a signal is not found in this channel's DB.
         """
         # ── Step 1: group by message ────────────────────────────────────────────
-        from src.can_io.parser import ParsedMessage  # avoid top-level circular import
-
         msg_groups: dict[int, dict[str, float]] = {}
         msg_defs: dict[int, ParsedMessage] = {}
 
         for sig_name, value in signals.items():
-            msg_def = self._db.get_message_for_signal(sig_name)
-            if msg_def is None:
-                raise ValueError(
-                    f"Signal '{sig_name}' not found in CAN database — cannot encode"
-                )
+            msg_def = self.validate_signal_tx(sig_name)
             if msg_def.msg_id not in msg_groups:
                 msg_groups[msg_def.msg_id] = {}
                 msg_defs[msg_def.msg_id] = msg_def
@@ -193,7 +227,7 @@ class CANWriter:
     async def _send_frame(
         self,
         msg_id: int,
-        msg_def: object,
+        msg_def: ParsedMessage,
         sig_values: dict[str, float],
         ts: float,
     ) -> None:
@@ -223,12 +257,21 @@ class CANWriter:
         msg.timestamp = ts
 
         async with self._lock:
+            bus = self._bus
+            if bus is None:
+                raise can.CanError(
+                    f"CAN bus unavailable while reconnecting: message='{msg_def.name}', "
+                    f"msg_id={msg_id:#x}, signals={list(sig_values)}, "
+                    f"reason='{self._bus_unavailable_reason}'"
+                )
             loop = asyncio.get_running_loop()
             try:
-                await loop.run_in_executor(None, self._bus.send, msg)
+                await loop.run_in_executor(None, bus.send, msg)
             except Exception as exc:
                 raise can.CanError(
-                    f"Failed to send CAN frame for msg_id={msg_id:#x}: {exc}"
+                    f"Failed to send CAN frame: message='{msg_def.name}', "
+                    f"msg_id={msg_id:#x}, signals={list(sig_values)}, "
+                    f"cause={type(exc).__name__}: {exc}"
                 ) from exc
             self._sent_count += 1
             logger.info(
@@ -242,7 +285,7 @@ class CANWriter:
     async def _periodic_sender(
         self,
         msg_id: int,
-        msg_def: object,
+        msg_def: ParsedMessage,
         sig_values: dict[str, float],
     ) -> None:
         """Repeatedly send a CAN frame every ``periodic_time_step`` ms for
@@ -285,17 +328,30 @@ class CANWriter:
             ValueError: if ``msg_id`` is not found in the DB.
             can.CanError: if sending fails.
         """
+        msg_def = self._db.messages.get(msg_id)
+        if msg_def is None:
+            raise ValueError(f"Message ID {msg_id:#x} not found in CAN database — cannot encode")
+        self._require_tx_message(msg_def)
         msg = self._db.encode_message(msg_id, signals)
         if msg is None:
             raise ValueError(f"Message ID {msg_id:#x} not found in CAN database — cannot encode")
         msg.timestamp = time.time()
         async with self._lock:
+            bus = self._bus
+            if bus is None:
+                raise can.CanError(
+                    f"CAN bus unavailable while reconnecting: message='{msg_def.name}', "
+                    f"msg_id={msg_id:#x}, signals={list(signals)}, "
+                    f"reason='{self._bus_unavailable_reason}'"
+                )
             loop = asyncio.get_running_loop()
             try:
-                await loop.run_in_executor(None, self._bus.send, msg)
+                await loop.run_in_executor(None, bus.send, msg)
             except Exception as exc:
                 raise can.CanError(
-                    f"Failed to send CAN message {msg_id:#x}: {exc}"
+                    f"Failed to send CAN message: message='{msg_def.name}', "
+                    f"msg_id={msg_id:#x}, signals={list(signals)}, "
+                    f"cause={type(exc).__name__}: {exc}"
                 ) from exc
             self._sent_count += 1
             logger.debug(
@@ -388,6 +444,13 @@ class CANWriterRouter:
                     }
                 )
                 continue
+            try:
+                writer.validate_signal_tx(sig_name)
+            except CANWriteRejectedError as exc:
+                errors.append(
+                    {"signal_name": sig_name, "error": str(exc), "kind": "not_tx"}
+                )
+                continue
             wid = id(writer)
             if wid not in writer_groups:
                 writer_groups[wid] = (writer, {})
@@ -399,6 +462,11 @@ class CANWriterRouter:
             try:
                 result = await writer.send_signals_batch(sig_map)
                 sent.update(result)
+            except CANWriteRejectedError as exc:
+                for sig_name in sig_map:
+                    errors.append(
+                        {"signal_name": sig_name, "error": str(exc), "kind": "not_tx"}
+                    )
             except ValueError as exc:
                 # Put every signal from this channel into errors
                 for sig_name in sig_map:

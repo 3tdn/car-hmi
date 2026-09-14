@@ -10,6 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.can_io.writer import CANWriteRejectedError
 from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
@@ -57,6 +58,27 @@ class _FakeWriter:
         for signal_name, value in values.items():
             self.writes.append((signal_name, value))
         return values, []
+
+
+class _NonTxRejectingWriter:
+    error = (
+        "CAN write rejected: signal 'OMS_State_Camera' in message "
+        "'MON_OMS_State' (msg_id=0xb8) is not TX for local node 'CAR_PC'; "
+        "DBC sender(s): [SIMI]"
+    )
+
+    async def send_signal(self, signal_name, value):
+        raise CANWriteRejectedError(self.error)
+
+    async def send_signals_batch(self, values):
+        return {}, [
+            {
+                "signal_name": signal_name,
+                "error": self.error,
+                "kind": "not_tx",
+            }
+            for signal_name in values
+        ]
 
 
 def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_path=None):
@@ -242,6 +264,46 @@ async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
 
     assert resp.status_code == 202
     assert app.state.writer.writes == [("VehicleSpeed", 77.0)]
+
+
+@pytest.mark.asyncio
+async def test_write_signal_rejects_non_tx_message_with_dbc_context():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.writer = _NonTxRejectingWriter()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.put(
+            "/signals/OMS_State_Camera",
+            headers={"X-API-Key": "test-key", "X-Dev-Mode": "true"},
+            json={"value": 1.0},
+        )
+
+    assert resp.status_code == 403
+    detail = resp.json()["detail"]
+    assert "message 'MON_OMS_State'" in detail
+    assert "msg_id=0xb8" in detail
+    assert "DBC sender(s): [SIMI]" in detail
+
+
+@pytest.mark.asyncio
+async def test_batch_write_rejects_non_tx_messages_with_dbc_context():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app.state.writer = _NonTxRejectingWriter()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/signals/batch_update",
+            headers={"X-API-Key": "test-key", "X-Dev-Mode": "true"},
+            json={"signals": [{"signal_name": "OMS_State_Camera", "value": 1.0}]},
+        )
+
+    assert resp.status_code == 403
+    error = resp.json()["detail"][0]
+    assert error["kind"] == "not_tx"
+    assert "message 'MON_OMS_State'" in error["error"]
+    assert "msg_id=0xb8" in error["error"]
 
 async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tmp_path):
     """Batch writes queue only valid signals and return warnings for skipped ones."""

@@ -27,7 +27,7 @@ Các constraint đặc thù của DBC kiểm tra đuôi `.dbc`, file tồn tại
 | Reader | `reader.frequency_piority`, `reader.only_send_signal_update`, `reader.stale_threshold_sec` |
 | Writer | `writer.periodic_mode`, `writer.periodic_time_step`, `writer.periodic_duration`, `writer.use_prevalue_for_unwritten_signal` |
 | Runtime | `shutdown.timeout_sec`, `logging.level` |
-| Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.pypass_check_CAN_status` |
+| Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.bypass_check_CAN_status` |
 | Config manager | `config_management.backup_retention_count` |
 
 Khi đổi `processor.max_queue_size`, runner chuyển reader sang queue mới, drain dữ liệu còn lại

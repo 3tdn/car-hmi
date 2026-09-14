@@ -68,7 +68,7 @@ def create_app(
     _profile_cfg = _cfg.get("profiles", {})
     _devmode_cfg = _cfg.get("devmode", {})
     app.state.reader_stale_threshold_sec = float(_reader_cfg.get("stale_threshold_sec", 30.0))
-    app.state.devmode_bypass_can_status = bool(_devmode_cfg.get("pypass_check_CAN_status", False))
+    app.state.devmode_bypass_can_status = bool(_devmode_cfg.get("bypass_check_CAN_status", False))
     app.state.profile_session_cleanup_task = None
 
     try:

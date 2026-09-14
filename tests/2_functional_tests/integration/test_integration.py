@@ -213,12 +213,16 @@ async def test_writer_uses_reconnected_reader_bus(json_db_file):
     async def replace_writer_bus(replacement_bus):
         await writer.set_bus(replacement_bus)
 
+    async def mark_writer_unavailable(reason):
+        await writer.set_bus(None, reason)
+
     queue: asyncio.Queue[DecodedFrame] = asyncio.Queue(maxsize=10)
     reader = CANReader(
         bus=initial_bus,
         db=loader,
         queue=queue,
         bus_factory=create_bus,
+        on_bus_disconnecting=mark_writer_unavailable,
         on_bus_reconnected=replace_writer_bus,
     )
     reader_task = asyncio.create_task(reader.start())
@@ -227,9 +231,16 @@ async def test_writer_uses_reconnected_reader_bus(json_db_file):
         first = await asyncio.wait_for(queue.get(), timeout=3.0)
         assert first.signals["EngineRPM"] == pytest.approx(1000.0, abs=0.5)
 
-        reader._reconnecting = True
-        await reader._close_recv_thread()
-        await reader._reconnect(max_retries=1)
+        assert await reader.request_reconnect("integration test reconnect") is True
+
+        with pytest.raises(can.CanError) as exc_info:
+            await writer.send_signal("EngineRPM", 2000.0)
+        assert "CAN bus unavailable while reconnecting" in str(exc_info.value)
+        assert "message='ECM_Status'" in str(exc_info.value)
+        assert "file descriptor" not in str(exc_info.value).lower()
+
+        assert reader._reconnect_task is not None
+        await reader._reconnect_task
 
         await writer.send_signal("EngineRPM", 2000.0)
         second = await asyncio.wait_for(queue.get(), timeout=3.0)
@@ -241,7 +252,6 @@ async def test_writer_uses_reconnected_reader_bus(json_db_file):
         with contextlib.suppress(asyncio.CancelledError):
             await reader_task
         reader._bus.shutdown()
-
 
 @pytest.mark.asyncio
 async def test_pipeline_flush_on_shutdown(tmp_path, db_loader):

@@ -802,8 +802,8 @@
       }
     },
     {
-      "path": "devmode.pypass_check_CAN_status",
-      "title": "Pypass Check Can Status",
+      "path": "devmode.bypass_check_CAN_status",
+      "title": "Bypass Check Can Status",
       "type": "boolean",
       "reload_level": "live",
       "description": "Bypass CAN status checks in Dev Mode.",

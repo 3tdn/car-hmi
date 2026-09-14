@@ -139,9 +139,9 @@ def test_app_config_accepts_status_monitor_section():
 
 
 def test_app_config_accepts_devmode_can_status_bypass():
-    cfg = AppConfig(devmode={"pypass_check_CAN_status": True})
+    cfg = AppConfig(devmode={"bypass_check_CAN_status": True})
 
-    assert cfg.devmode.pypass_check_CAN_status is True
+    assert cfg.devmode.bypass_check_CAN_status is True
 
 
 def test_extract_host_supports_raw_ip_host_port_and_url():
@@ -379,7 +379,7 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
             "periodic_duration": 500,
             "use_prevalue_for_unwritten_signal": False,
         },
-        devmode={"pypass_check_CAN_status": True},
+        devmode={"bypass_check_CAN_status": True},
     )
     changed = [
         "processor.max_update_rate_hz",
@@ -389,7 +389,7 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         "reader.only_send_signal_update",
         "reader.stale_threshold_sec",
         "writer.periodic_mode",
-        "devmode.pypass_check_CAN_status",
+        "devmode.bypass_check_CAN_status",
     ]
 
     result = await runner.apply_system_config(updated, changed)

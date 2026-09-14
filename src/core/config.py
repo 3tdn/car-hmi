@@ -102,7 +102,7 @@ class DevModeConfig(BaseModel):
 
     block_timeout_sec: float = Field(default=60.0, gt=0)
     require_seat_connected: bool = True
-    pypass_check_CAN_status: bool = False
+    bypass_check_CAN_status: bool = False
     # Allow Dev Mode to write signals without requiring COM_Status_*Can to be online.
 
 
