@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import patch
 
 import can
@@ -11,7 +12,7 @@ import pytest
 from src.can_io.bus_factory import create_bus, create_virtual_bus
 from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
-from src.can_io.writer import CANWriter
+from src.can_io.writer import CANWriter, CANWriteRejectedError, CANWriterRouter
 from src.core.config import CANConfig, WriterConfig
 from src.core.signal_store import SignalStore
 
@@ -159,6 +160,31 @@ async def test_writer_unknown_signal_raises(virtual_bus_pair, json_db):
     writer = CANWriter(bus=bus_tx, db=json_db)
     with pytest.raises(ValueError, match="not found"):
         await writer.send_signal("NoSuchSignal", 1.0)
+
+
+@pytest.mark.asyncio
+async def test_v8_oms_state_is_rx_only_and_sensor_fusion_request_is_tx(
+    virtual_bus_pair,
+):
+    bus_tx, _ = virtual_bus_pair
+    loader = DatabaseLoader()
+    dbc_path = (
+        Path(__file__).resolve().parents[2]
+        / "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+    )
+    loader.load_dbc(dbc_path)
+    writer = CANWriter(bus=bus_tx, db=loader)
+    router = CANWriterRouter()
+    router.register(loader, writer)
+
+    with pytest.raises(CANWriteRejectedError) as exc_info:
+        await router.send_signal("OMS_State_Camera", 1.0)
+
+    message = str(exc_info.value)
+    assert "message 'MON_OMS_State'" in message
+    assert "msg_id=0xb8" in message
+    assert "DBC sender(s): [SIMI]" in message
+    assert writer.validate_signal_tx("HMI_SensorFusion_Camera").msg_id == 0x84
 
 
 # ── CANReader ─────────────────────────────────────────────────────────────────

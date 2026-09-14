@@ -324,6 +324,12 @@ class AppRunner:
                 await channel_writer.set_bus(replacement_bus)
                 self._buses[channel_index] = replacement_bus
 
+            async def _mark_channel_bus_unavailable(
+                reason,
+                channel_writer=writer,
+            ) -> None:
+                await channel_writer.set_bus(None, reason)
+
             reader = CANReader(
                 bus=bus,
                 db=db_loader,
@@ -334,6 +340,7 @@ class AppRunner:
                 max_rate_hz=proc_cfg.max_update_rate_hz,
                 priority_sec=self.config.reader.frequency_piority,
                 stale_threshold_sec=self.config.reader.stale_threshold_sec,
+                on_bus_disconnecting=_mark_channel_bus_unavailable,
                 on_bus_reconnected=_replace_channel_bus,
             )
             self._readers.append(reader)

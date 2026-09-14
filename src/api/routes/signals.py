@@ -29,6 +29,7 @@ from src.api.routes.profiles import (
     require_profile_permission,
 )
 from src.api.websocket import ConnectionManager, SubscriptionTopic
+from src.can_io.writer import CANWriteRejectedError
 from src.core.devmode_locks import get_seat_lock_registry
 
 router = APIRouter()
@@ -301,6 +302,11 @@ async def write_signal(signal_name: str, body: WriteSignalRequest, request: Requ
         )
     try:
         await writer.send_signal(signal_name, body.value)
+    except CANWriteRejectedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         message = str(exc)
         if "not found" in message.lower() or "cannot encode" in message.lower():
@@ -380,6 +386,11 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
     if not queued and any(err.get("kind") == "transport" for err in errors):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=errors,
+        )
+    if not queued and any(err.get("kind") == "not_tx" for err in errors):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=errors,
         )
     if errors and not queued:

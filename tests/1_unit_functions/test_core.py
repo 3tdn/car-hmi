@@ -136,9 +136,9 @@ def test_app_config_accepts_status_monitor_section():
 
 
 def test_app_config_accepts_devmode_can_status_bypass():
-    cfg = AppConfig(devmode={"pypass_check_CAN_status": True})
+    cfg = AppConfig(devmode={"bypass_check_CAN_status": True})
 
-    assert cfg.devmode.pypass_check_CAN_status is True
+    assert cfg.devmode.bypass_check_CAN_status is True
 
 
 def test_extract_host_supports_raw_ip_host_port_and_url():

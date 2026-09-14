@@ -58,6 +58,7 @@ class CANReader:
         max_rate_hz: float = 0.0,
         priority_sec: float = 0.0,
         stale_threshold_sec: float = 30.0,
+        on_bus_disconnecting: Callable[[str], Awaitable[None]] | None = None,
         on_bus_reconnected: Callable[[can.BusABC], Awaitable[None]] | None = None,
     ) -> None:
         """
@@ -77,6 +78,8 @@ class CANReader:
                             Ensures low-frequency-changing signals are not missed.
             stale_threshold_sec: Reopen the bus if no frame arrives within this
                             duration. Set to 0 to disable stale-bus recovery.
+            on_bus_disconnecting: Awaited before the shared bus is closed, so
+                            paired CAN writers can stop using that bus safely.
             on_bus_reconnected: Awaited after a replacement bus opens, so paired
                             CAN writers can switch to the same bus instance.
         """
@@ -106,6 +109,7 @@ class CANReader:
         # 0.0 = disabled (only enqueue on value change)
         self._priority_sec: float = priority_sec
         self._stale_threshold_sec = max(0.0, stale_threshold_sec)
+        self._on_bus_disconnecting = on_bus_disconnecting
         self._on_bus_reconnected = on_bus_reconnected
         self._signal_last_enqueue_time: dict[str, float] = {}
         # Throttled drop warning state
@@ -161,13 +165,15 @@ class CANReader:
                     and not self._reconnecting
                 ):
                     logger.warning("CAN recv thread exited unexpectedly — reconnecting...")
-                    await self.request_reconnect()
+                    await self.request_reconnect("CAN receive thread exited")
                 elif not self._reconnecting and self._is_bus_stale():
                     logger.warning(
                         "CAN bus has been silent for %.1fs — closing and reconnecting",
                         self._bus_silence_age_sec() or 0.0,
                     )
-                    await self.request_reconnect()
+                    await self.request_reconnect(
+                        f"no CAN frame received for {self._bus_silence_age_sec() or 0.0:.1f}s"
+                    )
         finally:
             self._running = False
             if self._reconnect_task and not self._reconnect_task.done():
@@ -221,12 +227,21 @@ class CANReader:
             logger.critical("CAN recv thread did not exit after bus shutdown")
             self.stop()
 
-    async def request_reconnect(self) -> bool:
+    async def request_reconnect(self, reason: str = "manual CAN reconnect requested") -> bool:
         """Start one reconnect loop; return False when recovery is already in progress."""
         if not self._running or self._reconnecting:
             return False
 
         self._reconnecting = True
+        if self._on_bus_disconnecting is not None:
+            try:
+                await self._on_bus_disconnecting(reason)
+            except Exception:
+                self._reconnecting = False
+                logger.exception(
+                    "Failed to mark paired CAN writer unavailable before reconnect"
+                )
+                raise
         await self._close_recv_thread()
         if not self._running:
             self._reconnecting = False
