@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from src.api.auth import APIKeyAuth
 from src.api.routes import (
@@ -28,6 +29,53 @@ from src.core.camera_stream import CameraStreamProxy
 from src.core.config_manager import SystemConfigManager
 
 logger = logging.getLogger(__name__)
+
+_FRONTEND_ACTIVITY_EXCLUDED_PATHS = {
+    "/health",
+    "/ready",
+    "/system/health",
+    "/system/ready",
+}
+
+
+def _notify_frontend_activity(scope: Scope) -> None:
+    app = scope.get("app")
+    runner = getattr(getattr(app, "state", None), "runner", None)
+    notify = getattr(runner, "notify_frontend_activity", None)
+    if not callable(notify):
+        return
+    try:
+        notify()
+    except Exception:
+        logger.debug("Frontend-activity CAN retry notification failed", exc_info=True)
+
+
+class _FrontendActivityMiddleware:
+    """Wake CAN reconnect backoff on HTTP requests and WebSocket activity."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope_type = scope["type"]
+        if (
+            scope_type == "http"
+            and scope.get("path") not in _FRONTEND_ACTIVITY_EXCLUDED_PATHS
+        ):
+            _notify_frontend_activity(scope)
+        elif scope_type == "websocket":
+            _notify_frontend_activity(scope)
+            original_receive = receive
+
+            async def receive_with_activity() -> Message:
+                message = await original_receive()
+                if message["type"] == "websocket.receive":
+                    _notify_frontend_activity(scope)
+                return message
+
+            receive = receive_with_activity
+
+        await self.app(scope, receive, send)
 
 
 def create_app(
@@ -53,6 +101,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(_FrontendActivityMiddleware)
 
     # Shared state — access via request.app.state
     app.state.store = signal_store

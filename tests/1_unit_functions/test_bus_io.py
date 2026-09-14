@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import can
 import pytest
 
-from src.can_io.bus_factory import create_bus, create_virtual_bus
+from src.can_io.bus_factory import (
+    create_bus,
+    create_virtual_bus,
+    list_up_socketcan_channels,
+)
 from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
 from src.can_io.writer import CANWriter, CANWriteRejectedError, CANWriterRouter
@@ -363,3 +367,117 @@ def test_create_bus_socketcan_parameters(mock_bus):
     # Asserting the factory returned the mock instance correctly
     assert bus == "MockSocketcanBus"
     mock_bus.assert_called_once_with(interface="socketcan", channel="can0", bitrate=250000)
+
+
+def test_list_up_socketcan_channels_filters_type_and_flags_and_sorts_naturally(tmp_path):
+    def add_interface(name: str, hardware_type: str, flags: str) -> None:
+        interface = tmp_path / name
+        interface.mkdir()
+        (interface / "type").write_text(hardware_type)
+        (interface / "flags").write_text(flags)
+
+    add_interface("can10", "280", "0x1")
+    add_interface("can2", "280", "0x1001")
+    add_interface("can0", "280", "0x0")
+    add_interface("eth0", "1", "0x1")
+
+    assert list_up_socketcan_channels(tmp_path) == ["can2", "can10"]
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_channels):
+    class ProbeBus:
+        def __init__(self, messages):
+            self.messages = iter(messages)
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            return next(self.messages, None)
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    silent_bus = ProbeBus([None])
+    matching_bus = ProbeBus([can.Message(arbitration_id=0x123, data=[0])])
+    mock_bus.side_effect = [silent_bus, matching_bus]
+    cfg = CANConfig(interface="socketcan", channel="auto", bitrate=500000)
+
+    selected = create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0.1)
+
+    assert selected is matching_bus
+    assert selected._car_hmi_prefetched_message.arbitration_id == 0x123
+    assert silent_bus.shutdown_called is True
+    assert matching_bus.shutdown_called is False
+    expected_filters = [{"can_id": 0x123, "can_mask": 0x1FFFFFFF, "extended": False}]
+    assert mock_bus.call_args_list == [
+        call(
+            interface="socketcan",
+            channel="can0",
+            bitrate=500000,
+            can_filters=expected_filters,
+        ),
+        call(
+            interface="socketcan",
+            channel="can2",
+            bitrate=500000,
+            can_filters=expected_filters,
+        ),
+    ]
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=[])
+def test_create_bus_auto_requires_an_up_socketcan_channel(_mock_channels):
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="No UP SocketCAN interface"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0)
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_closes_all_candidates_when_no_dbc_traffic(mock_bus, _mock_channels):
+    class SilentBus:
+        def __init__(self):
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            return None
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    candidates = [SilentBus(), SilentBus()]
+    mock_bus.side_effect = candidates
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="No UP SocketCAN interface received"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0)
+
+    assert all(bus.shutdown_called for bus in candidates)
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_drops_broken_probe_without_busy_loop(mock_bus, _mock_channels):
+    class BrokenBus:
+        def __init__(self):
+            self.recv_calls = 0
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            self.recv_calls += 1
+            raise can.CanError("link down")
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    broken_bus = BrokenBus()
+    mock_bus.return_value = broken_bus
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="failed while probing"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=3.0)
+
+    assert broken_bus.recv_calls == 1
+    assert broken_bus.shutdown_called is True

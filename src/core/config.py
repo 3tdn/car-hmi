@@ -267,6 +267,12 @@ class AppConfig(BaseModel):
     def validate_can(cls, v: list[CANConfig]) -> list[CANConfig]:
         if not v:
             raise ValueError("At least one CAN channel must be configured in 'can'")
+        auto_channels = [entry for entry in v if entry.channel == "auto"]
+        if auto_channels:
+            if len(v) != 1:
+                raise ValueError("CAN channel 'auto' can only be used in single-channel mode")
+            if auto_channels[0].interface != "socketcan":
+                raise ValueError("CAN channel 'auto' requires interface 'socketcan'")
         # Check for duplicate channel names
         seen: set[str] = set()
         for entry in v:

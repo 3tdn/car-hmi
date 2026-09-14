@@ -84,6 +84,74 @@ def test_app_config_duplicate_channel_rejected():
         )
 
 
+def test_app_config_accepts_auto_for_single_socketcan_channel():
+    app_cfg = AppConfig(can=[CANConfig(interface="socketcan", channel="auto")])
+
+    assert app_cfg.can[0].channel == "auto"
+
+
+def test_app_config_auto_rejects_non_socketcan_interface():
+    with pytest.raises(ValueError, match="requires interface 'socketcan'"):
+        AppConfig(can=[CANConfig(interface="virtual", channel="auto")])
+
+
+def test_app_config_auto_rejects_multiple_channels():
+    with pytest.raises(ValueError, match="single-channel mode"):
+        AppConfig(
+            can=[
+                CANConfig(interface="socketcan", channel="auto"),
+                CANConfig(interface="socketcan", channel="can0"),
+            ]
+        )
+
+
+@pytest.mark.asyncio
+async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path):
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    import can
+
+    from src.core.runner import AppRunner
+
+    cfg = AppConfig(
+        can=[
+            CANConfig(
+                interface="socketcan",
+                channel="auto",
+                can_db_file="db/can_db/Interface_Panther_To_CarPC_v8.dbc",
+            )
+        ],
+        simulator={"enabled": False},
+        camera={"enabled": False},
+        status_monitor={"enabled": False},
+        supervisor={"watchdog_interval_sec": 0},
+        storage={"sqlite_path": str(tmp_path / "signals.db")},
+    )
+    runner = AppRunner(cfg)
+
+    with (
+        patch(
+            "src.can_io.bus_factory.create_bus",
+            side_effect=can.CanInitializationError("no UP CAN"),
+        ),
+        patch.object(
+            runner,
+            "_build_api_server",
+            new=AsyncMock(return_value=None),
+        ) as build_api,
+    ):
+        await runner._init_components(asyncio.get_running_loop())
+        await asyncio.sleep(0)
+
+        assert runner._buses == [None]
+        assert runner._writers[0]._bus is None
+        assert runner._readers[0].get_runtime_state()["reconnecting"] is True
+        build_api.assert_awaited_once_with()
+
+        await runner.shutdown()
+
+
 def test_app_config_empty_can_rejected():
     """Empty CAN list must be rejected."""
     with pytest.raises(ValueError, match="At least one CAN channel"):

@@ -47,14 +47,15 @@ class CANWriter:
 
     def __init__(
         self,
-        bus: can.BusABC,
+        bus: can.BusABC | None,
         db: DatabaseLoader,
         signal_store: SignalStore | None = None,
         writer_config: WriterConfig | None = None,
     ) -> None:
         """
         Args:
-            bus:           Open ``can.Bus`` object used for transmission.
+            bus:           Open ``can.Bus`` object used for transmission, or
+                           ``None`` while the reader discovers a channel.
             db:            ``DatabaseLoader`` used to encode signals.
             signal_store:  Reference to SignalStore for read-modify-write and
                            dashboard updates after sending (optional).
@@ -65,7 +66,9 @@ class CANWriter:
         self._store = signal_store
         self._lock = asyncio.Lock()
         self._sent_count = 0
-        self._bus_unavailable_reason: str | None = None
+        self._bus_unavailable_reason: str | None = (
+            "CAN channel discovery is still in progress" if bus is None else None
+        )
 
         # Periodic mode config
         if writer_config is not None:

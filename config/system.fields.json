@@ -31,7 +31,11 @@
       "title": "Channel",
       "type": "string",
       "reload_level": "reboot",
-      "description": "Unique CAN channel name.",
+      "description": "Unique CAN channel name. Use 'auto' with a single SocketCAN channel to select an UP canX interface that receives traffic matching the configured DBC.",
+      "examples": [
+        "can0",
+        "auto"
+      ],
       "ui": {
         "control": "text"
       }

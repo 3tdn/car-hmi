@@ -62,6 +62,11 @@ class _FakeRunner:
     def __init__(self):
         self.retry_calls = 0
         self.reboot_calls = 0
+        self.frontend_activity_calls = 0
+
+    def notify_frontend_activity(self):
+        self.frontend_activity_calls += 1
+        return 1
 
     async def retry_can_connections(self):
         self.retry_calls += 1
@@ -98,6 +103,38 @@ async def test_health_endpoint(client):
     resp = await client.get("/system/health")
     assert resp.status_code == 200
     assert resp.json()["status"] in ("ok", "degraded")
+
+
+async def test_http_activity_notifies_can_reconnect():
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="")
+    runner = _FakeRunner()
+    app.state.runner = runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        health_response = await client.get("/system/health")
+        ready_response = await client.get("/system/ready")
+        response = await client.get("/openapi.json")
+
+    assert health_response.status_code == 200
+    assert ready_response.status_code == 200
+    assert response.status_code == 200
+    assert runner.frontend_activity_calls == 1
+
+
+def test_websocket_connect_and_message_notify_can_reconnect():
+    from starlette.testclient import TestClient
+
+    store = SignalStore()
+    app = create_app(store, _FakeRepo(), api_key="")
+    runner = _FakeRunner()
+    app.state.runner = runner
+
+    with TestClient(app) as client, client.websocket_connect("/ws/subscribe") as websocket:
+        websocket.send_text(json.dumps({"type": "ping"}))
+        assert json.loads(websocket.receive_text()) == {"type": "pong"}
+
+    assert runner.frontend_activity_calls >= 2
 
 async def test_ready_endpoint(client):
     resp = await client.get("/system/ready")

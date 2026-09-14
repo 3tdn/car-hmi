@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import can
+
 from src.core.config import AppConfig, load_config
 from src.core.signal_store import SignalStore
 
@@ -304,11 +306,23 @@ class AppRunner:
         for idx, ch_cfg in enumerate(can_channels):
             db_loader = self._db_loaders[idx]
 
-            def _make_bus_factory(cfg=ch_cfg):
-                return lambda: create_bus(cfg)
+            def _make_bus_factory(cfg=ch_cfg, loader=db_loader):
+                match_ids = {
+                    msg_id for msg_id, message in loader.messages.items() if message.signals
+                }
+                return lambda: create_bus(cfg, auto_match_ids=match_ids)
 
             bus_factory = _make_bus_factory()
-            bus = bus_factory()
+            try:
+                bus = bus_factory()
+            except can.CanError as exc:
+                if ch_cfg.channel != "auto":
+                    raise
+                bus = None
+                logger.warning(
+                    "Automatic CAN discovery unavailable at startup: %s — continuing in degraded mode",
+                    exc,
+                )
             self._bus_factories.append(bus_factory)
             self._buses.append(bus)
 
@@ -344,6 +358,7 @@ class AppRunner:
                 max_rate_hz=proc_cfg.max_update_rate_hz,
                 priority_sec=self.config.reader.frequency_piority,
                 stale_threshold_sec=self.config.reader.stale_threshold_sec,
+                frontend_retry_enabled=ch_cfg.channel == "auto",
                 on_bus_disconnecting=_mark_channel_bus_unavailable,
                 on_bus_reconnected=_replace_channel_bus,
             )
@@ -898,6 +913,10 @@ class AppRunner:
         """Request immediate reconnect processing for every configured CAN reader."""
         return [await reader.request_reconnect() for reader in self._readers]
 
+    def notify_frontend_activity(self) -> int:
+        """Wake disconnected CAN readers when HTTP/WS activity shows a frontend is active."""
+        return sum(reader.notify_frontend_activity() for reader in self._readers)
+
     async def apply_system_config(self, new_config: AppConfig, changed_paths: list[str]) -> dict:
         """Apply every policy-approved live field and synchronize runtime references."""
         from src.core.config_policy import ReloadLevel, diff_paths, match_policy
@@ -1041,6 +1060,8 @@ class AppRunner:
             await asyncio.gather(*(task for task in self._tasks if task.get_name() != "api"), return_exceptions=True)
 
         for bus in self._buses:
+            if bus is None:
+                continue
             try:
                 bus.shutdown()
             except Exception:
