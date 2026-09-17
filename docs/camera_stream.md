@@ -82,6 +82,7 @@ Client C ──┘                                     │
     "enabled": true,
     "stream_url": "http://192.168.2.119:8080/stream",
     "reconnect_interval_sec": 3.0,
+    "fps_log_interval_sec": 5.0,
     "connect_timeout_sec": 5.0,
     "read_timeout_sec": 10.0,
     "chunk_size": 4096,
@@ -105,3 +106,20 @@ Client C ──┘                                     │
   layer, with no camera-side changes required.
 - The route currently does not require an API key (following the `restraints`/`system` pattern); `dependencies=[auth_dep]`
   can be added if stream access needs to be restricted.
+
+## Frontend lifecycle and errors
+
+These example intervals reflect the checked configuration on 2026-09-17. Upstream retry
+runs only while subscribers exist; with no viewers, both capture and upstream retries stop.
+Polling `/api/camera/status` does not start capture. The bundled frontend's 5-second status
+poll and 3-second image retry are separate from the backend reconnect interval.
+
+For a separate frontend, use the backend origin for the image URL. Open the stream only
+while its view is active, and detach/remove the image source and cancel retry/poll timers
+on teardown to close the subscription. Multiple viewers still share one upstream connection.
+
+A disabled or missing camera proxy returns HTTP 503. The stream returns MJPEG bytes using
+the upstream multipart boundary, not JSON, despite the generated OpenAPI content metadata.
+The status JSON contains no FPS field. Display `last_error` as text when present.
+See the [complete API reference](api_reference.md) for exact errors and the
+[frontend integration guide](frontend_integration.md) for lifecycle details.

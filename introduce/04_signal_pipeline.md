@@ -7,6 +7,9 @@
 
 ## 1. End-to-end data flow overview
 
+The diagram below is a historical design snapshot. Its smoothing/alarm branches are no longer active; sections 3 and 6 describe the current pipeline and WebSocket contract.
+
+
 ```
 [Vehicle ECU / Simulator]          [Vehicle ECU / Simulator]
          │  Channel 0 (vcan0)                │  Channel 1 (vcan1)
@@ -110,99 +113,17 @@ _signal_to_msg: dict[str, int]        ← reverse index
 
 ---
 
-## 3. Signal Processing Pipeline — Details of the 4 stages
+## 3. Current Signal Processing Pipeline
 
-### Stage 1: SmoothingFilter
+The runner installs `RateLimiter` followed by `ComputedSignals`. Both implement asynchronous
+`process()` methods. The pipeline drains at most `processor.batch_drain_size` frames per
+cycle, keeps the latest value per signal in the batch, publishes to SignalStore, and batches
+SQLite inserts. `processor.max_update_rate_hz` controls the rate-limiter stage.
 
-**Purpose**: Smooth analog signal noise (sensors, ADC).
+No smoothing stage is installed. The `smoothing_window` configuration field is immutable
+because it currently has no runtime implementation. AlarmChecker, alarm storage, and alarm
+REST/WebSocket routes are removed.
 
-**Algorithm**: Sliding window (Moving Average) or EMA (Exponential Moving Average).
-EMA uses a fixed alpha = 2/(window+1), ensuring consistency regardless of position in the series.
-
-```
-Input:  [84.1, 85.3, 83.8, 86.0, 84.5]   (5 most recent values)
-Output: 84.74                              (average)
-```
-
-**Config** (`system.json`):
-```json
-{
-  "processor": {
-    "smoothing_window": 5
-  }
-}
-```
-
----
-
-### Stage 2: RateLimiter
-
-**Purpose**: Prevent rapidly changing signals from spamming WebSocket and DB. The ECU may send the same message ID every 10 ms/frame, but the frontend only needs 50 ms/frame.
-
-```
-last_update["VehicleSpeed"] = T
-frame arrives at T + 5ms  → Δt = 5ms < 50ms → DROP
-frame arrives at T + 60ms → Δt = 60ms > 50ms → PASS
-```
-
-**Config**:
-```json
-{
-  "processor": {
-    "max_update_rate_hz": 20
-  }
-}
-```
-
----
-
-### Stage 3: ComputedSignals
-
-**Purpose**: Calculate derived (virtual) signals that are not available directly on the bus.
-
-**Example formulas**:
-```python
-# Engine Power (kW)
-power_kw = engine_rpm * torque_nm / 9549.0
-
-# Battery Power  
-battery_power = battery_voltage * battery_current / 1000.0
-```
-
-The formulas are registered through:
-```python
-computed.add_formula("EnginePower", lambda s: s.get("EngineRPM", 0) * s.get("ActualTorque", 0) / 9549.0)
-```
-
----
-
-### Stage 4: AlarmChecker
-
-**Purpose**: Detect signals that exceed thresholds and trigger alarms.
-
-**Thresholds** (`config/alarms.json`):
-```json
-{
-  "alarms": {
-    "EngineRPM": { "critical_high": 7500.0 },
-    "BrakePressure": { "critical_high": 180.0 }
-  }
-}
-
-value >= critical_high  →  status = "critical",  level = "critical"
-value >= warning_high   →  status = "warning",   level = "warning"
-value <= critical_low   →  status = "critical",  level = "critical"
-value <= warning_low    →  status = "warning",   level = "warning"
-otherwise               →  status = "ok"
-```
-
-**When an alarm is triggered**:
-1. `AlarmChecker` emits an `Alarm` event through a handler callback
-2. The handler (`AppRunner._on_alarm`) runs:
-   - INSERT into the `alarm_log` table in SQLite
-   - `ConnectionManager.broadcast_alarm()` → push JSON over WebSocket to all subscribers of the `alarms` channel
-
----
 
 ## 4. Backpressure — Queue Policy
 
@@ -249,35 +170,31 @@ storage:
 
 ## 6. WebSocket — Signal Broadcast Flow
 
-```
-SignalStore.update("VehicleSpeed", 84.1)
-        │
-        ▼ (Observer notify)
-ConnectionManager._broadcast_signal("VehicleSpeed", 84.1, timestamp)
-        │
-        ├── Legacy /ws/signals clients → send JSON
-        │
-        └── Subscribe /ws/subscribe clients:
-               for each client:
-                 if client.wants_signal("VehicleSpeed"):  # or "*"
-                   if rate_ok (min_interval_s):
-                     await ws.send_text(payload)
+The three registered WebSocket endpoints are `/ws/signals`, `/ws/subscribe` (alias),
+and `/ws/all` (legacy automatic broadcast). Use the first two for subscription commands:
+
+```json
+{"type":"subscribe","signals":["COM_Status_ElkCan","metrics"],"rate_ms":200,"mode":"continuous"}
 ```
 
-**Subscriber protocol** (`/ws/subscribe`):
-
-```
-Client → Subscribe: {"action":"subscribe","channels":["VehicleSpeed","alarms"],"rate_ms":100}
-Server → Ack:       {"type":"subscribe_ack",...}
-Server → Stream:    {"type":"signal","signal":"VehicleSpeed","value":84.1,"timestamp":...}
-Server → Stream:    {"type":"alarm","signal_name":"EngineRPM","level":"critical",...}
+```json
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan","metrics"],"count":2,"warnings":[]}
 ```
 
----
+```json
+{"timestamp":"2026-09-17T00:00:00Z","signals":[{"name":"COM_Status_ElkCan","std_name":"COM_Status_ElkCan","value":1}]}
+```
+
+Signal frames have no `type` field. Metrics use `type: "metrics"`. Send
+`{"type":"ping"}` for a `pong`, and `{"type":"unsubscribe","signals":["COM_Status_ElkCan"]}`
+to unsubscribe. `mode: "once"` waits for the next eligible broadcast; fetch initial values
+with REST. `/ws/all` does not handle subscription/ping commands. No alarm channel exists.
+
+See the [API reference](../docs/api_reference.md) and [frontend integration guide](../docs/frontend_integration.md) for authentication, profile scope, reconnect, and cleanup.
 
 ## 7. Metrics Push
 
-`AppRunner._metrics_broadcaster()` runs every 3 seconds, collects system metrics via `psutil`, and pushes them to WebSocket clients that subscribed to the `"metrics"` channel:
+`AppRunner._metrics_broadcaster()` runs at `api.ws_metrics_interval_sec` (3 seconds in the checked configuration), collects system metrics via `psutil`, and pushes them to WebSocket clients that subscribed to the `"metrics"` channel:
 
 ```json
 {
@@ -307,7 +224,7 @@ AppRunner.start()
     ├── SignalStore.bulk_update()      ← seed all signal names + units
     ├── init_db() / SQLiteRepository  ← create tables if missing
     ├── create_bus()                  ← open CAN interface
-    ├── SignalPipeline + stages        ← add 4 stages
+    ├── SignalPipeline + stages        ← RateLimiter + ComputedSignals
     ├── CANReader                     ← async producer
     ├── CANWriter                     ← encode + send
     ├── CANSimulator (if enabled)     ← virtual bus producer

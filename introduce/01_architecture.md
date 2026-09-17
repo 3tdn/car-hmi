@@ -70,43 +70,17 @@ msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 
 ### 2.2 `src/processor/` — Signal Processing Pipeline
 
-The pipeline consists of 4 sequential stages and applies the **Pipeline Pattern**:
+The runner installs two asynchronous processing stages, `RateLimiter` and `ComputedSignals`.
+Frames from the shared queue are drained in bounded batches, coalesced to the latest values,
+then published to SignalStore and buffered for SQLite inserts. Smoothing and alarm stages
+are not installed; `processor.smoothing_window` remains an immutable compatibility field.
 
-```
-asyncio.Queue
-      │
-      ▼
-┌─────────────────┐
-│  Stage 1        │  SmoothingFilter   — Moving Average / EMA (window size configurable)
-│  Smoothing      │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Stage 2        │  RateLimiter       — Limits update frequency (max_hz)
-│  Rate Limiter   │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Stage 3        │  ComputedSignals   — Calculate derived signals (e.g. Power = RPM × Torque)
-│  Computed       │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  Stage 4        │  AlarmChecker      — Compare against thresholds from config/alarms.json
-│  Alarm Check    │                      Emit Alarm event → save to DB + push WS
-└────────┬────────┘
-         ▼
-    SignalStore (update)  +  SQLite batch insert
+```text
+CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore + SQLite
 ```
 
-Each stage implements the abstract class `ProcessingStage`:
-```python
-class ProcessingStage(ABC):
-    @abstractmethod
-    def process(self, signals: dict[str, float]) -> dict[str, float]: ...
-```
+Stages implement `async def process(self, signals: dict[str, float]) -> dict[str, float]`.
 
----
 
 ### 2.3 `src/core/signal_store.py` — Signal Store
 
@@ -132,34 +106,30 @@ ISignalRepository (ABC)
         └── SQLiteRepository  (aiosqlite, async)
 ```
 
-The database schema contains 3 tables:
+New databases contain two active tables:
 
 | Table | Purpose |
 |---|---|
 | `signal_log` | Time series (timestamp, signal_name, value, unit) — indexed |
-| `alarm_log` | Alarm history (level, value, threshold, acknowledged, resolved_at) |
 | `signal_config` | Per-signal display config (unit, min, max, widget_type, writable) |
 
-`DataExporter` allows exporting data as CSV / JSON through the API.
+`DataExporter` is an internal CSV/JSON utility; no REST export route is registered.
 
 ---
 
 ### 2.5 `src/api/` — FastAPI Backend
 
-**Factory Pattern**: `create_app()` creates the FastAPI application and injects dependencies through `app.state`.
+`create_app()` injects dependencies through `app.state`. The current API has 53 HTTP
+operations (including 6 system aliases) and 3 WebSocket endpoints. Signal, config, profiles,
+and Dev Mode routers use configured API key authentication; system GET, camera, adaptive
+restraint, and restraints/video routes are public. System retry/reboot require a real key
+and `X-Dev-Mode: true`.
 
-```
-FastAPI app
-├── /signals        (REST)   — read snapshot, history, write back
-├── /alarms         (REST)   — alarm history, acknowledge, resolve
-├── /config         (REST)   — signal config, processor config, app config
-├── /system         (REST)   — /health, /ready, /metrics
-└── /ws/            (WS)     — /signals, /alarms, /all, /subscribe
-```
+WebSocket `/ws/signals` and `/ws/subscribe` share the subscription protocol; `/ws/all` is
+legacy automatic broadcasting. Query authentication uses `api_key`, not `token`.
+Alarm routes are removed. See the [API index](02_api_reference.md),
+[complete reference](../docs/api_reference.md), and [frontend integration guide](../docs/frontend_integration.md).
 
-Authentication: `X-API-Key` header (REST), `?token=` query param (WebSocket). If `api_key` is empty or a placeholder → auth is disabled (dev mode).
-
----
 
 ### 2.6 `src/can_simulator/` — CAN Simulator
 
@@ -178,7 +148,7 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 `AppRunner` is the central coordinator that starts the whole system in this order:
 
 1. Setup logging (rotating file + console)
-2. Load CAN databases for each channel (can.json per channel)
+2. Load configured DBC databases once per channel and share each loader with its channel components
 3. Seed SignalStore with initial values from every channel DB
 4. Initialize SQLite storage
 5. Create a CAN Bus instance for each channel
@@ -204,6 +174,9 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 ---
 
 ## 4. PlantUML diagrams
+
+The diagrams are historical design snapshots and may include removed alarm/smoothing components. The current pipeline and API contract are described above.
+
 
 All architecture diagrams are in `diagram/`:
 
@@ -246,7 +219,7 @@ processor:
   smoothing_window: 5
   max_update_rate_hz: 20
   max_queue_size: 10000
-  queue_policy: drop_oldest   # drop_oldest / block / reject
+  queue_policy: drop_oldest   # drop_oldest / reject
 
 api:
   host: 0.0.0.0
@@ -259,11 +232,6 @@ storage:
   retention_days: 30
 ```
 
-Alarm thresholds are in `config/alarms.json`:
-```yaml
-alarms:
-  EngineRPM:
-    critical_high: 7500.0
-  BrakePressure:
-    critical_high: 180.0
-```
+The example above is YAML notation for readability; the runtime file is JSON.
+See [system configuration management](../docs/system_config_management.md) for actual field
+policy and [CAN recovery](../docs/can_recovery.md) for message-based auto channel tracking.

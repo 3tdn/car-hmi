@@ -1,25 +1,26 @@
-# Quản lý system config
+# System Configuration Management
 
-`config/system.json` chỉ chứa giá trị runtime. Policy, mô tả, validation và thông tin render
-GUI nằm trong `config/system.fields.json`, được backend load như nguồn sự thật duy nhất. GUI đọc
-policy từ `GET /config/system`; vì vậy field bị khóa và mức reload không bị hard-code ở frontend.
+`config/system.json` contains runtime values. `config/system.fields.json` is the backend's
+source of truth for validation, descriptions, GUI metadata, editability, and reload policy.
+The Settings UI reads that policy through `GET /config/system` instead of maintaining a
+separate list of locked fields.
 
-Mỗi definition dùng path dạng `reader.stale_threshold_sec`; wildcard `*` khớp đúng một segment,
-ví dụ `can.*.can_db_file` áp dụng cho mọi CAN channel. Backend tự sinh `editable` từ
-`reload_level`, validate metadata khi khởi động và validate giá trị thay đổi trước khi ghi file.
-Các constraint đặc thù của DBC kiểm tra đuôi `.dbc`, file tồn tại và parse được.
+Definitions use dotted paths such as `reader.stale_threshold_sec`. A `*` matches one path
+segment; `can.*.can_db_file` applies to every channel. The backend derives `editable` from
+`reload_level`, validates policy metadata at startup, and validates changed values before
+writing. DBC constraints check the `.dbc` extension, file existence, and parseability.
 
-## Mức áp dụng
+## Reload levels
 
-| Mức | Ý nghĩa |
+| Level | Meaning |
 |---|---|
-| `live` | Lưu file và đồng bộ ngay các object runtime đang tham chiếu giá trị đó. |
-| `reboot` | Cho phép lưu, nhưng phải gọi `POST /system/reboot` để áp dụng đầy đủ. |
-| `immutable` | API từ chối thay đổi. Đây là secret, đường dẫn tài nguyên đang mở hoặc field chưa được runtime triển khai. |
+| `live` | Save and immediately update the runtime objects using the value. |
+| `reboot` | Save; restart the service to apply fully. Saving does not automatically reboot. |
+| `immutable` | Reject changes through the API: secrets, open resource paths, or fields without a runtime implementation. |
 
-## Các giá trị có thể thay đổi live
+## Live fields
 
-| Nhóm | Field |
+| Group | Fields |
 |---|---|
 | API | `api.ws_metrics_interval_sec` |
 | Storage | `storage.batch_size`, `storage.batch_interval_sec`, `storage.retention_days`, `storage.max_disk_mb` |
@@ -30,68 +31,104 @@ Các constraint đặc thù của DBC kiểm tra đuôi `.dbc`, file tồn tại
 | Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.bypass_check_CAN_status` |
 | Config manager | `config_management.backup_retention_count` |
 
-Khi đổi `processor.max_queue_size`, runner chuyển reader sang queue mới, drain dữ liệu còn lại
-và đổi pipeline sang queue mới. Các field reader/writer/pipeline/WebSocket và app state được
-đồng bộ trên cùng lần update.
+Changing `processor.max_queue_size` switches the reader and pipeline to a new queue and
+drains pending data from the old queue. Reader, writer, pipeline, WebSocket, and app-state
+references are updated during the same configuration operation.
 
-## Các giá trị được sửa nhưng cần reboot
+## Fields requiring reboot
 
-| Nhóm | Field |
+| Group | Fields |
 |---|---|
-| Multi-CAN | `can` (thêm/xóa channel), `can.*.interface`, `can.*.channel`, `can.*.bitrate`, `can.*.can_db_file` |
+| Multi-CAN | `can` additions/removals; `can.*.interface`, `can.*.channel`, `can.*.bitrate`, `can.*.can_db_file`, `can.*.channel_tracking_signals` |
 | Simulator | `simulator.enabled`, `simulator.random_mode`, `simulator.default_cycle_ms`, `simulator.can_db_file` |
 | API server | `api.host`, `api.port`, `api.cors_origins` |
-| Profile | `profiles.default_profile_permission`, `profiles.session_online_ttl_seconds`, `profiles.session_history_limit`, `profiles.session_cleanup_interval_sec` |
-| Camera | toàn bộ `camera.*` |
+| Profiles | `profiles.default_profile_permission`, `profiles.session_online_ttl_seconds`, `profiles.session_history_limit`, `profiles.session_cleanup_interval_sec` |
+| Camera | All `camera.*` fields, including upstream retry and FPS logging intervals |
 | Status monitor | `status_monitor.enabled`, `status_monitor.interval_sec`, `status_monitor.ping_timeout_sec`, `status_monitor.targets.*` |
 | Supervisor/log | `supervisor.watchdog_interval_sec`, `logging.max_size_mb`, `logging.backup_count` |
 
-Response của PATCH/reset/restore có `reboot_required` và danh sách cụ thể trong
-`reload.reboot`. Việc lưu config không tự reboot hệ thống.
+With `channel: "auto"`, `channel_tracking_signals: ["COM_Status_ElkCan"]` resolves to the
+CAN message containing that signal. Discovery checks that message ID rather than decoding
+or checking every signal. An empty list permits all DBC messages with signals. See the
+[CAN recovery runbook](can_recovery.md) for configuration constraints and recovery behavior.
 
-## Các giá trị không được sửa qua API
+## Immutable fields
 
-| Field | Lý do |
+| Field | Reason |
 |---|---|
-| `adaptive_restraint.db_path`, `adaptive_restraint.csv_path` | Module đang giữ tham chiếu dữ liệu đã mở/cache. |
-| `api.api_key` | Secret xác thực; GET luôn che thành `********`. |
-| `api.ws_heartbeat_interval_sec` | Chưa được WebSocket runtime sử dụng. |
-| `profiles.profiles_path`, `profiles.sessions_path` | Đường dẫn dữ liệu/quyền truy cập cố định trong vòng đời process. |
-| `profiles.allow_legacy_profile_mutations` | Chưa được runtime triển khai. |
-| `storage.engine`, `storage.sqlite_path` | Không thay backend/database đang mở trong process. |
-| `processor.smoothing_window` | Chưa có smoothing stage trong pipeline hiện tại. |
-| `writer.rate_limit_per_sec`, `writer.burst` | Token-bucket writer chưa được triển khai. |
-| `logging.file_path` | File handler đã mở; không đổi qua runtime API. |
+| `adaptive_restraint.db_path`, `adaptive_restraint.csv_path` | Data resources are already opened/cached. |
+| `api.api_key` | Authentication secret; GET redacts it as `********`. |
+| `api.ws_heartbeat_interval_sec` | Not used by the current WebSocket runtime. |
+| `profiles.profiles_path`, `profiles.sessions_path` | Data/access paths remain fixed for the process lifetime. |
+| `profiles.allow_legacy_profile_mutations` | Not implemented by the runtime. |
+| `storage.engine`, `storage.sqlite_path` | Cannot replace an open database/backend in place. |
+| `processor.smoothing_window` | No smoothing stage is installed in the current pipeline. |
+| `writer.rate_limit_per_sec`, `writer.burst` | Writer token-bucket limiting is not implemented. |
+| `logging.file_path` | The file handler is already open. |
 
-Field không có trong policy cũng bị từ chối nếu client cố thay đổi. Field lạ đã có sẵn trong
-file vẫn được giữ nguyên khi patch một field khác, giúp forward compatibility mà không cho
-client tự thêm cấu hình không được hỗ trợ.
+Changed fields not defined in policy are rejected. Unknown fields already present on disk
+are retained when patching an unrelated field; this supports forward compatibility without
+allowing clients to introduce unsupported configuration.
 
-## API và quyền
+## APIs and permissions
 
-Các endpoint ghi dùng cùng `require_profile_permission(..., "full")` như cập nhật profile:
+Write endpoints use the same `full` profile-permission requirement as profile updates.
+A supported `X-Dev-Mode: true` request can bypass profile checks, but not authentication.
 
-| Method | Endpoint | Chức năng |
+| Method | Endpoint | Function |
 |---|---|---|
-| `GET` | `/config/system` | Config đã che secret, field policy và đường dẫn logic. |
-| `PATCH` | `/config/system` | Deep partial patch, validate trước khi ghi, không làm mất field ngoài patch. |
-| `POST` | `/config/system/reload` | Đọc lại file và áp dụng các field `live`. |
-| `POST` | `/config/system/reset` | Reset từ template cố định. |
-| `GET` | `/config/system/backups` | Liệt kê backup. |
-| `POST` | `/config/system/backups` | Tạo backup thủ công. |
-| `POST` | `/config/system/backups/{id}/restore` | Restore backup và tự backup trạng thái hiện tại trước. |
-| `POST` | `/system/reboot` | Graceful reboot qua supervisor; vẫn yêu cầu API key thật và `X-Dev-Mode: true`. |
+| GET | `/config/system` | Redacted config, field policy, logical paths, and pending reboot state. |
+| PATCH | `/config/system` | Validate and merge a partial object patch. |
+| POST | `/config/system/reload` | Read disk configuration and apply live fields. |
+| POST | `/config/system/reset` | Reset from the fixed template. |
+| GET | `/config/system/backups` | List backups. |
+| POST | `/config/system/backups` | Create a manual backup. |
+| POST | `/config/system/backups/{backup_id}/restore` | Restore a backup after backing up the current state. |
+| POST | `/system/reboot` | Graceful service restart; requires a real configured key and Dev Mode. |
 
-Alias `/config/general`, `/config/general/reset` được giữ để tương thích client cũ.
+Legacy `/config/general` and `/config/general/reset` aliases remain available, but their
+response envelopes differ. Prefer the policy-aware `/config/system` endpoints for new UIs.
 
-## Đường dẫn cố định và an toàn test
+```bash
+curl -X PATCH http://localhost:8000/config/system \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_CONFIGURED_API_KEY' \
+  -H 'X-Profile-Name: admin' \
+  -d '{"reader":{"stale_threshold_sec":30}}'
+```
 
-- Config runtime: `config/system.json`
-- Template reset: `config/system_bk.json`
+The example profile must exist and grant the required permission. Objects merge recursively;
+**arrays replace completely**. Send the complete intended `can` array when editing one
+channel. Do not send the redacted API key back as a new value.
+
+## Response and frontend behavior
+
+GET includes `config`, `fields_schema_version`, `reload_levels`, `fields`, `paths`,
+`pending_reboot_paths`, and `reboot_required`. Patch/reset/restore/reload responses include
+`ok`, redacted `config`, `changed_paths`, `reload` (`live`, `reboot`, `immutable`), `runtime`
+(`applied`, `unavailable`), `pending_reboot_paths`, and `reboot_required`; operations that
+create a backup also return backup information. Backup entries contain `id`, `created_at`,
+and `size_bytes`.
+
+Render field widgets and locked/restart indicators from GET policy. Show pending reboot
+paths after a mutation and do not report reboot fields as applied merely because they were
+saved. Reset/restore create safety backups. Invoke the reboot endpoint explicitly when
+restart is intended. See the [frontend integration guide](frontend_integration.md).
+
+For immediate ordinary exceptions during live apply, the backend attempts to restore disk
+and runtime state and returns `system_config_runtime_apply_failed` (HTTP 500). This rollback
+is best effort and does not guarantee recovery from later asynchronous failures or cancellation.
+See the [API reference](api_reference.md) for exact validation, policy, backup, and runtime
+error messages.
+
+## Fixed paths and test isolation
+
+- Runtime configuration: `config/system.json`
+- Reset template: `config/system_bk.json`
 - Field definitions: `config/system.fields.json`
-- Backup: `config/backups/*.json`
-- Số backup giữ lại: `config_management.backup_retention_count` (1–200)
+- Backups: `config/backups/*.json`
+- Retention: `config_management.backup_retention_count` (1–200)
 
-API không nhận path từ client. Backup id được kiểm tra và chỉ resolve bên trong thư mục backup.
-Mọi test update/reset/backup dùng `tmp_path` và inject `SystemConfigManager` với ba đường dẫn tạm;
-test không ghi vào `config/system.json` thật.
+Clients cannot choose arbitrary filesystem paths. Backup IDs are validated and resolved
+only within the backup directory. Configuration mutation tests use temporary paths and
+injected managers instead of writing the real runtime configuration.

@@ -16,7 +16,7 @@ All parameters are **query string** parameters (no body).
 |---|---|---|---|---|
 | `weight` | ✅ | `float` | `75.0` | Occupant weight (kg) → BE derives the percentile automatically |
 | `height` | ✅ | `float` | `175.0` | Occupant height (cm) → stored in context, not used for scoring |
-| `crash_severity` | ✅ | `string` | `"40"` or `"OLC18"` | Crash severity: velocity in km/h (35/40/50/56) or OLC code |
+| `crash_severity` | ✅ | `int` | `40` | Velocity in km/h: 35, 40, 50, or 56. OLC codes are not accepted by the HTTP route. |
 | `seatbelt_system` | ✅ | `string` | `"SLL"` | Seatbelt type: `SLL` / `CLL` / `MSLL` |
 | `seat` | ❌ | `string` | `"fl"` | Seat: `fl` (front-left) or `fr` (front-right). Default: `fl` |
 | `seat_x_mm` | ❌ | `float` | `100.0` | Seat position in mm from the SPS sensor (0=frontmost, 227=rearmost). If omitted → BE reads CAN automatically |
@@ -39,8 +39,7 @@ HMI Request
     │       > 90 kg  → 95th %
     │
     ├─ 2. Resolve velocity from crash_severity
-    │       "40"    → 40 km/h
-    │       "OLC18" → 40 km/h  (OLC lookup table)
+    │       40 → 40 km/h (integer query parameter)
     │       Valid: 35 / 40 / 50 / 56 km/h
     │
     ├─ 3. Validate seatbelt_system ∈ {SLL, CLL, MSLL}
@@ -72,16 +71,11 @@ HMI Request
 
 ---
 
-### OLC → Velocity mapping
+### Severity input
 
-| OLC code | Velocity |
-|---|---|
-| OLC16 | 35 km/h |
-| OLC18 | 40 km/h |
-| OLC26 | 50 km/h |
-| OLC33 | 56 km/h |
-
----
+The HTTP route validates `crash_severity` as an integer. If a frontend uses OLC labels,
+it must convert them to an accepted velocity before requesting this endpoint; sending
+`OLC18` directly produces a validation error (HTTP 422).
 
 ### Response — BE returns to FE
 
@@ -89,7 +83,7 @@ HMI Request
 ```json
 {
   "matched": true,
-  "score": 6.952,
+  "score": 7.0,
   "video": {
     "filename": "50p_mid_40_SLL.mp4",
     "percentile": 50,
@@ -186,3 +180,16 @@ Example: `50p_mid_40_SLL.mp4`, `5p_front_35_CLL.webm`
 | `OMS_FR_OutOfPosition` | 180 | SIMI | FR seat out-of-position flag |
 | `SPS_FL_SeatDirectionX` | 181 | PANTHER | FL seat X-axis position (mm, 0–227) |
 | `SPS_FR_SeatDirectionX` | 182 | PANTHER | FR seat X-axis position (mm, 0–227) |
+
+## Frontend usage and errors
+
+These routes are public. All match inputs are query parameters. Resolve `video.url` against
+the backend origin, for example `new URL(result.video.url, window.API_BASE).href`, so a
+separately hosted frontend requests the correct server. Check `matched` before assigning
+it to a `<video>` element. Video responses are binary `FileResponse` with `video/mp4`
+content type in the current route, even if a discovered filename has another suffix.
+
+Missing/malformed query values return HTTP 422. Unsupported velocities, seatbelt systems,
+or seat values return route-specific errors; missing video files return HTTP 404.
+See the [API reference](api_reference.md) for exact error strings and response formats,
+and the [frontend integration guide](frontend_integration.md) for chart/video examples.
