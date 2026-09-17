@@ -31,7 +31,7 @@
       "title": "Channel",
       "type": "string",
       "reload_level": "reboot",
-      "description": "Unique CAN channel name. Use 'auto' with a single SocketCAN channel to select an UP canX interface that receives traffic matching the configured DBC.",
+      "description": "Unique CAN channel name. Use 'auto' with a single SocketCAN channel to select an UP canX interface using channel_tracking_signals, or all DBC messages when that list is empty.",
       "examples": [
         "can0",
         "auto"
@@ -75,6 +75,31 @@
         "accept": [
           ".dbc"
         ]
+      }
+    },
+    {
+      "path": "can.*.channel_tracking_signals",
+      "title": "Channel tracking signals",
+      "type": "array",
+      "reload_level": "reboot",
+      "description": "For channel='auto', select an interface receiving any message containing a listed DBC signal. Empty means all DBC messages with signals. Normal reading still includes all signals.",
+      "validation": {
+        "items": {
+          "type": "string"
+        }
+      },
+      "ui": {
+        "control": "json-textarea"
+      }
+    },
+    {
+      "path": "can.*.channel_tracking_signals.*",
+      "title": "Tracking signal",
+      "type": "string",
+      "reload_level": "reboot",
+      "description": "DBC signal whose message can identify the automatic CAN channel.",
+      "ui": {
+        "control": "text"
       }
     },
     {

@@ -1,10 +1,11 @@
 {
   "can": [
     {
-      "interface": "virtual",
-      "channel": "vcan0",
+      "interface": "socketcan",
+      "channel": "auto",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
+      "channel_tracking_signals": ["COM_Status_ElkCan"]
     }
   ],
   "simulator": {

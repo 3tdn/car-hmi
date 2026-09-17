@@ -211,7 +211,7 @@ class AppRunner:
             raise
 
     async def _init_components(self, loop: asyncio.AbstractEventLoop) -> None:
-        from src.can_io.bus_factory import create_bus
+        from src.can_io.bus_factory import create_bus, resolve_auto_match_ids
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
@@ -307,9 +307,7 @@ class AppRunner:
             db_loader = self._db_loaders[idx]
 
             def _make_bus_factory(cfg=ch_cfg, loader=db_loader):
-                match_ids = {
-                    msg_id for msg_id, message in loader.messages.items() if message.signals
-                }
+                match_ids = resolve_auto_match_ids(cfg, loader) if cfg.channel == "auto" else set()
                 return lambda: create_bus(cfg, auto_match_ids=match_ids)
 
             bus_factory = _make_bus_factory()

@@ -10,6 +10,7 @@ from typing import Any
 
 import can
 
+from src.can_io.parser import DatabaseLoader
 from src.core.config import CANConfig
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,22 @@ _SOCKETCAN_ARPHRD_TYPE = 280
 _IFF_UP = 0x1
 _AUTO_PROBE_TIMEOUT_SEC = 3.0
 _AUTO_PROBE_SLICE_SEC = 0.05
+
+
+def resolve_auto_match_ids(cfg: CANConfig, db: DatabaseLoader) -> set[int]:
+    """Resolve discovery signals to message IDs without widening an explicit selection."""
+    if not cfg.channel_tracking_signals:
+        return {msg_id for msg_id, message in db.messages.items() if message.signals}
+
+    match_ids: set[int] = set()
+    for signal in cfg.channel_tracking_signals:
+        message = db.get_message_for_signal(signal)
+        if message is None:
+            raise ValueError(
+                f"Unknown channel_tracking_signals signal '{signal}' in {cfg.can_db_file}"
+            )
+        match_ids.add(message.msg_id)
+    return match_ids
 
 
 def list_up_socketcan_channels(
@@ -120,6 +137,8 @@ def _create_auto_socketcan_bus(
                 if msg is None or msg.arbitration_id not in match_ids:
                     continue
 
+                # Discovery filters must not limit normal reader traffic.
+                bus.set_filters(None)
                 selected_bus = bus
                 # Preserve the frame used for validation so the reader still
                 # decodes it. This matters when the matching DBC message is a

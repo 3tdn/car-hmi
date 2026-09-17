@@ -80,6 +80,7 @@ async def config_client(tmp_path, monkeypatch):
     import src.api.routes.profiles as profile_routes
 
     source = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+    source["can"][0].update(interface="virtual", channel="vcan0", channel_tracking_signals=[])
     source["future_extension"] = {"must_survive": 42}
     config_path = tmp_path / "config" / "system.json"
     template_path = tmp_path / "config" / "system_bk.json"
@@ -325,9 +326,21 @@ async def test_patch_supports_multiple_can_channels_and_requires_reboot(config_c
         "can.1.can_db_file",
         "can.1.channel",
         "can.1.interface",
+        "can.1.channel_tracking_signals",
     }
     assert response.json()["reboot_required"] is True
     assert [item["channel"] for item in manager.read()["can"]] == ["vcan0", "vcan1"]
+
+
+@pytest.mark.asyncio
+async def test_patch_channel_tracking_signals_requires_reboot(config_client):
+    client, manager, _ = config_client
+    channel = {**manager.read()["can"][0], "channel_tracking_signals": ["COM_Status_ElkCan"]}
+    response = await client.patch("/config/system", headers=_headers(), json={"can": [channel]})
+
+    assert response.status_code == 200
+    assert response.json()["reload"]["reboot"] == ["can.0.channel_tracking_signals.0"]
+    assert manager.read()["can"][0]["channel_tracking_signals"] == ["COM_Status_ElkCan"]
 
 
 @pytest.mark.asyncio

@@ -22,7 +22,9 @@ def test_load_config_from_file():
     assert isinstance(cfg, AppConfig)
     assert isinstance(cfg.can, list)
     assert len(cfg.can) >= 1
-    assert cfg.can[0].interface == "virtual"
+    raw = json.loads(Path("config/system.json").read_text())
+    assert cfg.can[0].interface == raw["can"][0]["interface"]
+    assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
 
@@ -31,6 +33,13 @@ def test_can_config_defaults():
     cfg = CANConfig(interface="virtual", channel="vcan0")
     assert cfg.bitrate == 500_000
     assert cfg.can_db_file == "db/can_db/p_v2.dbc"
+    assert cfg.channel_tracking_signals == []
+
+
+@pytest.mark.parametrize("signals", [[""], ["  "], [123], "COM_Status_ElkCan"])
+def test_can_config_rejects_invalid_tracking_signals(signals):
+    with pytest.raises(ValueError):
+        CANConfig(channel_tracking_signals=signals)
 
 
 def test_reader_config_defaults():
@@ -106,7 +115,11 @@ def test_app_config_auto_rejects_multiple_channels():
 
 
 @pytest.mark.asyncio
-async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path):
+@pytest.mark.parametrize(
+    "tracking_signals",
+    [[], ["COM_Status_ElkCan"], ["COM_Status_ElkCan", "COM_State_JetsonCan"]],
+)
+async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path, tracking_signals):
     import asyncio
     from unittest.mock import AsyncMock, patch
 
@@ -120,6 +133,7 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path):
                 interface="socketcan",
                 channel="auto",
                 can_db_file="db/can_db/Interface_Panther_To_CarPC_v8.dbc",
+                channel_tracking_signals=tracking_signals,
             )
         ],
         simulator={"enabled": False},
@@ -134,7 +148,7 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path):
         patch(
             "src.can_io.bus_factory.create_bus",
             side_effect=can.CanInitializationError("no UP CAN"),
-        ),
+        ) as create_bus,
         patch.object(
             runner,
             "_build_api_server",
@@ -148,6 +162,17 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path):
         assert runner._writers[0]._bus is None
         assert runner._readers[0].get_runtime_state()["reconnecting"] is True
         build_api.assert_awaited_once_with()
+        db = runner._db_loaders[0]
+        expected = (
+            {db.get_message_for_signal(signal).msg_id for signal in tracking_signals}
+            if tracking_signals
+            else {msg_id for msg_id, message in db.messages.items() if message.signals}
+        )
+        assert create_bus.call_args.kwargs["auto_match_ids"] == expected
+        # Reconnection must keep the same tracking restriction.
+        with pytest.raises(can.CanInitializationError):
+            runner._bus_factories[0]()
+        assert create_bus.call_args.kwargs["auto_match_ids"] == expected
 
         await runner.shutdown()
 

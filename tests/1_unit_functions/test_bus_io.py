@@ -13,6 +13,7 @@ from src.can_io.bus_factory import (
     create_bus,
     create_virtual_bus,
     list_up_socketcan_channels,
+    resolve_auto_match_ids,
 )
 from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
@@ -525,6 +526,19 @@ def test_list_up_socketcan_channels_filters_type_and_flags_and_sorts_naturally(t
     assert list_up_socketcan_channels(tmp_path) == ["can2", "can10"]
 
 
+def test_auto_tracking_resolves_only_configured_messages():
+    db = DatabaseLoader()
+    db.load_dbc("db/can_db/Interface_Panther_To_CarPC_v9.dbc")
+    cfg = CANConfig(channel_tracking_signals=["COM_Status_ElkCan"])
+    expected = db.get_message_for_signal("COM_Status_ElkCan").msg_id
+
+    assert resolve_auto_match_ids(cfg, db) == {expected}
+    assert len(resolve_auto_match_ids(CANConfig(), db)) > 1
+    cfg.channel_tracking_signals.append("missing_signal")
+    with pytest.raises(ValueError, match="missing_signal"):
+        resolve_auto_match_ids(cfg, db)
+
+
 @patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
 @patch("src.can_io.bus_factory.can.Bus")
 def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_channels):
@@ -539,7 +553,10 @@ def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_cha
         def shutdown(self):
             self.shutdown_called = True
 
-    silent_bus = ProbeBus([None])
+        def set_filters(self, filters):
+            self.filters = filters
+
+    silent_bus = ProbeBus([can.Message(arbitration_id=0x456, data=[0])])
     matching_bus = ProbeBus([can.Message(arbitration_id=0x123, data=[0])])
     mock_bus.side_effect = [silent_bus, matching_bus]
     cfg = CANConfig(interface="socketcan", channel="auto", bitrate=500000)
@@ -550,6 +567,7 @@ def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_cha
     assert selected._car_hmi_prefetched_message.arbitration_id == 0x123
     assert silent_bus.shutdown_called is True
     assert matching_bus.shutdown_called is False
+    assert matching_bus.filters is None
     expected_filters = [{"can_id": 0x123, "can_mask": 0x1FFFFFFF, "extended": False}]
     assert mock_bus.call_args_list == [
         call(

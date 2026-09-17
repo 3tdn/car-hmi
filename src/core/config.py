@@ -21,6 +21,16 @@ class CANConfig(BaseModel):
     can_db_file: str = "db/can_db/p_v2.dbc"
     # DBC file describing messages/signals for this channel — read directly (via cantools)
     # by CANReader/CANWriter, no can.json export step needed.
+    channel_tracking_signals: list[str] = Field(default_factory=list)
+    # For channel='auto', probe only messages containing these signals.
+    # An empty list preserves discovery using all messages with signals in the DBC.
+
+    @field_validator("channel_tracking_signals")
+    @classmethod
+    def validate_channel_tracking_signals(cls, signals: list[str]) -> list[str]:
+        if any(not signal.strip() for signal in signals):
+            raise ValueError("channel_tracking_signals must contain non-empty signal names")
+        return signals
 
 
 class SimulatorConfig(BaseModel):
