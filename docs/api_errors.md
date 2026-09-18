@@ -109,18 +109,17 @@ For `system_config_runtime_apply_failed`, `detail` is
 | Profile/access routes | warnings or detail; see route behavior | profile_permission_denied | `Profile '{resolved_name}' lacks '{required}' permission` |
 | Profile/access routes | warnings or detail; see route behavior | profile_signal_denied | `Signal '{signal_name}' is outside profile '{resolved_name}' scope` |
 | Profile/access routes | warnings or detail; see route behavior | profile_already_active | `Profile '{target}' is already the active profile` |
-| Signals snapshots, metadata, batch writes | warnings or detail; see route behavior | devmode_seat_locked | `Seat '{lock.seat}' is reserved by another Dev Mode section for {lock.remaining_sec():.0f}s` |
-| Signals snapshots, metadata, batch writes | warnings or detail; see route behavior | profile_signal_filtered | `Skipped {len(skipped)} signal(s) outside profile '{profile_name}' scope` |
-| Signals snapshots, metadata, batch writes | warnings or detail; see route behavior | profile_access_error | `str(exc.detail)` |
-| Signals snapshots, metadata, batch writes | warnings or detail; see route behavior | profile_permission_denied | `Profile '{profile_name}' lacks '{required}' permission` |
-| WebSocket subscription ACK | warnings or detail; see route behavior | profile_permission_denied | `Profile '{profile_name}' lacks 'read' permission` |
-| WebSocket subscription ACK | warnings or detail; see route behavior | profile_access_error | `str(exc)` |
-| WebSocket subscription ACK | warnings or detail; see route behavior | profile_signal_denied | `Signal '{signal_name}' is outside profile '{profile_name}' scope` |
-| WebSocket subscription ACK | warnings or detail; see route behavior | profile_signal_filtered | `Wildcard subscription limited to profile '{profile_name}' signals` |
+| Batch writes | warnings or detail; see route behavior | devmode_seat_locked | `Seat '{lock.seat}' is reserved by another Dev Mode section for {lock.remaining_sec():.0f}s` |
+| Batch writes | warnings or detail; see route behavior | profile_signal_filtered | `Skipped {len(skipped)} signal(s) outside profile '{profile_name}' scope` |
+| Batch writes | warnings or detail; see route behavior | profile_access_error | `str(exc.detail)` |
+| Batch writes | warnings or detail; see route behavior | profile_permission_denied | `Profile '{profile_name}' lacks '{required}' permission` |
+| WebSocket metrics subscription ACK | warnings or detail; see route behavior | profile_permission_denied | `Profile '{profile_name}' lacks 'read' permission` |
+| WebSocket metrics subscription ACK | warnings or detail; see route behavior | profile_access_error | `str(exc)` |
 
-`profile_already_active` is an HTTP 200 warning. Signals list/metadata and batch operations
-can return permission/scope warnings with HTTP 200/202 rather than raising an HTTP error.
-WebSocket access failures appear in ACK `warnings`. Single-signal permission failures raise
+`profile_already_active` is an HTTP 200 warning. Batch writes
+can return permission/scope warnings with HTTP 202 rather than raising an HTTP error.
+Signal reads, metadata, history, and RX subscriptions are independent of profiles.
+WebSocket metrics access failures appear in ACK `warnings`. Single-signal TX permission failures raise
 HTTP 403. Single writes blocked by seat locks raise HTTP 423; batch writes carry lock errors
 in the result or warnings. Preserve the accompanying `signals`, `profile_name`,
 `required_permission`, and `signal_name` fields when present.

@@ -282,7 +282,7 @@ For frontend setup, profile changes, exact error handling, and cleanup of WebSoc
 ## Frontend Modes
 
 - The web dashboard supports two client-side modes selectable from the header: `Dev` and `User`.
-	- **Dev**: default behavior — the UI subscribes to and displays all signals allowed by the backend profile (useful for development and debugging).
+	- **Dev**: default behavior — the UI subscribes to and displays all received signals (useful for development and debugging). Profiles restrict TX writes only; RX-only signals do not need profile entries.
 	- **User**: restricted mode — the UI only fetches, subscribes to and displays a curated whitelist of signals intended for end-users.
 
 - The selected mode is stored in `localStorage` under the key `frontend_mode`. Changing the mode reloads the page to re-bootstrap subscriptions.

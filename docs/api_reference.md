@@ -22,7 +22,7 @@ CLIENT_ID="web-demo-01"
 
 The app treats the placeholder keys `change-me-in-production`, `changeme`, and `default` as authentication disabled. Retry/reboot controls still require a real configured key. Public routes include system GET, adaptive restraint, camera, and restraints/video. There is no business route at root `/health` or `/ready`: use `/system/health`, `/system/ready`, or their `/api/health`, `/api/ready` aliases.
 
-Mutation examples demonstrate the format. Choose values using DBC writable/states metadata and profile permissions. Ordinary signal reads/writes do not require X-Dev-Mode when the profile grants the necessary permission.
+Mutation examples demonstrate the format. Choose values using DBC writable/states metadata and profile permissions. Profiles restrict TX writes only; signal reads and RX subscriptions do not require profile entries or X-Dev-Mode. Ordinary TX writes do not require X-Dev-Mode when the profile grants write or full permission for the signal.
 
 ## Complete HTTP Endpoint List
 
@@ -88,7 +88,7 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 
 List latest signal values
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 Query/path: no parameters.
 
@@ -128,7 +128,7 @@ Response schema: `SignalListResponse`.
 
 List all available signals with metadata
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 Query/path: no parameters.
 
@@ -171,13 +171,13 @@ Response schema: `SignalMetadataListResponse`.
 }
 ```
 
-Note: Read writable, min_value, max_value, and states here before choosing a write value. Metadata can still be returned with value=null when the profile cannot read the signal.
+Note: Read writable, min_value, max_value, and states here before choosing a write value. RX-only signals do not need profile entries. Values and timestamps are null only when no sample is available in the store.
 
 ### `GET /signals/{signal_name}`
 
 Get latest value for one signal
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 | Parameter | Location | Type | Required | Default/Constraints |
 |---|---|---|---|---|
@@ -213,7 +213,7 @@ Response schema: `SignalValueResponse`.
 
 Write value to signal (CAN write)
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 | Parameter | Location | Type | Required | Default/Constraints |
 |---|---|---|---|---|
@@ -256,7 +256,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 
 Query signal history from DB
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 | Parameter | Location | Type | Required | Default/Constraints |
 |---|---|---|---|---|
@@ -302,7 +302,9 @@ Response schema: `SignalListResponse`.
 
 Write multiple writable signals simultaneously (batch)
 
-Auth: API key when authentication is enabled. A profile needs read for GET and write for PUT/POST; full includes read/write. X-Dev-Mode can bypass profile checks.
+Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
+
+Outside Dev Mode, an unresolved/missing profile sends nothing and returns `queued: []`, `count: 0`, and profile warnings. Only requested signals with `write` or `full` permission in the resolved profile are forwarded to the CAN writer; other requested signals are skipped with `profile_signal_filtered` warnings.
 
 Query/path: no parameters.
 

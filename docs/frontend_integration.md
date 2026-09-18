@@ -154,7 +154,7 @@ On disconnect, mark telemetry stale and reconnect with a delay, then resubscribe
 5. Send `POST /api/profile/heartbeat` while online. It has no body and requires `X-Client-Id`; choose an interval below the configured session TTL.
 6. On explicit disconnect or page teardown, send `POST /api/profile/offline` with the same client ID. It releases owned Dev Mode locks. A `fetch` with `keepalive: true` preserves custom headers; unload delivery is best effort and TTL remains the fallback. Stop heartbeat timers after disconnect so they do not mark the session online again.
 
-Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Permissions use `read`, `write`, or `full`; `full` grants both read and write. Do not treat a client-side whitelist as backend authorization.
+Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Profiles restrict TX only: a signal needs `write` or `full` permission to be transmitted. All signal values, metadata, history, and RX subscriptions are readable regardless of profile entries, including for an empty profile. RX-only signals do not need to be added. The legacy `read` permission remains accepted but is not required for signal reads. API key authentication and administrative `full` checks still apply. Do not treat a client-side whitelist as backend authorization.
 
 ## Dev Mode and seat locks
 

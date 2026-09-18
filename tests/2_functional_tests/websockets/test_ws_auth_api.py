@@ -79,10 +79,8 @@ async def client():
         yield c
 
 
-@pytest.mark.asyncio
-
-def test_ws_subscribe_ack_warns_for_signal_outside_profile(monkeypatch, tmp_path):
-    """Subscribe ack returns warnings when the client requests a signal outside the profile scope."""
+def test_ws_subscribe_allows_signal_outside_profile(monkeypatch, tmp_path):
+    """Subscribe accepts received signals outside the TX profile scope."""
     import src.api.routes.profiles as profile_routes
     from starlette.testclient import TestClient
 
@@ -107,8 +105,8 @@ def test_ws_subscribe_ack_warns_for_signal_outside_profile(monkeypatch, tmp_path
             ack = json.loads(ws.receive_text())
 
     assert ack["type"] == "subscribe_ack"
-    assert ack["channels"] == []
-    assert ack["warnings"][0]["code"] == "profile_signal_denied"
+    assert ack["channels"] == ["FuelLevel"]
+    assert ack["warnings"] == []
 
 def test_ws_auth_rejected_without_key():
     """WebSocket connection is rejected when auth is enabled and no key is provided."""
