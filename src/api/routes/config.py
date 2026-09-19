@@ -157,6 +157,15 @@ async def backup_system_config(request: Request):
         _raise_config_error(exc)
 
 
+@router.delete("/system/backups/{backup_id}", summary="Delete a system config backup")
+async def delete_system_config_backup(backup_id: str, request: Request):
+    require_profile_permission(request, "full")
+    try:
+        return {"ok": True, "deleted": _manager(request).delete_backup(backup_id)}
+    except ConfigUpdateError as exc:
+        _raise_config_error(exc)
+
+
 @router.post("/system/backups/{backup_id}/restore", summary="Restore a system config backup")
 async def restore_system_config_backup(backup_id: str, request: Request):
     require_profile_permission(request, "full")

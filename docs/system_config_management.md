@@ -83,6 +83,7 @@ A supported `X-Dev-Mode: true` request can bypass profile checks, but not authen
 | POST | `/config/system/reset` | Reset from the fixed template. |
 | GET | `/config/system/backups` | List backups. |
 | POST | `/config/system/backups` | Create a manual backup. |
+| DELETE | `/config/system/backups/{backup_id}` | Permanently delete one backup. |
 | POST | `/config/system/backups/{backup_id}/restore` | Restore a backup after backing up the current state. |
 | POST | `/system/reboot` | Graceful service restart; requires a real configured key and Dev Mode. |
 
@@ -108,7 +109,8 @@ GET includes `config`, `fields_schema_version`, `reload_levels`, `fields`, `path
 `ok`, redacted `config`, `changed_paths`, `reload` (`live`, `reboot`, `immutable`), `runtime`
 (`applied`, `unavailable`), `pending_reboot_paths`, and `reboot_required`; operations that
 create a backup also return backup information. Backup entries contain `id`, `created_at`,
-and `size_bytes`.
+and `size_bytes`. Delete returns `ok` and the deleted entry's metadata without changing the
+active configuration.
 
 Render field widgets and locked/restart indicators from GET policy. Show pending reboot
 paths after a mutation and do not report reboot fields as applied merely because they were
@@ -130,5 +132,6 @@ error messages.
 - Retention: `config_management.backup_retention_count` (1–200)
 
 Clients cannot choose arbitrary filesystem paths. Backup IDs are validated and resolved
-only within the backup directory. Configuration mutation tests use temporary paths and
-injected managers instead of writing the real runtime configuration.
+only within the backup directory for restore and delete; the reserved legacy `index` entry
+cannot be listed, restored, deleted, or pruned. Configuration mutation tests use temporary
+paths and injected managers instead of writing the real runtime configuration.

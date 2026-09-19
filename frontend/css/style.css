@@ -910,6 +910,7 @@ body {
 .settings-backup-list { display: grid; gap: 6px; margin-top: 8px; }
 .settings-backup-item { border-top: 1px solid var(--border); padding-top: 6px; }
 .settings-backup-item span { display: grid; gap: 2px; }
+.settings-backup-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .settings-empty { color: var(--muted); font-size: 0.78rem; }
 .settings-modal__footer { position: sticky; bottom: 0; padding-top: 12px; margin-top: 10px; background: var(--panel); }
 .settings-modal__footer #settings-save { margin-left: auto; }

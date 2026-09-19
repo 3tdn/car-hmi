@@ -1,7 +1,7 @@
 # 02 — API Reference and Frontend Integration
 
-Verified against the registered backend routes on 2026-09-17: **53 HTTP operations
-(47 operations plus 6 system aliases) and 3 WebSocket endpoints**.
+Verified against the registered backend routes on 2026-09-19: **54 HTTP operations
+(48 operations plus 6 system aliases) and 3 WebSocket endpoints**.
 
 Use the [complete English API reference](../docs/api_reference.md) for all request
 parameters, bodies, response formats, exact error messages, and curl examples.
@@ -44,6 +44,7 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | PATCH | `/config/system` | Patch system config without dropping unrelated fields |
 | GET | `/config/system/backups` | List fixed-path system config backups |
 | POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
 | POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
 | POST | `/config/system/reset` | Reset system config from the fixed project template |
 | POST | `/config/system/reload` | Re-apply live fields from the system config file |

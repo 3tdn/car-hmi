@@ -622,6 +622,51 @@
         ]
       }
     },
+    "/config/system/backups/{backup_id}": {
+      "delete": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Delete a system config backup",
+        "operationId": "delete_system_config_backup_config_system_backups__backup_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Backup Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/config/system/backups/{backup_id}/restore": {
       "post": {
         "tags": [

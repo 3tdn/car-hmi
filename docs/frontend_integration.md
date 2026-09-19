@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-Verified against the backend and bundled frontend on 2026-09-17. See the [complete API reference](api_reference.md) for all 53 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
+Verified against the backend and bundled frontend on 2026-09-19. See the [complete API reference](api_reference.md) for all 54 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
 ## Backend URL and authentication
 
@@ -166,11 +166,15 @@ Keep `X-Client-Id` consistent for select, status, write, renew, and release requ
 
 ## Settings and restart requirements
 
-The bundled Settings frontend sends `X-Dev-Mode: true` for config load/save, backup/list/restore, reset, and live reload. Settings do not require a selected profile or `full` permission. Integrations should send the same Dev Mode header together with `X-API-Key` when authentication is enabled; `X-Client-Id` remains attached by the bundled helper.
+The bundled Settings frontend sends `X-Dev-Mode: true` for config load/save, backup/list/restore/delete, reset, and live reload. Settings do not require a selected profile or `full` permission. Integrations should send the same Dev Mode header together with `X-API-Key` when authentication is enabled; `X-Client-Id` remains attached by the bundled helper.
 
 Render controls from `GET /config/system` field definitions and reload levels. The policy is in `config/system.fields.json`; runtime values are in `config/system.json`. Do not hard-code editability in a separate frontend schema.
 
 PATCH merges objects recursively but **replaces arrays completely**. When editing one CAN card, submit the complete intended `can` array. Leave the redacted `api_key` value out of updates. After patch/reset/restore/reload, show `warnings` if present, `reload.live`, `reload.reboot`, `runtime`, and `pending_reboot_paths`/`reboot_required`. Saving a reboot field does not restart the service automatically.
+
+Backup deletion uses `DELETE /config/system/backups/{backup_id}`. The bundled UI requires
+a second click within five seconds before it deletes, refreshes only the backup list after
+success, and leaves the active/edited configuration unchanged.
 
 Retry and reboot use `/system/can/retry` and `/system/reboot` (also `/api/can/retry`, `/api/reboot`). Both require a real API key and `X-Dev-Mode: true`. Reboot returns HTTP 202 before shutting down; the launcher/supervisor must restart the process. See [system configuration management](system_config_management.md).
 

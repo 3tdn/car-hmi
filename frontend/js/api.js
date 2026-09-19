@@ -454,6 +454,13 @@ async function listSystemConfigBackups() {
   return _fetchJson(`${API_BASE}/config/system/backups`, { headers: _devHeaders() });
 }
 
+async function deleteSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}`, {
+    method: "DELETE",
+    headers: _devHeaders(),
+  });
+}
+
 async function restoreSystemConfigBackup(backupId) {
   return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}/restore`, {
     method: "POST",

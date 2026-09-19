@@ -1164,6 +1164,7 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | PATCH | `/config/system` | Patch system config without dropping unrelated fields |
 | GET | `/config/system/backups` | List fixed-path system config backups |
 | POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
 | POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
 | POST | `/config/system/reset` | Reset system config from the fixed project template |
 | POST | `/config/system/reload` | Re-apply live fields from the system config file |

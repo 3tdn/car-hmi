@@ -1,6 +1,6 @@
 # CAN-HMI — API Reference
 
-Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-17. There are **53 HTTP operations (47 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
+Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-19. There are **54 HTTP operations (48 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
 
 ## Common Usage
 
@@ -43,6 +43,7 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 | PATCH | `/config/system` | Patch system config without dropping unrelated fields |
 | GET | `/config/system/backups` | List fixed-path system config backups |
 | POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
 | POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
 | POST | `/config/system/reset` | Reset system config from the fixed project template |
 | POST | `/config/system/reload` | Re-apply live fields from the system config file |
@@ -764,6 +765,45 @@ Response format taken from the implementation (OpenAPI does not declare a detail
   }
 }
 ```
+
+### `DELETE /config/system/backups/{backup_id}`
+
+Delete a system config backup
+
+Auth: API key when authentication is enabled. A profile needs full permission, or X-Dev-Mode.
+
+| Parameter | Location | Type | Required | Default/Constraints |
+|---|---|---|---|---|
+| `backup_id` | path | string | Yes | Letters, numbers, `_`, `.`, and `-`; reserved `index` is not accessible. |
+
+Body: none.
+
+Example:
+
+```bash
+curl -sS \
+  -X DELETE \
+  "$BASE/config/system/backups/BACKUP_ID" \
+  -H "X-API-Key: $API_KEY" \
+  -H "X-Profile-Name: $PROFILE" \
+  -H "X-Client-Id: $CLIENT_ID"
+```
+
+Successful response: HTTP 200. The active configuration is not changed.
+
+```json
+{
+  "ok": true,
+  "deleted": {
+    "id": "BACKUP_ID",
+    "created_at": "2026-09-19T00:00:00+00:00",
+    "size_bytes": 5000
+  }
+}
+```
+
+An invalid ID returns HTTP 422 `system_config_backup_invalid`; a missing or reserved ID
+returns HTTP 404 `system_config_backup_not_found`.
 
 ### `POST /config/system/backups/{backup_id}/restore`
 

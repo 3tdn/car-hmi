@@ -190,6 +190,13 @@ class SystemConfigManager:
         )
         return [self._backup_record(path) for path in paths]
 
+    def delete_backup(self, backup_id: str) -> dict[str, Any]:
+        """Delete one validated backup and return its former list record."""
+        path = self._resolve_backup(backup_id)
+        record = self._backup_record(path)
+        path.unlink()
+        return record
+
     def _prune_backups(self, keep: int) -> None:
         for record in self.list_backups()[keep:]:
             self._resolve_backup(record["id"]).unlink()

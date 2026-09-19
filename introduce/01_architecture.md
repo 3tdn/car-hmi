@@ -119,7 +119,7 @@ New databases contain two active tables:
 
 ### 2.5 `src/api/` — FastAPI Backend
 
-`create_app()` injects dependencies through `app.state`. The current API has 53 HTTP
+`create_app()` injects dependencies through `app.state`. The current API has 54 HTTP
 operations (including 6 system aliases) and 3 WebSocket endpoints. Signal, config, profiles,
 and Dev Mode routers use configured API key authentication; system GET, camera, adaptive
 restraint, and restraints/video routes are public. System retry/reboot require a real key

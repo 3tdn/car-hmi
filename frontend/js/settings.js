@@ -154,11 +154,22 @@ const renderBackups = async () => {
   const list = document.getElementById('settings-backup-list');
   const payload = await listSystemConfigBackups();
   list.innerHTML = payload.backups.length ? payload.backups.map((item) => `
-    <div class="settings-backup-item"><span><strong>${escapeHtml(item.created_at)}</strong><small>${escapeHtml(item.id)}</small></span><button class="btn settings-restore" data-backup-id="${escapeHtml(item.id)}" type="button">Restore</button></div>`).join('') : '<span class="settings-empty">No backups yet.</span>';
+    <div class="settings-backup-item">
+      <span><strong>${escapeHtml(item.created_at)}</strong><small>${escapeHtml(item.id)}</small></span>
+      <div class="settings-backup-actions">
+        <button class="btn settings-restore" data-backup-id="${escapeHtml(item.id)}" type="button">Restore</button>
+        <button class="btn btn--danger settings-delete-backup" data-backup-id="${escapeHtml(item.id)}" type="button">Delete</button>
+      </div>
+    </div>`).join('') : '<span class="settings-empty">No backups yet.</span>';
   document.querySelectorAll('.settings-restore').forEach((button) => button.addEventListener('click', async () => {
-    if (!window.requestDangerConfirmation?.('settings_restore', `Restore backup ${button.dataset.backupId}?`)) return;
+    if (!window.requestDangerConfirmation?.(`settings_restore:${button.dataset.backupId}`, `Restore backup ${button.dataset.backupId}?`)) return;
     const result = await runSettingsAction(() => restoreSystemConfigBackup(button.dataset.backupId), 'Backup restored.');
     if (result) await loadSettings();
+  }));
+  document.querySelectorAll('.settings-delete-backup').forEach((button) => button.addEventListener('click', async () => {
+    if (!window.requestDangerConfirmation?.(`settings_delete_backup:${button.dataset.backupId}`, `Delete backup ${button.dataset.backupId}? This cannot be undone.`)) return;
+    const result = await runSettingsAction(() => deleteSystemConfigBackup(button.dataset.backupId), 'Backup deleted.');
+    if (result) await renderBackups();
   }));
 };
 const loadSettings = async () => {

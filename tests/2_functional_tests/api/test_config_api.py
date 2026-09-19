@@ -490,6 +490,50 @@ async def test_backup_retention_prunes_oldest_files(config_client):
 
 
 @pytest.mark.asyncio
+async def test_delete_backup_removes_only_selected_file(config_client):
+    client, manager, _ = config_client
+    config_before = manager.config_path.read_bytes()
+    first_response = await client.post("/config/system/backups", headers=_headers())
+    second_response = await client.post("/config/system/backups", headers=_headers())
+    first = first_response.json()["backup"]
+    second = second_response.json()["backup"]
+
+    response = await client.delete(
+        f"/config/system/backups/{first['id']}", headers=_headers()
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "deleted": first}
+    assert manager.config_path.read_bytes() == config_before
+    assert [item["id"] for item in manager.list_backups()] == [second["id"]]
+    assert not (manager.backup_dir / f"{first['id']}.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_delete_backup_requires_permission_and_valid_existing_id(config_client):
+    client, manager, _ = config_client
+    created = await client.post("/config/system/backups", headers=_headers())
+    backup_id = created.json()["backup"]["id"]
+
+    forbidden = await client.delete(
+        f"/config/system/backups/{backup_id}", headers=_headers("viewer")
+    )
+    invalid = await client.delete(
+        "/config/system/backups/bad:id", headers=_headers()
+    )
+    missing = await client.delete(
+        "/config/system/backups/missing-backup", headers=_headers()
+    )
+
+    assert forbidden.status_code == 403
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"]["code"] == "system_config_backup_invalid"
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["code"] == "system_config_backup_not_found"
+    assert [item["id"] for item in manager.list_backups()] == [backup_id]
+
+
+@pytest.mark.asyncio
 async def test_legacy_backup_index_is_not_listed_restored_or_pruned(config_client):
     client, manager, _ = config_client
     manager.backup_dir.mkdir(parents=True)
@@ -500,10 +544,14 @@ async def test_legacy_backup_index_is_not_listed_restored_or_pruned(config_clien
     restore_response = await client.post(
         "/config/system/backups/index/restore", headers=_headers()
     )
+    delete_response = await client.delete(
+        "/config/system/backups/index", headers=_headers()
+    )
 
     assert list_response.status_code == 200
     assert list_response.json()["backups"] == []
     assert restore_response.status_code == 404
+    assert delete_response.status_code == 404
 
     current = manager.read()
     current["config_management"]["backup_retention_count"] = 1
