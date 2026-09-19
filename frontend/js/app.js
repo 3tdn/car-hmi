@@ -307,7 +307,7 @@ function ensureProfileSelector() {
     const selectedName = event.target.value;
     const previousName = currentProfile?.name || getProfileName() || '';
     try {
-      const switched = await setActiveProfile(selectedName, { devMode: FRONTEND_MODE === 'dev' });
+      const switched = await setActiveProfile(selectedName);
       if (switched?.warnings?.length) {
         showPermissionWarnings(switched.warnings, 'profile');
       }
@@ -627,7 +627,7 @@ function renderProfileManager() {
 
 async function refreshProfileSessions() {
   try {
-    const sessionsData = await listProfileSessions({ devMode: FRONTEND_MODE === 'dev' });
+    const sessionsData = await listProfileSessions();
     profileSessions = sessionsData.sessions || [];
     profileSessionStats = sessionsData.by_profile || [];
     profileSessionStatsByName = new Map(profileSessionStats.map((item) => [item.profile_name, item]));
@@ -850,13 +850,15 @@ function refreshPermissionDecorations() {
     updateSignalRowAccess(row, row.dataset.signalName, row.dataset.writable === 'true');
   });
   const settingsBtn = document.getElementById('btn-settings');
+  if (settingsBtn) {
+    settingsBtn.classList.remove('btn--permission-warn');
+    settingsBtn.title = '';
+  }
   const profilesBtn = document.getElementById('btn-profiles');
-  [settingsBtn, profilesBtn].forEach((btn) => {
-    if (!btn) return;
-    const allowed = hasProfilePermission('full');
-    btn.classList.toggle('btn--permission-warn', !allowed);
-    btn.title = allowed ? '' : 'Current profile lacks full permission';
-  });
+  if (profilesBtn) {
+    profilesBtn.classList.remove('btn--permission-warn');
+    profilesBtn.title = '';
+  }
 }
 
 // ── Signal tracking for the table + fast gauges ────────────────────────────

@@ -147,6 +147,8 @@ On disconnect, mark telemetry stale and reconnect with a delay, then resubscribe
 
 ## Profiles and online sessions
 
+The bundled profile selector and Profile Manager send `X-Dev-Mode: true` when selecting, creating, updating, or deleting profiles and when loading the session list. These frontend operations do not require the current profile to have `full` permission. Direct integrations may use the same Dev Mode header; without it, profile mutations still require `full` permission. API key authentication still applies.
+
 1. Load `/api/profiles` and `/api/profile?name=...`.
 2. Select a profile with `PUT /api/profile/active`, body `{"name":"admin"}`, and `X-Client-Id`. Omitting the client ID changes the global active profile.
 3. Update local `X-Profile-Name` and WebSocket query scope. In the bundled API helper, use `setProfileName(name)`.
@@ -154,7 +156,7 @@ On disconnect, mark telemetry stale and reconnect with a delay, then resubscribe
 5. Send `POST /api/profile/heartbeat` while online. It has no body and requires `X-Client-Id`; choose an interval below the configured session TTL.
 6. On explicit disconnect or page teardown, send `POST /api/profile/offline` with the same client ID. It releases owned Dev Mode locks. A `fetch` with `keepalive: true` preserves custom headers; unload delivery is best effort and TTL remains the fallback. Stop heartbeat timers after disconnect so they do not mark the session online again.
 
-Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Profiles restrict TX only: a signal needs `write` or `full` permission to be transmitted. All signal values, metadata, history, and RX subscriptions are readable regardless of profile entries, including for an empty profile. RX-only signals do not need to be added. The legacy `read` permission remains accepted but is not required for signal reads. API key authentication and administrative `full` checks still apply. Do not treat a client-side whitelist as backend authorization.
+Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Profiles restrict TX only: a signal needs `write` or `full` permission to be transmitted. All signal values, metadata, history, and RX subscriptions are readable regardless of profile entries, including for an empty profile. RX-only signals do not need to be added. The legacy `read` permission remains accepted but is not required for signal reads. Do not treat a client-side whitelist as backend authorization.
 
 ## Dev Mode and seat locks
 
@@ -163,6 +165,8 @@ Use the [Dev Mode guide](devmode_api.md) and `/api/devmode/catalog` for supporte
 Keep `X-Client-Id` consistent for select, status, write, renew, and release requests. Selection creates time-limited seat locks; renew before expiry, typically halfway through the timeout, and release on leaving Dev Mode. Profile heartbeat tracks online state separately. Ordinary writes to a locked seat can fail with HTTP 423, while batch operations may report lock failures in the response body. Inspect each seat's `applied` result for Dev Mode writes.
 
 ## Settings and restart requirements
+
+The bundled Settings frontend sends `X-Dev-Mode: true` for config load/save, backup/list/restore, reset, and live reload. Settings do not require a selected profile or `full` permission. Integrations should send the same Dev Mode header together with `X-API-Key` when authentication is enabled; `X-Client-Id` remains attached by the bundled helper.
 
 Render controls from `GET /config/system` field definitions and reload levels. The policy is in `config/system.fields.json`; runtime values are in `config/system.json`. Do not hard-code editability in a separate frontend schema.
 
