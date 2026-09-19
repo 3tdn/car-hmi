@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from src.core.config import AppConfig, CANConfig, load_config
+from src.core.config import AppConfig, CANConfig, apply_environment_overrides, load_config
 from src.core.signal_store import SignalStore
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -213,6 +213,39 @@ def test_load_config_custom(tmp_path):
     assert cfg.api.port == 9000
     assert cfg.reader.frequency_piority == pytest.approx(0.0)
     assert cfg.reader.only_send_signal_update is True
+
+
+def test_environment_overrides_render_port_and_api_key():
+    cfg = AppConfig()
+
+    result = apply_environment_overrides(
+        cfg,
+        {
+            "PORT": "10000",
+            "CAR_HMI_API_KEY": "render-secret",
+            "CAR_HMI_REQUIRE_API_KEY": "true",
+        },
+    )
+
+    assert result is cfg
+    assert cfg.api.port == 10000
+    assert cfg.api.api_key == "render-secret"
+
+
+@pytest.mark.parametrize("port", ["not-a-port", "0", "65536"])
+def test_environment_overrides_reject_invalid_port(port):
+    with pytest.raises(ValueError, match="PORT must be an integer"):
+        apply_environment_overrides(AppConfig(), {"PORT": port})
+
+
+@pytest.mark.parametrize("api_key", [None, "", "change-me-in-production"])
+def test_environment_overrides_require_real_api_key(api_key):
+    environ = {"CAR_HMI_REQUIRE_API_KEY": "true"}
+    if api_key is not None:
+        environ["CAR_HMI_API_KEY"] = api_key
+
+    with pytest.raises(ValueError, match="CAR_HMI_API_KEY must be set"):
+        apply_environment_overrides(AppConfig(), environ)
 
 
 def test_app_config_accepts_status_monitor_section():

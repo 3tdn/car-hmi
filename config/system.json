@@ -1,8 +1,8 @@
 {
   "can": [
     {
-      "interface": "socketcan",
-      "channel": "auto",
+      "interface": "virtual",
+      "channel": "vcan0",
       "bitrate": 500000,
       "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
       "channel_tracking_signals": [
@@ -11,8 +11,8 @@
     }
   ],
   "simulator": {
-    "enabled": false,
-    "random_mode": false,
+    "enabled": true,
+    "random_mode": true,
     "default_cycle_ms": 10,
     "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
   },
@@ -44,7 +44,7 @@
   },
   "camera": {
     "enabled": true,
-    "stream_url": "http://192.168.2.119:8080/stream",
+    "stream_url": "https://mjpeg.sanford.io/count.mjpeg",
     "reconnect_interval_sec": 3.0,
     "connect_timeout_sec": 5.0,
     "read_timeout_sec": 10.0,

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: car-hmi
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install .
+    startCommand: python -m src.core.runner --config config/system.json --log-level INFO
+    healthCheckPath: /system/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: CAR_HMI_REQUIRE_API_KEY
+        value: "true"
+      - key: CAR_HMI_API_KEY
+        sync: false

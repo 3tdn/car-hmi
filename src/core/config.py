@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -297,3 +299,46 @@ def load_config(path: str | Path) -> AppConfig:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     return AppConfig.model_validate(data or {})
+
+
+_PLACEHOLDER_API_KEYS = {"change-me-in-production", "changeme", "default"}
+
+
+def apply_environment_overrides(
+    config: AppConfig,
+    environ: Mapping[str, str] | None = None,
+) -> AppConfig:
+    """Apply deployment-only overrides without storing secrets in JSON.
+
+    Render supplies the public HTTP port through ``PORT``. The API key is kept
+    outside the repository in ``CAR_HMI_API_KEY``. Setting
+    ``CAR_HMI_REQUIRE_API_KEY=true`` makes startup fail instead of accidentally
+    exposing protected routes with placeholder authentication.
+    """
+    env = os.environ if environ is None else environ
+
+    raw_port = env.get("PORT")
+    if raw_port:
+        try:
+            port = int(raw_port)
+        except ValueError as exc:
+            raise ValueError("PORT must be an integer between 1 and 65535") from exc
+        if not 1 <= port <= 65535:
+            raise ValueError("PORT must be an integer between 1 and 65535")
+        config.api.port = port
+
+    raw_api_key = env.get("CAR_HMI_API_KEY")
+    api_key = raw_api_key.strip() if raw_api_key is not None else ""
+    if api_key:
+        config.api.api_key = api_key
+
+    require_api_key = env.get("CAR_HMI_REQUIRE_API_KEY", "").strip().lower()
+    if require_api_key in {"1", "true", "yes", "on"}:
+        effective_key = config.api.api_key.strip().lower()
+        if not effective_key or effective_key in _PLACEHOLDER_API_KEYS:
+            raise ValueError(
+                "CAR_HMI_API_KEY must be set to a non-placeholder value when "
+                "CAR_HMI_REQUIRE_API_KEY=true"
+            )
+
+    return config

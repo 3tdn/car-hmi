@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import can
 
-from src.core.config import AppConfig, load_config
+from src.core.config import AppConfig, apply_environment_overrides, load_config
 from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
@@ -919,6 +919,10 @@ class AppRunner:
         """Apply every policy-approved live field and synchronize runtime references."""
         from src.core.config_policy import ReloadLevel, diff_paths, match_policy
 
+        # Keep deployment-only port and secret overrides after a config PATCH,
+        # reset, restore, or explicit runtime reload.
+        new_config = apply_environment_overrides(new_config)
+
         live_paths = [
             path
             for path in changed_paths
@@ -1108,7 +1112,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = apply_environment_overrides(load_config(args.config))
     if args.log_level:
         cfg.logging.level = args.log_level
 

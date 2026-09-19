@@ -4,14 +4,17 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
+      "channel_tracking_signals": [
+        "COM_Status_ElkCan"
+      ]
     }
   ],
   "simulator": {
     "enabled": true,
-    "random_mode": false,
+    "random_mode": true,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
@@ -91,7 +94,7 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000,
+    "periodic_duration": 5000,
     "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
