@@ -12,6 +12,4 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.3
       - key: CAR_HMI_REQUIRE_API_KEY
-        value: "true"
-      - key: CAR_HMI_API_KEY
-        sync: false
+        value: "false"

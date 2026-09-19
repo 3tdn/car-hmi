@@ -93,7 +93,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 The repository includes a `render.yaml` Blueprint for a hosted demo using virtual CAN and
 the built-in simulator. See the [Render deployment guide](docs/render_deploy.md) for the
-exact push, Dashboard, secret, health-check, and verification steps.
+exact push, Dashboard, optional authentication, health-check, and verification steps.
 
 
 ## Project Structure

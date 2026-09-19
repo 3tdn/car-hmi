@@ -7,8 +7,8 @@ uses a virtual CAN bus and the DBC v9 simulator because a Render container canno
 CarPC's USB-CAN adapter or SocketCAN interfaces. The camera proxy and status monitor remain
 enabled; unreachable camera or Ethernet endpoints stay unavailable or report `false`.
 
-The application reads the HTTP port assigned by Render from `PORT`. The API key is not stored
-in Git; Render prompts for the `CAR_HMI_API_KEY` secret when the Blueprint is created.
+The application reads the HTTP port assigned by Render from `PORT`. API key authentication is
+disabled by default for this demo and can be enabled later with Render environment variables.
 
 ## 1. Verify locally before pushing
 
@@ -23,8 +23,7 @@ You can run a smoke test with the same environment variables used on Render:
 
 ```bash
 PORT=10000 \
-CAR_HMI_REQUIRE_API_KEY=true \
-CAR_HMI_API_KEY=local-render-test-key \
+CAR_HMI_REQUIRE_API_KEY=false \
 .venv/bin/python -m src.core.runner --config config/system.json --log-level INFO
 ```
 
@@ -37,11 +36,11 @@ git add .python-version render.yaml config/system.json config/system_bk.json \
   src/core/config.py src/core/runner.py frontend/js/api.js \
   tests/1_unit_functions/test_core.py docs/render_deploy.md README.md
 git commit -m "Add Render deployment configuration" \
-  -m $'Configure virtual CAN simulation for the hosted demo.\nRead Render port and API secrets from environment variables.\nDocument Blueprint deployment and verification steps.'
+  -m $'Configure virtual CAN simulation for the hosted demo.\nRead the Render port and optional API credentials from environment variables.\nDocument Blueprint deployment and verification steps.'
 git push -u origin dev_onrender
 ```
 
-Do not commit the API key or any `.env` file.
+Do not commit API keys or any `.env` file if authentication is enabled later.
 
 ## 3. Create the Blueprint on Render
 
@@ -52,12 +51,7 @@ After pushing the branch, open
 2. Connect GitHub if Render does not yet have access to the `3tdn/car-hmi` repository.
 3. Select the `3tdn/car-hmi` repository and the `dev_onrender` branch.
 4. Keep the Blueprint Path set to `render.yaml`.
-5. Enter a sufficiently long secret for `CAR_HMI_API_KEY`. You can generate one with:
-
-   ```bash
-   openssl rand -hex 32
-   ```
-
+5. Confirm that `CAR_HMI_REQUIRE_API_KEY` is set to `false`.
 6. Confirm the `car-hmi` service, Singapore region, and Free plan, then select
    **Deploy Blueprint**.
 
@@ -78,12 +72,23 @@ After the service status becomes **Live**, replace `<service-url>` with the actu
 ```bash
 curl -fsS https://<service-url>/system/health
 curl -fsS https://<service-url>/api/info
-curl -fsS -H 'X-API-Key: <CAR_HMI_API_KEY>' \
-  https://<service-url>/signals/available
+curl -fsS https://<service-url>/signals/available
 ```
 
-The dashboard is available at `https://<service-url>/`. To let the dashboard send the API key
-without storing the secret in source code, open Developer Tools > Console on that domain and run:
+The dashboard is available at `https://<service-url>/`. No browser API key is required while
+authentication is disabled.
+
+### Enable authentication later (optional)
+
+Set `CAR_HMI_API_KEY` to a non-placeholder secret and change
+`CAR_HMI_REQUIRE_API_KEY` to `true` in the Render environment. Generate a key with:
+
+```bash
+openssl rand -hex 32
+```
+
+To let the dashboard send the key without storing it in source code, open Developer Tools >
+Console on the service domain and run:
 
 ```js
 sessionStorage.setItem("can_hmi_api_key", "<CAR_HMI_API_KEY>");
@@ -99,6 +104,8 @@ location.reload();
 
 ## Known limitations
 
+- Authentication is disabled by default, so do not expose sensitive vehicle data or controls
+  with this demo configuration.
 - This is a simulated CAN demo. The camera proxy works only when its configured stream URL is
   reachable from the Render service.
 - A Free Web Service can spin down while idle, so its first subsequent request can take time
@@ -111,11 +118,13 @@ location.reload();
 
 ## Common issues
 
-- `CAR_HMI_API_KEY must be set...`: the secret is missing or still uses a placeholder value.
+- `CAR_HMI_API_KEY must be set...`: the service still has
+  `CAR_HMI_REQUIRE_API_KEY=true`. Sync the latest Blueprint or change it to `false` in the
+  Render environment.
 - `PORT must be an integer...`: `PORT` was overridden with an invalid value. Remove the
   override and let Render provide the port.
 - Health check timeout: confirm that the logs show a bind to `0.0.0.0` on the value of `$PORT`.
-- HTTP 401 from `/signals` or `/config`: the request or browser API key does not match the
-  Render environment variable.
+- HTTP 401 from `/signals` or `/config`: authentication was enabled and the request or browser
+  API key does not match the Render environment variable.
 - Data disappears after a restart: this is a limitation of the Free plan's ephemeral
   filesystem, not a SQLite error.
