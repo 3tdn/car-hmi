@@ -5,6 +5,8 @@
       "path": "can",
       "title": "Can",
       "type": "array",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "CAN bus list; adding or removing a bus requires reboot.",
       "validation": {
@@ -20,8 +22,16 @@
       "path": "can.*.interface",
       "title": "Interface",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Python-CAN interface.",
+      "validation": {
+        "enum": [
+          "socketcan",
+          "virtual"
+        ]
+      },
       "ui": {
         "control": "text"
       }
@@ -30,6 +40,8 @@
       "path": "can.*.channel",
       "title": "Channel",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Unique CAN channel name. Use 'auto' with a single SocketCAN channel to select an UP canX interface using channel_tracking_signals, or all DBC messages when that list is empty.",
       "examples": [
@@ -44,6 +56,8 @@
       "path": "can.*.bitrate",
       "title": "Bitrate",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "CAN bitrate.",
       "validation": {
@@ -57,6 +71,8 @@
       "path": "can.*.can_db_file",
       "title": "CAN database file",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "DBC file for this CAN channel.",
       "examples": [
@@ -81,6 +97,8 @@
       "path": "can.*.channel_tracking_signals",
       "title": "Channel tracking signals",
       "type": "array",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "For channel='auto', select an interface receiving any message containing a listed DBC signal. Empty means all DBC messages with signals. Normal reading still includes all signals.",
       "validation": {
@@ -96,6 +114,8 @@
       "path": "can.*.channel_tracking_signals.*",
       "title": "Tracking signal",
       "type": "string",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "DBC signal whose message can identify the automatic CAN channel.",
       "ui": {
@@ -106,6 +126,8 @@
       "path": "simulator.enabled",
       "title": "Enabled",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Enable or disable the CAN simulator.",
       "ui": {
@@ -116,6 +138,8 @@
       "path": "simulator.random_mode",
       "title": "Random Mode",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Simulator data generation mode.",
       "ui": {
@@ -126,6 +150,8 @@
       "path": "simulator.default_cycle_ms",
       "title": "Default Cycle Ms",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Simulator transmission cycle.",
       "validation": {
@@ -139,6 +165,8 @@
       "path": "simulator.can_db_file",
       "title": "CAN database file",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "DBC file used by the simulator.",
       "examples": [
@@ -163,6 +191,8 @@
       "path": "adaptive_restraint.db_path",
       "title": "Db Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "Data path is fixed at application startup.",
       "ui": {
@@ -173,6 +203,8 @@
       "path": "adaptive_restraint.csv_path",
       "title": "Csv Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "Data path is fixed at application startup.",
       "ui": {
@@ -183,6 +215,8 @@
       "path": "api.host",
       "title": "Host",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "API server bind address.",
       "ui": {
@@ -193,6 +227,8 @@
       "path": "api.port",
       "title": "Port",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "API server bind port.",
       "validation": {
@@ -207,6 +243,8 @@
       "path": "api.api_key",
       "title": "API key",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "Authentication secrets cannot be changed through the config API.",
       "ui": {
@@ -215,22 +253,11 @@
       }
     },
     {
-      "path": "api.ws_heartbeat_interval_sec",
-      "title": "Ws Heartbeat Interval Sec",
-      "type": "number",
-      "reload_level": "immutable",
-      "description": "The current runtime does not use this heartbeat setting.",
-      "validation": {
-        "exclusiveMinimum": 0
-      },
-      "ui": {
-        "control": "number"
-      }
-    },
-    {
       "path": "api.ws_metrics_interval_sec",
       "title": "Ws Metrics Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "System metrics broadcast interval.",
       "validation": {
@@ -244,6 +271,8 @@
       "path": "api.cors_origins",
       "title": "Cors Origins",
       "type": "array",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "CORS middleware is created at startup.",
       "validation": {
@@ -259,6 +288,8 @@
       "path": "api.cors_origins.*",
       "title": "*",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "An allowed CORS origin.",
       "ui": {
@@ -269,6 +300,8 @@
       "path": "profiles.profiles_path",
       "title": "Profiles Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "The profile path cannot be changed through the runtime API.",
       "ui": {
@@ -279,6 +312,8 @@
       "path": "profiles.sessions_path",
       "title": "Sessions Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "The session path cannot be changed through the runtime API.",
       "ui": {
@@ -286,19 +321,11 @@
       }
     },
     {
-      "path": "profiles.allow_legacy_profile_mutations",
-      "title": "Allow Legacy Profile Mutations",
-      "type": "boolean",
-      "reload_level": "immutable",
-      "description": "Legacy profile mutations are not implemented by the current runtime.",
-      "ui": {
-        "control": "checkbox"
-      }
-    },
-    {
       "path": "profiles.default_profile_permission",
       "title": "Default Profile Permission",
       "type": "array",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Default profile permissions.",
       "validation": {
@@ -314,8 +341,17 @@
       "path": "profiles.default_profile_permission.*",
       "title": "*",
       "type": "string",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "A default profile permission.",
+      "validation": {
+        "enum": [
+          "read",
+          "write",
+          "full"
+        ]
+      },
       "ui": {
         "control": "text"
       }
@@ -324,6 +360,8 @@
       "path": "profiles.session_online_ttl_seconds",
       "title": "Session Online Ttl Seconds",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Profile session TTL.",
       "validation": {
@@ -337,6 +375,8 @@
       "path": "profiles.session_history_limit",
       "title": "Session History Limit",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Profile session history limit.",
       "validation": {
@@ -350,6 +390,8 @@
       "path": "profiles.session_cleanup_interval_sec",
       "title": "Session Cleanup Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Profile session cleanup interval.",
       "validation": {
@@ -363,6 +405,8 @@
       "path": "camera.enabled",
       "title": "Enabled",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Camera proxy is created at startup.",
       "ui": {
@@ -373,8 +417,10 @@
       "path": "camera.stream_url",
       "title": "Stream Url",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
-      "description": "MJPEG source used by the camera proxy.",
+      "description": "Stream path used by the camera proxy.",
       "ui": {
         "control": "text"
       }
@@ -383,6 +429,8 @@
       "path": "camera.reconnect_interval_sec",
       "title": "Reconnect Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera reconnect interval.",
       "validation": {
@@ -396,6 +444,8 @@
       "path": "camera.connect_timeout_sec",
       "title": "Connect Timeout Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera connection timeout.",
       "validation": {
@@ -409,6 +459,8 @@
       "path": "camera.read_timeout_sec",
       "title": "Read Timeout Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera read timeout.",
       "validation": {
@@ -422,6 +474,8 @@
       "path": "camera.chunk_size",
       "title": "Chunk Size",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera stream chunk size.",
       "validation": {
@@ -435,6 +489,8 @@
       "path": "camera.subscriber_queue_size",
       "title": "Subscriber Queue Size",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera subscriber queue size.",
       "validation": {
@@ -448,6 +504,8 @@
       "path": "camera.startup_wait_sec",
       "title": "Startup Wait Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera startup wait time.",
       "validation": {
@@ -461,6 +519,8 @@
       "path": "camera.fps_log_interval_sec",
       "title": "Fps Log Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Camera FPS logging interval.",
       "validation": {
@@ -474,6 +534,8 @@
       "path": "status_monitor.enabled",
       "title": "Enabled",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Status monitor task is created at startup.",
       "ui": {
@@ -484,6 +546,8 @@
       "path": "status_monitor.interval_sec",
       "title": "Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Status monitor interval.",
       "validation": {
@@ -497,6 +561,8 @@
       "path": "status_monitor.ping_timeout_sec",
       "title": "Ping Timeout Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Status monitor ping timeout.",
       "validation": {
@@ -510,6 +576,8 @@
       "path": "status_monitor.targets",
       "title": "Targets",
       "type": "object",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Dynamic status monitor target map.",
       "ui": {
@@ -520,6 +588,8 @@
       "path": "status_monitor.targets.*",
       "title": "*",
       "type": "string",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "A status monitor target.",
       "ui": {
@@ -527,26 +597,11 @@
       }
     },
     {
-      "path": "storage.engine",
-      "title": "Engine",
-      "type": "string",
-      "reload_level": "immutable",
-      "description": "The storage engine cannot change at runtime.",
-      "validation": {
-        "enum": [
-          "sqlite",
-          "timescaledb",
-          "influxdb"
-        ]
-      },
-      "ui": {
-        "control": "select"
-      }
-    },
-    {
       "path": "storage.sqlite_path",
       "title": "Sqlite Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "An open database cannot change at runtime.",
       "ui": {
@@ -557,6 +612,8 @@
       "path": "storage.batch_size",
       "title": "Batch Size",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Pipeline batch flush threshold.",
       "validation": {
@@ -570,6 +627,8 @@
       "path": "storage.batch_interval_sec",
       "title": "Batch Interval Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Pipeline batch flush interval.",
       "validation": {
@@ -583,6 +642,8 @@
       "path": "storage.retention_days",
       "title": "Retention Days",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "live",
       "description": "Signal history retention period.",
       "validation": {
@@ -596,6 +657,8 @@
       "path": "storage.max_disk_mb",
       "title": "Max Disk Mb",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "live",
       "description": "Database disk usage limit.",
       "validation": {
@@ -606,22 +669,11 @@
       }
     },
     {
-      "path": "processor.smoothing_window",
-      "title": "Smoothing Window",
-      "type": "integer",
-      "reload_level": "immutable",
-      "description": "The current runtime has no smoothing stage.",
-      "validation": {
-        "minimum": 1
-      },
-      "ui": {
-        "control": "number"
-      }
-    },
-    {
       "path": "processor.max_update_rate_hz",
       "title": "Max Update Rate Hz",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Reader and pipeline rate gate.",
       "validation": {
@@ -635,6 +687,8 @@
       "path": "processor.max_queue_size",
       "title": "Max Queue Size",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "RX queue is migrated safely.",
       "validation": {
@@ -648,6 +702,8 @@
       "path": "processor.queue_policy",
       "title": "Queue Policy",
       "type": "string",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Reader and pipeline full-queue policy.",
       "validation": {
@@ -664,6 +720,8 @@
       "path": "processor.batch_drain_size",
       "title": "Batch Drain Size",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Maximum frames processed per cycle.",
       "validation": {
@@ -677,6 +735,8 @@
       "path": "reader.frequency_piority",
       "title": "Frequency Piority",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Heartbeat for infrequently changing signals.",
       "validation": {
@@ -690,6 +750,8 @@
       "path": "reader.only_send_signal_update",
       "title": "Only Send Signal Update",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "WebSocket signal payload mode.",
       "ui": {
@@ -700,6 +762,8 @@
       "path": "reader.stale_threshold_sec",
       "title": "Stale Threshold Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Silent CAN bus detection threshold.",
       "validation": {
@@ -713,6 +777,8 @@
       "path": "writer.rate_limit_per_sec",
       "title": "Rate Limit Per Sec",
       "type": "integer",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "The writer rate limiter is not implemented.",
       "validation": {
@@ -726,6 +792,8 @@
       "path": "writer.burst",
       "title": "Burst",
       "type": "integer",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "The writer burst limiter is not implemented.",
       "validation": {
@@ -739,6 +807,8 @@
       "path": "writer.periodic_mode",
       "title": "Periodic Mode",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "live",
       "description": "Periodic CAN transmission mode.",
       "ui": {
@@ -749,6 +819,8 @@
       "path": "writer.periodic_time_step",
       "title": "Periodic Time Step",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Periodic CAN transmission interval.",
       "validation": {
@@ -762,6 +834,8 @@
       "path": "writer.periodic_duration",
       "title": "Periodic Duration",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Periodic CAN transmission duration.",
       "validation": {
@@ -775,6 +849,8 @@
       "path": "writer.use_prevalue_for_unwritten_signal",
       "title": "Use Prevalue For Unwritten Signal",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Preserve sibling signal values when writing CAN frames.",
       "ui": {
@@ -785,6 +861,8 @@
       "path": "shutdown.timeout_sec",
       "title": "Timeout Sec",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Timeout read during graceful shutdown.",
       "validation": {
@@ -798,6 +876,8 @@
       "path": "supervisor.watchdog_interval_sec",
       "title": "Watchdog Interval Sec",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "The watchdog task is created at startup.",
       "validation": {
@@ -811,6 +891,8 @@
       "path": "devmode.block_timeout_sec",
       "title": "Block Timeout Sec",
       "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Dev Mode lock timeout.",
       "validation": {
@@ -824,6 +906,8 @@
       "path": "devmode.require_seat_connected",
       "title": "Require Seat Connected",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Require an online seat in Dev Mode.",
       "ui": {
@@ -834,6 +918,8 @@
       "path": "devmode.bypass_check_CAN_status",
       "title": "Bypass Check Can Status",
       "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "live",
       "description": "Bypass CAN status checks in Dev Mode.",
       "ui": {
@@ -844,6 +930,8 @@
       "path": "logging.level",
       "title": "Level",
       "type": "string",
+      "editable": true,
+      "setting_mode": "base",
       "reload_level": "live",
       "description": "Log level for active loggers.",
       "validation": {
@@ -862,6 +950,8 @@
       "path": "logging.file_path",
       "title": "File Path",
       "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
       "reload_level": "immutable",
       "description": "An open log file handler cannot change at runtime.",
       "ui": {
@@ -872,6 +962,8 @@
       "path": "logging.max_size_mb",
       "title": "Max Size Mb",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Rotating log handler size limit.",
       "validation": {
@@ -885,6 +977,8 @@
       "path": "logging.backup_count",
       "title": "Backup Count",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "Number of rotated log backups.",
       "validation": {
@@ -898,6 +992,8 @@
       "path": "config_management.backup_retention_count",
       "title": "Backup Retention Count",
       "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
       "reload_level": "live",
       "description": "Number of system config backups to retain.",
       "validation": {

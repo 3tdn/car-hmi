@@ -143,15 +143,13 @@ the same policy from the backend and supports multiple CAN channel cards.
 |---------------|----------------------------------------------------------------------------------|
 | `can` | **Array** of channels: `interface`, `channel`, `bitrate`, `can_db_file`, optional `channel_tracking_signals`. Auto discovery tracks the CAN messages containing the configured signals. |
 | `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
-| `processor`   | `smoothing_window`, `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
-| `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_heartbeat_interval_sec`, `ws_metrics_interval_sec` |
-| `storage`     | `engine` (`sqlite`), `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
+| `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
+| `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
+| `storage`     | `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
 | `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`) |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
 | `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
 | `logging`     | `level`, `file_path`, `max_size_mb`, `backup_count` for rotating file log        |
-
-Some configuration fields are retained for compatibility but have no active runtime implementation, including `processor.smoothing_window` and `api.ws_heartbeat_interval_sec`; the field policy marks them immutable. See the policy guide for details.
 
 ## API Endpoints
 
@@ -275,12 +273,15 @@ To apply changes to a running server use `POST /config/processor` (see the [API 
 
 The web dashboard includes a `Settings` button in the header. Use it to:
 
-- Edit system fields through a policy-driven form; each field is labeled `LIVE`, `REBOOT`, or `LOCKED`.
+- Edit system fields through a policy-driven form; each field is labeled `LIVE`, `REBOOT`, or `READ ONLY`.
+- Switch between `Base` settings and the `Expanded` view; expanded mode includes all base and advanced fields.
+- Use metadata-driven select controls for fixed-value fields; read-only fields remain visible in Expanded mode but cannot be edited.
 - Add/remove and configure multiple CAN channels.
 - Create/list/restore backups, live-reload supported fields, reset from the project template, or reboot Car-HMI.
 
 Notes:
 - System config saves merge objects recursively; arrays are replaced completely. Submit the complete `can` array when editing channel cards.
+- The UI and PATCH validation share `editable`, `setting_mode`, and `validation.enum` from `config/system.fields.json`.
 - Reset and restore create a safety backup automatically. `api.api_key`, active resource paths, and unimplemented fields remain locked in the normal editor.
 - See [`docs/system_config_management.md`](docs/system_config_management.md) for the complete field policy.
 

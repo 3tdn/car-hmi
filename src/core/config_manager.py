@@ -215,8 +215,7 @@ class SystemConfigManager:
             immutable = [
                 path
                 for path in changed
-                if (policy := match_policy(path)) is not None
-                and policy.reload_level == ReloadLevel.IMMUTABLE
+                if (policy := match_policy(path)) is not None and not policy.editable
             ]
             if unsupported:
                 raise ConfigUpdateError(

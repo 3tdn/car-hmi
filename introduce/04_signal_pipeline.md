@@ -120,9 +120,8 @@ The runner installs `RateLimiter` followed by `ComputedSignals`. Both implement 
 cycle, keeps the latest value per signal in the batch, publishes to SignalStore, and batches
 SQLite inserts. `processor.max_update_rate_hz` controls the rate-limiter stage.
 
-No smoothing stage is installed. The `smoothing_window` configuration field is immutable
-because it currently has no runtime implementation. AlarmChecker, alarm storage, and alarm
-REST/WebSocket routes are removed.
+No smoothing stage is installed. AlarmChecker, alarm storage, and alarm REST/WebSocket
+routes are removed.
 
 
 ## 4. Backpressure — Queue Policy

@@ -1056,11 +1056,9 @@ jobs:
     "host": "0.0.0.0",
     "port": 8000,
     "api_key": "change-me-in-production",
-    "ws_heartbeat_interval_sec": 5,
     "cors_origins": ["http://localhost:8000"]
   },
   "storage": {
-    "engine": "sqlite",
     "sqlite_path": "data/signals.db",
     "batch_size": 100,
     "batch_interval_sec": 2.0,
@@ -1068,7 +1066,6 @@ jobs:
     "max_disk_mb": 2048
   },
   "processor": {
-    "smoothing_window": 5,
     "max_update_rate_hz": 10.0,
     "max_queue_size": 10000,
     "queue_policy": "reject"

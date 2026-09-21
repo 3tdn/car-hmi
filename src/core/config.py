@@ -58,8 +58,6 @@ class APIConfig(BaseModel):
     # HTTP port; change it if there is a conflict or if running behind a reverse proxy
     api_key: str = "change-me-in-production"
     # Bearer token used for API authentication; MUST be changed before deploying to production
-    ws_heartbeat_interval_sec: float = Field(default=5.0, gt=0)
-    # Interval for sending keepalive pings to WebSocket clients (seconds)
     ws_metrics_interval_sec: float = Field(default=3.0, gt=0)
     # Interval for sending system metrics snapshots over WebSocket (seconds)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
@@ -119,12 +117,10 @@ class DevModeConfig(BaseModel):
 
 
 class StorageConfig(BaseModel):
-    """Configuration for historical signal data storage."""
+    """Configuration for SQLite historical signal data storage."""
 
-    engine: Literal["sqlite", "timescaledb", "influxdb"] = "sqlite"
-    # Storage backend: "sqlite" for dev/embedded, "timescaledb"/"influxdb" for production
     sqlite_path: str = "data/signals.db"
-    # Path to the SQLite file (used only when engine="sqlite")
+    # Path to the SQLite file
     batch_size: int = Field(default=100, ge=1)
     # Number of records accumulated before flushing to DB; increase it to reduce write I/O frequency
     batch_interval_sec: float = Field(default=2.0, gt=0)
@@ -138,8 +134,6 @@ class StorageConfig(BaseModel):
 class ProcessorConfig(BaseModel):
     """Configuration for the signal processing pipeline."""
 
-    smoothing_window: int = Field(default=5, ge=1)
-    # Smoothing window size (SmoothingFilter): number of samples used for the moving average
     max_update_rate_hz: float = Field(default=10.0, ge=0)
     # Maximum update rate for each signal into SignalStore (Hz); frames beyond this are dropped
     max_queue_size: int = Field(default=10_000, ge=1)
@@ -230,7 +224,6 @@ class AdaptiveRestraintConfig(BaseModel):
 class ProfilesConfig(BaseModel):
     profiles_path: str = "config/profiles.json"
     sessions_path: str = "data/profile_sessions.json"
-    allow_legacy_profile_mutations: bool = False
     default_profile_permission: list[str] = Field(default_factory=lambda: ["read"])
     session_online_ttl_seconds: int = Field(default=600, ge=1)
     session_history_limit: int = Field(default=50, ge=1)

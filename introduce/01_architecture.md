@@ -73,7 +73,7 @@ msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 The runner installs two asynchronous processing stages, `RateLimiter` and `ComputedSignals`.
 Frames from the shared queue are drained in bounded batches, coalesced to the latest values,
 then published to SignalStore and buffered for SQLite inserts. Smoothing and alarm stages
-are not installed; `processor.smoothing_window` remains an immutable compatibility field.
+are not installed.
 
 ```text
 CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore + SQLite
@@ -216,7 +216,6 @@ simulator:
   can_db_file: "db/can_db/p_v2.dbc"
 
 processor:
-  smoothing_window: 5
   max_update_rate_hz: 20
   max_queue_size: 10000
   queue_policy: drop_oldest   # drop_oldest / reject

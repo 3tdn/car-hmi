@@ -78,8 +78,8 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
 - **Key Classes**:
   - `CANConfig`: Single CAN bus channel definition (interface, channel, bitrate, database paths)
   - `APIConfig`: REST/WebSocket server settings (host, port, API key, CORS origins)
-  - `StorageConfig`: Persistence backend selection and tuning (SQLite, TimescaleDB, InfluxDB)
-  - `ProcessorConfig`: Signal pipeline tuning (smoothing window, max rate, queue size)
+  - `StorageConfig`: SQLite persistence tuning
+  - `ProcessorConfig`: Signal pipeline tuning (max rate, queue size)
   - `WriterConfig`: CAN write rate limiting
   - `ShutdownConfig`: Graceful shutdown timeout
   - `LoggingConfig`: Log level, file rotation settings
@@ -1418,12 +1418,10 @@ AppConfig (BaseModel)
 │  ├─ host: str
 │  ├─ port: int
 │  ├─ api_key: str
-│  ├─ ws_heartbeat_interval_sec: float
 │  ├─ ws_metrics_interval_sec: float
 │  └─ cors_origins: list[str]
 │
 ├─ storage: StorageConfig
-│  ├─ engine: str (sqlite, timescaledb, influxdb)
 │  ├─ sqlite_path: str
 │  ├─ batch_size: int
 │  ├─ batch_interval_sec: float
@@ -1431,7 +1429,6 @@ AppConfig (BaseModel)
 │  └─ max_disk_mb: int
 │
 ├─ processor: ProcessorConfig
-│  ├─ smoothing_window: int
 │  ├─ max_update_rate_hz: float
 │  ├─ max_queue_size: int
 │  ├─ queue_policy: str (drop_oldest, reject)

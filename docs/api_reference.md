@@ -604,12 +604,28 @@ Response format taken from the implementation (OpenAPI does not declare a detail
     }
   },
   "fields_schema_version": 1,
+  "setting_modes": {
+    "base": "Shown in the simple Settings view.",
+    "expand": "Shown in the expanded Settings view together with base fields."
+  },
   "reload_levels": {
     "live": "Applied immediately to runtime references.",
     "reboot": "Saved to disk; reboot Car-HMI to apply fully.",
     "immutable": "Cannot be changed through the API."
   },
-  "fields": [],
+  "fields": [
+    {
+      "path": "can.*.interface",
+      "title": "Interface",
+      "type": "string",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "reboot",
+      "description": "Python-CAN interface.",
+      "validation": {"enum": ["socketcan", "virtual"]},
+      "ui": {"control": "text"}
+    }
+  ],
   "paths": {
     "config": "config/system.json",
     "reset_template": "config/system_bk.json",
@@ -621,7 +637,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. `editable` is enforced by PATCH, `setting_mode` drives Base/Expanded visibility, and `validation.enum` supplies both accepted values and frontend choices. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `PATCH /config/system`
 

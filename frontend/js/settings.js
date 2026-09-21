@@ -8,11 +8,17 @@ settingsModal.innerHTML = `
     <div class="settings-modal__head">
       <div>
         <h3>System Settings</h3>
-        <p>Changes are classified by the backend as live, reboot-required, or locked.</p>
+        <p>Base shows common settings; Expanded includes advanced and read-only values.</p>
       </div>
       <button id="settings-cancel" class="btn" type="button">Close</button>
     </div>
     <div class="settings-toolbar">
+      <label class="settings-mode-switch" for="settings-mode">
+        <span class="settings-mode-switch__label">Base</span>
+        <input id="settings-mode" type="checkbox" role="switch" aria-label="Show expanded settings">
+        <span class="settings-mode-switch__track" aria-hidden="true"><span class="settings-mode-switch__thumb"></span></span>
+        <span class="settings-mode-switch__label">Expand</span>
+      </label>
       <button id="settings-refresh" class="btn" type="button">Refresh</button>
       <button id="settings-backup" class="btn" type="button">Backup</button>
       <button id="settings-reload" class="btn" type="button">Live reload</button>
@@ -35,6 +41,7 @@ document.body.appendChild(settingsModal);
 let settingsSnapshot = null;
 let settingsOriginal = null;
 let settingsWorking = null;
+let settingsViewMode = 'base';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
 const escapeHtml = (value) => String(value ?? '')
@@ -56,12 +63,39 @@ const findPolicy = (path) => (settingsSnapshot?.fields || []).find((item) => {
   const actual = path.split('.');
   return expected.length === actual.length && expected.every((part, i) => part === '*' || part === actual[i]);
 });
+const isPolicyVisible = (policy) => settingsViewMode === 'expand' || policy?.setting_mode === 'base';
+const enumValuesFor = (path, value) => {
+  const direct = findPolicy(path)?.validation?.enum;
+  if (Array.isArray(direct)) return direct;
+  if (Array.isArray(value)) {
+    const itemEnum = findPolicy(`${path}.0`)?.validation?.enum;
+    if (Array.isArray(itemEnum)) return itemEnum;
+  }
+  return null;
+};
 const levelBadge = (policy) => {
   const level = policy?.reload_level || 'immutable';
-  const label = level === 'immutable' ? 'LOCKED' : level.toUpperCase();
+  const label = level.toUpperCase();
   return `<span class="settings-level settings-level--${level}">${label}</span>`;
 };
-const parseInput = (input, original) => {
+const metadataBadges = (policy) => {
+  if (!policy) {
+    return '<span class="settings-meta settings-meta--readonly">UNSUPPORTED</span>';
+  }
+  const editable = policy.editable === true;
+  const mode = policy.setting_mode === 'base' ? 'base' : 'expand';
+  return `${levelBadge(policy)}
+    <span class="settings-meta settings-meta--${editable ? 'editable' : 'readonly'}">EDITABLE: ${editable ? 'TRUE' : 'FALSE'}</span>
+    <span class="settings-meta settings-meta--${mode}">MODE: ${mode.toUpperCase()}</span>`;
+};
+const parseInput = (input, original, path) => {
+  const enumValues = enumValuesFor(path, original);
+  if (enumValues) {
+    if (Array.isArray(original)) {
+      return Array.from(input.selectedOptions, (option) => cloneJson(enumValues[Number(option.value)]));
+    }
+    return cloneJson(enumValues[Number(input.value)]);
+  }
   if (typeof original === 'boolean') return input.checked;
   if (typeof original === 'number') return Number(input.value);
   if (Array.isArray(original)) return JSON.parse(input.value);
@@ -82,18 +116,22 @@ const validationAttributes = (policy) => {
 };
 const renderScalar = (key, value, path) => {
   const policy = findPolicy(path);
+  if (!isPolicyVisible(policy)) return '';
   const locked = !policy?.editable;
   const control = policy?.ui?.control;
   const inputType = control === 'password' ? 'password' : policy?.type === 'boolean' ? 'checkbox' : ['integer', 'number'].includes(policy?.type) ? 'number' : 'text';
   const displayValue = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '');
   const label = policy?.path?.endsWith('.*') ? key : (policy?.title || key);
-  const enumValues = policy?.validation?.enum;
+  const enumValues = enumValuesFor(path, value);
   const constraints = validationAttributes(policy);
   return `
     <label class="settings-field ${locked ? 'settings-field--locked' : ''}">
-      <span class="settings-field__label">${escapeHtml(label)} ${levelBadge(policy)}</span>
-      ${Array.isArray(enumValues)
-        ? `<select data-config-path="${escapeHtml(path)}" ${locked ? 'disabled' : ''}>${enumValues.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`
+      <span class="settings-field__label">
+        <span>${escapeHtml(label)}</span>
+        <span class="settings-field__metadata">${metadataBadges(policy)}</span>
+      </span>
+      ${enumValues
+        ? `<select data-config-path="${escapeHtml(path)}" ${Array.isArray(value) ? 'multiple' : ''} ${locked ? 'disabled' : ''}>${enumValues.map((option, index) => `<option value="${index}" ${(Array.isArray(value) ? value.includes(option) : option === value) ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`
         : Array.isArray(value)
         ? `<textarea data-config-path="${escapeHtml(path)}" ${locked ? 'disabled' : ''}>${escapeHtml(displayValue)}</textarea>`
         : `<input data-config-path="${escapeHtml(path)}" type="${inputType}" ${inputType === 'checkbox' && value ? 'checked' : ''} ${inputType !== 'checkbox' ? `value="${escapeHtml(displayValue)}"` : ''} ${constraints} ${locked ? 'disabled' : ''}>`}
@@ -103,19 +141,27 @@ const renderScalar = (key, value, path) => {
 const renderObject = (value, path) => Object.entries(value).map(([key, child]) => {
   const childPath = path ? `${path}.${key}` : key;
   if (child && typeof child === 'object' && !Array.isArray(child)) {
-    return `<div class="settings-subgroup"><h5>${escapeHtml(key)}</h5>${renderObject(child, childPath)}</div>`;
+    const content = renderObject(child, childPath);
+    return content ? `<div class="settings-subgroup"><h5>${escapeHtml(key)}</h5>${content}</div>` : '';
   }
   return renderScalar(key, child, childPath);
 }).join('');
-const renderCan = (buses) => `
-  <section class="settings-section settings-section--can">
-    <div class="settings-section__head"><h4>CAN channels</h4><button id="settings-add-can" class="btn" type="button">+ Add CAN</button></div>
+const renderCan = (buses) => {
+  const policy = findPolicy('can');
+  if (!isPolicyVisible(policy)) return '';
+  const locked = !policy?.editable;
+  return `<section class="settings-section settings-section--can">
+    <div class="settings-section__head">
+      <div class="settings-section__title"><h4>CAN channels</h4><span class="settings-field__metadata">${metadataBadges(policy)}</span></div>
+      <button id="settings-add-can" class="btn" type="button" ${locked ? 'disabled' : ''}>+ Add CAN</button>
+    </div>
     <div class="settings-can-grid">${buses.map((bus, index) => `
       <article class="settings-can-card">
-        <div class="settings-section__head"><h5>CAN ${index + 1}: ${escapeHtml(bus.channel)}</h5><button class="btn settings-remove-can" data-can-index="${index}" type="button" ${buses.length === 1 ? 'disabled' : ''}>Remove</button></div>
+        <div class="settings-section__head"><h5>CAN ${index + 1}: ${escapeHtml(bus.channel)}</h5><button class="btn settings-remove-can" data-can-index="${index}" type="button" ${locked || buses.length === 1 ? 'disabled' : ''}>Remove</button></div>
         ${renderObject(bus, `can.${index}`)}
       </article>`).join('')}</div>
   </section>`;
+};
 const wireSettingsInputs = () => {
   document.querySelectorAll('[data-config-path]').forEach((input) => {
     input.addEventListener('change', () => {
@@ -124,7 +170,7 @@ const wireSettingsInputs = () => {
       let original = settingsWorking;
       parts.forEach((part) => { original = original[part]; });
       try {
-        setAtPath(settingsWorking, path, parseInput(input, original));
+        setAtPath(settingsWorking, path, parseInput(input, original, path));
         input.setCustomValidity('');
       } catch (error) {
         input.setCustomValidity(`Invalid value: ${error.message}`);
@@ -138,15 +184,21 @@ const wireSettingsInputs = () => {
   }));
   document.getElementById('settings-add-can')?.addEventListener('click', () => {
     const next = settingsWorking.can.length;
-    settingsWorking.can.push({ interface: 'virtual', channel: `vcan${next}`, bitrate: 500000, can_db_file: settingsWorking.can[0]?.can_db_file || 'db/can_db/Interface_Panther_To_CarPC_v8.dbc' });
+    settingsWorking.can.push({ interface: 'virtual', channel: `vcan${next}`, bitrate: 500000, can_db_file: settingsWorking.can[0]?.can_db_file || 'db/can_db/Interface_Panther_To_CarPC_v8.dbc', channel_tracking_signals: [] });
     renderSettingsForm();
   });
 };
 const renderSettingsForm = () => {
   const form = document.getElementById('settings-form');
+  if (!settingsWorking) return;
   form.innerHTML = renderCan(settingsWorking.can) + Object.entries(settingsWorking)
     .filter(([key]) => key !== 'can')
-    .map(([key, value]) => `<section class="settings-section"><h4>${escapeHtml(key)}</h4>${value && typeof value === 'object' && !Array.isArray(value) ? renderObject(value, key) : renderScalar(key, value, key)}</section>`)
+    .map(([key, value]) => {
+      const content = value && typeof value === 'object' && !Array.isArray(value)
+        ? renderObject(value, key)
+        : renderScalar(key, value, key);
+      return content ? `<section class="settings-section"><h4>${escapeHtml(key)}</h4>${content}</section>` : '';
+    })
     .join('');
   wireSettingsInputs();
 };
@@ -216,6 +268,10 @@ document.getElementById('btn-settings').addEventListener('click', async () => {
 });
 document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
 document.getElementById('settings-refresh').addEventListener('click', loadSettings);
+document.getElementById('settings-mode').addEventListener('change', (event) => {
+  settingsViewMode = event.target.checked ? 'expand' : 'base';
+  renderSettingsForm();
+});
 document.getElementById('settings-backup').addEventListener('click', async () => {
   const result = await runSettingsAction(createSystemConfigBackup, 'Backup created.');
   if (result) await renderBackups();

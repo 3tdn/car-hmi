@@ -168,7 +168,12 @@ Keep `X-Client-Id` consistent for select, status, write, renew, and release requ
 
 The bundled Settings frontend sends `X-Dev-Mode: true` for config load/save, backup/list/restore/delete, reset, and live reload. Settings do not require a selected profile or `full` permission. Integrations should send the same Dev Mode header together with `X-API-Key` when authentication is enabled; `X-Client-Id` remains attached by the bundled helper.
 
-Render controls from `GET /config/system` field definitions and reload levels. The policy is in `config/system.fields.json`; runtime values are in `config/system.json`. Do not hard-code editability in a separate frontend schema.
+Render controls from `GET /config/system` field definitions and reload levels. The policy is in `config/system.fields.json`; runtime values are in `config/system.json`. Do not hard-code editability, display mode, or enum choices in a separate frontend schema.
+
+- Every rendered field shows `EDITABLE: TRUE/FALSE` and `MODE: BASE/EXPAND` badges. `editable: false` also disables the control. The backend rejects a forged PATCH, so disabling the control is only the first layer.
+- The `Base` / `Expand` switch controls the settings view. Base mode shows only fields marked `setting_mode: "base"`; Expand mode shows both `base` and `expand` fields and preserves unsaved values while switching views.
+- A non-empty `validation.enum` becomes a select control. When the enum belongs to an array item wildcard, the bundled UI uses a multi-select and preserves the JSON value type rather than converting values to strings.
+- Continue applying the other `validation` constraints to controls where HTML supports them; all constraints are enforced again by the backend.
 
 PATCH merges objects recursively but **replaces arrays completely**. When editing one CAN card, submit the complete intended `can` array. Leave the redacted `api_key` value out of updates. After patch/reset/restore/reload, show `warnings` if present, `reload.live`, `reload.reboot`, `runtime`, and `pending_reboot_paths`/`reboot_required`. Saving a reboot field does not restart the service automatically.
 

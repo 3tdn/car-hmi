@@ -6,9 +6,26 @@ The Settings UI reads that policy through `GET /config/system` instead of mainta
 separate list of locked fields.
 
 Definitions use dotted paths such as `reader.stale_threshold_sec`. A `*` matches one path
-segment; `can.*.can_db_file` applies to every channel. The backend derives `editable` from
-`reload_level`, validates policy metadata at startup, and validates changed values before
-writing. DBC constraints check the `.dbc` extension, file existence, and parseability.
+segment; `can.*.can_db_file` applies to every channel. Every definition explicitly declares
+`editable` and `setting_mode`. The backend validates policy metadata at startup, rejects API
+updates to non-editable fields, and validates changed values before writing. DBC constraints
+check the `.dbc` extension, file existence, and parseability.
+
+## Field metadata used by the Settings UI
+
+| Metadata | Behavior |
+|---|---|
+| `editable: true` | The frontend enables the control and the PATCH API accepts a valid change. |
+| `editable: false` | The frontend shows a read-only control and the PATCH API rejects changes. |
+| `setting_mode: "base"` | The field appears in both Base and Expanded views. |
+| `setting_mode: "expand"` | The field appears only in Expanded view. |
+| `validation.enum` | The frontend renders a select control and the backend accepts only listed values. |
+
+Enum entries must be non-empty, unique, and match the declared field `type`. For an array
+whose item policy contains an enum, such as `profiles.default_profile_permission.*`, the
+bundled frontend renders a multi-select and the backend validates every changed item. The
+backend remains authoritative; hiding or disabling a browser control is not an authorization
+boundary.
 
 ## Reload levels
 
@@ -58,11 +75,8 @@ or checking every signal. An empty list permits all DBC messages with signals. S
 |---|---|
 | `adaptive_restraint.db_path`, `adaptive_restraint.csv_path` | Data resources are already opened/cached. |
 | `api.api_key` | Authentication secret; GET redacts it as `********`. |
-| `api.ws_heartbeat_interval_sec` | Not used by the current WebSocket runtime. |
 | `profiles.profiles_path`, `profiles.sessions_path` | Data/access paths remain fixed for the process lifetime. |
-| `profiles.allow_legacy_profile_mutations` | Not implemented by the runtime. |
-| `storage.engine`, `storage.sqlite_path` | Cannot replace an open database/backend in place. |
-| `processor.smoothing_window` | No smoothing stage is installed in the current pipeline. |
+| `storage.sqlite_path` | Cannot replace an open database in place. |
 | `writer.rate_limit_per_sec`, `writer.burst` | Writer token-bucket limiting is not implemented. |
 | `logging.file_path` | The file handler is already open. |
 
@@ -112,9 +126,10 @@ create a backup also return backup information. Backup entries contain `id`, `cr
 and `size_bytes`. Delete returns `ok` and the deleted entry's metadata without changing the
 active configuration.
 
-Render field widgets and locked/restart indicators from GET policy. Show pending reboot
-paths after a mutation and do not report reboot fields as applied merely because they were
-saved. Reset/restore create safety backups. Invoke the reboot endpoint explicitly when
+Render field widgets, Base/Expanded visibility, editability, enums, and locked/restart
+indicators from GET policy. Expanded includes both Base and advanced fields. Show pending
+reboot paths after a mutation and do not report reboot fields as applied merely because they
+were saved. Reset/restore create safety backups. Invoke the reboot endpoint explicitly when
 restart is intended. See the [frontend integration guide](frontend_integration.md).
 
 For immediate ordinary exceptions during live apply, the backend attempts to restore disk

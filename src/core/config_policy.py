@@ -19,6 +19,11 @@ class ReloadLevel(StrEnum):
     IMMUTABLE = "immutable"
 
 
+class SettingMode(StrEnum):
+    BASE = "base"
+    EXPAND = "expand"
+
+
 class ConfigFieldPolicyError(ValueError):
     """Raised when ``system.fields.json`` is malformed."""
 
@@ -28,15 +33,13 @@ class ConfigFieldPolicy:
     path: str
     title: str
     value_type: str
+    editable: bool
+    setting_mode: SettingMode
     reload_level: ReloadLevel
     description: str
     examples: tuple[Any, ...]
     validation: dict[str, Any]
     ui: dict[str, Any]
-
-    @property
-    def editable(self) -> bool:
-        return self.reload_level != ReloadLevel.IMMUTABLE
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -45,6 +48,7 @@ class ConfigFieldPolicy:
             "type": self.value_type,
             "reload_level": self.reload_level.value,
             "editable": self.editable,
+            "setting_mode": self.setting_mode.value,
             "description": self.description,
             "ui": deepcopy(self.ui),
         }
@@ -59,6 +63,8 @@ _FIELD_KEYS = {
     "path",
     "title",
     "type",
+    "editable",
+    "setting_mode",
     "reload_level",
     "description",
     "examples",
@@ -98,6 +104,7 @@ _MISSING = object()
 
 def _validate_metadata(
     location: str,
+    value_type: str,
     validation: dict[str, Any],
     ui: dict[str, Any],
 ) -> None:
@@ -115,6 +122,14 @@ def _validate_metadata(
     enum = validation.get("enum")
     if enum is not None and (not isinstance(enum, list) or not enum):
         raise ConfigFieldPolicyError(f"{location}.validation.enum must be a non-empty array")
+    if isinstance(enum, list):
+        if any(enum[index] in enum[:index] for index in range(len(enum))):
+            raise ConfigFieldPolicyError(f"{location}.validation.enum must contain unique values")
+        invalid_enum_values = [value for value in enum if not _matches_type(value, value_type)]
+        if invalid_enum_values:
+            raise ConfigFieldPolicyError(
+                f"{location}.validation.enum values must match field type {value_type}"
+            )
     extensions = validation.get("allowed_extensions")
     if extensions is not None and (
         not isinstance(extensions, list)
@@ -199,6 +214,19 @@ def load_field_policies(
                 f"{location}.reload_level must be live, reboot, or immutable"
             ) from exc
 
+        editable = raw.get("editable", reload_level != ReloadLevel.IMMUTABLE)
+        if not isinstance(editable, bool):
+            raise ConfigFieldPolicyError(f"{location}.editable must be boolean")
+        if reload_level == ReloadLevel.IMMUTABLE and editable:
+            raise ConfigFieldPolicyError(
+                f"{location}.editable cannot be true when reload_level is immutable"
+            )
+
+        try:
+            setting_mode = SettingMode(raw.get("setting_mode", SettingMode.EXPAND.value))
+        except (TypeError, ValueError) as exc:
+            raise ConfigFieldPolicyError(f"{location}.setting_mode must be base or expand") from exc
+
         examples = raw.get("examples", [])
         validation = raw.get("validation", {})
         ui = raw.get("ui", {})
@@ -208,13 +236,15 @@ def load_field_policies(
             raise ConfigFieldPolicyError(f"{location}.validation must be an object")
         if not isinstance(ui, dict):
             raise ConfigFieldPolicyError(f"{location}.ui must be an object")
-        _validate_metadata(location, validation, ui)
+        _validate_metadata(location, value_type, validation, ui)
 
         policies.append(
             ConfigFieldPolicy(
                 path=field_path,
                 title=title,
                 value_type=value_type,
+                editable=editable,
+                setting_mode=setting_mode,
                 reload_level=reload_level,
                 description=description,
                 examples=tuple(deepcopy(examples)),
@@ -223,9 +253,6 @@ def load_field_policies(
             )
         )
     return tuple(policies)
-
-
-FIELD_POLICIES: tuple[ConfigFieldPolicy, ...] = load_field_policies()
 
 
 def match_policy(path: str) -> ConfigFieldPolicy | None:
@@ -394,6 +421,10 @@ def classify_paths(paths: list[str]) -> dict[str, list[str]]:
 def policy_payload() -> dict[str, Any]:
     return {
         "fields_schema_version": 1,
+        "setting_modes": {
+            "base": "Shown in the simple Settings view.",
+            "expand": "Shown in the expanded Settings view together with base fields.",
+        },
         "reload_levels": {
             "live": "Applied immediately to runtime references.",
             "reboot": "Saved to disk; reboot Car-HMI to apply fully.",
@@ -401,3 +432,6 @@ def policy_payload() -> dict[str, Any]:
         },
         "fields": [item.to_dict() for item in FIELD_POLICIES],
     }
+
+
+FIELD_POLICIES: tuple[ConfigFieldPolicy, ...] = load_field_policies()

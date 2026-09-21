@@ -137,9 +137,12 @@ async def test_get_system_config_returns_policy_and_redacts_secret(config_client
     assert payload["config"]["api"]["api_key"] == "********"
     policies = {item["path"]: item for item in payload["fields"]}
     assert payload["fields_schema_version"] == 1
+    assert set(payload["setting_modes"]) == {"base", "expand"}
     assert policies["reader.stale_threshold_sec"]["reload_level"] == "live"
     assert policies["can.*.channel"]["reload_level"] == "reboot"
     assert policies["api.api_key"]["editable"] is False
+    assert policies["api.api_key"]["setting_mode"] == "expand"
+    assert policies["can.*.channel"]["setting_mode"] == "base"
     assert policies["can.*.can_db_file"]["type"] == "string"
     assert policies["can.*.can_db_file"]["validation"]["must_parse_as"] == "dbc"
     assert policies["can.*.can_db_file"]["ui"]["control"] == "file-path"
@@ -203,6 +206,76 @@ def test_system_field_policy_loader_rejects_unknown_validation_key(tmp_path):
     )
 
     with pytest.raises(ConfigFieldPolicyError, match="unsupported key"):
+        load_field_policies(fields_path)
+
+
+@pytest.mark.parametrize(
+    ("metadata", "message"),
+    [
+        ({"editable": "yes"}, "editable must be boolean"),
+        ({"setting_mode": "simple"}, "setting_mode must be base or expand"),
+        (
+            {"editable": True, "reload_level": "immutable"},
+            "editable cannot be true when reload_level is immutable",
+        ),
+    ],
+)
+def test_system_field_policy_loader_rejects_invalid_display_metadata(tmp_path, metadata, message):
+    fields_path = tmp_path / "system.fields.json"
+    field = {
+        "path": "reader.stale_threshold_sec",
+        "title": "Stale threshold",
+        "type": "number",
+        "editable": True,
+        "setting_mode": "base",
+        "reload_level": "live",
+        "description": "Test field.",
+        "ui": {"control": "number"},
+        **metadata,
+    }
+    fields_path.write_text(
+        json.dumps({"schema_version": 1, "fields": [field]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigFieldPolicyError, match=message):
+        load_field_policies(fields_path)
+
+
+@pytest.mark.parametrize(
+    ("enum_values", "message"),
+    [
+        (["virtual", "virtual"], "must contain unique values"),
+        (["virtual", 1], "must match field type string"),
+    ],
+)
+def test_system_field_policy_loader_rejects_invalid_enum_metadata(
+    tmp_path, enum_values, message
+):
+    fields_path = tmp_path / "system.fields.json"
+    fields_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "fields": [
+                    {
+                        "path": "can.*.interface",
+                        "title": "Interface",
+                        "type": "string",
+                        "editable": True,
+                        "setting_mode": "base",
+                        "reload_level": "reboot",
+                        "description": "Test field.",
+                        "validation": {"enum": enum_values},
+                        "ui": {"control": "select"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigFieldPolicyError, match=message):
         load_field_policies(fields_path)
 
 
@@ -352,6 +425,24 @@ async def test_patch_rejects_missing_dbc_from_field_validation(config_client):
         "/config/system",
         headers=_headers(),
         json={"can": [{**manager.read()["can"][0], "can_db_file": "missing.dbc"}]},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
+async def test_patch_rejects_value_outside_policy_enum(config_client):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+    channel = {**manager.read()["can"][0], "interface": "unsupported-driver"}
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [channel]},
     )
 
     assert response.status_code == 422
