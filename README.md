@@ -89,6 +89,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 - The scripts create and use a local `.venv` in the project root and install the project in editable mode with dev dependencies.
 
+## Deploy on Render
+
+The repository includes a `render.yaml` Blueprint for a hosted demo using virtual CAN and
+the built-in simulator. See the [Render deployment guide](docs/render_deploy.md) for the
+exact push, Dashboard, optional authentication, health-check, and verification steps.
+
 
 ## Project Structure
 

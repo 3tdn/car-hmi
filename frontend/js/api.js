@@ -95,7 +95,13 @@ const DEFAULT_ORIGIN = `${originProtocol}//${originHost}${originPort}`;
 const API_BASE = window.API_BASE || DEFAULT_ORIGIN;
 const WS_BASE =
   window.WS_BASE || `${originProtocol === "https:" ? "wss" : "ws"}://${originHost}${originPort}`;
-const API_KEY = window.API_KEY || "";
+let storedApiKey = "";
+try {
+  storedApiKey = sessionStorage.getItem("can_hmi_api_key") || "";
+} catch {
+  // Storage can be unavailable in privacy-restricted browser contexts.
+}
+const API_KEY = window.API_KEY || storedApiKey;
 let PROFILE_NAME = window.PROFILE_NAME || "";
 
 function _getOrCreateClientId() {
