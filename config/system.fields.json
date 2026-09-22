@@ -29,11 +29,14 @@
       "validation": {
         "enum": [
           "socketcan",
-          "virtual"
+          "virtual",
+          "pcan",
+          "vector",
+          "kvaser"
         ]
       },
       "ui": {
-        "control": "text"
+        "control": "select"
       }
     },
     {
@@ -49,7 +52,10 @@
         "auto"
       ],
       "ui": {
-        "control": "text"
+        "control": "combobox",
+        "options_source": "can_channels.options",
+        "option_details_source": "can_channels.devices",
+        "allow_custom": true
       }
     },
     {

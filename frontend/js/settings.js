@@ -73,6 +73,24 @@ const enumValuesFor = (path, value) => {
   }
   return null;
 };
+const snapshotValuesFor = (source) => {
+  if (!source) return null;
+  let value = settingsSnapshot;
+  for (const segment of source.split('.')) {
+    if (!value || typeof value !== 'object' || !(segment in value)) return null;
+    value = value[segment];
+  }
+  return Array.isArray(value) ? value : null;
+};
+const suggestionLabelFor = (option, details) => {
+  const matches = (details || []).filter((item) => item?.channel === option);
+  if (!matches.length) return '';
+  return matches.map((item) => {
+    const state = String(item.state || 'unknown').toUpperCase();
+    const operstate = String(item.operstate || 'unknown').toUpperCase();
+    return `${item.interface || 'unknown'} · ${state} · OPERSTATE ${operstate}`;
+  }).join(' / ');
+};
 const levelBadge = (policy) => {
   const level = policy?.reload_level || 'immutable';
   const label = level.toUpperCase();
@@ -123,6 +141,10 @@ const renderScalar = (key, value, path) => {
   const displayValue = Array.isArray(value) ? JSON.stringify(value) : String(value ?? '');
   const label = policy?.path?.endsWith('.*') ? key : (policy?.title || key);
   const enumValues = enumValuesFor(path, value);
+  const suggestedValues = control === 'combobox' ? snapshotValuesFor(policy?.ui?.options_source) : null;
+  const suggestedDetails = control === 'combobox' ? snapshotValuesFor(policy?.ui?.option_details_source) : null;
+  const allowCustom = policy?.ui?.allow_custom !== false;
+  const dataListId = `settings-options-${path.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   const constraints = validationAttributes(policy);
   return `
     <label class="settings-field ${locked ? 'settings-field--locked' : ''}">
@@ -132,6 +154,11 @@ const renderScalar = (key, value, path) => {
       </span>
       ${enumValues
         ? `<select data-config-path="${escapeHtml(path)}" ${Array.isArray(value) ? 'multiple' : ''} ${locked ? 'disabled' : ''}>${enumValues.map((option, index) => `<option value="${index}" ${(Array.isArray(value) ? value.includes(option) : option === value) ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`
+        : suggestedValues
+        ? allowCustom
+          ? `<input data-config-path="${escapeHtml(path)}" type="text" list="${escapeHtml(dataListId)}" value="${escapeHtml(displayValue)}" ${constraints} ${locked ? 'disabled' : ''}>
+            <datalist id="${escapeHtml(dataListId)}">${suggestedValues.map((option) => `<option value="${escapeHtml(option)}" label="${escapeHtml(suggestionLabelFor(option, suggestedDetails))}"></option>`).join('')}</datalist>`
+          : `<select data-config-path="${escapeHtml(path)}" ${locked ? 'disabled' : ''}>${suggestedValues.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? 'selected' : ''}>${escapeHtml(option)}${suggestionLabelFor(option, suggestedDetails) ? ` — ${escapeHtml(suggestionLabelFor(option, suggestedDetails))}` : ''}</option>`).join('')}</select>`
         : Array.isArray(value)
         ? `<textarea data-config-path="${escapeHtml(path)}" ${locked ? 'disabled' : ''}>${escapeHtml(displayValue)}</textarea>`
         : `<input data-config-path="${escapeHtml(path)}" type="${inputType}" ${inputType === 'checkbox' && value ? 'checked' : ''} ${inputType !== 'checkbox' ? `value="${escapeHtml(displayValue)}"` : ''} ${constraints} ${locked ? 'disabled' : ''}>`}

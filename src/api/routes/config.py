@@ -11,6 +11,7 @@ from src.api.models import (
     UpdateSignalConfigRequest,
 )
 from src.api.routes.profiles import build_access_warning, require_profile_permission
+from src.can_io.bus_factory import list_socketcan_channel_devices
 from src.core.config_manager import ConfigUpdateError
 from src.storage.repository import SignalConfigRecord
 
@@ -113,6 +114,54 @@ def _manager(request: Request):
     return request.app.state.system_config_manager
 
 
+def _can_channel_catalog(config: dict) -> dict[str, object]:
+    """Build dynamic channel choices without preventing custom driver channel names."""
+    configured_items = [item for item in config.get("can", []) if isinstance(item, dict)]
+    configured = list(
+        dict.fromkeys(
+            item.get("channel")
+            for item in configured_items
+            if isinstance(item.get("channel"), str) and item["channel"]
+        )
+    )
+    devices = list_socketcan_channel_devices()
+
+    virtual_channels = ["vcan0"]
+    virtual_channels.extend(
+        item["channel"]
+        for item in configured_items
+        if item.get("interface") == "virtual"
+        and isinstance(item.get("channel"), str)
+        and item["channel"]
+    )
+    known_devices = {(item["interface"], item["channel"]) for item in devices}
+    for channel in dict.fromkeys(virtual_channels):
+        if ("virtual", channel) not in known_devices:
+            devices.append(
+                {
+                    "channel": channel,
+                    "interface": "virtual",
+                    "state": "up",
+                    "operstate": "up",
+                }
+            )
+
+    detected = [
+        item["channel"]
+        for item in devices
+        if item["interface"] == "socketcan" and item["state"] == "up"
+    ]
+    available = [item["channel"] for item in devices]
+    options = list(dict.fromkeys(["auto", *available, *configured]))
+    return {
+        "detected": detected,
+        "devices": devices,
+        "configured": configured,
+        "options": options,
+        "allow_custom": True,
+    }
+
+
 def _raise_config_error(exc: ConfigUpdateError) -> None:
     if exc.code == "system_config_backup_not_found":
         code = status.HTTP_404_NOT_FOUND
@@ -134,6 +183,7 @@ async def get_processor_config(request: Request) -> ProcessorConfigResponse:
 @router.get("/system", summary="Get system config and field update policy")
 async def get_system_config(request: Request):
     snapshot = _manager(request).public_snapshot()
+    snapshot["can_channels"] = _can_channel_catalog(snapshot["config"])
     runner = getattr(request.app.state, "runner", None)
     pending = sorted(getattr(runner, "pending_reboot_paths", []))
     snapshot["pending_reboot_paths"] = pending

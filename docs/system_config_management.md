@@ -20,12 +20,20 @@ check the `.dbc` extension, file existence, and parseability.
 | `setting_mode: "base"` | The field appears in both Base and Expanded views. |
 | `setting_mode: "expand"` | The field appears only in Expanded view. |
 | `validation.enum` | The frontend renders a select control and the backend accepts only listed values. |
+| `ui.control: "combobox"` | The frontend suggests values from `ui.options_source`, displays status from `ui.option_details_source`, and permits manual input only when `ui.allow_custom` is true. |
 
 Enum entries must be non-empty, unique, and match the declared field `type`. For an array
 whose item policy contains an enum, such as `profiles.default_profile_permission.*`, the
 bundled frontend renders a multi-select and the backend validates every changed item. The
 backend remains authoritative; hiding or disabling a browser control is not an authorization
 boundary.
+
+`GET /config/system` also returns `can_channels`: `detected` contains UP SocketCAN
+interfaces; `devices` contains UP and DOWN SocketCAN state plus the always-available UP
+`virtual/vcan0` test channel; `configured` preserves channel names already in the config; and
+`options` combines all device/configured names with `auto`. The CAN channel combobox uses this
+list but accepts custom channel names required by the selected python-can driver. CAN interface
+values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 
 ## Reload levels
 

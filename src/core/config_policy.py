@@ -88,7 +88,15 @@ _VALIDATION_KEYS = {
     "must_exist",
     "must_parse_as",
 }
-_UI_KEYS = {"control", "directory", "accept", "sensitive"}
+_UI_KEYS = {
+    "control",
+    "directory",
+    "accept",
+    "sensitive",
+    "options_source",
+    "option_details_source",
+    "allow_custom",
+}
 _UI_CONTROLS = {
     "text",
     "number",
@@ -96,6 +104,7 @@ _UI_CONTROLS = {
     "json-textarea",
     "key-value",
     "select",
+    "combobox",
     "password",
     "file-path",
 }
@@ -161,6 +170,22 @@ def _validate_metadata(
         raise ConfigFieldPolicyError(f"{location}.ui.control is unsupported")
     if "sensitive" in ui and not isinstance(ui["sensitive"], bool):
         raise ConfigFieldPolicyError(f"{location}.ui.sensitive must be boolean")
+    options_source = ui.get("options_source")
+    if options_source is not None and (
+        not isinstance(options_source, str) or not options_source.strip()
+    ):
+        raise ConfigFieldPolicyError(f"{location}.ui.options_source must be a non-empty string")
+    details_source = ui.get("option_details_source")
+    if details_source is not None and (
+        not isinstance(details_source, str) or not details_source.strip()
+    ):
+        raise ConfigFieldPolicyError(
+            f"{location}.ui.option_details_source must be a non-empty string"
+        )
+    if "allow_custom" in ui and not isinstance(ui["allow_custom"], bool):
+        raise ConfigFieldPolicyError(f"{location}.ui.allow_custom must be boolean")
+    if control == "combobox" and not options_source:
+        raise ConfigFieldPolicyError(f"{location}.ui.options_source is required for combobox")
 
 
 def load_field_policies(

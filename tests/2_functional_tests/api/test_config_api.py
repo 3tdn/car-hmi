@@ -128,7 +128,27 @@ def _headers(profile: str = "admin") -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_get_system_config_returns_policy_and_redacts_secret(config_client):
+async def test_get_system_config_returns_policy_and_redacts_secret(config_client, monkeypatch):
+    import src.api.routes.config as config_routes
+
+    monkeypatch.setattr(
+        config_routes,
+        "list_socketcan_channel_devices",
+        lambda: [
+            {
+                "channel": "can0",
+                "interface": "socketcan",
+                "state": "up",
+                "operstate": "up",
+            },
+            {
+                "channel": "can2",
+                "interface": "socketcan",
+                "state": "down",
+                "operstate": "down",
+            },
+        ],
+    )
     client, _, _ = config_client
     response = await client.get("/config/system", headers=_headers())
 
@@ -137,12 +157,48 @@ async def test_get_system_config_returns_policy_and_redacts_secret(config_client
     assert payload["config"]["api"]["api_key"] == "********"
     policies = {item["path"]: item for item in payload["fields"]}
     assert payload["fields_schema_version"] == 1
+    assert payload["can_channels"] == {
+        "detected": ["can0"],
+        "devices": [
+            {
+                "channel": "can0",
+                "interface": "socketcan",
+                "state": "up",
+                "operstate": "up",
+            },
+            {
+                "channel": "can2",
+                "interface": "socketcan",
+                "state": "down",
+                "operstate": "down",
+            },
+            {
+                "channel": "vcan0",
+                "interface": "virtual",
+                "state": "up",
+                "operstate": "up",
+            },
+        ],
+        "configured": ["vcan0"],
+        "options": ["auto", "can0", "can2", "vcan0"],
+        "allow_custom": True,
+    }
     assert set(payload["setting_modes"]) == {"base", "expand"}
     assert policies["reader.stale_threshold_sec"]["reload_level"] == "live"
     assert policies["can.*.channel"]["reload_level"] == "reboot"
+    assert policies["can.*.interface"]["validation"] == {
+        "enum": ["socketcan", "virtual", "pcan", "vector", "kvaser"],
+    }
+    assert policies["can.*.interface"]["ui"]["control"] == "select"
     assert policies["api.api_key"]["editable"] is False
     assert policies["api.api_key"]["setting_mode"] == "expand"
     assert policies["can.*.channel"]["setting_mode"] == "base"
+    assert policies["can.*.channel"]["ui"] == {
+        "control": "combobox",
+        "options_source": "can_channels.options",
+        "option_details_source": "can_channels.devices",
+        "allow_custom": True,
+    }
     assert policies["can.*.can_db_file"]["type"] == "string"
     assert policies["can.*.can_db_file"]["validation"]["must_parse_as"] == "dbc"
     assert policies["can.*.can_db_file"]["ui"]["control"] == "file-path"
@@ -406,6 +462,50 @@ async def test_patch_supports_multiple_can_channels_and_requires_reboot(config_c
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("interface", "channel"),
+    [
+        ("socketcan", "auto"),
+        ("pcan", "PCAN_USBBUS1"),
+        ("vector", "0"),
+        ("kvaser", "0"),
+    ],
+)
+async def test_patch_accepts_auto_or_custom_can_channel(config_client, interface, channel):
+    client, manager, _ = config_client
+    updated = {**manager.read()["can"][0], "interface": interface, "channel": channel}
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [updated]},
+    )
+
+    assert response.status_code == 200
+    assert manager.read()["can"][0]["interface"] == interface
+    assert manager.read()["can"][0]["channel"] == channel
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interface", ["other", "sdaf"])
+async def test_patch_rejects_unsupported_can_interface(config_client, interface):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+    updated = {**manager.read()["can"][0], "interface": interface}
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [updated]},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
 async def test_patch_channel_tracking_signals_requires_reboot(config_client):
     client, manager, _ = config_client
     channel = {**manager.read()["can"][0], "channel_tracking_signals": ["COM_Status_ElkCan"]}
@@ -437,12 +537,11 @@ async def test_patch_rejects_missing_dbc_from_field_validation(config_client):
 async def test_patch_rejects_value_outside_policy_enum(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()
-    channel = {**manager.read()["can"][0], "interface": "unsupported-driver"}
 
     response = await client.patch(
         "/config/system",
         headers=_headers(),
-        json={"can": [channel]},
+        json={"profiles": {"default_profile_permission": ["unsupported-permission"]}},
     )
 
     assert response.status_code == 422

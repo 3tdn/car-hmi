@@ -12,6 +12,7 @@ import pytest
 from src.can_io.bus_factory import (
     create_bus,
     create_virtual_bus,
+    list_socketcan_channel_devices,
     list_up_socketcan_channels,
     resolve_auto_match_ids,
 )
@@ -512,18 +513,39 @@ def test_create_bus_socketcan_parameters(mock_bus):
 
 
 def test_list_up_socketcan_channels_filters_type_and_flags_and_sorts_naturally(tmp_path):
-    def add_interface(name: str, hardware_type: str, flags: str) -> None:
+    def add_interface(name: str, hardware_type: str, flags: str, operstate: str) -> None:
         interface = tmp_path / name
         interface.mkdir()
         (interface / "type").write_text(hardware_type)
         (interface / "flags").write_text(flags)
+        (interface / "operstate").write_text(operstate)
 
-    add_interface("can10", "280", "0x1")
-    add_interface("can2", "280", "0x1001")
-    add_interface("can0", "280", "0x0")
-    add_interface("eth0", "1", "0x1")
+    add_interface("can10", "280", "0x1", "dormant")
+    add_interface("can2", "280", "0x1001", "up")
+    add_interface("can0", "280", "0x0", "down")
+    add_interface("eth0", "1", "0x1", "up")
 
     assert list_up_socketcan_channels(tmp_path) == ["can2", "can10"]
+    assert list_socketcan_channel_devices(tmp_path) == [
+        {
+            "channel": "can0",
+            "interface": "socketcan",
+            "state": "down",
+            "operstate": "down",
+        },
+        {
+            "channel": "can2",
+            "interface": "socketcan",
+            "state": "up",
+            "operstate": "up",
+        },
+        {
+            "channel": "can10",
+            "interface": "socketcan",
+            "state": "up",
+            "operstate": "dormant",
+        },
+    ]
 
 
 def test_auto_tracking_resolves_only_configured_messages():

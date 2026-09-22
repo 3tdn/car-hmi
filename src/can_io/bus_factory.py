@@ -21,6 +21,10 @@ _AUTO_PROBE_TIMEOUT_SEC = 3.0
 _AUTO_PROBE_SLICE_SEC = 0.05
 
 
+def _natural_channel_key(channel: str) -> list[int | str]:
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", channel)]
+
+
 def resolve_auto_match_ids(cfg: CANConfig, db: DatabaseLoader) -> set[int]:
     """Resolve discovery signals to message IDs without widening an explicit selection."""
     if not cfg.channel_tracking_signals:
@@ -37,30 +41,59 @@ def resolve_auto_match_ids(cfg: CANConfig, db: DatabaseLoader) -> set[int]:
     return match_ids
 
 
-def list_up_socketcan_channels(
+def list_socketcan_channel_devices(
     sys_class_net: Path = Path("/sys/class/net"),
-) -> list[str]:
-    """Return naturally sorted Linux CAN network interfaces whose IFF_UP flag is set."""
+) -> list[dict[str, str]]:
+    """Return Linux CAN interfaces with administrative and operational state."""
     try:
         interfaces = list(sys_class_net.iterdir())
+    except FileNotFoundError:
+        logger.debug("SocketCAN sysfs directory is unavailable: %s", sys_class_net)
+        return []
     except OSError as exc:
         logger.warning("Cannot inspect SocketCAN interfaces in %s: %s", sys_class_net, exc)
         return []
 
-    channels: list[str] = []
+    devices: list[dict[str, str]] = []
     for interface_path in interfaces:
         try:
             hardware_type = int((interface_path / "type").read_text().strip(), 0)
-            flags = int((interface_path / "flags").read_text().strip(), 0)
         except (OSError, ValueError):
             continue
-        if hardware_type == _SOCKETCAN_ARPHRD_TYPE and flags & _IFF_UP:
-            channels.append(interface_path.name)
+        if hardware_type != _SOCKETCAN_ARPHRD_TYPE:
+            continue
 
-    def _natural_key(channel: str) -> list[int | str]:
-        return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", channel)]
+        try:
+            flags = int((interface_path / "flags").read_text().strip(), 0)
+            state = "up" if flags & _IFF_UP else "down"
+        except (OSError, ValueError):
+            state = "unknown"
+        try:
+            operstate = (interface_path / "operstate").read_text().strip().lower() or "unknown"
+        except OSError:
+            operstate = "unknown"
 
-    return sorted(channels, key=_natural_key)
+        devices.append(
+            {
+                "channel": interface_path.name,
+                "interface": "socketcan",
+                "state": state,
+                "operstate": operstate,
+            }
+        )
+
+    return sorted(devices, key=lambda device: _natural_channel_key(device["channel"]))
+
+
+def list_up_socketcan_channels(
+    sys_class_net: Path = Path("/sys/class/net"),
+) -> list[str]:
+    """Return naturally sorted Linux CAN network interfaces whose IFF_UP flag is set."""
+    return [
+        device["channel"]
+        for device in list_socketcan_channel_devices(sys_class_net)
+        if device["state"] == "up"
+    ]
 
 
 def _exact_can_filters(match_ids: set[int]) -> list[dict[str, int | bool]]:

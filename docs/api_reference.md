@@ -604,6 +604,17 @@ Response format taken from the implementation (OpenAPI does not declare a detail
     }
   },
   "fields_schema_version": 1,
+  "can_channels": {
+    "detected": ["can0"],
+    "devices": [
+      {"channel": "can0", "interface": "socketcan", "state": "up", "operstate": "up"},
+      {"channel": "can1", "interface": "socketcan", "state": "down", "operstate": "down"},
+      {"channel": "vcan0", "interface": "virtual", "state": "up", "operstate": "up"}
+    ],
+    "configured": ["vcan0"],
+    "options": ["auto", "can0", "can1", "vcan0"],
+    "allow_custom": true
+  },
   "setting_modes": {
     "base": "Shown in the simple Settings view.",
     "expand": "Shown in the expanded Settings view together with base fields."
@@ -622,8 +633,10 @@ Response format taken from the implementation (OpenAPI does not declare a detail
       "setting_mode": "base",
       "reload_level": "reboot",
       "description": "Python-CAN interface.",
-      "validation": {"enum": ["socketcan", "virtual"]},
-      "ui": {"control": "text"}
+      "validation": {
+        "enum": ["socketcan", "virtual", "pcan", "vector", "kvaser"]
+      },
+      "ui": {"control": "select"}
     }
   ],
   "paths": {
@@ -637,7 +650,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. `editable` is enforced by PATCH, `setting_mode` drives Base/Expanded visibility, and `validation.enum` supplies both accepted values and frontend choices. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `PATCH /config/system`
 
