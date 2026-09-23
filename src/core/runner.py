@@ -134,6 +134,7 @@ class AppRunner:
         # Component references (created in start())
         self._pipeline = None
         self._rate_limiter = None
+        self._oms_classifier = None
         self._readers: list = []
         self._writers: list = []
         self._writer_router = None
@@ -215,7 +216,7 @@ class AppRunner:
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
-        from src.processor.computed import ComputedSignals
+        from src.processor.computed import ComputedSignals, OMSClassificationProcessor
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
         from src.storage.database import init_db
@@ -289,6 +290,13 @@ class AppRunner:
         )
         self._rate_limiter = RateLimiter(max_hz=proc_cfg.max_update_rate_hz)
         self._pipeline.add_stage(self._rate_limiter)
+        oms_cfg = self.config.oms_config
+        self._oms_classifier = OMSClassificationProcessor(
+            bypass_simi_input=oms_cfg.bypass_simi_input,
+            class_config=oms_cfg.class_config,
+            target_signals=oms_cfg.target_signal,
+        )
+        self._pipeline.add_stage(self._oms_classifier)
         self._pipeline.add_stage(ComputedSignals())
 
         # 4. Check the simulator early — before opening the bus ──────────────────
@@ -953,6 +961,13 @@ class AppRunner:
             )
         if self._rate_limiter is not None:
             self._rate_limiter.set_max_hz(new_config.processor.max_update_rate_hz)
+        if self._oms_classifier is not None:
+            oms_cfg = new_config.oms_config
+            self._oms_classifier.apply_runtime_config(
+                bypass_simi_input=oms_cfg.bypass_simi_input,
+                class_config=oms_cfg.class_config,
+                target_signals=oms_cfg.target_signal,
+            )
 
         for reader in self._readers:
             reader.apply_runtime_config(

@@ -603,6 +603,79 @@
       }
     },
     {
+      "path": "oms_config.bypass_simi_input",
+      "title": "Bypass SIMI Classification Input",
+      "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "When enabled, derive OMS occupant classification from the mapped mean-weight CAN signal instead of using the SIMI classification value.",
+      "ui": {
+        "control": "checkbox"
+      }
+    },
+    {
+      "path": "oms_config.class_config",
+      "title": "Classification Thresholds",
+      "type": "array",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "Exactly two increasing weight thresholds: below the first produces class 0, through the second produces class 1, and above the second produces class 2.",
+      "validation": {
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number"
+        }
+      },
+      "ui": {
+        "control": "json-textarea"
+      }
+    },
+    {
+      "path": "oms_config.class_config.*",
+      "title": "Classification Threshold",
+      "type": "number",
+      "editable": true,
+      "setting_mode": "expand",
+      "reload_level": "live",
+      "description": "A non-negative occupant-weight threshold.",
+      "validation": {
+        "minimum": 0
+      },
+      "ui": {
+        "control": "number"
+      }
+    },
+    {
+      "path": "oms_config.target_signal",
+      "title": "Classification Signal Mapping",
+      "type": "object",
+      "editable": true,
+      "setting_mode": "expand",
+      "reload_level": "live",
+      "description": "Map each frontend-facing OMS OccupantClassification signal to its source OccupantWeightMean CAN signal.",
+      "ui": {
+        "control": "key-value"
+      }
+    },
+    {
+      "path": "oms_config.target_signal.*",
+      "title": "Weight Source Signal",
+      "type": "string",
+      "editable": true,
+      "setting_mode": "expand",
+      "reload_level": "live",
+      "description": "CAN signal containing the occupant mean weight used to derive this classification.",
+      "validation": {
+        "minLength": 1
+      },
+      "ui": {
+        "control": "text"
+      }
+    },
+    {
       "path": "storage.sqlite_path",
       "title": "Sqlite Path",
       "type": "string",

@@ -270,6 +270,33 @@ def test_app_config_accepts_devmode_can_status_bypass():
     assert cfg.devmode.bypass_check_CAN_status is True
 
 
+def test_app_config_accepts_oms_classification_config():
+    cfg = AppConfig(
+        oms_config={
+            "bypass_simi_input": True,
+            "class_config": [60, 85],
+            "target_signal": {
+                "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            },
+        }
+    )
+
+    assert cfg.oms_config.bypass_simi_input is True
+    assert cfg.oms_config.class_config == [60.0, 85.0]
+    assert cfg.oms_config.target_signal == {
+        "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+    }
+
+
+@pytest.mark.parametrize(
+    "thresholds",
+    ([65], [65, 65], [90, 65], [-1, 90], [65, float("inf")]),
+)
+def test_app_config_rejects_invalid_oms_class_config(thresholds):
+    with pytest.raises(ValueError, match="class_config"):
+        AppConfig(oms_config={"class_config": thresholds})
+
+
 def test_extract_host_supports_raw_ip_host_port_and_url():
     from src.core.runner import _extract_host
 
@@ -474,17 +501,26 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         def set_only_send_signal_update(self, value):
             self.only_updates = value
 
+    class OmsSink:
+        def __init__(self):
+            self.config = None
+
+        def apply_runtime_config(self, **kwargs):
+            self.config = kwargs
+
     runner = AppRunner(AppConfig())
     pipeline = ConfigSink()
     reader = ConfigSink()
     writer = ConfigSink()
     rate = RateSink()
     websocket = WsSink()
+    oms_classifier = OmsSink()
     runner._pipeline = pipeline
     runner._readers = [reader]
     runner._writers = [writer]
     runner._rate_limiter = rate
     runner._ws_manager = websocket
+    runner._oms_classifier = oms_classifier
     runner._api_app = SimpleNamespace(state=SimpleNamespace())
 
     updated = AppConfig(
@@ -506,6 +542,13 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
             "use_prevalue_for_unwritten_signal": False,
         },
         devmode={"bypass_check_CAN_status": True},
+        oms_config={
+            "bypass_simi_input": True,
+            "class_config": [60, 85],
+            "target_signal": {
+                "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            },
+        },
     )
     changed = [
         "processor.max_update_rate_hz",
@@ -516,6 +559,9 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         "reader.stale_threshold_sec",
         "writer.periodic_mode",
         "devmode.bypass_check_CAN_status",
+        "oms_config.bypass_simi_input",
+        "oms_config.class_config.0",
+        "oms_config.class_config.1",
     ]
 
     result = await runner.apply_system_config(updated, changed)
@@ -526,6 +572,13 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     assert writer.calls[-1][0] == (updated.writer,)
     assert rate.max_hz == 25.0
     assert websocket.only_updates is True
+    assert oms_classifier.config == {
+        "bypass_simi_input": True,
+        "class_config": [60.0, 85.0],
+        "target_signals": {
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+        },
+    }
     assert runner._api_app.state.reader_stale_threshold_sec == 8.0
     assert runner._api_app.state.devmode_bypass_can_status is True
     assert runner.config is updated

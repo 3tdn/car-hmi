@@ -1151,7 +1151,7 @@
           "Restraints"
         ],
         "summary": "Find best-matching restraint video for crash conditions",
-        "description": "Return the best-matching restraint video for the given crash parameters.\n\nResolution order for seat-position zone:\n1. `seat_x_mm` query parameter (explicit value from HMI)\n2. Live CAN signal SPS_FL/FR_SeatDirectionX from signal store\n3. Fallback default from seat identifier (fl / fr → mid)\n\nResolution order for occupant percentile:\n1. Live CAN signal OMS_FL/FR_OccupantClassification (sensor wins)\n2. Weight-derived percentile from `weight` parameter",
+        "description": "Return the best-matching restraint video for the given crash parameters.\n\nResolution order for seat-position zone:\n1. `seat_x_mm` query parameter (explicit value from HMI)\n2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore\n3. Fallback default from seat identifier (fl / fr → mid)\n\nResolution order for occupant percentile:\n1. Latest OMS_FL/FR_OccupantClassification value in SignalStore\n   (class 0/1/2 maps to video bucket 5p/50p/95p)\n2. Weight-derived percentile from `weight` parameter\n\nSignalStore values are accepted without a receive-freshness or provenance check, so\nan initial DBC-seeded value or stale value can take priority over request parameters.",
         "operationId": "match_restraint_api_restraints_match_get",
         "parameters": [
           {
@@ -1223,10 +1223,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the live CAN signal. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm.",
+              "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the latest SignalStore value. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm.",
               "title": "Seat X Mm"
             },
-            "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the live CAN signal. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm."
+            "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the latest SignalStore value. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm."
           }
         ],
         "responses": {

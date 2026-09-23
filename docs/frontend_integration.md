@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-Verified against the backend and bundled frontend on 2026-09-19. See the [complete API reference](api_reference.md) for all 54 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
+Verified against the backend and bundled frontend on 2026-09-23. See the [complete API reference](api_reference.md) for all 54 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
 ## Backend URL and authentication
 
@@ -100,7 +100,7 @@ const batch = await request("/signals/batch_update", {
 console.log(metadata, snapshot, write, batch.errors, batch.warnings);
 ```
 
-Single and batch writes return HTTP **202** when accepted. Batch payloads use an array of `{signal_name, value}` objects, not a name/value map. Writing one signal also encodes its CAN message siblings according to `writer.use_prevalue_for_unwritten_signal`. A successful API response is not an ECU acknowledgement.
+Single and batch writes return HTTP **202** when accepted. Batch payloads use an array of `{signal_name, value}` objects, not a name/value map. Writing one signal also encodes its CAN message siblings according to `writer.use_prevalue_for_unwritten_signal`. For `INC_HMI_SensorFusionRequest`, omitted `HMI_SensorFusion_*` fields now follow this standard policy and are not copied from `OMS_State_*`. A successful API response is not an ECU acknowledgement.
 
 ## WebSocket subscription lifecycle
 
@@ -205,7 +205,18 @@ const chart = await request(`/adaptive_restraint/chart_info?${filters}`);
 console.log(chart);
 ```
 
-For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides live seat-position CAN data. Live occupant classification takes priority over weight-derived classification when available.
+For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides the latest stored seat-position value. The latest stored occupant classification takes priority over the percentile derived from `weight` when its class is `0`, `1`, or `2`; the route maps these to video buckets `5p`, `50p`, and `95p`.
+
+`oms_config.bypass_simi_input` controls how the pipeline produces those same frontend-facing
+classification signals. `false` keeps decoded CAN/SIMI values. `true` derives them from the
+mapped `OMS_xx_OccupantWeightMean` signals using `oms_config.class_config`; values below the
+first threshold produce class `0`, values through the second produce class `1`, and higher
+values produce class `2`. These settings apply live. Use source names without the removed
+`_kg` suffix.
+
+The restraints route currently has no receive-freshness or provenance guard. Because the
+store is initialized from DBC defaults and can retain stale data, `can_percentile` means
+"derived from the stored classification" rather than "confirmed from a fresh CAN frame".
 
 When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted frontend:
 

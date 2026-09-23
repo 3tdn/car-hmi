@@ -1070,6 +1070,17 @@ jobs:
     "max_queue_size": 10000,
     "queue_policy": "reject"
   },
+  "oms_config": {
+    "bypass_simi_input": false,
+    "class_config": [65, 90],
+    "target_signal": {
+      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
+      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
+      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
+      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
+    }
+  },
   "writer": {
     "rate_limit_per_sec": 10,
     "burst": 5,

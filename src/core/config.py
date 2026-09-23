@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -105,6 +106,50 @@ class StatusMonitorConfig(BaseModel):
     # Map signal_name -> target.
     # - Ethernet signal: target is the host/IP/URL to ping.
     # - CAN signal: target is the reference signal name used to check freshness.
+
+
+class OMSConfig(BaseModel):
+    """Configuration for optional weight-derived OMS occupant classification."""
+
+    bypass_simi_input: bool = False
+    # False: keep the classification decoded from CAN/SIMI.
+    # True: replace it with a class derived from the mapped mean-weight signal.
+    class_config: list[float] = Field(default_factory=lambda: [65.0, 90.0])
+    # Class boundaries: weight < low -> 0, low <= weight <= high -> 1, weight > high -> 2.
+    target_signal: dict[str, str] = Field(
+        default_factory=lambda: {
+            "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
+            "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
+            "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean",
+        }
+    )
+    # Map output OccupantClassification signal -> source OccupantWeightMean signal.
+
+    @field_validator("class_config")
+    @classmethod
+    def validate_class_config(cls, thresholds: list[float]) -> list[float]:
+        if len(thresholds) != 2:
+            raise ValueError("class_config must contain exactly two values")
+        low, high = thresholds
+        if not all(math.isfinite(value) for value in thresholds):
+            raise ValueError("class_config must contain finite values")
+        if low < 0 or low >= high:
+            raise ValueError("class_config must be non-negative and strictly increasing")
+        return thresholds
+
+    @field_validator("target_signal")
+    @classmethod
+    def validate_target_signal(cls, targets: dict[str, str]) -> dict[str, str]:
+        if not targets:
+            raise ValueError("target_signal must contain at least one mapping")
+        normalized = {
+            str(target).strip(): str(source).strip() for target, source in targets.items()
+        }
+        if any(not target or not source for target, source in normalized.items()):
+            raise ValueError("target_signal names must be non-empty")
+        return normalized
 
 
 class DevModeConfig(BaseModel):
@@ -249,6 +294,8 @@ class AppConfig(BaseModel):
     # Camera stream proxy (MJPEG) configuration
     status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
     # COM status monitor configuration (Ethernet + CAN reference)
+    oms_config: OMSConfig = Field(default_factory=OMSConfig)
+    # Optional frontend-facing OMS classification derived from CAN occupant weight
     devmode: DevModeConfig = Field(default_factory=DevModeConfig)
     # Seat selection and signal writing configuration for Dev Mode
     storage: StorageConfig = Field(default_factory=StorageConfig)

@@ -27,12 +27,7 @@ _MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
         "ELK_RL2_LockingRequest": "ELK_RL2_LockingStatus",
         "ELK_RR1_LockingRequest": "ELK_RR1_LockingStatus",
         "ELK_ResetErrorFlags": 0.0,
-    },
-    "INC_HMI_SensorFusionRequest": {
-        "HMI_SensorFusion_CapSensor": "OMS_State_CapSensor",
-        "HMI_SensorFusion_StrainGage": "OMS_State_StrainGauge",
-        "HMI_SensorFusion_Camera": "OMS_State_Camera",
-    },
+    }
 }
 
 

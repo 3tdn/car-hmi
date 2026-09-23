@@ -340,7 +340,7 @@ async def test_elk_batch_groups_two_explicit_requests_into_one_frame(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("preserve_unwritten", [False, True])
-async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
+async def test_sensor_fusion_batch_uses_standard_unwritten_signal_policy(
     virtual_bus_pair,
     v8_db,
     preserve_unwritten,
@@ -351,9 +351,9 @@ async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
         {
             "OMS_State_CapSensor": 1.0,
             "OMS_State_StrainGauge": 0.0,
-            "OMS_State_Camera": 1.0,
+            "OMS_State_Camera": 0.0,
             "HMI_SensorFusion_CapSensor": 0.0,
-            "HMI_SensorFusion_Camera": 0.0,
+            "HMI_SensorFusion_Camera": 1.0,
         }
     )
     writer = CANWriter(
@@ -372,9 +372,9 @@ async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
     assert msg.arbitration_id == 0x84
     decoded = v8_db.decode_frame(msg.arbitration_id, bytes(msg.data))
     assert decoded == {
-        "HMI_SensorFusion_CapSensor": 1.0,
+        "HMI_SensorFusion_CapSensor": 0.0,
         "HMI_SensorFusion_StrainGage": 1.0,
-        "HMI_SensorFusion_Camera": 1.0,
+        "HMI_SensorFusion_Camera": 1.0 if preserve_unwritten else 0.0,
     }
 
 

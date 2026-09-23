@@ -162,7 +162,7 @@ async def test_match_can_occupant_classification_overrides_weight_derived_percen
     async with await _build_client(
         monkeypatch,
         tmp_path,
-        initial_signals={"OMS_FL_OccupantClassification": 3.0},  # 3 → 95th percentile
+        initial_signals={"OMS_FL_OccupantClassification": 2.0},  # 2 → 95th percentile
         video_names=["95p_mid_40_SLL.mp4", "50p_mid_40_SLL.mp4"],
     ) as c:
         resp = await c.get(

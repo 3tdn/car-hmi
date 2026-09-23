@@ -144,9 +144,10 @@ the same policy from the backend and supports multiple CAN channel cards.
 | `can` | **Array** of channels: `interface`, `channel`, `bitrate`, `can_db_file`, optional `channel_tracking_signals`. Auto discovery tracks the CAN messages containing the configured signals. |
 | `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
+| `oms_config`  | Controls frontend-facing `OMS_xx_OccupantClassification` values. With `bypass_simi_input: false`, keep the decoded CAN/SIMI class; with `true`, derive class `0`/`1`/`2` from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. Applies live. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
 | `storage`     | `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
-| `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`) |
+| `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`). `INC_HMI_SensorFusionRequest` follows this standard sibling policy; it no longer sources unwritten fields from `OMS_State_*`. |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
 | `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
 | `logging`     | `level`, `file_path`, `max_size_mb`, `backup_count` for rotating file log        |

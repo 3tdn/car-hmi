@@ -1,6 +1,6 @@
 # CAN-HMI — API Reference
 
-Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-19. There are **54 HTTP operations (48 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
+Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-23. There are **54 HTTP operations (48 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
 
 ## Common Usage
 
@@ -650,7 +650,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, and its mapped entries are live fields. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `PATCH /config/system`
 
@@ -721,7 +721,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. can_db_file, channel_tracking_signals, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. When changing `oms_config.class_config`, send both ordered thresholds because arrays are replaced as a whole; OMS config fields apply live. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `GET /config/system/backups`
 
@@ -1534,7 +1534,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > live CAN > fallback. Live CAN occupant classification has priority over the weight-derived percentile. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
+Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > latest SignalStore value > fallback. A stored OMS class 0/1/2 has priority over the weight-derived percentile and maps to the 5p/50p/95p video bucket. `oms_config.bypass_simi_input=false` keeps the CAN/SIMI class; `true` derives the same frontend-facing class from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. The route does not validate receive freshness or provenance, so a DBC-seeded or stale stored class can override `weight`. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
 
 ### `GET /api/restraints/video/{filename}`
 
