@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from contextlib import suppress
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,12 +32,60 @@ from src.core.config_manager import SystemConfigManager
 
 logger = logging.getLogger(__name__)
 
+_IPV4_SEGMENT_REGEX = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
 _FRONTEND_ACTIVITY_EXCLUDED_PATHS = {
     "/health",
     "/ready",
     "/system/health",
     "/system/ready",
 }
+
+
+def _cors_ipv4_pattern(origin: str) -> str | None:
+    """Convert x/* IPv4 labels in one origin into a full-match regex fragment."""
+    try:
+        parsed = urlsplit(origin)
+        port = parsed.port
+    except ValueError:
+        return None
+    labels = (parsed.hostname or "").split(".")
+    wildcard_labels = {"x", "*"}
+    if (
+        parsed.scheme not in {"http", "https"}
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path
+        or parsed.query
+        or parsed.fragment
+        or len(labels) != 4
+        or not any(label.lower() in wildcard_labels for label in labels)
+        or any(
+            label.lower() not in wildcard_labels
+            and (not label.isdigit() or not 0 <= int(label) <= 255)
+            for label in labels
+        )
+    ):
+        return None
+
+    host_pattern = r"\.".join(
+        _IPV4_SEGMENT_REGEX if label.lower() in wildcard_labels else re.escape(label)
+        for label in labels
+    )
+    port_pattern = f":{port}" if port is not None else ""
+    return rf"{re.escape(parsed.scheme)}://{host_pattern}{port_pattern}"
+
+
+def _split_cors_origins(origins: list[str]) -> tuple[list[str], str | None]:
+    """Separate exact origins from supported IPv4 wildcard origins."""
+    exact_origins: list[str] = []
+    pattern_fragments: list[str] = []
+    for origin in origins:
+        if pattern := _cors_ipv4_pattern(origin):
+            pattern_fragments.append(pattern)
+        else:
+            exact_origins.append(origin)
+    regex = rf"(?:{'|'.join(pattern_fragments)})" if pattern_fragments else None
+    return exact_origins, regex
 
 
 def _notify_frontend_activity(scope: Scope) -> None:
@@ -95,9 +145,13 @@ def create_app(
     app.state.shutting_down = False
 
     # CORS
+    exact_origins, origin_regex = _split_cors_origins(
+        cors_origins if cors_origins is not None else ["*"]
+    )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins or ["*"],
+        allow_origins=exact_origins,
+        allow_origin_regex=origin_regex,
         allow_methods=["*"],
         allow_headers=["*"],
     )

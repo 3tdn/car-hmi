@@ -1056,7 +1056,7 @@ jobs:
     "host": "0.0.0.0",
     "port": 8000,
     "api_key": "change-me-in-production",
-    "cors_origins": ["http://localhost:8000"]
+    "cors_origins": ["http://localhost:8000", "http://192.168.*.*:5173"]
   },
   "storage": {
     "sqlite_path": "data/signals.db",

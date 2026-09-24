@@ -17,7 +17,15 @@ For the bundled dashboard, set these globals **before loading `frontend/js/api.j
 
 Use HTTPS/WSS when the backend is exposed through TLS. `WS_BASE` defaults to the page origin independently of `API_BASE`; changing only `API_BASE` does not redirect WebSockets. The backend serves `frontend/dist` when it exists, otherwise `frontend/`; deploy the matching frontend assets.
 
-For a separately hosted frontend, configure `api.cors_origins` with its exact page origin, including scheme and port. That setting requires a backend restart. CORS controls browser HTTP access; WebSocket authentication still uses the configured key.
+For a separately hosted frontend, configure `api.cors_origins` with its page origin, including scheme and port. IPv4 entries may use `x` or `*` for one numeric segment. The repository default accepts `http://192.168.*.*:5173` while rejecting other schemes, ports, and subnets. Changing CORS settings requires a backend restart. CORS controls browser HTTP access; WebSocket authentication still uses the configured key.
+
+```json
+{
+  "api": {
+    "cors_origins": ["http://192.168.*.*:5173"]
+  }
+}
+```
 
 Send `X-API-Key` on protected HTTP routes, `X-Profile-Name` for explicit profile scope, and a stable `X-Client-Id` for each browser tab/session. The bundled frontend stores its client ID in session storage under `can_hmi_client_id`. Independent tabs should use different IDs. `X-Dev-Mode: true` bypasses supported profile checks, but does not bypass API key authentication.
 

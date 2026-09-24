@@ -280,7 +280,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "reboot",
-      "description": "CORS middleware is created at startup.",
+      "description": "CORS middleware is created at startup; IPv4 origins may use x or * for one segment.",
       "validation": {
         "items": {
           "type": "string"
@@ -297,7 +297,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "reboot",
-      "description": "An allowed CORS origin.",
+      "description": "An exact origin or IPv4 pattern such as http://192.168.*.*:5173.",
       "ui": {
         "control": "text"
       }

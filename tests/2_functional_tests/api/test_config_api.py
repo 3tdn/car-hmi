@@ -589,14 +589,15 @@ async def test_adding_can_channel_rejects_unsupported_child_fields(config_client
 @pytest.mark.asyncio
 async def test_patch_supports_reboot_level_list_values(config_client):
     client, manager, _ = config_client
+    origins = [*manager.read()["api"]["cors_origins"], "http://hmi.local"]
     response = await client.patch(
         "/config/system",
         headers=_headers(),
-        json={"api": {"cors_origins": ["http://localhost:8000", "http://hmi.local"]}},
+        json={"api": {"cors_origins": origins}},
     )
 
     assert response.status_code == 200
-    assert response.json()["reload"]["reboot"] == ["api.cors_origins.1"]
+    assert response.json()["reload"]["reboot"] == ["api.cors_origins.3"]
     assert manager.read()["api"]["cors_origins"][-1] == "http://hmi.local"
 
 

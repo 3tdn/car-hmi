@@ -62,7 +62,7 @@ class APIConfig(BaseModel):
     ws_metrics_interval_sec: float = Field(default=3.0, gt=0)
     # Interval for sending system metrics snapshots over WebSocket (seconds)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
-    # List of origins allowed by CORS; add frontend URLs if served from another domain
+    # Exact origins or IPv4 patterns where "x"/"*" matches one numeric segment
 
 
 class CameraConfig(BaseModel):
