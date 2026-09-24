@@ -11,7 +11,7 @@
     }
   ],
   "simulator": {
-    "enabled": true,
+    "enabled": false,
     "random_mode": true,
     "default_cycle_ms": 10,
     "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
