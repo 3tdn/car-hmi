@@ -1,1 +1,1 @@
-"""Signal Processor package — pipeline, filters, alarms, computed signals."""
+"""Signal Processor package — pipeline, filters, and computed signals."""

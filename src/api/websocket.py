@@ -1,44 +1,48 @@
-"""Quản lý kết nối WebSocket để push tín hiệu và cảnh báo thời gian thực.
+"""WebSocket connection manager for pushing real-time signals and metrics.
 
-Hỗ trợ:
-- Topic-based subscription cũ (backward-compat): /ws/signals, /ws/alarms, /ws/all
-- Per-signal subscription mới: /ws/subscribe — client gửi JSON command để chọn kênh
+Supports:
+- Legacy topic-based subscription (backward-compat): /ws/signals, /ws/all
+- New per-signal subscription: /ws/subscribe — client sends a JSON command to select channels
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from src.core.signal_name_mapper import SignalNameMapper
+from src.api.routes.profiles import (
+    build_access_warning,
+    get_profile_context,
+    profile_has_permission,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class SubscriptionTopic(str, Enum):
     SIGNALS = "signals"
-    ALARMS = "alarms"
     ALL = "all"
 
 
 class _ClientSubscription:
-    """State riêng cho 1 WS connection dùng giao thức subscribe mới."""
+    """State for a single WS connection using the new subscribe protocol."""
 
-    __slots__ = ("signal_names", "subscribe_alarms", "subscribe_metrics", "once_channels", "min_interval_s")
+    __slots__ = ("signal_names", "subscribe_metrics", "once_channels", "min_interval_s", "profile_name")
 
     def __init__(self) -> None:
-        self.signal_names: set[str] = set()  # rỗng = không nhận signal nào; "*" = tất cả
-        self.subscribe_alarms: bool = False
+        self.signal_names: set[str] = set()  # empty = receive no signals; "*" = all
         self.subscribe_metrics: bool = False
-        # Channels đã yêu cầu mode "once" — sẽ bị gỡ sau khi gửi lần đầu
+        # Channels requested in "once" mode — they will be removed after the first send
         self.once_channels: set[str] = set()
 
         # If > 0, minimum seconds between sends to this connection (client-requested)
         self.min_interval_s: float = 0.0
+        self.profile_name: str | None = None
 
     def wants_signal(self, name: str) -> bool:
         if "*" in self.signal_names:
@@ -47,21 +51,20 @@ class _ClientSubscription:
 
 
 class ConnectionManager:
-    """Quản lý các kết nối WebSocket đang hoạt động và phát sóng fan-out."""
+    """Manage active WebSocket connections and fan-out broadcast delivery."""
 
-    def __init__(self, signal_name_mapper: SignalNameMapper | None = None) -> None:
+    def __init__(self) -> None:
         # Legacy topic-based connections
         self._connections: dict[WebSocket, set[SubscriptionTopic]] = {}
         # New per-signal subscription connections
         self._subscriptions: dict[WebSocket, _ClientSubscription] = {}
         # Track last send time per websocket + stream key for rate-limiting.
-        # Key format: (ws, "sig:<name>") or (ws, "ch:<alarms|metrics>").
+        # Key format: (ws, "sig:<name>") or (ws, "ch:metrics").
         self._last_sent: dict[tuple[WebSocket, str], float] = {}
         # Latest signal values for building full subscribed payloads.
         self._latest_signals: dict[str, dict] = {}
         self._only_send_signal_update: bool = False
         self._lock = asyncio.Lock()
-        self._mapper: SignalNameMapper = signal_name_mapper or SignalNameMapper()
 
     def set_only_send_signal_update(self, enabled: bool) -> None:
         """Control WS signal payload mode for subscribe connections.
@@ -71,13 +74,33 @@ class ConnectionManager:
         """
         self._only_send_signal_update = bool(enabled)
 
+    async def has_signal_interest(self, signal_names: set[str]) -> bool:
+        """Return True if any active WS connection is interested in the given signals."""
+        if not signal_names:
+            return False
+
+        async with self._lock:
+            # Legacy connections subscribed to SIGNALS/ALL receive all signal updates.
+            for topics in self._connections.values():
+                if SubscriptionTopic.SIGNALS in topics or SubscriptionTopic.ALL in topics:
+                    return True
+
+            # New subscribe connections can request specific signal names or wildcard '*'.
+            for sub in self._subscriptions.values():
+                if "*" in sub.signal_names:
+                    return True
+                if sub.signal_names.intersection(signal_names):
+                    return True
+
+        return False
+
     # ── Legacy connect/disconnect ────────────────────────────────────────────
 
     async def connect(self, ws: WebSocket, topics: set[SubscriptionTopic] | None = None) -> None:
         await ws.accept()
         async with self._lock:
             self._connections[ws] = topics or {SubscriptionTopic.ALL}
-        logger.debug("WS đã kết nối (legacy) — tổng số: %d", len(self._connections))
+        logger.debug("WS connected (legacy) — total: %d", len(self._connections))
 
     async def disconnect(self, ws: WebSocket) -> None:
         async with self._lock:
@@ -87,28 +110,51 @@ class ConnectionManager:
             stale_rate_keys = [key for key in self._last_sent if key[0] is ws]
             for key in stale_rate_keys:
                 self._last_sent.pop(key, None)
-        logger.debug("WS đã ngắt kết nối — tổng số: %d", len(self._connections) + len(self._subscriptions))
+        logger.debug("WS disconnected — total: %d", len(self._connections) + len(self._subscriptions))
+
+    async def close_all(self) -> None:
+        """Close all open WebSocket connections during application shutdown."""
+        current_task = asyncio.current_task()
+        async with self._lock:
+            sockets = list(self._connections) + list(self._subscriptions)
+        for ws in sockets:
+            try:
+                await asyncio.shield(ws.close(code=1001))
+            except asyncio.CancelledError:
+                if current_task is not None:
+                    current_task.uncancel()
+            except Exception:
+                pass
+            try:
+                await asyncio.shield(self.disconnect(ws))
+            except asyncio.CancelledError:
+                if current_task is not None:
+                    current_task.uncancel()
+            except Exception:
+                pass
 
     # ── New subscribe-based connect ──────────────────────────────────────────
 
-    async def connect_subscribe(self, ws: WebSocket) -> None:
-        """Accept WS connection cho giao thức subscribe mới."""
+    async def connect_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
+        """Accept a WS connection for the new subscribe protocol."""
         await ws.accept()
         async with self._lock:
-            self._subscriptions[ws] = _ClientSubscription()
-        logger.debug("WS subscribe đã kết nối — tổng số: %d", len(self._subscriptions))
+            sub = _ClientSubscription()
+            sub.profile_name = profile_name
+            self._subscriptions[ws] = sub
+        logger.debug("WS subscribe connected — total: %d", len(self._subscriptions))
 
     def _get_sub(self, ws: WebSocket) -> _ClientSubscription | None:
         return self._subscriptions.get(ws)
 
     async def process_subscribe_command(self, ws: WebSocket, data: dict) -> None:
-        """Xử lý lệnh subscribe/unsubscribe từ client.
+        """Handle subscribe/unsubscribe commands from the client.
 
-        Chấp nhận cả 2 định dạng:
-        - Demo format: {"type": "subscribe", "signals": ["name", "*", "alarms", "metrics"]}
+        Supports both formats:
+        - Demo format: {"type": "subscribe", "signals": ["name", "*", "metrics"]}
         - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
         """
-        # Normalize: demo format (type/signals) hoặc legacy (action/channels)
+        # Normalize: demo format (type/signals) or legacy (action/channels)
         msg_type = data.get("type", "")
         if msg_type in ("subscribe", "unsubscribe"):
             action = msg_type
@@ -116,16 +162,45 @@ class ConnectionManager:
         else:
             action = data.get("action", "subscribe")
             raw_ch = data.get("channels", data.get("signals", []))
-        # signals có thể là string "*" hoặc list
+        # signals may be a string "*" or a list
         channels = [raw_ch] if isinstance(raw_ch, str) else list(raw_ch)
         mode = data.get("mode", "continuous")
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
 
+        accepted_channels: list[str] = []
+        warnings: list[dict] = []
+
         async with self._lock:
             sub = self._get_sub(ws)
             if sub is None:
                 return
+
+            has_read_permission = True
+            if action == "subscribe" and any(ch.lower() == "metrics" for ch in channels):
+                profile_name: str | None = None
+                profile: dict | None = None
+                try:
+                    profile_name, profile, _ = get_profile_context(
+                        sub.profile_name, allow_bootstrap=True
+                    )
+                except Exception as exc:
+                    detail = getattr(exc, "detail", None)
+                    if isinstance(detail, dict):
+                        warnings.append(detail)
+                    else:
+                        warnings.append(build_access_warning("profile_access_error", str(exc)))
+
+                has_read_permission = profile is None or profile_has_permission(profile, "read")
+                if profile is not None and not has_read_permission:
+                    warnings.append(
+                        build_access_warning(
+                            "profile_permission_denied",
+                            f"Profile '{profile_name}' lacks 'read' permission",
+                            profile_name=profile_name,
+                            required_permission="read",
+                        )
+                    )
 
             # Apply rate limit if provided
             try:
@@ -138,35 +213,42 @@ class ConnectionManager:
             for ch in channels:
                 ch_lower = ch.lower()
                 if action == "subscribe":
-                    if ch_lower == "alarms":
-                        sub.subscribe_alarms = True
-                    elif ch_lower == "metrics":
+                    if ch_lower == "metrics":
+                        if not has_read_permission:
+                            continue
                         sub.subscribe_metrics = True
+                        accepted_channels.append("metrics")
                     elif ch == "*":
+                        # Profiles control TX, never the received signal stream.
                         sub.signal_names.add("*")
+                        accepted_channels.append("*")
                     else:
-                        # Resolve std_name -> canonical signal_name before storing
-                        sub.signal_names.add(self._mapper.resolve(ch))
+                        sub.signal_names.add(ch)
+                        accepted_channels.append(ch)
 
                     if mode == "once":
-                        sub.once_channels.add(ch)
+                        if ch == "*":
+                            sub.once_channels.update(accepted_channels)
+                        elif ch == "metrics":
+                            sub.once_channels.add(ch)
+                        else:
+                            sub.once_channels.add(ch)
                 elif action == "unsubscribe":
-                    if ch_lower == "alarms":
-                        sub.subscribe_alarms = False
-                    elif ch_lower == "metrics":
+                    if ch_lower == "metrics":
                         sub.subscribe_metrics = False
                     elif ch == "*":
                         sub.signal_names.discard("*")
                     else:
-                        sub.signal_names.discard(self._mapper.resolve(ch))
+                        sub.signal_names.discard(ch)
 
         # Ack — normalized format expected by tests: {"type":"<action>_ack","action":...,"channels":[...]}.
         ack_type = f"{action}_ack"
         ack_payload = json.dumps({
             "type": ack_type,
             "action": action,
-            "channels": channels,
-            "count": len(channels),
+            "channels": accepted_channels if action == "subscribe" else channels,
+            "count": len(accepted_channels if action == "subscribe" else channels),
+            "warnings": warnings,
         })
         try:
             await ws.send_text(ack_payload)
@@ -176,11 +258,11 @@ class ConnectionManager:
     # ── Broadcast ────────────────────────────────────────────────────────────
 
     async def broadcast_signal(self, signal_name: str, value: float, timestamp: float) -> None:
-        """Push signal frame theo demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
+        """Push a signal frame in the demo format: {"timestamp": ISO8601, "signals": [{name, std_name, value}]}."""
         await self.broadcast_signals([(signal_name, value, timestamp)])
 
     async def broadcast_signals(self, updates: list[tuple[str, float, float]]) -> None:
-        """Push 1 WS frame chứa nhiều signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
+        """Push 1 WS frame containing multiple signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
         if not updates:
             return
 
@@ -189,13 +271,12 @@ class ConnectionManager:
         latest_ts = max(ts for _, _, ts in updates)
         iso_ts = datetime.datetime.fromtimestamp(latest_ts, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-        # Last-write-wins theo signal_name trong cùng một batch.
+        # Last-write-wins by signal_name within the same batch.
         merged: dict[str, dict] = {}
         for signal_name, value, _ in updates:
-            std = self._mapper.get_std_name(signal_name) or signal_name
             entry = {
                 "name": signal_name,
-                "std_name": std,
+                "std_name": signal_name,
                 "value": value,
             }
             merged[signal_name] = entry
@@ -211,20 +292,15 @@ class ConnectionManager:
         # Subscribe WS clients receive filtered batch according to subscription.
         await self._broadcast_signal_batch_to_subscribers(entries, iso_ts)
 
-    async def broadcast_alarm(self, alarm: dict) -> None:
-        payload = json.dumps({"type": "alarm", **alarm})
-        await self._broadcast(payload, SubscriptionTopic.ALARMS)
-        await self._broadcast_to_subscribers(payload, channel="alarms")
-
     async def broadcast_metrics(self, metrics: dict) -> None:
-        """Push metrics snapshot tới subscribers đã đăng ký channel 'metrics'."""
+        """Push a metrics snapshot to subscribers that registered the 'metrics' channel."""
         payload = json.dumps({"type": "metrics", **metrics})
         await self._broadcast_to_subscribers(payload, channel="metrics")
 
     # ── Internal broadcast helpers ───────────────────────────────────────────
 
     async def _broadcast(self, text: str, topic: SubscriptionTopic) -> None:
-        """Legacy broadcast cho /ws/signals, /ws/alarms, /ws/all."""
+        """Legacy broadcast for /ws/signals and /ws/all."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._connections.items())
@@ -257,7 +333,7 @@ class ConnectionManager:
         signal_name: str | None = None,
         channel: str | None = None,
     ) -> None:
-        """Broadcast tới WS connections dùng giao thức subscribe mới."""
+        """Broadcast to WS connections using the new subscribe protocol."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._subscriptions.items())
@@ -285,10 +361,6 @@ class ConnectionManager:
                         once_key = signal_name
                     elif "*" in sub.once_channels:
                         once_key = "*"
-            elif channel == "alarms" and sub.subscribe_alarms:
-                should_send = True
-                if "alarms" in sub.once_channels:
-                    once_key = "alarms"
             elif channel == "metrics" and sub.subscribe_metrics:
                 should_send = True
                 if "metrics" in sub.once_channels:
@@ -321,8 +393,6 @@ class ConnectionManager:
                 sub.once_channels.discard(key)
                 if key == "*":
                     sub.signal_names.discard("*")
-                elif key == "alarms":
-                    sub.subscribe_alarms = False
                 elif key == "metrics":
                     sub.subscribe_metrics = False
                 else:
@@ -336,7 +406,7 @@ class ConnectionManager:
         entries: list[dict],
         iso_ts: str,
     ) -> None:
-        """Broadcast signal batch tới subscribe-based WS theo filter từng kết nối."""
+        """Broadcast a signal batch to subscribe-based WS connections according to each connection's filter."""
         stale: list[WebSocket] = []
         async with self._lock:
             snapshot = list(self._subscriptions.items())
@@ -430,21 +500,21 @@ class ConnectionManager:
     # ── Handle loops ─────────────────────────────────────────────────────────
 
     async def handle(self, ws: WebSocket, topics: set[SubscriptionTopic] | None = None) -> None:
-        """Legacy handler: giữ kết nối sống cho /ws/signals, /ws/alarms, /ws/all."""
+        """Legacy handler: keep the connection alive for /ws/signals and /ws/all."""
         await self.connect(ws, topics)
         try:
             while True:
                 await ws.receive_text()
         except WebSocketDisconnect:
-            logger.debug("WebSocket ngắt kết nối sạch sẽ")
+            logger.debug("WebSocket disconnected cleanly")
         except Exception:
             logger.exception("WebSocket handler error")
         finally:
             await self.disconnect(ws)
 
-    async def handle_subscribe(self, ws: WebSocket) -> None:
-        """Handler cho /ws/subscribe — nhận lệnh subscribe/unsubscribe từ client."""
-        await self.connect_subscribe(ws)
+    async def handle_subscribe(self, ws: WebSocket, profile_name: str | None = None) -> None:
+        """Handler for /ws/subscribe — receives subscribe/unsubscribe commands from the client."""
+        await self.connect_subscribe(ws, profile_name=profile_name)
         try:
             while True:
                 raw = await ws.receive_text()
@@ -458,7 +528,7 @@ class ConnectionManager:
                 else:
                     await self.process_subscribe_command(ws, data)
         except WebSocketDisconnect:
-            logger.debug("WS subscribe ngắt kết nối")
+            logger.debug("WS subscribe disconnected")
         except Exception:
             logger.exception("WS subscribe handler error")
         finally:

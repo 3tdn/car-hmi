@@ -1,4 +1,4 @@
-"""Thu thập thông tin tài nguyên hệ thống CarPC (CPU, RAM, disk, queue, …)."""
+"""Collect CarPC system resource information (CPU, RAM, disk, queue, ...)."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ import psutil
 
 @dataclass
 class SystemMetrics:
-    """Snapshot thông tin tài nguyên hệ thống tại một thời điểm."""
+    """Snapshot of system resource information at one point in time."""
 
     timestamp: float = 0.0
 
     # ── CPU ──────────────────────────────────────────────────────────────────
-    cpu_percent: float = 0.0  # %CPU tổng hệ thống
-    cpu_percent_per_core: list[float] = field(default_factory=list)  # %CPU mỗi core
+    cpu_percent: float = 0.0  # total system CPU %
+    cpu_percent_per_core: list[float] = field(default_factory=list)  # per-core CPU %
     cpu_count_logical: int = 0
     cpu_count_physical: int = 0
     cpu_freq_current_mhz: float = 0.0
@@ -58,12 +58,12 @@ class SystemMetrics:
     net_packets_recv: int = 0
 
     # ── Application-specific ─────────────────────────────────────────────────
-    queue_size: int = 0  # asyncio.Queue hiện tại
+    queue_size: int = 0  # current asyncio.Queue size
     queue_maxsize: int = 0
     queue_usage_percent: float = 0.0
     heap_allocated_mb: float = 0.0  # Python heap (sys.getsizeof approximation)
-    gc_objects: int = 0  # Số object theo dõi bởi garbage collector
-    asyncio_tasks: int = 0  # Số task đang chạy
+    gc_objects: int = 0  # Number of objects tracked by the garbage collector
+    asyncio_tasks: int = 0  # Number of running tasks
     uptime_seconds: float = 0.0
     python_version: str = ""
     platform: str = ""
@@ -79,7 +79,7 @@ def collect_system_metrics(
     rx_queue: asyncio.Queue | None = None,
     start_time: float = 0.0,
 ) -> SystemMetrics:
-    """Thu thập snapshot tài nguyên hệ thống. Non-blocking, gọi được từ async context."""
+    """Collect a snapshot of system resources. Non-blocking and safe to call from an async context."""
     import gc
     import platform
 
@@ -126,7 +126,7 @@ def collect_system_metrics(
     m.swap_used_mb = round(sw.used / _MB, 1)
     m.swap_percent = sw.percent
 
-    # ── Disk (partition chứa working directory) ──────────────────────────────
+    # ── Disk (partition containing the working directory) ───────────────────
     try:
         disk = psutil.disk_usage(os.getcwd())
         m.disk_total_gb = round(disk.total / _GB, 2)
@@ -154,9 +154,9 @@ def collect_system_metrics(
             else 0.0
         )
 
-    # Python heap approximation (tổng kích thước gc tracked objects)
+    # Python heap approximation (total size of GC-tracked objects)
     m.gc_objects = len(gc.get_objects())
-    # sys.getsizeof không đệ quy; dùng memory_info RSS làm chỉ số chính
+    # sys.getsizeof is not recursive; use memory_info RSS as the primary indicator
     m.heap_allocated_mb = m.process_memory_rss_mb
 
     # asyncio tasks
@@ -174,7 +174,7 @@ def collect_system_metrics(
 
 
 def metrics_to_dict(m: SystemMetrics) -> dict:
-    """Chuyển SystemMetrics thành dict phẳng phục vụ JSON response."""
+    """Convert SystemMetrics to a flat dict for JSON responses."""
     from dataclasses import asdict
 
     return asdict(m)

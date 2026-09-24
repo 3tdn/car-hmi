@@ -19,7 +19,7 @@
     PROJECT_NO M001
   /end HEADER
 
-  /begin MODULE ECM "Engine Control Module - Bộ điều khiển động cơ"
+  /begin MODULE ECM "Engine Control Module - engine controller"
 
     /begin MOD_PAR ""
       SYSTEM_CONSTANT "CPU_TYPE" "TriCore TC39x"
@@ -39,7 +39,7 @@
 
 
     /* =====================================================================
-     * COMPU_METHODs - Phương pháp chuyển đổi giá trị
+     * COMPU_METHODs - Value conversion methods
      * ===================================================================== */
 
     /begin COMPU_METHOD CM_Percent ""
@@ -119,14 +119,14 @@
 
 
     /* =====================================================================
-     * MEASUREMENTS - Tín hiệu đo lường (chỉ đọc từ ECU)
+     * MEASUREMENTS - Measurement signals (read-only from the ECU)
      * ===================================================================== */
 
-    /* ---- ENGINE / Động cơ ---- */
+    /* ---- ENGINE / Engine ---- */
 
     /begin MEASUREMENT
-      N_Engine /* Tốc độ động cơ (vòng/phút) */
-      "Engine speed - Toc do dong co"
+      N_Engine /* Engine speed (rpm) */
+      "Engine speed - engine speed"
       UWORD CM_RPM 0 0 0 16383.75
       ECU_ADDRESS 0xD0001000
       /begin IF_DATA XCP
@@ -135,158 +135,158 @@
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      rL_Engine /* Tải động cơ (%) */
-      "Engine load - Tai dong co"
+      rL_Engine /* Engine load (%) */
+      "Engine load - engine load"
       UBYTE CM_Percent 0 0 0 100
       ECU_ADDRESS 0xD0001002
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      wdkba /* Vị trí bướm ga (%) */
-      "Throttle position - Vi tri buom ga"
+      wdkba /* Throttle position (%) */
+      "Throttle position - throttle position"
       UBYTE CM_Percent 0 0 0 100
       ECU_ADDRESS 0xD0001003
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_Coolant /* Nhiệt độ nước làm mát (°C) */
-      "Coolant temperature - Nhiet do nuoc lam mat"
+      T_Coolant /* Coolant temperature (°C) */
+      "Coolant temperature - coolant temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0001004
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_Oil /* Nhiệt độ dầu động cơ (°C) */
-      "Oil temperature - Nhiet do dau dong co"
+      T_Oil /* Engine oil temperature (°C) */
+      "Oil temperature - engine oil temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0001005
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_Oil /* Áp suất dầu động cơ (kPa) */
-      "Oil pressure - Ap suat dau dong co"
+      P_Oil /* Engine oil pressure (kPa) */
+      "Oil pressure - engine oil pressure"
       UBYTE CM_KPA 0 0 0 1020
       ECU_ADDRESS 0xD0001006
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_IntakeAir /* Nhiệt độ khí nạp (°C) */
-      "Intake air temperature - Nhiet do khi nap"
+      T_IntakeAir /* Intake air temperature (°C) */
+      "Intake air temperature - intake air temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0001007
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_Boost /* Áp suất tăng áp (kPa) */
-      "Boost pressure - Ap suat tang ap (turbo)"
+      P_Boost /* Boost pressure (kPa) */
+      "Boost pressure - boost pressure (turbo)"
       UWORD CM_KPA 0 0 0 6553.5
       ECU_ADDRESS 0xD0001008
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      M_Engine /* Mô-men xoắn động cơ thực tế (Nm) */
-      "Actual engine torque - Mo-men xoan thuc te"
+      M_Engine /* Actual engine torque (Nm) */
+      "Actual engine torque - actual engine torque"
       SWORD CM_Nm 0 0 -500 1547.5
       ECU_ADDRESS 0xD000100A
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      M_EngineReq /* Mô-men xoắn yêu cầu (Nm) */
-      "Requested torque - Mo-men xoan yeu cau"
+      M_EngineReq /* Requested engine torque (Nm) */
+      "Requested torque - requested torque"
       SWORD CM_Nm 0 0 -500 1547.5
       ECU_ADDRESS 0xD000100C
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_Engine /* Công suất động cơ (kW) */
-      "Engine power - Cong suat dong co"
+      P_Engine /* Engine power (kW) */
+      "Engine power - engine power"
       UWORD CM_kW 0 0 0 500
       ECU_ADDRESS 0xD000100E
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Q_Fuel_Instant /* Tiêu hao nhiên liệu tức thời (L/100km) */
-      "Instant fuel consumption - Tieu hao nhien lieu tuc thoi"
+      Q_Fuel_Instant /* Instant fuel consumption (L/100km) */
+      "Instant fuel consumption - instant fuel consumption"
       UWORD CM_LPer100 0 0 0 163.83
       ECU_ADDRESS 0xD0001010
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Q_Fuel_Avg /* Tiêu hao nhiên liệu trung bình (L/100km) */
-      "Average fuel consumption - Tieu hao nhien lieu trung binh"
+      Q_Fuel_Avg /* Average fuel consumption (L/100km) */
+      "Average fuel consumption - average fuel consumption"
       UWORD CM_LPer100 0 0 0 163.83
       ECU_ADDRESS 0xD0001012
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Q_AirMass /* Lưu lượng khí nạp (kg/h) */
-      "Air mass flow - Luu luong khi nap"
+      Q_AirMass /* Intake air mass flow (kg/h) */
+      "Air mass flow - intake air mass flow"
       UWORD CM_Kg_per_h 0 0 0 1000
       ECU_ADDRESS 0xD0001014
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Lambda_Bank1 /* Hệ số Lambda ngân hàng xi-lanh 1 */
-      "Lambda bank 1 - He so lambda ngan hang 1"
+      Lambda_Bank1 /* Lambda factor for cylinder bank 1 */
+      "Lambda bank 1 - lambda factor for bank 1"
       UWORD CM_Lambda 0 0 0.5 2.0
       ECU_ADDRESS 0xD0001016
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Lambda_Bank2 /* Hệ số Lambda ngân hàng xi-lanh 2 */
-      "Lambda bank 2 - He so lambda ngan hang 2"
+      Lambda_Bank2 /* Lambda factor for cylinder bank 2 */
+      "Lambda bank 2 - lambda factor for bank 2"
       UWORD CM_Lambda 0 0 0.5 2.0
       ECU_ADDRESS 0xD0001018
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      ti_Injection /* Thời gian phun nhiên liệu (ms) */
-      "Injection time - Thoi gian phun nhien lieu"
+      ti_Injection /* Fuel injection time (ms) */
+      "Injection time - fuel injection time"
       UWORD CM_ms 0 0 0 65.535
       ECU_ADDRESS 0xD000101A
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      phi_Ignition /* Góc đánh lửa (deg) */
-      "Ignition angle - Goc danh lua"
+      phi_Ignition /* Ignition timing angle (deg) */
+      "Ignition angle - ignition timing angle"
       SWORD CM_Deg 0 0 -60 60
       ECU_ADDRESS 0xD000101C
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      cnt_MisfireCyl1 /* Đếm lỗi cháy xi-lanh 1 */
-      "Misfire counter cylinder 1 - Dem loi chay xi-lanh 1"
+      cnt_MisfireCyl1 /* Cylinder 1 misfire count */
+      "Misfire counter cylinder 1 - cylinder 1 misfire count"
       UWORD CM_NoUnit 0 0 0 65535
       ECU_ADDRESS 0xD000101E
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      cnt_MisfireCyl2 /* Đếm lỗi cháy xi-lanh 2 */
-      "Misfire counter cylinder 2 - Dem loi chay xi-lanh 2"
+      cnt_MisfireCyl2 /* Cylinder 2 misfire count */
+      "Misfire counter cylinder 2 - cylinder 2 misfire count"
       UWORD CM_NoUnit 0 0 0 65535
       ECU_ADDRESS 0xD0001020
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      cnt_MisfireCyl3 /* Đếm lỗi cháy xi-lanh 3 */
-      "Misfire counter cylinder 3 - Dem loi chay xi-lanh 3"
+      cnt_MisfireCyl3 /* Cylinder 3 misfire count */
+      "Misfire counter cylinder 3 - cylinder 3 misfire count"
       UWORD CM_NoUnit 0 0 0 65535
       ECU_ADDRESS 0xD0001022
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      cnt_MisfireCyl4 /* Đếm lỗi cháy xi-lanh 4 */
-      "Misfire counter cylinder 4 - Dem loi chay xi-lanh 4"
+      cnt_MisfireCyl4 /* Cylinder 4 misfire count */
+      "Misfire counter cylinder 4 - cylinder 4 misfire count"
       UWORD CM_NoUnit 0 0 0 65535
       ECU_ADDRESS 0xD0001024
     /end MEASUREMENT
 
 
-    /* ---- VEHICLE DYNAMICS / Động lực học xe ---- */
+    /* ---- VEHICLE DYNAMICS / Vehicle dynamics ---- */
 
     /begin MEASUREMENT
-      V_Vehicle /* Tốc độ xe (km/h) */
-      "Vehicle speed - Toc do xe"
+      V_Vehicle /* Vehicle speed (km/h) */
+      "Vehicle speed - vehicle speed"
       UWORD CM_KPH 0 0 0 655.35
       ECU_ADDRESS 0xD0002000
       /begin IF_DATA XCP
@@ -295,136 +295,136 @@
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      V_Wheel_FL /* Tốc độ bánh trước trái (km/h) */
-      "Front left wheel speed - Toc do banh truoc trai"
+      V_Wheel_FL /* Front-left wheel speed (km/h) */
+      "Front left wheel speed - front-left wheel speed"
       UWORD CM_KPH 0 0 0 655.35
       ECU_ADDRESS 0xD0002002
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      V_Wheel_FR /* Tốc độ bánh trước phải (km/h) */
-      "Front right wheel speed - Toc do banh truoc phai"
+      V_Wheel_FR /* Front-right wheel speed (km/h) */
+      "Front right wheel speed - front-right wheel speed"
       UWORD CM_KPH 0 0 0 655.35
       ECU_ADDRESS 0xD0002004
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      V_Wheel_RL /* Tốc độ bánh sau trái (km/h) */
-      "Rear left wheel speed - Toc do banh sau trai"
+      V_Wheel_RL /* Rear-left wheel speed (km/h) */
+      "Rear left wheel speed - rear-left wheel speed"
       UWORD CM_KPH 0 0 0 655.35
       ECU_ADDRESS 0xD0002006
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      V_Wheel_RR /* Tốc độ bánh sau phải (km/h) */
-      "Rear right wheel speed - Toc do banh sau phai"
+      V_Wheel_RR /* Rear-right wheel speed (km/h) */
+      "Rear right wheel speed - rear-right wheel speed"
       UWORD CM_KPH 0 0 0 655.35
       ECU_ADDRESS 0xD0002008
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      a_Lateral /* Gia tốc ngang (g) */
-      "Lateral acceleration - Gia toc ngang"
+      a_Lateral /* Lateral acceleration (g) */
+      "Lateral acceleration - lateral acceleration"
       SWORD CM_NoUnit 0 0 -2.0 2.0
       ECU_ADDRESS 0xD000200A
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      a_Longitudinal /* Gia tốc dọc (g) */
-      "Longitudinal acceleration - Gia toc doc"
+      a_Longitudinal /* Longitudinal acceleration (g) */
+      "Longitudinal acceleration - longitudinal acceleration"
       SWORD CM_NoUnit 0 0 -2.0 2.0
       ECU_ADDRESS 0xD000200C
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      omega_Yaw /* Tốc độ xoay đứng (deg/s) */
-      "Yaw rate - Toc do xoay truc dung"
+      omega_Yaw /* Yaw rate (deg/s) */
+      "Yaw rate - yaw rate"
       SWORD CM_Deg 0 0 -327.68 327.67
       ECU_ADDRESS 0xD000200E
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      phi_Steering /* Góc tay lái (deg) */
-      "Steering angle - Goc quay vo-lang"
+      phi_Steering /* Steering wheel angle (deg) */
+      "Steering angle - steering wheel angle"
       SWORD CM_Deg 0 0 -3200 3200
       ECU_ADDRESS 0xD0002010
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_BrakeMaster /* Áp suất xilanh phanh chính (bar) */
-      "Master cylinder pressure - Ap suat xi-lanh phanh chinh"
+      P_BrakeMaster /* Master brake cylinder pressure (bar) */
+      "Master cylinder pressure - master brake cylinder pressure"
       UWORD CM_Bar 0 0 0 409.5
       ECU_ADDRESS 0xD0002012
     /end MEASUREMENT
 
 
-    /* ---- TRANSMISSION / Hộp số ---- */
+    /* ---- TRANSMISSION / Transmission ---- */
 
     /begin MEASUREMENT
-      Gear_Current /* Số hiện tại */
-      "Current gear - So hien tai"
+      Gear_Current /* Current gear */
+      "Current gear - current gear"
       UBYTE CM_NoUnit 0 0 0 9
       ECU_ADDRESS 0xD0003000
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      Gear_Target /* Số mục tiêu */
-      "Target gear - So muc tieu"
+      Gear_Target /* Target gear */
+      "Target gear - target gear"
       UBYTE CM_NoUnit 0 0 0 9
       ECU_ADDRESS 0xD0003001
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_Transmission /* Nhiệt độ hộp số (°C) */
-      "Transmission temperature - Nhiet do hop so"
+      T_Transmission /* Transmission temperature (°C) */
+      "Transmission temperature - transmission temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0003002
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      N_TransInput /* Tốc độ trục đầu vào hộp số (rpm) */
-      "Trans input speed - Toc do truc dau vao hop so"
+      N_TransInput /* Transmission input shaft speed (rpm) */
+      "Trans input speed - transmission input shaft speed"
       UWORD CM_RPM 0 0 0 16383.75
       ECU_ADDRESS 0xD0003004
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      N_TransOutput /* Tốc độ trục đầu ra hộp số (rpm) */
-      "Trans output speed - Toc do truc dau ra hop so"
+      N_TransOutput /* Transmission output shaft speed (rpm) */
+      "Trans output speed - transmission output shaft speed"
       UWORD CM_RPM 0 0 0 16383.75
       ECU_ADDRESS 0xD0003006
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      ratio_Gear /* Tỷ số truyền */
-      "Gear ratio - Ty so truyen"
+      ratio_Gear /* Gear ratio */
+      "Gear ratio - gear ratio"
       UWORD CM_NoUnit 0 0 0 65.535
       ECU_ADDRESS 0xD0003008
     /end MEASUREMENT
 
 
-    /* ---- ELECTRICAL / Điện ---- */
+    /* ---- ELECTRICAL / Electrical ---- */
 
     /begin MEASUREMENT
-      U_Battery /* Điện áp ắc-quy (V) */
-      "Battery voltage - Dien ap ac-quy"
+      U_Battery /* Battery voltage (V) */
+      "Battery voltage - battery voltage"
       UWORD CM_Voltage 0 0 0 40.95
       ECU_ADDRESS 0xD0004000
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      U_Alternator /* Điện áp máy phát (V) */
-      "Alternator voltage - Dien ap may phat"
+      U_Alternator /* Alternator voltage (V) */
+      "Alternator voltage - alternator voltage"
       UWORD CM_Voltage 0 0 0 40.95
       ECU_ADDRESS 0xD0004002
     /end MEASUREMENT
 
 
-    /* ---- EV / HYBRID - Pin cao áp & Motor điện ---- */
+    /* ---- EV / HYBRID - High-voltage battery & electric motor ---- */
 
     /begin MEASUREMENT
-      SoC_HVBattery /* Mức sạc pin cao áp (%) */
-      "HV Battery state of charge - Muc sac pin cao ap"
+      SoC_HVBattery /* High-voltage battery state of charge (%) */
+      "HV Battery state of charge - high-voltage battery state of charge"
       UWORD CM_Percent 0 0 0 100
       ECU_ADDRESS 0xD0005000
       /begin IF_DATA XCP
@@ -433,155 +433,155 @@
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      U_HVBattery /* Điện áp pin cao áp (V) */
-      "HV Battery voltage - Dien ap pin cao ap"
+      U_HVBattery /* High-voltage battery voltage (V) */
+      "HV Battery voltage - high-voltage battery voltage"
       UWORD CM_Voltage 0 0 0 1023.75
       ECU_ADDRESS 0xD0005002
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      I_HVBattery /* Dòng điện pin cao áp (A) */
-      "HV Battery current - Dong dien pin cao ap"
+      I_HVBattery /* High-voltage battery current (A) */
+      "HV Battery current - high-voltage battery current"
       SWORD CM_NoUnit 0 0 -512 511.75
       ECU_ADDRESS 0xD0005004
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_HVBattery /* Nhiệt độ pin cao áp (°C) */
-      "HV Battery temperature - Nhiet do pin cao ap"
+      T_HVBattery /* High-voltage battery temperature (°C) */
+      "HV Battery temperature - high-voltage battery temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0005006
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_HVBattery /* Công suất pin cao áp (kW) */
-      "HV Battery power - Cong suat pin cao ap"
+      P_HVBattery /* High-voltage battery power (kW) */
+      "HV Battery power - high-voltage battery power"
       SWORD CM_kW 0 0 -819.2 819.1
       ECU_ADDRESS 0xD0005008
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      SoH_HVBattery /* Sức khỏe pin cao áp (%) */
-      "HV Battery state of health - Suc khoe pin cao ap"
+      SoH_HVBattery /* High-voltage battery state of health (%) */
+      "HV Battery state of health - high-voltage battery state of health"
       UBYTE CM_Percent 0 0 0 100
       ECU_ADDRESS 0xD000500A
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      N_ElecMotor /* Tốc độ motor điện (rpm) */
-      "Electric motor speed - Toc do motor dien"
+      N_ElecMotor /* Electric motor speed (rpm) */
+      "Electric motor speed - electric motor speed"
       SWORD CM_RPM 0 0 -30000 30000
       ECU_ADDRESS 0xD0005010
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      M_ElecMotor /* Mô-men xoắn motor điện (Nm) */
-      "Electric motor torque - Mo-men xoan motor dien"
+      M_ElecMotor /* Electric motor torque (Nm) */
+      "Electric motor torque - electric motor torque"
       SWORD CM_Nm 0 0 -500 1547.5
       ECU_ADDRESS 0xD0005012
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_ElecMotor /* Nhiệt độ motor điện (°C) */
-      "Electric motor temperature - Nhiet do motor dien"
+      T_ElecMotor /* Electric motor temperature (°C) */
+      "Electric motor temperature - electric motor temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0005014
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_Inverter /* Nhiệt độ bộ nghịch lưu (°C) */
-      "Inverter temperature - Nhiet do bo nghich luu"
+      T_Inverter /* Inverter temperature (°C) */
+      "Inverter temperature - inverter temperature"
       UBYTE CM_DegC_Offset40 0 0 -40 215
       ECU_ADDRESS 0xD0005015
     /end MEASUREMENT
 
 
-    /* ---- EXHAUST - Khí thải ---- */
+    /* ---- EXHAUST - Exhaust ---- */
 
     /begin MEASUREMENT
-      T_ExhaustPreCat /* Nhiệt độ khí thải trước bộ xúc tác (°C) */
-      "Pre-catalyst exhaust temp - Nhiet do khi thai truoc xuc tac"
+      T_ExhaustPreCat /* Pre-catalyst exhaust temperature (°C) */
+      "Pre-catalyst exhaust temp - pre-catalyst exhaust temperature"
       UWORD CM_DegC_Offset40 0 0 -40 1200
       ECU_ADDRESS 0xD0006000
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_ExhaustPostCat /* Nhiệt độ khí thải sau bộ xúc tác (°C) */
-      "Post-catalyst exhaust temp - Nhiet do khi thai sau xuc tac"
+      T_ExhaustPostCat /* Post-catalyst exhaust temperature (°C) */
+      "Post-catalyst exhaust temp - post-catalyst exhaust temperature"
       UWORD CM_DegC_Offset40 0 0 -40 1200
       ECU_ADDRESS 0xD0006002
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      T_DPF /* Nhiệt độ bộ lọc hạt DPF (°C) */
-      "DPF temperature - Nhiet do bo loc hat DPF"
+      T_DPF /* DPF filter temperature (°C) */
+      "DPF temperature - DPF filter temperature"
       UWORD CM_DegC_Offset40 0 0 -40 1200
       ECU_ADDRESS 0xD0006004
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      P_DPF_Diff /* Chênh áp bộ lọc DPF (kPa) */
-      "DPF differential pressure - Chenh ap bo loc DPF"
+      P_DPF_Diff /* DPF filter differential pressure (kPa) */
+      "DPF differential pressure - DPF filter differential pressure"
       UWORD CM_KPA 0 0 0 100
       ECU_ADDRESS 0xD0006006
     /end MEASUREMENT
 
     /begin MEASUREMENT
-      pct_DPF_Soot /* Mức bồ hóng DPF (%) */
-      "DPF soot load - Muc bo hong DPF"
+      pct_DPF_Soot /* DPF soot load (%) */
+      "DPF soot load - DPF soot load"
       UBYTE CM_Percent 0 0 0 100
       ECU_ADDRESS 0xD0006008
     /end MEASUREMENT
 
 
     /* =====================================================================
-     * CHARACTERISTICS - Thông số hiệu chuẩn (đọc/ghi)
+     * CHARACTERISTICS - Calibration parameters (read/write)
      * ===================================================================== */
 
-    /* ---- ENGINE CALIBRATION / Hiệu chuẩn động cơ ---- */
+    /* ---- ENGINE CALIBRATION / Engine calibration ---- */
 
     /begin CHARACTERISTIC
-      KL_N_EngineIdle /* Tốc độ không tải mục tiêu (rpm) */
-      "Target idle speed - Toc do khong tai muc tieu"
+      KL_N_EngineIdle /* Target idle speed (rpm) */
+      "Target idle speed - target idle speed"
       VALUE 0xC0001000 RL_Scalar 0 CM_RPM 0 2000
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_N_EngineIdleWarm /* Tốc độ không tải khi nóng (rpm) */
-      "Warm idle speed - Toc do khong tai khi nong"
+      KL_N_EngineIdleWarm /* Warm idle speed (rpm) */
+      "Warm idle speed - warm idle speed"
       VALUE 0xC0001002 RL_Scalar 0 CM_RPM 0 2000
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_N_EngineRevLimit /* Giới hạn vòng tua tối đa (rpm) */
-      "Rev limit - Gioi han vong tua toi da"
+      KL_N_EngineRevLimit /* Maximum engine speed limit (rpm) */
+      "Rev limit - maximum engine speed limit"
       VALUE 0xC0001004 RL_Scalar 0 CM_RPM 0 10000
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KF_M_Torque_Limit /* Giới hạn mô-men xoắn tối đa (Nm) */
-      "Max torque limit - Gioi han mo-men toi da"
+      KF_M_Torque_Limit /* Maximum torque limit (Nm) */
+      "Max torque limit - maximum torque limit"
       VALUE 0xC0001006 RL_Scalar 0 CM_Nm 0 1000
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KF_Lambda_Target_Bank1 /* Mục tiêu Lambda ngân hàng 1 */
-      "Lambda target bank 1 - Muc tieu lambda ngan hang 1"
+      KF_Lambda_Target_Bank1 /* Lambda target for bank 1 */
+      "Lambda target bank 1 - lambda target for bank 1"
       VALUE 0xC0001008 RL_Scalar 0 CM_Lambda 0.5 2.0
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KF_Lambda_Target_Bank2 /* Mục tiêu Lambda ngân hàng 2 */
-      "Lambda target bank 2 - Muc tieu lambda ngan hang 2"
+      KF_Lambda_Target_Bank2 /* Lambda target for bank 2 */
+      "Lambda target bank 2 - lambda target for bank 2"
       VALUE 0xC000100A RL_Scalar 0 CM_Lambda 0.5 2.0
     /end CHARACTERISTIC
 
 
-    /* ---- INJECTION MAP / Bản đồ phun ---- */
+    /* ---- INJECTION MAP / Injection map ---- */
 
     /begin CHARACTERISTIC
-      KFTI_Injection_BaseMap /* Bản đồ phun cơ bản theo RPM x Load */
-      "Base injection map (RPM x Load) - Ban do phun co ban"
+      KFTI_Injection_BaseMap /* Base injection map by RPM x Load */
+      "Base injection map (RPM x Load) - base injection map"
       MAP 0xC0002000 RL_Map 0 CM_ms 0 65.535
       /begin AXIS_DESCR
         STD_AXIS N_Engine CM_RPM 16 0 8000
@@ -592,8 +592,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFTI_Injection_ColdCorr /* Bản đồ bù phun khi nguội */
-      "Cold start injection correction - Ban do bu phun khi nguoi"
+      KFTI_Injection_ColdCorr /* Cold-start injection correction map */
+      "Cold start injection correction - cold-start injection correction map"
       CURVE 0xC0002200 RL_Curve 0 CM_Percent -50 100
       /begin AXIS_DESCR
         STD_AXIS T_Coolant CM_DegC_Offset40 16 -40 120
@@ -601,11 +601,11 @@
     /end CHARACTERISTIC
 
 
-    /* ---- IGNITION MAP / Bản đồ đánh lửa ---- */
+    /* ---- IGNITION MAP / Ignition map ---- */
 
     /begin CHARACTERISTIC
-      KFZW_Ignition_BaseMap /* Bản đồ đánh lửa cơ bản theo RPM x Load */
-      "Base ignition map (RPM x Load) - Ban do danh lua co ban"
+      KFZW_Ignition_BaseMap /* Base ignition map by RPM x Load */
+      "Base ignition map (RPM x Load) - base ignition map"
       MAP 0xC0003000 RL_Map 0 CM_Deg -60 60
       /begin AXIS_DESCR
         STD_AXIS N_Engine CM_RPM 16 0 8000
@@ -616,8 +616,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFZW_Ignition_KnockRet /* Bản đồ giảm đánh lửa chống kích nổ */
-      "Knock retard map - Ban do giam danh lua chong kich no"
+      KFZW_Ignition_KnockRet /* Knock-retard ignition map */
+      "Knock retard map - knock-retard ignition map"
       MAP 0xC0003200 RL_Map 0 CM_Deg -20 0
       /begin AXIS_DESCR
         STD_AXIS N_Engine CM_RPM 16 0 8000
@@ -628,11 +628,11 @@
     /end CHARACTERISTIC
 
 
-    /* ---- BOOST CONTROL / Điều khiển tăng áp ---- */
+    /* ---- BOOST CONTROL / Boost control ---- */
 
     /begin CHARACTERISTIC
-      KFLD_BoostTarget /* Áp suất tăng áp mục tiêu theo RPM x Load */
-      "Target boost pressure (RPM x Load) - Ap suat tang ap muc tieu"
+      KFLD_BoostTarget /* Target boost pressure by RPM x Load */
+      "Target boost pressure (RPM x Load) - target boost pressure"
       MAP 0xC0004000 RL_Map 0 CM_KPA 0 350
       /begin AXIS_DESCR
         STD_AXIS N_Engine CM_RPM 16 0 8000
@@ -643,8 +643,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_WG_DutyCycle /* Chu kỳ hoạt động van xả turbo */
-      "Wastegate duty cycle - Chu ky hoat dong van xa turbo"
+      KL_WG_DutyCycle /* Turbo wastegate duty cycle */
+      "Wastegate duty cycle - turbo wastegate duty cycle"
       MAP 0xC0004200 RL_Map 0 CM_Percent 0 100
       /begin AXIS_DESCR
         STD_AXIS N_Engine CM_RPM 16 0 8000
@@ -655,11 +655,11 @@
     /end CHARACTERISTIC
 
 
-    /* ---- TRANSMISSION CALIBRATION / Hiệu chuẩn hộp số ---- */
+    /* ---- TRANSMISSION CALIBRATION / Transmission calibration ---- */
 
     /begin CHARACTERISTIC
-      KFSCH_ShiftUp /* Bản đồ sang số lên */
-      "Upshift map (speed x throttle) - Ban do sang so len"
+      KFSCH_ShiftUp /* Upshift map */
+      "Upshift map (speed x throttle) - upshift map"
       MAP 0xC0005000 RL_Map 0 CM_NoUnit 1 9
       /begin AXIS_DESCR
         STD_AXIS V_Vehicle CM_KPH 16 0 300
@@ -670,8 +670,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFSCH_ShiftDown /* Bản đồ sang số xuống */
-      "Downshift map (speed x throttle) - Ban do sang so xuong"
+      KFSCH_ShiftDown /* Downshift map */
+      "Downshift map (speed x throttle) - downshift map"
       MAP 0xC0005200 RL_Map 0 CM_NoUnit 1 9
       /begin AXIS_DESCR
         STD_AXIS V_Vehicle CM_KPH 16 0 300
@@ -682,8 +682,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_TCC_LockupSpeed /* Tốc độ khóa biến mô */
-      "Torque converter lockup speed - Toc do khoa bien mo"
+      KL_TCC_LockupSpeed /* Torque converter lockup speed */
+      "Torque converter lockup speed - torque converter lockup speed"
       CURVE 0xC0005400 RL_Curve 0 CM_KPH 0 300
       /begin AXIS_DESCR
         STD_AXIS Gear_Current CM_NoUnit 9 1 9
@@ -691,11 +691,11 @@
     /end CHARACTERISTIC
 
 
-    /* ---- IDLE CONTROL / Điều khiển không tải ---- */
+    /* ---- IDLE CONTROL / Idle control ---- */
 
     /begin CHARACTERISTIC
-      KLTA_IdleSpeed_vs_Coolant /* Tốc độ không tải theo nhiệt độ nước */
-      "Idle speed vs coolant temp - Toc do khong tai theo nhiet do nuoc"
+      KLTA_IdleSpeed_vs_Coolant /* Idle speed vs coolant temperature */
+      "Idle speed vs coolant temp - idle speed vs coolant temperature"
       CURVE 0xC0006000 RL_Curve 0 CM_RPM 500 2000
       /begin AXIS_DESCR
         STD_AXIS T_Coolant CM_DegC_Offset40 16 -40 120
@@ -703,8 +703,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_IdleAir_vs_Coolant /* Lượng khí không tải theo nhiệt độ nước */
-      "Idle air vs coolant temp - Luong khi khong tai theo nhiet do nuoc"
+      KL_IdleAir_vs_Coolant /* Idle air vs coolant temperature */
+      "Idle air vs coolant temp - idle air vs coolant temperature"
       CURVE 0xC0006100 RL_Curve 0 CM_Percent 0 100
       /begin AXIS_DESCR
         STD_AXIS T_Coolant CM_DegC_Offset40 16 -40 120
@@ -712,11 +712,11 @@
     /end CHARACTERISTIC
 
 
-    /* ---- COOLING FAN / Quạt làm mát ---- */
+    /* ---- COOLING FAN / Cooling fan ---- */
 
     /begin CHARACTERISTIC
-      KL_FanSpeed_vs_Coolant /* Tốc độ quạt theo nhiệt độ nước */
-      "Fan speed vs coolant temp - Toc do quat theo nhiet do nuoc"
+      KL_FanSpeed_vs_Coolant /* Fan speed vs coolant temperature */
+      "Fan speed vs coolant temp - fan speed vs coolant temperature"
       CURVE 0xC0006200 RL_Curve 0 CM_Percent 0 100
       /begin AXIS_DESCR
         STD_AXIS T_Coolant CM_DegC_Offset40 16 60 120
@@ -724,56 +724,56 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_FanOn_Threshold /* Ngưỡng bật quạt (°C) */
-      "Fan on threshold - Nguong bat quat"
+      KL_FanOn_Threshold /* Fan-on threshold (°C) */
+      "Fan on threshold - fan-on threshold"
       VALUE 0xC0006300 RL_Scalar 0 CM_DegC_Offset40 60 120
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_FanOff_Threshold /* Ngưỡng tắt quạt (°C) */
-      "Fan off threshold - Nguong tat quat"
+      KL_FanOff_Threshold /* Fan-off threshold (°C) */
+      "Fan off threshold - fan-off threshold"
       VALUE 0xC0006302 RL_Scalar 0 CM_DegC_Offset40 50 110
     /end CHARACTERISTIC
 
 
-    /* ---- DPF REGENERATION / Tái sinh DPF ---- */
+    /* ---- DPF REGENERATION / DPF regeneration ---- */
 
     /begin CHARACTERISTIC
-      KL_DPF_RegenThreshold /* Ngưỡng tái sinh DPF (%) */
-      "DPF regen soot threshold - Nguong tai sinh DPF"
+      KL_DPF_RegenThreshold /* DPF regeneration threshold (%) */
+      "DPF regen soot threshold - DPF regeneration threshold"
       VALUE 0xC0007000 RL_Scalar 0 CM_Percent 0 100
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_DPF_RegenTemp /* Nhiệt độ tái sinh DPF (°C) */
-      "DPF regen target temp - Nhiet do tai sinh DPF muc tieu"
+      KL_DPF_RegenTemp /* DPF regeneration temperature (°C) */
+      "DPF regen target temp - target DPF regeneration temperature"
       VALUE 0xC0007002 RL_Scalar 0 CM_DegC_Offset40 400 700
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_DPF_RegenDuration /* Thời gian tái sinh DPF (s) */
-      "DPF regen duration - Thoi gian tai sinh DPF"
+      KL_DPF_RegenDuration /* DPF regeneration duration (s) */
+      "DPF regen duration - DPF regeneration duration"
       VALUE 0xC0007004 RL_Scalar 0 CM_NoUnit 0 1800
     /end CHARACTERISTIC
 
 
-    /* ---- EV BATTERY MANAGEMENT / Quản lý pin điện ---- */
+    /* ---- EV BATTERY MANAGEMENT / Electric battery management ---- */
 
     /begin CHARACTERISTIC
-      KL_SoC_Max_Charge /* Giới hạn sạc tối đa (%) */
-      "Max charge SoC limit - Gioi han sac toi da"
+      KL_SoC_Max_Charge /* Maximum charge limit (%) */
+      "Max charge SoC limit - maximum charge limit"
       VALUE 0xC0008000 RL_Scalar 0 CM_Percent 0 100
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KL_SoC_Min_Discharge /* Giới hạn xả tối thiểu (%) */
-      "Min discharge SoC limit - Gioi han xa toi thieu"
+      KL_SoC_Min_Discharge /* Minimum discharge limit (%) */
+      "Min discharge SoC limit - minimum discharge limit"
       VALUE 0xC0008002 RL_Scalar 0 CM_Percent 0 100
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFEM_RegenBrakeMap /* Bản đồ phanh tái sinh */
-      "Regenerative braking map - Ban do phanh tai sinh"
+      KFEM_RegenBrakeMap /* Regenerative braking map */
+      "Regenerative braking map - regenerative braking map"
       MAP 0xC0008010 RL_Map 0 CM_Nm 0 500
       /begin AXIS_DESCR
         STD_AXIS V_Vehicle CM_KPH 16 0 200
@@ -784,8 +784,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFEM_PowerLimit_vs_SoC /* Giới hạn công suất theo SoC */
-      "Power limit vs SoC - Gioi han cong suat theo SoC"
+      KFEM_PowerLimit_vs_SoC /* Power limit vs SoC */
+      "Power limit vs SoC - power limit vs SoC"
       CURVE 0xC0008200 RL_Curve 0 CM_kW 0 500
       /begin AXIS_DESCR
         STD_AXIS SoC_HVBattery CM_Percent 16 0 100
@@ -793,8 +793,8 @@
     /end CHARACTERISTIC
 
     /begin CHARACTERISTIC
-      KFEM_PowerLimit_vs_Temp /* Giới hạn công suất theo nhiệt độ */
-      "Power limit vs battery temp - Gioi han cong suat theo nhiet do"
+      KFEM_PowerLimit_vs_Temp /* Power limit vs temperature */
+      "Power limit vs battery temp - power limit vs temperature"
       CURVE 0xC0008300 RL_Curve 0 CM_kW 0 500
       /begin AXIS_DESCR
         STD_AXIS T_HVBattery CM_DegC_Offset40 16 -20 60
@@ -803,7 +803,7 @@
 
 
     /* =====================================================================
-     * RECORD LAYOUTS - Bố cục bản ghi
+     * RECORD LAYOUTS - Record layout
      * ===================================================================== */
 
     /begin RECORD_LAYOUT RL_Scalar
@@ -823,7 +823,7 @@
 
 
     /* =====================================================================
-     * XCP INTERFACE - Giao diện XCP/TCP
+     * XCP INTERFACE - XCP/TCP interface
      * ===================================================================== */
 
     /begin IF_DATA XCP
@@ -840,13 +840,13 @@
           1 SIZE_DWORD UNIT_1US
         /end TIMESTAMP_SUPPORTED
         /begin EVENT
-          "10ms_Engine" "Sự kiện 10ms động cơ" 0x0001 DAQ 0xFF 10 6 0
+          "10ms_Engine" "10ms engine event" 0x0001 DAQ 0xFF 10 6 0
         /end EVENT
         /begin EVENT
-          "100ms_Vehicle" "Sự kiện 100ms xe" 0x0002 DAQ 0xFF 100 6 0
+          "100ms_Vehicle" "100ms vehicle event" 0x0002 DAQ 0xFF 100 6 0
         /end EVENT
         /begin EVENT
-          "1000ms_Slow" "Sự kiện 1000ms chậm" 0x0003 DAQ 0xFF 1000 6 0
+          "1000ms_Slow" "1000ms slow event" 0x0003 DAQ 0xFF 1000 6 0
         /end EVENT
       /end DAQ
 

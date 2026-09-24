@@ -55,6 +55,9 @@ include = ["src*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q --tb=short"
+markers = [
+    "runtime: full process runtime smoke tests (opt-in)",
+]
 
 [tool.coverage.run]
 source = ["src"]

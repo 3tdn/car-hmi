@@ -1,7 +1,7 @@
 #!/bin/bash
 
 for file in *.avi; do
-    # Bỏ qua nếu không có file AVI nào
+    # Skip if there are no AVI files
     [ -f "$file" ] || continue
 
     output="${file%.avi}.mp4"

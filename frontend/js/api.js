@@ -1,17 +1,21 @@
 /**
- * api.js — REST + WebSocket wrapper cho CAN-HMI backend.
+ * api.js — REST + WebSocket wrapper for the CAN-HMI backend.
  *
- * Tương thích với demo API: https://car-hmi-api-demo.onrender.com
+ * Compatible with the demo API: https://car-hmi-api-demo.onrender.com
  *
- * Cấu hình trước khi load (thêm <script> trước file này):
- *   window.API_BASE = "http://192.168.1.100:8000";   // mặc định: cùng origin
- *   window.WS_BASE  = "ws://192.168.1.100:8000";      // mặc định: cùng origin
- *   window.API_KEY  = "your-key";                      // mặc định: không cần key
+ * Configure before loading (add a <script> before this file):
+ *   window.API_BASE = "http://192.168.1.100:8000";   // default: same origin
+ *   window.WS_BASE  = "ws://192.168.1.100:8000";      // default: same origin
+ *   window.API_KEY  = "your-key";                      // default: no key required
  *
  * REST endpoints:
  *   GET  /api/info                   → fetchSystemInfo()
  *   GET  /api/profiles               → listProfiles()
  *   GET  /api/profile[?name=x]       → fetchProfile(name?)
+ *   PUT  /api/profile/active         → setActiveProfile(name)
+ *   GET  /api/profile/sessions       → listProfileSessions()
+ *   POST /api/profile/heartbeat      → heartbeatProfileSession()
+ *   POST /api/profile/offline        → markProfileSessionOffline()
  *   POST /api/profile                → createProfile(body)
  *   PUT  /api/profile                → updateProfile(body)   [optimistic lock: section_id]
  *   DELETE /api/profile/{name}       → deleteProfile(name)
@@ -19,14 +23,12 @@
  *   GET  /signals/available          → fetchAvailableSignals()
  *   PUT  /signals/{name}             → writeSignal(name, value)
  *   POST /signals/batch_update       → batchWriteSignals(writes)
- *   GET  /alarms                     → fetchActiveAlarms()
- *   POST /alarms/{id}/acknowledge    → acknowledgeAlarm(id)
  *   GET  /system/metrics             → fetchSystemMetrics()
  *
  * WebSocket (demo-compatible):
  *   Endpoint:  ws[s]://host/ws/signals
  *   Client → Server:
- *     {"type": "subscribe",   "signals": ["SignalName", "*", "alarms", "metrics"]}
+ *     {"type": "subscribe",   "signals": ["SignalName", "*", "metrics"]}
  *     {"type": "unsubscribe", "signals": ["SignalName"]}
  *     {"type": "ping"}
  *   Server → Client (signal frame):
@@ -35,39 +37,34 @@
  *   Server → Client (pong):   {"type": "pong"}
  *
  * std_name Support:
- *   - Backend maps signal_name ↔ std_name from config/signal_std_name.json
- *   - Frontend can read/write using either name; backend resolves transparently
- *   - API responses include std_name field when available
+ *   - Backend returns std_name equal to signal_name
+ *
+ * Profile session headers:
+ *   - X-Client-Id is attached automatically (persisted in sessionStorage)
+ *   - /api/profile/heartbeat and /api/profile/offline require X-Client-Id
+ *   - /api/profile/active with X-Client-Id sets active profile for that client only
  */
 
-// ── Signal Name Registry (std_name support) ─────────────────────────────────
+// ── Signal Name Registry ─────────────────────────────────
 const _signalRegistry = {
   byCanonical: new Map(),  // signal_name → {signal_name, std_name, unit, ...}
-  byStdName:   new Map(),  // std_name → signal_name (for fast reverse lookup)
 };
 
 /**
- * Resolve a name to canonical signal_name (handles both signal_name and std_name).
- * @param {string} nameOrStdName
- * @returns {string} canonical signal_name
+ * @param {string} signalName
+ * @returns {string} signal_name
  */
-function resolveSignalName(nameOrStdName) {
-  // Try lookup by std_name first
-  if (_signalRegistry.byStdName.has(nameOrStdName)) {
-    return _signalRegistry.byStdName.get(nameOrStdName);
-  }
-  // Otherwise assume it's already canonical or will be resolved by backend
-  return nameOrStdName;
+function resolveSignalName(signalName) {
+  return signalName;
 }
 
 /**
- * Get full signal metadata including std_name.
- * @param {string} nameOrStdName
+ * Get full signal metadata.
+ * @param {string} signalName
  * @returns {object|null}
  */
-function getSignalMetadata(nameOrStdName) {
-  const canonical = resolveSignalName(nameOrStdName);
-  return _signalRegistry.byCanonical.get(canonical) || null;
+function getSignalMetadata(signalName) {
+  return _signalRegistry.byCanonical.get(signalName) || null;
 }
 
 /**
@@ -76,15 +73,11 @@ function getSignalMetadata(nameOrStdName) {
  */
 function populateSignalRegistry(availableSignalsList) {
   _signalRegistry.byCanonical.clear();
-  _signalRegistry.byStdName.clear();
   
   if (!availableSignalsList) return;
   
   availableSignalsList.forEach(sig => {
     _signalRegistry.byCanonical.set(sig.signal_name, sig);
-    if (sig.std_name && sig.std_name !== sig.signal_name) {
-      _signalRegistry.byStdName.set(sig.std_name, sig.signal_name);
-    }
   });
 }
 
@@ -102,127 +95,235 @@ const DEFAULT_ORIGIN = `${originProtocol}//${originHost}${originPort}`;
 const API_BASE = window.API_BASE || DEFAULT_ORIGIN;
 const WS_BASE =
   window.WS_BASE || `${originProtocol === "https:" ? "wss" : "ws"}://${originHost}${originPort}`;
-const API_KEY = window.API_KEY || "";
+let storedApiKey = "";
+try {
+  storedApiKey = sessionStorage.getItem("can_hmi_api_key") || "";
+} catch {
+  // Storage can be unavailable in privacy-restricted browser contexts.
+}
+const API_KEY = window.API_KEY || storedApiKey;
+let PROFILE_NAME = window.PROFILE_NAME || "";
+
+function _getOrCreateClientId() {
+  const storageKey = "can_hmi_client_id";
+  try {
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const generated = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID()
+      : `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem(storageKey, generated);
+    return generated;
+  } catch {
+    return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+const CLIENT_ID = _getOrCreateClientId();
+
+function setProfileName(name) {
+  PROFILE_NAME = name || "";
+  window.PROFILE_NAME = PROFILE_NAME;
+}
+
+function getProfileName() {
+  return PROFILE_NAME;
+}
+
+function getClientId() {
+  return CLIENT_ID;
+}
+
+function _normalizeWarnings(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload.warnings)) return payload.warnings;
+  if (Array.isArray(payload.detail)) return payload.detail;
+  if (payload.detail && typeof payload.detail === "object") return [payload.detail];
+  return [];
+}
+
+async function _readPayload(resp) {
+  // 204/205 must not include a message body.
+  if (resp.status === 204 || resp.status === 205) {
+    return null;
+  }
+
+  const contentType = resp.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await resp.text();
+    return text ? { message: text } : null;
+  }
+  try {
+    return await resp.json();
+  } catch {
+    // Some endpoints reply with empty body but still set JSON content-type.
+    return null;
+  }
+}
+
+async function _fetchJson(url, options = {}) {
+  const resp = await fetch(url, options);
+  const payload = await _readPayload(resp);
+  if (!resp.ok) {
+    const error = new Error(payload?.message || payload?.detail?.message || `${options.method || "GET"} ${url} → ${resp.status}`);
+    error.status = resp.status;
+    error.payload = payload;
+    error.detail = payload?.detail ?? null;
+    error.warnings = _normalizeWarnings(payload);
+    throw error;
+  }
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    payload.warnings = _normalizeWarnings(payload);
+  }
+  return payload;
+}
 
 const _headers = () => {
   const h = { "Content-Type": "application/json" };
   if (API_KEY) h["X-API-Key"] = API_KEY;
+  if (PROFILE_NAME) h["X-Profile-Name"] = PROFILE_NAME;
+  if (CLIENT_ID) h["X-Client-Id"] = CLIENT_ID;
   return h;
 };
 
 // ── System ──────────────────────────────────────────────────────────────────────
 
 /**
- * Thông tin tổng quan dự án: tên, phiên bản, uptime, số signal, trạng thái kết nối.
+ * Project overview: name, version, uptime, signal count, connection status.
  * @returns {Promise<{name:string, version:string, uptime_seconds:number, signal_count:number, bus_connected:boolean, db_connected:boolean}>}
  */
 async function fetchSystemInfo() {
-  const resp = await fetch(`${API_BASE}/api/info`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/info → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/api/info`, { headers: _headers() });
 }
 
 /**
- * Thông tin tài nguyên CarPC: CPU, RAM, disk, queue, heap.
+ * CarPC resource information: CPU, RAM, disk, queue, heap.
  * @returns {Promise<Object>}
  */
 async function fetchSystemMetrics() {
-  const resp = await fetch(`${API_BASE}/system/metrics`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /system/metrics → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/system/metrics`, { headers: _headers() });
 }
 
 // ── Profiles ───────────────────────────────────────────────────────────────
 
 /**
- * Danh sách tất cả profiles và profile đang active.
+ * List of all profiles and the active profile.
  * @returns {Promise<{profiles:Array, total:number, active:string|null}>}
  */
 async function listProfiles() {
-  const resp = await fetch(`${API_BASE}/api/profiles`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/profiles → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/api/profiles`, { headers: _headers() });
 }
 
 /**
- * Lấy một profile theo tên, hoặc active profile nếu không truyền name.
+ * Get a profile by name, or the active profile if no name is provided.
  * @param {string} [name]
- * @returns {Promise<{name:string, signals:string[], description:string|null, section_id:string}>}
+ * @returns {Promise<{name:string, signals:Array<{name:string, permission:string[]}>, description:string|null, section_id:string}>}
  */
 async function fetchProfile(name) {
   const url = name
     ? `${API_BASE}/api/profile?name=${encodeURIComponent(name)}`
     : `${API_BASE}/api/profile`;
-  const resp = await fetch(url, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /api/profile → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(url, { headers: _headers() });
 }
 
 /**
- * Tạo profile mới.
- * @param {{name:string, signals:string[], description?:string}} body
+ * Change the active profile on the server.
+ * @param {string} name
+ * @returns {Promise<{active:string, warnings?:Array}>}
+ */
+async function setActiveProfile(name) {
+  return _fetchJson(`${API_BASE}/api/profile/active`, {
+    method:  "PUT",
+    headers: _devHeaders(),
+    body:    JSON.stringify({ name }),
+  });
+}
+
+/**
+ * List active-profile sessions by client.
+ * @returns {Promise<{sessions:Array, total:number, global_active:string|null}>}
+ */
+async function listProfileSessions() {
+  return _fetchJson(`${API_BASE}/api/profile/sessions`, { headers: _devHeaders() });
+}
+
+/**
+ * Send a profile-session heartbeat for the current client.
+ * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
+ */
+async function heartbeatProfileSession() {
+  return _fetchJson(`${API_BASE}/api/profile/heartbeat`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+/**
+ * Mark the client's profile session offline immediately.
+ * @returns {Promise<{client_id:string, active:string|null, last_seen:number, ttl_seconds:number}>}
+ */
+async function markProfileSessionOffline() {
+  return _fetchJson(`${API_BASE}/api/profile/offline`, {
+    method: "POST",
+    headers: _headers(),
+  });
+}
+
+/**
+ * Create a new profile.
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string}} body
  * @returns {Promise<Object>}
  */
 async function createProfile(body) {
-  const resp = await fetch(`${API_BASE}/api/profile`, {
+  return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "POST",
-    headers: _headers(),
+    headers: _devHeaders(),
     body:    JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`POST /api/profile → ${resp.status}`);
-  return resp.json();
 }
 
 /**
- * Cập nhật profile (yêu cầu section_id để tránh xung đột đồng thời).
- * Nếu section_id mismatch → lỗi 409 → gọi fetchProfile() lại rồi thử lại.
- * @param {{name:string, signals:string[], description?:string, section_id:string}} body
+ * Update a profile (requires section_id to avoid concurrent conflicts).
+ * If section_id mismatches → 409 error → call fetchProfile() again and retry.
+ * @param {{name:string, signals:Array<{name:string, permission:string[]}>, exinfo?:Object, description?:string, section_id:string}} body
  * @returns {Promise<Object>}
  */
 async function updateProfile(body) {
-  const resp = await fetch(`${API_BASE}/api/profile`, {
+  return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "PUT",
-    headers: _headers(),
+    headers: _devHeaders(),
     body:    JSON.stringify(body),
   });
-  if (resp.status === 409) throw new Error("Conflict: reload profile và thử lại (section_id mismatch)");
-  if (!resp.ok) throw new Error(`PUT /api/profile → ${resp.status}`);
-  return resp.json();
 }
 
 /**
- * Xóa profile theo tên.
+ * Delete a profile by name.
  * @param {string} name
  */
 async function deleteProfile(name) {
-  const resp = await fetch(`${API_BASE}/api/profile/${encodeURIComponent(name)}`, {
+  return _fetchJson(`${API_BASE}/api/profile/${encodeURIComponent(name)}`, {
     method:  "DELETE",
-    headers: _headers(),
+    headers: _devHeaders(),
   });
-  if (!resp.ok) throw new Error(`DELETE /api/profile/${name} → ${resp.status}`);
 }
 
 // ── Signals ──────────────────────────────────────────────────────────────────
 
 /**
- * Snapshot hiện tại của tất cả giá trị signal.
+ * Current snapshot of all signal values.
  * @returns {Promise<{items:Array, total:number}>}
  */
 async function fetchSignals() {
-  const resp = await fetch(`${API_BASE}/signals`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /signals → ${resp.status}`);
-  return resp.json();
+  return _fetchJson(`${API_BASE}/signals`, { headers: _headers() });
 }
 
 /**
- * Full metadata của tất cả signals (gọi 1 lần khi khởi động).
- * Gồm: unit, min/max, alarm thresholds, writable, giá trị hiện tại.
+ * Full metadata for all signals (called once at startup).
+ * Includes: unit, min/max, writable flag, current value.
  * @returns {Promise<{signals_info:Array, total:number}>}
  */
 async function fetchAvailableSignals() {
-  const resp = await fetch(`${API_BASE}/signals/available`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /signals/available → ${resp.status}`);
-  const data = await resp.json();
+  const data = await _fetchJson(`${API_BASE}/signals/available`, { headers: _headers() });
   // Backward-compatible normalization during contract transition.
   return {
     ...data,
@@ -231,74 +332,166 @@ async function fetchAvailableSignals() {
 }
 
 /**
- * Ghi giá trị lên một writable signal (queue CAN output). HTTP 202 Accepted.
- * Hỗ trợ cả signal_name và std_name — backend resolve tự động.
- * @param {string} nameOrStdName  — signal_name hoặc std_name
+ * Write a value to a writable signal (queued to CAN output). HTTP 202 Accepted.
+ * @param {string} signalName
  * @param {number} value
+ * @param {{devMode?:boolean}} [options]
  * @returns {Promise<{signal_name:string, value:number, queued_at:number}>}
  */
-async function writeSignal(nameOrStdName, value) {
-  const canonical = resolveSignalName(nameOrStdName);
-  const resp = await fetch(`${API_BASE}/signals/${encodeURIComponent(canonical)}`, {
+async function writeSignal(signalName, value, options = {}) {
+  const headers = _headers();
+  if (options.devMode) headers["X-Dev-Mode"] = "true";
+  return _fetchJson(`${API_BASE}/signals/${encodeURIComponent(signalName)}`, {
     method:  "PUT",
-    headers: _headers(),
+    headers,
     body:    JSON.stringify({ value }),
   });
-  if (!resp.ok) throw new Error(`PUT /signals/${canonical} → ${resp.status}`);
-  return resp.json();
 }
 
 /**
- * Ghi nhiều writable signals cùng lúc. HTTP 202 Accepted.
- * Hỗ trợ cả signal_name và std_name trong mỗi item — backend resolve tự động.
- * @param {Array<{signal_name:string, value:number}>} writes  — signal_name/std_name
+ * Write multiple writable signals at once. HTTP 202 Accepted.
+ * @param {Array<{signal_name:string, value:number}>} writes
  * @returns {Promise<{queued:Array, count:number, queued_at:number}>}
  */
 async function batchWriteSignals(writes) {
-  // Resolve std_name → signal_name cho mỗi item
-  const resolved = writes.map(item => ({
-    signal_name: resolveSignalName(item.signal_name),
-    value: item.value,
-  }));
-  const resp = await fetch(`${API_BASE}/signals/batch_update`, {
+  return _fetchJson(`${API_BASE}/signals/batch_update`, {
     method:  "POST",
     headers: _headers(),
-    body:    JSON.stringify({ signals: resolved }),
+    body:    JSON.stringify({ signals: writes }),
   });
-  if (!resp.ok) throw new Error(`POST /signals/batch_update → ${resp.status}`);
-  return resp.json();
 }
 
-// ── Alarms ────────────────────────────────────────────────────────────────────
+// ── Dev Mode ─────────────────────────────────────────────────────────────────
+
+const _devHeaders = () => ({ ..._headers(), "X-Dev-Mode": "true" });
 
 /**
- * Danh sách alarm chưa được acknowledge.
- * @returns {Promise<{items:Array, total:number}>}
+ * Metadata used to build the Dev Mode view A tabs and state buttons.
+ * @returns {Promise<{seats:string[], families:Array<{signal_name:string, kind:string, states:Array}>, block_timeout_sec:number}>}
  */
-async function fetchActiveAlarms() {
-  const resp = await fetch(`${API_BASE}/alarms?acknowledged=false&limit=50`, { headers: _headers() });
-  if (!resp.ok) throw new Error(`GET /alarms → ${resp.status}`);
-  return resp.json();
+async function fetchDevmodeCatalog() {
+  return _fetchJson(`${API_BASE}/api/devmode/catalog`, { headers: _devHeaders() });
 }
 
 /**
- * Acknowledge một alarm theo ID.
- * @param {number} alarmId
+ * Current Dev Mode seat lock state.
+ * @returns {Promise<{seats:Object, expires_at:string|null}>}
  */
-async function acknowledgeAlarm(alarmId) {
-  const resp = await fetch(`${API_BASE}/alarms/${alarmId}/acknowledge`, {
-    method:  "POST",
-    headers: _headers(),
-  });
-  if (!resp.ok) throw new Error(`POST /alarms/${alarmId}/acknowledge → ${resp.status}`);
-  return resp.json();
+async function fetchDevmodeStatus() {
+  return _fetchJson(`${API_BASE}/api/devmode/status`, { headers: _devHeaders() });
 }
 
+/**
+ * Tell the backend which seats are selected — it locks them for block_timeout_sec.
+ * @param {Object<string, boolean>} seats
+ * @param {number} [blockTimeoutSec]
+ */
+async function selectDevmodeSeats(seats, blockTimeoutSec) {
+  const body = { seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/seats/select`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/**
+ * Apply one signal family (ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request)
+ * to several seats at once.
+ */
+async function applyDevmodeSignal(signalName, value, seats, blockTimeoutSec) {
+  const body = { signal_name: signalName, value, seats };
+  if (blockTimeoutSec != null) body.block_timeout_sec = blockTimeoutSec;
+  return _fetchJson(`${API_BASE}/api/devmode/signals`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    body:    JSON.stringify(body),
+  });
+}
+
+/** Leave Dev Mode — release every seat lock held by this section. */
+async function exitDevmode(options = {}) {
+  return _fetchJson(`${API_BASE}/api/devmode/exit`, {
+    method:  "POST",
+    headers: _devHeaders(),
+    keepalive: !!options.keepalive,
+  });
+}
+
+/** Request an immediate reconnect attempt for every CAN reader. */
+async function retryCanConnections() {
+  return _fetchJson(`${API_BASE}/system/can/retry`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+/** Gracefully restart the Car-HMI service through the system supervisor. */
+async function rebootCarHmi() {
+  return _fetchJson(`${API_BASE}/system/reboot`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+/** Load system config and field policy using Dev Mode, independently of profiles. */
+async function getSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system`, { headers: _devHeaders() });
+}
+
+/** Apply a partial system config update. */
+async function patchSystemConfig(patch) {
+  return _fetchJson(`${API_BASE}/config/system`, {
+    method: "PATCH",
+    headers: _devHeaders(),
+    body: JSON.stringify(patch),
+  });
+}
+
+async function createSystemConfigBackup() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function listSystemConfigBackups() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, { headers: _devHeaders() });
+}
+
+async function deleteSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}`, {
+    method: "DELETE",
+    headers: _devHeaders(),
+  });
+}
+
+async function restoreSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}/restore`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function resetSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reset`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function reloadSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reload`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
 // ── WebSocket (legacy topic-based) ───────────────────────────────────────────
 
 /**
- * Mở WebSocket tĩnh đến một topic (không có subscribe control, legacy).
- * @param {"signals"|"alarms"|"all"} topic
+ * Open a fixed WebSocket to a topic (no subscribe control, legacy).
+ * @param {"signals"|"all"} topic
  * @param {function(object): void} onMessage
  * @returns {WebSocket}
  */
@@ -315,21 +508,24 @@ function openWebSocket(topic, onMessage) {
 // ── WebSocket (demo-compatible subscribe protocol) ────────────────────────────
 
 /**
- * Mở WebSocket chính đến /ws/signals với subscribe protocol.
+ * Open the main WebSocket to /ws/signals using the subscribe protocol.
  *
  * Demo-compatible:
- *   subscribe(["*"])             → nhận tất cả signals
- *   subscribe(["A", "B"])        → nhận signal A và B
- *   subscribe(["*", "alarms"])   → signals + alarm events
- *   subscribe(["metrics"])       → chỉ metrics
- *   ping()                       → server trả {"type": "pong"}
+ *   subscribe(["*"])             → receive all signals
+ *   subscribe(["A", "B"])        → receive signals A and B
+ *   subscribe(["metrics"])       → metrics only
+ *   ping()                       → server returns {"type": "pong"}
  *
- * @param {function(object): void} onMessage  — gọi mỗi khi nhận message
- * @param {function(): void}       [onOpen]   — gọi khi kết nối thành công
+ * @param {function(object): void} onMessage  — called each time a message is received
+ * @param {function(): void}       [onOpen]   — called when the connection succeeds
  * @returns {{ ws:WebSocket, subscribe:function, unsubscribe:function, ping:function }}
  */
 function openSubscriptionWS(onMessage, onOpen) {
-  const url  = `${WS_BASE}/ws/signals`;
+  const qs = [];
+  if (API_KEY) qs.push(`api_key=${encodeURIComponent(API_KEY)}`);
+  if (PROFILE_NAME) qs.push(`profile_name=${encodeURIComponent(PROFILE_NAME)}`);
+  if (CLIENT_ID) qs.push(`client_id=${encodeURIComponent(CLIENT_ID)}`);
+  const url  = `${WS_BASE}/ws/signals${qs.length ? `?${qs.join("&")}` : ""}`;
   const sock = new WebSocket(url);
 
   sock.addEventListener("message", (evt) => {
@@ -342,8 +538,8 @@ function openSubscriptionWS(onMessage, onOpen) {
   }
 
   /**
-   * Đăng ký nhận signals/channels.
-   * @param {string[]|string} signals  — e.g. ["EngineSpeed", "*", "alarms", "metrics"]
+   * Subscribe to signals/channels.
+   * @param {string[]|string} signals  — e.g. ["EngineSpeed", "*", "metrics"]
    * @param {"continuous"|"once"} [mode="continuous"]
    * @param {{rate_ms?:number}} [opts]
    */
@@ -356,7 +552,7 @@ function openSubscriptionWS(onMessage, onOpen) {
   }
 
   /**
-   * Hủy đăng ký signals.
+   * Unsubscribe from signals.
    * @param {string[]} signals
    */
   function unsubscribe(signals) {
@@ -365,7 +561,7 @@ function openSubscriptionWS(onMessage, onOpen) {
     }
   }
 
-  /** Gửi keepalive ping — server trả về {"type": "pong"}. */
+  /** Send a keepalive ping — the server returns {"type": "pong"}. */
   function ping() {
     if (sock.readyState === WebSocket.OPEN) {
       sock.send(JSON.stringify({ type: "ping" }));
@@ -378,7 +574,7 @@ function openSubscriptionWS(onMessage, onOpen) {
 // ── Adaptive Restraint ─────────────────────────────────────────────────────────
 
 /**
- * Lấy danh sách các options lọc hệ thống hỗ trợ thích ứng
+ * Get the list of filter options for the adaptive system
  */
 async function fetchAdaptiveAvailable() {
   const resp = await fetch(`${API_BASE}/adaptive_restraint/available`, { headers: _headers() });
@@ -387,7 +583,7 @@ async function fetchAdaptiveAvailable() {
 }
 
 /**
- * Lấy thống kê và thông tin vẽ biểu đồ Box-plot cho hệ thống thích ứng
+ * Get statistics and Box-plot chart data for the adaptive system
  */
 async function fetchAdaptiveChartInfo(params) {
   const queryParts = [];
@@ -455,4 +651,3 @@ async function fetchCameraStatus() {
   if (!resp.ok) throw new Error(`GET /api/camera/status → ${resp.status}`);
   return resp.json();
 }
-

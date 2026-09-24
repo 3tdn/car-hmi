@@ -1,18 +1,20 @@
-"""Bộ phân tích cơ sở dữ liệu CAN — tải từ file can.json.
+"""CAN database parser — loads from a DBC file or the legacy can.json file.
 
-Nhiệm vụ
---------
-- Tải file can.json chứa định nghĩa thông điệp/tín hiệu
-- Tự động phân bổ ``start_bit`` khi giá trị là ``null``
-- Tự động tính ``minimum``/``maximum`` khi thiếu
-- Giải mã khung CAN thô → ``dict[signal_name, float]``
-- Mã hóa giá trị tín hiệu → ``can.Message``
+Responsibilities
+----------------
+- Load message/signal definitions directly from a ``.dbc`` file (via cantools),
+  or from the legacy can.json export
+- Automatically allocate ``start_bit`` when the value is ``null``
+- Automatically compute ``minimum``/``maximum`` when missing
+- Decode raw CAN frames into ``dict[signal_name, float]``
+- Encode signal values into ``can.Message``
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,47 +23,125 @@ import can
 logger = logging.getLogger(__name__)
 
 
-# ── Mô hình miền dữ liệu ───────────────────────────────────────────────────────
+# ── Data domain models ──────────────────────────────────────────────────────
 
 
 @dataclass
 class ParsedSignal:
-    """Thông tin tín hiệu đã phân tích từ file DBC / CANdb."""
+    """Parsed signal information loaded from a DBC / CANdb file."""
 
     name: str
     start_bit: int
     length: int
     is_signed: bool
-    byte_order: str  # "little_endian" | "big_endian"  (định dạng byte)
+    byte_order: str  # "little_endian" | "big_endian" (byte order)
     factor: float
     offset: float
     unit: str
     minimum: float | None
     maximum: float | None
     description: str
-    db_source: str  # file nguồn đã tải tín hiệu
+    db_source: str  # source file from which the signal was loaded
     receivers: list[str] = field(default_factory=list)
+    states: list[dict] = field(default_factory=list)  # enum states [{value, description}], if any
 
 
 @dataclass
 class ParsedMessage:
-    """Thông tin thông điệp đã phân tích từ file DBC / CANdb."""
+    """Parsed message information loaded from a DBC / CANdb file."""
 
     msg_id: int
     name: str
     dlc: int
     senders: list[str]
-    signals: dict[str, ParsedSignal]  # signal_name → ParsedSignal (ánh xạ tín hiệu)
+    signals: dict[str, ParsedSignal]  # signal_name → ParsedSignal (signal mapping)
     db_source: str
     cycle_ms: int | None = None
     description: str = ""
 
 
-# ── Hàm hỗ trợ thao tác bit ────────────────────────────────────────────────────
+# ── DBC naming / comment conventions (shared by DatabaseLoader and CANSimulator) ──
+
+
+def normalize_signal_name(name: str) -> str:
+    """Canonical signal name: drop trailing lowercase suffixes (_bool, _status, _flag, _kmh, ...)."""
+    name = (name or "").strip()
+    return re.sub(r"_[a-z]\w*$", "", name) if name else ""
+
+
+def split_comment_states(comment: str) -> tuple[str, list[dict]]:
+    """Split a DBC signal comment into ``(clean_description, states)``.
+
+    Recognizes the project convention (see ``scripts/dbc_utils.py``), e.g.:
+    ``"Main comment | Signalvalues: 0: Off, 1: On"`` or ``"... | Signalvalues: level 1-10 x"``.
+    """
+    if not comment or "Signalvalues:" not in comment or "bit encoding" in comment.lower():
+        return comment or "", []
+    main_comment, states_part = comment.split("Signalvalues:", 1)
+    main_comment = main_comment.rstrip(" ").rstrip("|").strip()
+    return main_comment, _parse_states_from_comment(states_part.strip())
+
+
+def _parse_states_from_comment(states_part: str) -> list[dict]:
+    """Parse enum states out of a ``Signalvalues:`` string (see ``split_comment_states``)."""
+    states: list[dict] = []
+    if not states_part:
+        return states
+    parts = re.split(r"[;,]|\n", states_part)
+    if len(parts) == 1:
+        description = parts[0].replace("0-max ", "").rstrip().rstrip(".").strip()
+        return [{"value": 0, "description": description}]
+    idx = 0
+    for part in parts:
+        part = part.rstrip().rstrip(".").strip()
+        if re.search(r"\s+[:\-=]\s+", part):
+            val_str, desc = re.split(r"\s+[:\-=]\s+", part, maxsplit=1)
+            val_str = val_str.strip()
+            try:
+                val = int(val_str)
+            except ValueError:
+                try:
+                    val = float(val_str)
+                except ValueError:
+                    val = val_str  # keep as string if not int or float
+            states.append({"value": val, "description": desc})
+        elif re.search(r"\d+-\d+", part):
+            m = re.match(r"(.*?)(\d+)-(\d+)(.*)", part)
+            if m:
+                prefix, start, end, suffix = m.groups()
+                start, end = map(int, (start, end))
+                if start <= end:
+                    for i in range(start, end + 1):
+                        states.append({"value": idx, "description": f"{prefix}{i}{suffix}"})
+                        idx += 1
+                else:
+                    states.append({"value": idx, "description": part})
+                    idx += 1
+            else:
+                states.append({"value": idx, "description": part})
+                idx += 1
+        else:
+            states.append({"value": idx, "description": part})
+            idx += 1
+    return states
+
+
+def states_as_ints(states: list[dict]) -> list[int]:
+    """Extract numeric ``value``s from a states list, skipping non-numeric entries."""
+    result: list[int] = []
+    for s in states:
+        try:
+            result.append(int(s["value"]))
+        except (TypeError, ValueError, KeyError):
+            continue
+    return result
+
+
+# ── Bit-manipulation helpers ───────────────────────────────────────────────
 
 
 def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
-    """Đánh dấu các bit đã dùng trong bitmask ``used`` (LSB-indexed)."""
+    """Mark bits as used in the ``used`` bitmask (LSB-indexed)."""
     total = len(used)
     for b in range(max(0, start_lsb), min(total, start_lsb + length)):
         used[b] = True
@@ -70,9 +150,9 @@ def _mark_used_bits(used: list[bool], start_lsb: int, length: int) -> None:
 def _extract_bits(
     data: bytes, start_bit: int, length: int, is_signed: bool, big_endian: bool
 ) -> int:
-    """Trích xuất giá trị từ byte dữ liệu khung CAN.
+    """Extract a value from CAN frame payload bytes.
 
-    Sử dụng quy ước vectorcast Intel (little-endian).
+    Uses the Intel (little-endian) bit-numbering convention.
     """
     raw = int.from_bytes(data, "little")
     if big_endian:
@@ -96,7 +176,7 @@ def _extract_bits(
 def _insert_bits(
     data: bytearray, raw_int: int, start_bit: int, length: int, is_signed: bool, big_endian: bool
 ) -> None:
-    """Chèn giá trị số nguyên thô vào bytearray tại vị trí bit đã chỉ định."""
+    """Insert a raw integer value into a bytearray at the specified bit position."""
     mask = (1 << length) - 1
     if is_signed and raw_int < 0:
         raw_int = raw_int & mask
@@ -118,11 +198,11 @@ def _insert_bits(
     data[:] = wide.to_bytes(len(data), "little")
 
 
-# ── Giải mã / Mã hóa frame ──────────────────────────────────────────────────
+# ── Frame decoding / encoding ─────────────────────────────────────────────
 
 
 def decode_frame_from_msg(msg: ParsedMessage, data: bytes) -> dict[str, float]:
-    """Giải mã byte CAN thô → dict tín hiệu theo công thức factor/offset."""
+    """Decode raw CAN bytes into a signal dict using factor/offset conversion."""
     if len(data) < msg.dlc:
         # Pad short frames to avoid bit extraction errors
         data = data + b"\x00" * (msg.dlc - len(data))
@@ -139,7 +219,7 @@ def decode_frame_from_msg(msg: ParsedMessage, data: bytes) -> dict[str, float]:
 
 
 def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> bytes:
-    """Mã hóa dict giá trị tín hiệu thành byte dữ liệu khung CAN."""
+    """Encode a signal-value dict into CAN frame payload bytes."""
     data = bytearray(msg.dlc)
     for sig_name, value in signals.items():
         sig = msg.signals.get(sig_name)
@@ -164,21 +244,22 @@ def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> byte
     return bytes(data)
 
 
-# ── DatabaseLoader — tải từ can.json ────────────────────────────────────────
+# ── DatabaseLoader — load from a DBC file or can.json ─────────────────────
 
 
 class DatabaseLoader:
-    """Tải cơ sở dữ liệu CAN từ file ``can.json``.
+    """Load a CAN database directly from a ``.dbc`` file, or from the legacy ``can.json``.
 
-    Hỗ trợ:
-    - Tự động phân bổ ``start_bit`` khi giá trị là ``null``
-    - Tự động tính ``minimum``/``maximum`` khi thiếu
-    - Giải mã / mã hóa khung CAN qua công thức factor/offset
+    Supports:
+    - Automatically allocating ``start_bit`` when the value is ``null``
+    - Automatically computing ``minimum``/``maximum`` when missing
+    - Decoding / encoding CAN frames through factor/offset conversion
 
-    Sử dụng::
+    Usage::
 
         loader = DatabaseLoader()
-        loader.load("config/can.json")
+        loader.load_dbc("db/can_db/p_v2.dbc")   # preferred: read directly from DBC
+        loader.load("config/can.json")           # legacy: read from can.json export
         messages = loader.messages   # dict[msg_id → ParsedMessage]
         signals  = loader.signals    # dict[signal_name → ParsedSignal]
     """
@@ -189,10 +270,10 @@ class DatabaseLoader:
         self._signal_to_msg: dict[str, int] = {}  # signal_name → msg_id
         self._loaded_files: list[str] = []
 
-    # ── API công khai ──────────────────────────────────────────────────────────
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def load(self, path: str | Path) -> None:
-        """Tải file can.json và gộp định nghĩa thông điệp/tín hiệu."""
+        """Load can.json and merge message/signal definitions."""
         resolved = Path(path)
         if not resolved.exists():
             raise FileNotFoundError(f"can.json not found: {resolved}")
@@ -201,59 +282,159 @@ class DatabaseLoader:
         except Exception as exc:
             raise ValueError(f"JSON parse failed {resolved}: {exc}") from exc
 
+        def _iter_messages():
+            for msg_name, md in raw.get("messages", {}).items():
+                raw_id = md.get("id")
+                if raw_id is None:
+                    logger.warning("Skip message '%s' — missing 'id' field", msg_name)
+                    continue
+                msg_id = int(raw_id)
+                dlc = int(md.get("size", md.get("dlc", 8)))
+                senders = md.get("senders", [])
+                description = md.get("comment", md.get("description", ""))
+
+                raw_sigs: list[dict] = []
+                for sig_name, sd in md.get("signals", {}).items():
+                    raw_len = sd.get("length")
+                    if raw_len is None:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — missing 'length'", sig_name, msg_name,
+                        )
+                        continue
+                    length = int(raw_len)
+                    if length <= 0:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — invalid length=%d",
+                            sig_name, msg_name, length,
+                        )
+                        continue
+                    factor = float(sd.get("factor", 1.0))
+                    if factor == 0.0:
+                        logger.warning(
+                            "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
+                            sig_name, msg_name,
+                        )
+                        factor = 1.0
+                    raw_sigs.append({
+                        "name": sig_name,
+                        "start_bit": sd.get("start_bit"),
+                        "length": length,
+                        "is_signed": bool(sd.get("is_signed", False)),
+                        "big_endian": sd.get("byte_order", "little_endian") == "big_endian",
+                        "factor": factor,
+                        "offset": float(sd.get("offset", 0.0)),
+                        "minimum": sd.get("minimum", sd.get("min")),
+                        "maximum": sd.get("maximum", sd.get("max")),
+                        "unit": sd.get("unit", "") or "",
+                        "comment": sd.get("comment", sd.get("description", "")) or "",
+                        "receivers": sd.get("receivers", []),
+                        "states": sd.get("states", []),
+                    })
+                yield msg_name, msg_id, dlc, senders, description, raw_sigs
+
+        self._ingest(_iter_messages(), resolved.name)
+        self._loaded_files.append(str(resolved))
+
+    def load_dbc(self, path: str | Path) -> None:
+        """Load message/signal definitions directly from a DBC file (via cantools).
+
+        Bypasses the can.json export step entirely — bit layout, factor/offset and
+        min/max are read straight from the DBC and fed through the same bit-allocation
+        / range auto-fill pipeline used by :meth:`load`.
+        """
+        resolved = Path(path)
+        if not resolved.exists():
+            raise FileNotFoundError(f"DBC file not found: {resolved}")
+        try:
+            import cantools
+        except ImportError as exc:
+            raise RuntimeError(
+                "cantools is required to load DBC files (pip install cantools)"
+            ) from exc
+        try:
+            db = cantools.database.load_file(str(resolved))
+        except Exception as exc:
+            raise ValueError(f"DBC parse failed {resolved}: {exc}") from exc
+
+        def _num(value: object, default: float = 0.0) -> float:
+            if value is None:
+                return float(default)
+            if hasattr(value, "item"):  # numpy scalar
+                try:
+                    return float(value.item())  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+            try:
+                return float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return float(default)
+
+        def _iter_messages():
+            for msg in getattr(db, "messages", []):
+                msg_id = int(msg.frame_id)
+                dlc = int(getattr(msg, "length", 8) or 8)
+                senders = list(getattr(msg, "senders", []) or [])
+                description = getattr(msg, "comment", None) or ""
+                msg_name = msg.name or f"{msg_id:#x}"
+
+                raw_sigs: list[dict] = []
+                for sig in getattr(msg, "signals", []):
+                    sig_name = normalize_signal_name(getattr(sig, "name", ""))
+                    if not sig_name:
+                        continue
+                    length = int(getattr(sig, "length", 0) or 0)
+                    if length <= 0:
+                        logger.warning(
+                            "Skip signal '%s' in '%s' — invalid length", sig_name, msg_name,
+                        )
+                        continue
+                    factor = _num(getattr(sig, "scale", getattr(sig, "factor", 1.0)), 1.0)
+                    if factor == 0.0:
+                        logger.warning(
+                            "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
+                            sig_name, msg_name,
+                        )
+                        factor = 1.0
+                    start_bit = getattr(sig, "start", None)
+                    minimum = getattr(sig, "minimum", None)
+                    maximum = getattr(sig, "maximum", None)
+                    comment = getattr(sig, "comment", None) or ""
+                    if isinstance(comment, dict):
+                        comment = next(iter(comment.values()), "")
+                    comment, states = split_comment_states(comment)
+                    unit = getattr(sig, "unit", None)
+                    if not unit and len(states) == 1:
+                        # a lone "state" with no numeric enum is really just a unit annotation
+                        unit = (states[0].get("description") or "").replace("0-max ", "")
+                        states = []
+                    raw_sigs.append({
+                        "name": sig_name,
+                        "start_bit": int(start_bit) if start_bit is not None else None,
+                        "length": length,
+                        "is_signed": bool(getattr(sig, "is_signed", False)),
+                        "big_endian": getattr(sig, "byte_order", "little_endian") == "big_endian",
+                        "factor": factor,
+                        "offset": _num(getattr(sig, "offset", 0.0), 0.0),
+                        "minimum": _num(minimum) if minimum is not None else None,
+                        "maximum": _num(maximum) if maximum is not None else None,
+                        "unit": unit or "",
+                        "comment": comment,
+                        "receivers": list(getattr(sig, "receivers", []) or []),
+                        "states": states,
+                    })
+                yield msg_name, msg_id, dlc, senders, description, raw_sigs
+
+        self._ingest(_iter_messages(), resolved.name)
+        self._loaded_files.append(str(resolved))
+
+    def _ingest(self, messages_iter, source_name: str) -> None:
+        """Shared bit-allocation / range auto-fill pipeline for JSON and DBC sources."""
         skipped_no_bit = 0
         auto_filled_range = 0
         loaded_msg_count = 0
 
-        for msg_name, md in raw.get("messages", {}).items():
-            raw_id = md.get("id")
-            if raw_id is None:
-                logger.warning("Skip message '%s' — missing 'id' field", msg_name)
-                continue
-            msg_id = int(raw_id)
-            dlc = int(md.get("size", md.get("dlc", 8)))
-            senders = md.get("senders", [])
-            description = md.get("comment", md.get("description", ""))
-
-            # Thu thập raw signal trước để phân bổ start_bit
-            raw_sigs: list[dict] = []
-            for sig_name, sd in md.get("signals", {}).items():
-                raw_len = sd.get("length")
-                if raw_len is None:
-                    logger.warning(
-                        "Skip signal '%s' in '%s' — missing 'length'", sig_name, msg_name,
-                    )
-                    continue
-                length = int(raw_len)
-                if length <= 0:
-                    logger.warning(
-                        "Skip signal '%s' in '%s' — invalid length=%d",
-                        sig_name, msg_name, length,
-                    )
-                    continue
-                factor = float(sd.get("factor", 1.0))
-                if factor == 0.0:
-                    logger.warning(
-                        "Signal '%s' in '%s' has factor=0, defaulting to 1.0",
-                        sig_name, msg_name,
-                    )
-                    factor = 1.0
-                raw_sigs.append({
-                    "name": sig_name,
-                    "start_bit": sd.get("start_bit"),
-                    "length": length,
-                    "is_signed": bool(sd.get("is_signed", False)),
-                    "big_endian": sd.get("byte_order", "little_endian") == "big_endian",
-                    "factor": factor,
-                    "offset": float(sd.get("offset", 0.0)),
-                    "minimum": sd.get("minimum", sd.get("min")),
-                    "maximum": sd.get("maximum", sd.get("max")),
-                    "unit": sd.get("unit", "") or "",
-                    "comment": sd.get("comment", sd.get("description", "")) or "",
-                    "receivers": sd.get("receivers", []),
-                })
-
-            # Tìm bit đã dùng (LSB-indexed) — lần quét 1
+        for msg_name, msg_id, dlc, senders, description, raw_sigs in messages_iter:
+            # Find used bits (LSB-indexed) — pass 1
             total_bits = dlc * 8
             used: list[bool] = [False] * total_bits
 
@@ -270,7 +451,7 @@ class DatabaseLoader:
                 if start_lsb >= 0 and start_lsb + rs["length"] <= total_bits:
                     _mark_used_bits(used, start_lsb, rs["length"])
 
-            # Lần quét 2: xây ParsedSignal, phân bổ start_bit nếu null
+            # Pass 2: build ParsedSignal objects and allocate start_bit when null
             parsed_sigs: dict[str, ParsedSignal] = {}
             for rs in raw_sigs:
                 name = rs["name"]
@@ -282,7 +463,7 @@ class DatabaseLoader:
 
                 sb = rs["start_bit"]
                 if sb is None:
-                    # Phân bổ tự động: tìm khoảng bit trống đầu tiên
+                    # Automatic allocation: find the first free bit range
                     found = False
                     for p in range(0, total_bits - length + 1):
                         if all(not used[b] for b in range(p, p + length)):
@@ -310,7 +491,7 @@ class DatabaseLoader:
                         )
                         continue
 
-                # Tính min/max khi thiếu
+                # Compute min/max when missing
                 sig_min = rs["minimum"]
                 sig_max = rs["maximum"]
                 if sig_min is None or sig_max is None:
@@ -348,8 +529,9 @@ class DatabaseLoader:
                     minimum=sig_min_f,
                     maximum=sig_max_f,
                     description=rs["comment"],
-                    db_source=resolved.name,
+                    db_source=source_name,
                     receivers=rs.get("receivers", []),
+                    states=rs.get("states", []),
                 )
 
             if parsed_sigs:
@@ -359,7 +541,7 @@ class DatabaseLoader:
                     dlc=dlc,
                     senders=senders,
                     signals=parsed_sigs,
-                    db_source=resolved.name,
+                    db_source=source_name,
                     description=description or "",
                 )
                 if msg_id in self._messages:
@@ -379,11 +561,10 @@ class DatabaseLoader:
                     self._signal_to_msg[sig_name] = msg_id
                 loaded_msg_count += 1
 
-        self._loaded_files.append(str(resolved))
         logger.info(
-            "can.json loaded: %s — %d messages, %d signals "
+            "%s loaded: %d messages, %d signals "
             "(skipped %d no-startbit, auto-filled %d ranges)",
-            resolved.name,
+            source_name,
             loaded_msg_count,
             len(self._signals),
             skipped_no_bit,
@@ -399,14 +580,14 @@ class DatabaseLoader:
         return self._signals
 
     def decode_frame(self, msg_id: int, data: bytes) -> dict[str, float]:
-        """Giải mã byte CAN thô → dict tín hiệu."""
+        """Decode raw CAN bytes into a signal dict."""
         msg = self._messages.get(msg_id)
         if msg is None:
             return {}
         return decode_frame_from_msg(msg, data)
 
     def encode_signal(self, signal_name: str, value: float) -> can.Message | None:
-        """Tìm thông điệp chứa ``signal_name`` và mã hóa nó."""
+        """Find the message containing ``signal_name`` and encode it."""
         msg_id = self._signal_to_msg.get(signal_name)
         if msg_id is None:
             logger.debug("Signal not found in DB: %s", signal_name)
@@ -422,7 +603,7 @@ class DatabaseLoader:
         )
 
     def encode_message(self, msg_id: int, signals: dict[str, float]) -> can.Message | None:
-        """Mã hóa toàn bộ thông điệp theo ID với nhiều giá trị tín hiệu."""
+        """Encode an entire message by ID with multiple signal values."""
         msg = self._messages.get(msg_id)
         if msg is None:
             return None
@@ -434,7 +615,7 @@ class DatabaseLoader:
         )
 
     def get_message_for_signal(self, signal_name: str) -> "ParsedMessage | None":
-        """Trả về ParsedMessage chứa signal_name, hoặc None nếu không tìm thấy."""
+        """Return the ParsedMessage containing signal_name, or None if not found."""
         msg_id = self._signal_to_msg.get(signal_name)
         return self._messages.get(msg_id) if msg_id is not None else None
 

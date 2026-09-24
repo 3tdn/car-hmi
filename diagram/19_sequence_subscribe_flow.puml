@@ -49,9 +49,9 @@ WS -> WS : filter: client subscribed\nto "EngineSpeed"? YES
 WS --> FE : {"type":"signal",\n"signal":"EngineSpeed",\n"value":2750.0,\n"timestamp":1719800001.5}
 
 note right of FE
-  Frontend cập nhật widget dùng
+  Frontend updates the widget using
   cached metadata (unit=rpm, min=0, max=8000)
-  → chỉ nhận value + timestamp (nhẹ)
+  → receives only value + timestamp (lightweight)
 end note
 
 SS -> WS : signal update\n("SteeringAngle", -5.0, ...)
@@ -76,9 +76,9 @@ FE -> WS : {"action":"unsubscribe",\n"channels":["BatterySOC"]}
 WS --> FE : subscribe_ack
 
 note right of FE
-  Client có thể thay đổi danh sách channel
-  bất kỳ lúc nào → server cập nhật filter
-  → giảm băng thông linh hoạt.
+  The client can change the channel list
+  at any time → the server updates the filter
+  → reduces bandwidth flexibly.
 end note
 
 == Phase 7: One-Shot Mode ==

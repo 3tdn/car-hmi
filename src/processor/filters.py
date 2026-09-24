@@ -1,4 +1,4 @@
-"""Bộ lọc làm mượt và giới hạn tốc độ cập nhật cho pipeline xử lý tín hiệu."""
+"""Smoothing filter and update-rate limiter for the signal processing pipeline."""
 
 from __future__ import annotations
 
@@ -8,11 +8,15 @@ from src.processor.pipeline import ProcessingStage
 
 
 class RateLimiter(ProcessingStage):
-    """Loại bỏ các cập nhật đến nhanh hơn max_hz cho mỗi tín hiệu."""
+    """Drop updates that arrive faster than max_hz for each signal."""
 
     def __init__(self, max_hz: float = 10.0) -> None:
-        self._min_interval = 1.0 / max_hz
+        self._min_interval = (1.0 / max_hz) if max_hz > 0 else 0.0
         self._last_update: dict[str, float] = {}
+
+    def set_max_hz(self, max_hz: float) -> None:
+        """Update the rate limit without discarding per-signal timestamps."""
+        self._min_interval = (1.0 / max_hz) if max_hz > 0 else 0.0
 
     async def process(self, signals: dict[str, float]) -> dict[str, float]:
         now = time.monotonic()

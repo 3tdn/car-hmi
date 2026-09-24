@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CAN-HMI Dashboard</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body>
   <header class="hmi-header">
     <h1>CAN-HMI Live Dashboard</h1>
     <div style="display:flex; gap:8px; margin-left:12px;">
+      <button id="btn-profiles" class="btn">Profiles</button>
       <button id="btn-settings" class="btn">Settings</button>
-      <button id="btn-alarms" class="btn">Alarms</button>
       <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
         <span style="font-size:0.9rem;color:var(--muted);">Mode</span>
         <select id="mode-select" aria-label="Frontend mode">
@@ -23,6 +23,7 @@
     <nav class="hmi-nav">
       <button id="tab-dashboard" class="nav-btn active">Dashboard</button>
       <button id="tab-adaptive" class="nav-btn">Adaptive Restraint</button>
+      <button id="tab-devmode" class="nav-btn" style="display:none;">Dev Mode</button>
     </nav>
     <span id="connection-badge" class="badge badge--disconnected" style="margin-left:auto;">Disconnected</span>
   </header>
@@ -362,6 +363,55 @@
     </section>
   </main>
 
+  <main class="devmode-view" id="view-devmode" style="display: none;">
+    <div class="devmode-topbar">
+      <div class="devmode-subtabs">
+        <button id="devmode-subtab-a" class="nav-btn active">A — Seat Actuation</button>
+        <button id="devmode-subtab-b" class="nav-btn">B — Network &amp; ELK Status</button>
+      </div>
+      <span id="devmode-lock-badge" class="badge badge--disconnected">No seat locked</span>
+      <button id="devmode-exit-btn" class="btn">Exit Dev Mode (release locks)</button>
+    </div>
+
+    <!-- View A: multi-seat signal actuation -->
+    <section class="card devmode-panel" id="devmode-view-a">
+      <h3>Seat selection</h3>
+      <p class="devmode-hint">
+        Turn on a seat switch to take control of it. The backend locks that seat for
+        <span id="devmode-timeout-label">60</span>s, blocking other sections from writing to it
+        until the lock expires or you press “Exit Dev Mode”.
+      </p>
+      <div class="seat-switch-row" id="devmode-seat-switches"></div>
+
+      <h3 style="margin-top:18px;">Signal actuation</h3>
+      <div class="devmode-tabs" id="devmode-family-tabs"></div>
+      <div class="devmode-states" id="devmode-family-states"></div>
+      <div class="devmode-log" id="devmode-apply-log"></div>
+    </section>
+
+    <!-- View B: component connectivity + ELK status -->
+    <section class="card devmode-panel" id="devmode-view-b" style="display:none;">
+      <div class="devmode-panel-head">
+        <h3>Component status</h3>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="devmode-elk-summary" class="badge badge--warning">Status Unknown</span>
+          <button id="devmode-elk-reset-btn" class="btn">Reset E-Locking Failure Memory</button>
+        </div>
+      </div>
+      <div class="devmode-can-controls">
+        <div>
+          <h4>CAN recovery</h4>
+          <span id="devmode-can-action-status" class="devmode-can-action-status">Ready</span>
+        </div>
+        <div class="devmode-can-actions">
+          <button id="devmode-can-retry-btn" class="btn" type="button">Retry CAN</button>
+          <button id="devmode-reboot-btn" class="btn btn--danger" type="button">Reboot Car-HMI</button>
+        </div>
+      </div>
+      <div class="component-grid" id="devmode-component-grid"></div>
+    </section>
+  </main>
+
   <footer class="hmi-footer">
     <span id="status-text">Connecting…</span>
   </footer>
@@ -390,106 +440,7 @@
   <script src="js/app.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
   <script src="js/adaptive.js"></script>
-  <script>
-    // Modal containers for settings and alarms
-    const settingsModal = document.createElement('div');
-    settingsModal.id = 'settings-modal';
-    settingsModal.style.display = 'none';
-    settingsModal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal">
-        <h3>General Settings (config/system.json)</h3>
-        <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
-        <div style="margin-top:8px;text-align:right;">
-          <button id="settings-reset">Reset</button>
-          <button id="settings-cancel">Cancel</button>
-          <button id="settings-save">Save</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(settingsModal);
-
-    const alarmsModal = document.createElement('div');
-    alarmsModal.id = 'alarms-modal';
-    alarmsModal.style.display = 'none';
-    alarmsModal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal">
-        <h3>Alarms Config (config/alarms.json)</h3>
-        <textarea id="alarms-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
-        <div style="margin-top:8px;text-align:right;">
-          <button id="alarms-reset">Reset</button>
-          <button id="alarms-cancel">Cancel</button>
-          <button id="alarms-save">Save</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(alarmsModal);
-
-    // Wire buttons
-    document.getElementById('btn-settings').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
-      editor.value = '';
-      try {
-        const resp = await fetch(`${API_BASE}/config/general`);
-        const json = await resp.json();
-        editor.value = JSON.stringify(json, null, 2);
-      } catch (e) { editor.value = 'Failed to load config: '+e; }
-      settingsModal.style.display = 'block';
-    });
-    document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
-    document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!confirm('Reset cấu hình về mặc định? Thao tác này sẽ ghi đè file config/system.json')) return;
-      try {
-        const resp = await fetch(`${API_BASE}/config/general/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
-        document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
-        alert('Đã reset cấu hình chung về mặc định (file được ghi đè).');
-      } catch (e) { alert('Reset failed: '+e); }
-    });
-    document.getElementById('settings-save').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
-      try {
-        const body = JSON.parse(editor.value);
-        const resp = await fetch(`${API_BASE}/config/general`, { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
-        settingsModal.style.display = 'none';
-        alert('Config updated (on-disk). API attempted live apply where possible.');
-      } catch (e) { alert('Save failed: '+e); }
-    });
-
-    document.getElementById('btn-alarms').addEventListener('click', async () => {
-      const editor = document.getElementById('alarms-editor');
-      editor.value = '';
-      try {
-        const resp = await fetch(`${API_BASE}/config/alarms`);
-        const json = await resp.json();
-        editor.value = JSON.stringify(json, null, 2);
-      } catch (e) { editor.value = 'Failed to load alarms: '+e; }
-      alarmsModal.style.display = 'block';
-    });
-    document.getElementById('alarms-cancel').addEventListener('click', () => alarmsModal.style.display = 'none');
-    document.getElementById('alarms-reset').addEventListener('click', async () => {
-      if (!confirm('Reset alarms về mặc định (rỗng)?')) return;
-      try {
-        const resp = await fetch(`${API_BASE}/config/alarms/reset`, { method: 'POST' });
-        if (!resp.ok) throw new Error(resp.statusText);
-        const json = await resp.json();
-        document.getElementById('alarms-editor').value = JSON.stringify(json.written || {alarms:{}} , null, 2);
-        alert('Alarms đã được reset.');
-      } catch (e) { alert('Reset failed: '+e); }
-    });
-    document.getElementById('alarms-save').addEventListener('click', async () => {
-      const editor = document.getElementById('alarms-editor');
-      try {
-        const body = JSON.parse(editor.value);
-        const resp = await fetch(`${API_BASE}/config/alarms`, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error(resp.statusText);
-        alarmsModal.style.display = 'none';
-        alert('Alarms config updated.');
-      } catch (e) { alert('Save failed: '+e); }
-    });
-  </script>
+  <script src="js/devmode.js"></script>
+  <script src="js/settings.js?v=5"></script>
 </body>
 </html>

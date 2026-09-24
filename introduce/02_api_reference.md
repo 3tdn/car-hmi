@@ -1,377 +1,125 @@
-# 02 — API Reference
+# 02 — API Reference and Frontend Integration
 
-> Toàn bộ REST endpoints và WebSocket protocol của CAN-HMI backend  
-> Base URL: `http://<host>:8000` (mặc định `localhost:8000`)
+Verified against the registered backend routes on 2026-09-19: **54 HTTP operations
+(48 operations plus 6 system aliases) and 3 WebSocket endpoints**.
 
----
+Use the [complete English API reference](../docs/api_reference.md) for all request
+parameters, bodies, response formats, exact error messages, and curl examples.
+The [OpenAPI snapshot](../docs/api.openapi.json) contains HTTP schemas.
+The [frontend integration guide](../docs/frontend_integration.md) covers both the bundled
+dashboard and a separately hosted frontend.
 
-## Authentication
+## Common contract
 
-| Phương thức | Mô tả |
-|---|---|
-| REST | Header `X-API-Key: <key>` |
-| WebSocket | Query param `?token=<key>` |
+Use `X-API-Key` on protected HTTP routers, `X-Profile-Name` for explicit profile scope,
+and `X-Client-Id` for client sessions and Dev Mode locks. Browser WebSockets use
+`?api_key=...&profile_name=...`. `X-Dev-Mode: true` does not bypass API key authentication.
+System controls require both a real configured key and Dev Mode. Public routes include
+system GET, adaptive restraint, camera, and restraints/video.
 
-Nếu `api_key` trong `config/system.json` để trống hoặc là placeholder (`change-me-in-production`) → **auth tắt** (dev mode, không cần gửi key).
+HTTP errors can contain string, object, or validation-array `detail`. Successful responses
+can contain `warnings`; batch writes return HTTP 202 even when individual signals fail.
+Inspect `errors` and per-seat `applied` results instead of checking HTTP status alone.
 
----
+The current backend has no alarm REST/config/WebSocket routes and no root `/health` or
+`/ready` business routes. Use `/system/health` and `/system/ready` (or their `/api` aliases).
+These probes return HTTP 200 even when their JSON body reports degraded health or not-ready.
 
-## REST Endpoints
+## Complete HTTP inventory
 
-### Signals
-
-| Method | Path | Mô tả |
+| Method | API | Purpose (from implementation) |
 |---|---|---|
-| `GET` | `/signals` | Lấy snapshot tất cả tín hiệu hiện tại |
-| `GET` | `/signals/available` | Metadata đầy đủ (unit, min/max, alarm thresholds, writable) |
-| `GET` | `/signals/{name}` | Lấy giá trị 1 tín hiệu |
-| `GET` | `/signals/{name}/history` | Lịch sử tín hiệu (time-series từ DB) |
-| `PUT` | `/signals/{name}` | Ghi giá trị vào CAN Bus (trả về 202 Accepted) |
+| GET | `/signals` | List latest signal values |
+| GET | `/signals/available` | List all available signals with metadata |
+| GET | `/signals/{signal_name}` | Get latest value for one signal |
+| PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
+| GET | `/signals/{signal_name}/history` | Query signal history from DB |
+| POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
+| GET | `/config` | List all signal configurations |
+| GET | `/config/signal/{signal_name}` | Get config for one signal |
+| PATCH | `/config/signal/{signal_name}` | Update signal config |
+| GET | `/config/processor` | Get processor config |
+| POST | `/config/processor` | Update processor config |
+| GET | `/config/system` | Get system config and field update policy |
+| PATCH | `/config/system` | Patch system config without dropping unrelated fields |
+| GET | `/config/system/backups` | List fixed-path system config backups |
+| POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
+| POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
+| POST | `/config/system/reset` | Reset system config from the fixed project template |
+| POST | `/config/system/reload` | Re-apply live fields from the system config file |
+| GET | `/config/general` | Get full application config |
+| PATCH | `/config/general` | Patch application config (partial) |
+| POST | `/config/general/reset` | Reset application config to defaults |
+| GET | `/adaptive_restraint/available` | Get all available options for adaptive restraint filters |
+| GET | `/adaptive_restraint/chart_info` | Get statistic and chart information for adaptive restraint systems |
+| GET | `/system/info` | Get project & system information |
+| GET | `/system/health` | Health check |
+| GET | `/system/ready` | Readiness probe (for container/systemd) |
+| GET | `/system/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/system/can/retry` | Retry CAN connections |
+| POST | `/system/reboot` | Reboot Car-HMI service |
+| GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
+| GET | `/api/camera/status` | Camera stream proxy status |
+| GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
+| GET | `/api/devmode/status` | Current Dev Mode seat locks |
+| POST | `/api/devmode/seats/select` | Select seats for Dev Mode (locks other sections out) |
+| POST | `/api/devmode/exit` | Leave Dev Mode and release all seat locks of this section |
+| POST | `/api/devmode/signals` | Apply one signal family to several seats at once |
+| GET | `/api/info` | Get project & system information |
+| GET | `/api/health` | Health check |
+| GET | `/api/ready` | Readiness probe (for container/systemd) |
+| GET | `/api/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/api/can/retry` | Retry CAN connections |
+| POST | `/api/reboot` | Reboot Car-HMI service |
+| GET | `/api/profiles` | List all profiles |
+| GET | `/api/profile/sessions` | List client active-profile sessions |
+| POST | `/api/profile/heartbeat` | Heartbeat for client profile session |
+| POST | `/api/profile/offline` | Mark client profile session offline |
+| GET | `/api/profile` | Get profile by name (or active profile) |
+| POST | `/api/profile` | Create new profile |
+| PUT | `/api/profile` | Update profile (optimistic lock) |
+| PUT | `/api/profile/active` | Set active profile |
+| DELETE | `/api/profile/{name}` | Delete profile |
 
-> Note: The API supports both canonical signal names and standardized `std_name` aliases. Clients may call endpoints with either form (e.g. `/signals/HMI_FL_OccupantAge_years` or `/signals/HMI_FL_OccupantAge`) — the server resolves `std_name` → canonical internally. Responses include an optional `std_name` field when a mapping exists. See `STD_NAME_USAGE.md` for examples.
+## WebSocket formats
 
-**GET /signals** — response:
+The three registered WebSocket endpoints are `/ws/signals`, `/ws/subscribe` (alias),
+and `/ws/all` (legacy automatic broadcast). Use the first two for subscription commands:
+
 ```json
-{
-  "items": [
-    {"signal_name": "VehicleSpeed", "value": 84.1, "unit": "km/h", "timestamp": 1742000000.0},
-    {"signal_name": "EngineRPM",    "value": 2500.0, "unit": "rpm", "timestamp": 1742000000.1}
-  ],
-  "total": 2
-}
+{"type":"subscribe","signals":["COM_Status_ElkCan","metrics"],"rate_ms":200,"mode":"continuous"}
 ```
 
-**GET /signals/available** — response (một phần tử):
 ```json
-{
-  "signals_info": [{
-    "signal_name": "BrakePressure",
-    "std_name": "BrakePressure", 
-    "unit": "bar",
-    "min_value": 0,
-    "max_value": 200,
-    "writable": false,
-    "group_name": "chassis",
-    "widget_type": "gauge",
-    "alarm_warning_high": null,
-    "alarm_critical_high": 180.0,
-    "value": 12.5,
-    "status": "ok",
-    "timestamp": 1742000000.5
-  }],
-  "total": 210
-}
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan","metrics"],"count":2,"warnings":[]}
 ```
 
-**GET /signals/{name}/history** — query params:
-
-| Param | Type | Default | Mô tả |
-|---|---|---|---|
-| `start` | float | null | Unix timestamp bắt đầu |
-| `end` | float | null | Unix timestamp kết thúc |
-| `limit` | int | 100 | Số bản ghi tối đa (max 10 000) |
-| `offset` | int | 0 | Phân trang |
-
-**PUT /signals/{name}** — request body:
 ```json
-{"value": 60.0}
-```
-Response `202 Accepted`:
-```json
-{"signal_name": "VehicleSpeed", "value": 60.0, "queued_at": 1742000001.0}
+{"timestamp":"2026-09-17T00:00:00Z","signals":[{"name":"COM_Status_ElkCan","std_name":"COM_Status_ElkCan","value":1}]}
 ```
 
----
+Signal frames have no `type` field. Metrics use `type: "metrics"`. Send
+`{"type":"ping"}` for a `pong`, and `{"type":"unsubscribe","signals":["COM_Status_ElkCan"]}`
+to unsubscribe. `mode: "once"` waits for the next eligible broadcast; fetch initial values
+with REST. `/ws/all` does not handle subscription/ping commands. No alarm channel exists.
 
-### Alarms
+## Frontend workflow
 
-| Method | Path | Mô tả |
-|---|---|---|
-| `GET` | `/alarms` | Danh sách lịch sử cảnh báo |
-| `GET` | `/alarms/{id}` | Chi tiết 1 cảnh báo |
-| `POST` | `/alarms/{id}/acknowledge` | Xác nhận đã nhận cảnh báo |
-| `POST` | `/alarms/{id}/resolve` | Đánh dấu cảnh báo đã xử lý |
+Load metadata and a REST snapshot before subscribing. Keep one client ID per tab and
+pass the selected profile explicitly on HTTP requests and the WebSocket URL. After a
+profile change, refresh metadata/snapshot and reconnect the subscription. Inspect warnings
+and partial failures. Release Dev Mode locks and mark the session offline on disconnect.
 
-**GET /alarms** — query params:
+Set both `window.API_BASE` and `window.WS_BASE` before loading the bundled API helper.
+Use repeated query parameters for adaptive chart lists. Resolve video URLs against the
+backend origin. Open camera streams only while visible and close the HTTP subscription
+on leaving the view; the last viewer leaving stops the shared upstream connection.
 
-| Param | Type | Mô tả |
-|---|---|---|
-| `signal_name` | string | Lọc theo tên tín hiệu |
-| `level` | string | `info` / `warning` / `critical` |
-| `acknowledged` | bool | Lọc trạng thái xác nhận |
-| `start`, `end` | float | Khoảng thời gian |
-| `limit`, `offset` | int | Phân trang |
+System settings come from backend field policy. Object patches merge recursively, but
+arrays replace completely. Show pending reboot paths and explicitly invoke the authorized
+reboot control when a restart is required. See [configuration management](../docs/system_config_management.md).
 
-**Alarm object**:
-```json
-{
-  "id": 42,
-  "signal_name": "EngineRPM",
-  "level": "critical",
-  "value": 7650.0,
-  "threshold": 7500.0,
-  "description": "Engine RPM alarm",
-  "triggered_at": 1742000100.0,
-  "acknowledged": false,
-  "resolved_at": null
-}
-```
-
----
-
-### Config
-
-| Method | Path | Mô tả |
-|---|---|---|
-| `GET` | `/config` | Danh sách cấu hình hiển thị tất cả tín hiệu |
-| `GET` | `/config/signal/{name}` | Cấu hình 1 tín hiệu |
-| `PATCH` | `/config/signal/{name}` | Cập nhật cấu hình tín hiệu |
-| `GET` | `/config/processor` | Cấu hình processor hiện tại |
-| `POST` | `/config/processor` | Cập nhật processor config (áp dụng live) |
-| `GET` | `/config/general` | Toàn bộ app config (JSON) |
-| `PATCH` | `/config/general` | Cập nhật một phần app config |
-| `POST` | `/config/general/reset` | Reset app config về mặc định |
-| `GET` | `/config/alarms` | Cấu hình ngưỡng cảnh báo (raw YAML → JSON) |
-| `POST` | `/config/alarms` | Cập nhật toàn bộ alarms config |
-| `POST` | `/config/alarms/reset` | Reset alarms config về rỗng |
-
-**PATCH /config/signal/{name}** — request body (tất cả optional):
-```json
-{
-  "unit": "km/h",
-  "min_value": 0.0,
-  "max_value": 300.0,
-  "widget_type": "gauge",
-  "writable": false
-}
-```
-
-**POST /config/processor** — request body:
-```json
-{"max_queue_size": 5000, "queue_policy": "drop_oldest"}
-```
-> Lưu ý: thay đổi `max_queue_size` sẽ trigger **live queue migration** (không restart app).
-
----
-
-### Adaptive Restraint
-
-> Phân tích rủi ro chấn thương (injury risk) theo cấu hình chiếm dụng xe và hệ thống an toàn.  
-> Dữ liệu nguồn: SQLite DB tạo từ CSV → tự động cache sang NumPy `.npz` lần đầu chạy (~140 ms load từ lần 2, so với ~2600 ms từ SQLite).  
-> Cấu hình đường dẫn trong `config/system.json` → `adaptive_restraint.db_path` / `adaptive_restraint.csv_path`.  
-> Nếu DB chưa sẵn sàng, các endpoint trả về **503 Service Unavailable**.
-
-| Method | Path | Mô tả |
-|---|---|---|
-| `GET` | `/adaptive_restraint/available` | Lấy tất cả giá trị lọc khả dụng (System, Age, Seatbelt, Velocity, Weight, Height, Distance) |
-| `GET` | `/adaptive_restraint/chart_info` | Tính thống kê box-plot + raw data preview theo các bộ lọc |
-
-**GET /adaptive_restraint/available** — response:
-```json
-{
-  "System":   ["fusion", "camera", "non_adapt"],
-  "Age":      ["35y", "65y"],
-  "Seatbelt": ["3-point", "..."],
-  "Velocity": [40, 50, 56],
-  "Weight":   [49.0, 58.67, 70.0],
-  "Height":   [155.0, 159.67, 170.0],
-  "Distance": [1440, 1534, 1620]
-}
-```
-
-**GET /adaptive_restraint/chart_info** — query parameters (tất cả optional, mặc định = chọn tất cả):
-
-| Param | Type | Ví dụ |
-|---|---|---|
-| `System` | `list[str]` | `System=fusion&System=camera` |
-| `Age` | `list[str]` | `Age=35y` |
-| `Seatbelt` | `list[str]` | `Seatbelt=3-point` |
-| `Velocity` | `list[float]` | `Velocity=40&Velocity=56` |
-| `Weight` | `list[float]` | `Weight=49.0&Weight=58.67` |
-| `Height` | `list[float]` | `Height=159.67` |
-| `Distance` | `list[float]` | `Distance=1440` |
-| `RawData` | `bool` | `RawData=false` — mặc định `true`; set `false` để bỏ `raw_rows` khỏi response (giảm payload) |
-
-Response:
-```json
-{
-  "controls": {
-    "System": ["fusion", "camera"],
-    "Age": ["35y"],
-    "Seatbelt": ["3-point"],
-    "Velocity": [40.0, 56.0],
-    "Weight": [49.0],
-    "Height": [159.67],
-    "Distance": [1440.0],
-    "RawData": true
-  },
-  "datas": [
-    {
-      "injury_risk_fusion_35y": {
-        "values": [0.0031, 0.0045, "..."],
-        "min": 0.0012,
-        "max": 0.0198,
-        "lower fence": 0.0012,
-        "q1": 0.0028,
-        "median": 0.0041,
-        "q3": 0.0065,
-        "upper fence": 0.0115
-      }
-    }
-  ],
-  "available_options": {
-    "Velocity": [40, 50, 56],
-    "Weight":   [49.0, 58.67, 70.0],
-    "Height":   [155.0, 159.67, 170.0],
-    "Distance": [1440, 1534, 1620],
-    "Seatbelt": ["3-point"]
-  },
-  "raw_rows": [
-    {
-      "weight": 49.0,
-      "seat_position": 1440,
-      "height": 159.67,
-      "velocity [km/h]": 40,
-      "Seatbelt Component": "3-point",
-      "injury_risk_fusion_35y": 0.0031,
-      "..."
-    }
-  ]
-}
-```
-
-> **`datas`**: một entry cho mỗi tổ hợp `System × Age` được chọn.  
-> **`available_options`**: faceted-search — với mỗi dimension D, trả về các giá trị còn tồn tại trong dữ liệu khi áp dụng tất cả bộ lọc *trừ* D. Frontend dùng trường này để làm mờ (gray-out) các item không còn kết quả nếu được chọn.  
-> **`raw_rows`**: giới hạn tối đa 100 dòng; bị bỏ qua khi `RawData=false`.  
-> Giá trị `injury_risk_*` là tỷ lệ thô (0–1). Frontend nhân × 100 để hiển thị %.
-
----
-
-### System
-
-| Method | Path | Mô tả |
-|---|---|---|
-| `GET` | `/system/health` | Liveness probe — trả về `ok` / `degraded` |
-| `GET` | `/system/ready` | Readiness probe — CAN bus + DB sẵn sàng? |
-| `GET` | `/system/metrics` | Tài nguyên CarPC: CPU, RAM, disk, queue, asyncio tasks… |
-
-**GET /system/health**:
-```json
-{
-  "status": "ok",
-  "uptime_seconds": 3600.5,
-  "bus_connected": true,
-  "db_connected": true
-}
-```
-
-**GET /system/metrics** — một phần response:
-```json
-{
-  "timestamp": 1742000000.0,
-  "cpu_percent": 12.4,
-  "ram_percent": 34.2,
-  "ram_used_mb": 512.0,
-  "queue_size": 42,
-  "queue_maxsize": 10000,
-  "queue_usage_percent": 0.42,
-  "asyncio_tasks": 8,
-  "uptime_seconds": 3600.5
-}
-```
-
----
-
-## WebSocket Endpoints
-
-### Legacy (backward-compatible)
-
-| Endpoint | Mô tả |
-|---|---|
-| `WS /ws/signals` | Stream tất cả signal updates |
-| `WS /ws/alarms` | Stream alarm events |
-| `WS /ws/all` | Stream cả signals + alarms |
-
-Message format từ server:
-```json
-{
-  "timestamp": "2024-06-01T12:00:00.123Z",
-  "signals": [
-    {"name": "ARS_FL_InjuryRiskAdaptive", "std_name": "ARS_FL_InjuryRiskAdaptive", "value": 23},
-    {"name": "ARS_FR_InjuryRiskAdaptive", "std_name": "ARS_FR_InjuryRiskAdaptive", "value": 23}
-  ]
-}
-
-> Server có thể gộp nhiều signal thay đổi vào cùng một frame `signals`.
-{"type": "alarm",  "signal_name": "EngineRPM", "level": "critical", "value": 7650.0, ...}
-```
-
----
-
-### Subscribe Protocol (mới — `/ws/subscribe`)
-
-Client chủ động chọn kênh muốn nhận, giảm tải mạng và xử lý.
-
-**Kết nối**: `ws://host:8000/ws/subscribe`
-
-**Subscribe** — client gửi:
-```json
-{
-  "action": "subscribe",
-  "channels": ["VehicleSpeed", "EngineRPM", "alarms", "metrics"],
-  "mode": "continuous",
-  "rate_ms": 100
-}
-```
-
-| Field | Giá trị | Mô tả |
-|---|---|---|
-| `action` | `subscribe` / `unsubscribe` | |
-| `channels` | list signal names | Dùng `"*"` để subscribe tất cả signals |
-| `mode` | `continuous` / `once` | `once` = gửi 1 lần rồi tự unsubscribe |
-| `rate_ms` | int (optional) | Minimum interval giữa 2 lần push (client-side rate limit) |
-
-**Ack** từ server:
-```json
-{"type": "subscribe_ack", "action": "subscribe", "channels": ["VehicleSpeed"], "mode": "continuous", "rate_ms": 100}
-```
-
-**Unsubscribe**:
-```json
-{"action": "unsubscribe", "channels": ["VehicleSpeed"]}
-```
-
-**Channels đặc biệt**:
-- `"alarms"` — nhận alarm events
-- `"metrics"` — nhận system metrics push (3 giây/lần từ server)
-- `"*"` — subscribe tất cả signals
-
----
-
-## Frontend Modes
-
-Frontend có 2 chế độ chọn qua dropdown, lưu trong `localStorage`:
-
-| Mode | Mô tả |
-|---|---|
-| `dev` | Subscribe tất cả signals (`"*"`), hiển thị đầy đủ |
-| `user` | Chỉ subscribe whitelist tín hiệu curated + `alarms` + `metrics` |
-
-Whitelist hiện tại định nghĩa client-side trong `frontend/js/app.js` (`USER_SIGNAL_WHITELIST`).
-
----
-
-## Error Codes
-
-| HTTP Code | Ý nghĩa |
-|---|---|
-| `200 OK` | Thành công |
-| `202 Accepted` | Lệnh ghi CAN đã được queue |
-| `401 Unauthorized` | Thiếu hoặc sai API key |
-| `404 Not Found` | Signal / alarm không tồn tại |
-| `409 Conflict` | Alarm đã acknowledged / resolved |
-| `422 Unprocessable Entity` | Sai schema request body (Pydantic) |
-| `503 Service Unavailable` | CAN writer không khả dụng hoặc Adaptive Restraint DB chưa sẵn sàng |
-
-WebSocket close codes:
-- `4001` — Unauthorized (invalid token)
+See the [frontend error and warning catalogue](../docs/api_errors.md) for API, HTTP status, application code, and exact backend message templates.

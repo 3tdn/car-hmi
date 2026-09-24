@@ -1,4 +1,4 @@
-"""Route REST cho hệ thống restraint – tìm video phù hợp với điều kiện va chạm.
+"""REST route for the restraint system – find the video matching the crash conditions.
 
 Video filename naming schema:
     {percentile}p_{seat_position}_{velocity}_{seatbelt}.ext
@@ -31,7 +31,7 @@ For a measured value that falls between two reference points always pick the
 video whose reference is numerically closer (e.g. 100 mm → mid, 40 mm → front).
 
 The HMI may supply the seat travel distance explicitly via the `seat_x_mm`
-parameter; if omitted the backend reads it from the live CAN signal store.
+parameter; if omitted the backend reads the latest value from SignalStore.
 
 Occupant percentile thresholds (weight-based):
     5%  : weight < 65 kg
@@ -68,7 +68,7 @@ MEDIA_DIR = Path(__file__).resolve().parents[3] / "media"
 # seatbelt can be: SLL | CLL | MSLL | SLL_MSLL (combined SLL/MSLL)
 # ---------------------------------------------------------------------------
 _FILENAME_PATTERN = re.compile(
-    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)kmh?_(?P<seatbelt>[\w_]+)\.\w+$",
+    r"^(?P<percentile>\d+)p_(?P<seat_position>\w+)_(?P<velocity>\d+)(?:kmh?)?_(?P<seatbelt>[\w_]+)\.\w+$",
     re.IGNORECASE,
 )
 
@@ -140,12 +140,12 @@ _CAN_FR_SEAT_X = "SPS_FR_SeatDirectionX"
 # ---------------------------------------------------------------------------
 # OMS OccupantClassification CAN signal value → percentile
 # DBC comment: "25%, 50%, 95% Occupant" (3-bit field)
-# Assumed encoding: 1 → 5th %, 2 → 50th %, 3 → 95th %
+# Encoding: 0 → 5th %, 1 → 50th %, 2 → 95th %
 # ---------------------------------------------------------------------------
 _OMS_CLASS_TO_PERCENTILE: dict[int, int] = {
-    1: 5,
-    2: 50,
-    3: 95,
+    0: 5,
+    1: 50,
+    2: 95,
 }
 
 # CAN signal names from SIMI (OMS)
@@ -241,7 +241,7 @@ async def match_restraint(
         description=(
             "Seat travel distance in mm from SPS_SeatDirectionX "
             "(0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). "
-            "If omitted the backend reads the live CAN signal. "
+            "If omitted the backend reads the latest SignalStore value. "
             "Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm."
         ),
     ),
@@ -250,12 +250,16 @@ async def match_restraint(
 
     Resolution order for seat-position zone:
     1. `seat_x_mm` query parameter (explicit value from HMI)
-    2. Live CAN signal SPS_FL/FR_SeatDirectionX from signal store
+    2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore
     3. Fallback default from seat identifier (fl / fr → mid)
 
     Resolution order for occupant percentile:
-    1. Live CAN signal OMS_FL/FR_OccupantClassification (sensor wins)
+    1. Latest OMS_FL/FR_OccupantClassification value in SignalStore
+       (class 0/1/2 maps to video bucket 5p/50p/95p)
     2. Weight-derived percentile from `weight` parameter
+
+    SignalStore values are accepted without a receive-freshness or provenance check, so
+    an initial DBC-seeded value or stale value can take priority over request parameters.
     """
     if not MEDIA_DIR.exists():
         raise HTTPException(status_code=500, detail="Media directory not found")
@@ -281,7 +285,7 @@ async def match_restraint(
             detail=f"seatbelt_system '{seatbelt_system}' invalid. Use SLL, CLL, or MSLL.",
         )
 
-    # ── 4. Read live CAN signals ──────────────────────────────────────────────
+    # ── 4. Read latest SignalStore values ─────────────────────────────────────
     store = getattr(request.app.state, "store", None)
     seat_lower = seat.strip().lower()
     if seat_lower not in ("fl", "fr"):
