@@ -268,8 +268,6 @@ def test_app_config_accepts_devmode_can_status_bypass():
     cfg = AppConfig(devmode={"bypass_check_CAN_status": True})
 
     assert cfg.devmode.bypass_check_CAN_status is True
-
-
 def test_app_config_accepts_oms_classification_config():
     cfg = AppConfig(
         oms_config={

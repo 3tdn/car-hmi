@@ -34,7 +34,12 @@ _MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
         "HB_Request_RL2": "HB_State_RL2",
         "HB_Request_RL1": "HB_State_RL1",
         "HB_Request_FR": "HB_State_FR"
-    }
+    },
+    "INC_HMI_SensorFusionRequest": {
+        "HMI_SensorFusion_CapSensor": "OMS_State_CapSensor",
+        "HMI_SensorFusion_StrainGage": "OMS_State_StrainGauge",
+        "HMI_SensorFusion_Camera": "OMS_State_Camera",
+    },
 }
 
 
