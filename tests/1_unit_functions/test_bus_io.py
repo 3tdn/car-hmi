@@ -248,6 +248,14 @@ def v8_db():
     return loader
 
 
+@pytest.fixture
+def v9_db():
+    loader = DatabaseLoader()
+    dbc_path = Path(__file__).resolve().parents[2] / "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
+    loader.load_dbc(dbc_path)
+    return loader
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("preserve_unwritten", [False, True])
 async def test_elk_batch_uses_locking_statuses_for_unwritten_requests(
@@ -334,6 +342,53 @@ async def test_elk_batch_groups_two_explicit_requests_into_one_frame(
         "ELK_RR1_LockingRequest": 0.0,
         "ELK_RL2_LockingRequest": 1.0,
         "ELK_RL1_LockingRequest": 0.0,
+    }
+    assert bus_rx.recv(timeout=0.05) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preserve_unwritten", [False, True])
+async def test_hb_frame_uses_states_for_unwritten_requests(
+    virtual_bus_pair,
+    v9_db,
+    preserve_unwritten,
+):
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.bulk_update(
+        {
+            "HB_State_RR1": 3.0,
+            "HB_State_RL2": 2.0,
+            "HB_State_RL1": 1.0,
+            "HB_State_FR": 3.0,
+        }
+    )
+    writer = CANWriter(
+        bus=bus_tx,
+        db=v9_db,
+        signal_store=store,
+        writer_config=WriterConfig(use_prevalue_for_unwritten_signal=preserve_unwritten),
+    )
+    msg_def = v9_db.get_message_for_signal("HB_Request_RR1")
+    assert msg_def is not None
+
+    await writer._send_frame(
+        msg_def.msg_id,
+        msg_def,
+        {"HB_Request_FR": 1.0},
+        123.0,
+    )
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    assert msg.arbitration_id == 0x83
+    decoded = v9_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded == {
+        "HB_IncarTemp": 0.0,
+        "HB_Request_RR1": 3.0,
+        "HB_Request_RL2": 2.0,
+        "HB_Request_RL1": 1.0,
+        "HB_Request_FR": 1.0,
     }
     assert bus_rx.recv(timeout=0.05) is None
 

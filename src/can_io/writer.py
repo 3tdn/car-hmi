@@ -27,6 +27,13 @@ _MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
         "ELK_RL2_LockingRequest": "ELK_RL2_LockingStatus",
         "ELK_RR1_LockingRequest": "ELK_RR1_LockingStatus",
         "ELK_ResetErrorFlags": 0.0,
+    },
+    "SBS_HB_Request": {
+        "HB_IncarTemp_dgradC": 0.0,
+        "HB_Request_RR1": "HB_State_RR1",
+        "HB_Request_RL2": "HB_State_RL2",
+        "HB_Request_RL1": "HB_State_RL1",
+        "HB_Request_FR": "HB_State_FR"
     }
 }
 
