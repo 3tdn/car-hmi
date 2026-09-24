@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import threading
 import time
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Minimum interval for logging dropped-frame warnings (avoid spam).
 _DROP_WARN_INTERVAL_SEC = 5.0
+_FRONTEND_RETRY_MIN_INTERVAL_SEC = 5.0
 
 
 @dataclass
@@ -48,7 +50,7 @@ class CANReader:
 
     def __init__(
         self,
-        bus: can.BusABC,
+        bus: can.BusABC | None,
         db: DatabaseLoader,
         queue: asyncio.Queue[DecodedFrame],
         filter_ids: set[int] | None = None,
@@ -58,12 +60,14 @@ class CANReader:
         max_rate_hz: float = 0.0,
         priority_sec: float = 0.0,
         stale_threshold_sec: float = 30.0,
+        frontend_retry_enabled: bool = False,
         on_bus_disconnecting: Callable[[str], Awaitable[None]] | None = None,
         on_bus_reconnected: Callable[[can.BusABC], Awaitable[None]] | None = None,
     ) -> None:
         """
         Args:
-            bus:            An open ``can.Bus`` object.
+            bus:            An open ``can.Bus`` object, or ``None`` while an
+                            initial connection is being discovered.
             db:             ``DatabaseLoader`` with loaded message/signal definitions.
             queue:          Output queue for decoded frames.
             filter_ids:     If not empty, process only frames with these IDs.
@@ -78,6 +82,8 @@ class CANReader:
                             Ensures low-frequency-changing signals are not missed.
             stale_threshold_sec: Reopen the bus if no frame arrives within this
                             duration. Set to 0 to disable stale-bus recovery.
+            frontend_retry_enabled: Wake reconnect backoff when frontend activity
+                            is observed. Intended only for auto-selected channels.
             on_bus_disconnecting: Awaited before the shared bus is closed, so
                             paired CAN writers can stop using that bus safely.
             on_bus_reconnected: Awaited after a replacement bus opens, so paired
@@ -109,6 +115,7 @@ class CANReader:
         # 0.0 = disabled (only enqueue on value change)
         self._priority_sec: float = priority_sec
         self._stale_threshold_sec = max(0.0, stale_threshold_sec)
+        self._frontend_retry_enabled = frontend_retry_enabled
         self._on_bus_disconnecting = on_bus_disconnecting
         self._on_bus_reconnected = on_bus_reconnected
         self._signal_last_enqueue_time: dict[str, float] = {}
@@ -121,6 +128,8 @@ class CANReader:
         self._reconnect_task: asyncio.Task[None] | None = None
         self._reconnecting = False
         self._reconnect_attempt = 0
+        self._reconnect_wakeup = asyncio.Event()
+        self._last_frontend_retry_monotonic = float("-inf")
         # Cross-thread ingress coalescing. At most one event-loop callback may
         # be outstanding, while the latest signal values are retained per CAN
         # message. This bounds pending work by the number of active CAN IDs
@@ -147,20 +156,24 @@ class CANReader:
         self._fatal_error = None
         event_loop = asyncio.get_running_loop()
         self._event_loop = event_loop
-        self._bus_opened_monotonic = time.monotonic()
+        self._bus_opened_monotonic = time.monotonic() if self._bus is not None else 0.0
         logger.info(
             "CAN Reader started (interface=%s, channel=%s, %d msgs in DB)",
             getattr(self._bus, "INTERFACE", "?"),
             getattr(self._bus, "channel", "?"),
             len(self._db.messages),
         )
-        self._recv_thread = self._spawn_recv_thread(event_loop)
+        if self._bus is None:
+            logger.warning("CAN bus unavailable at startup — discovering in background")
+            await self.request_reconnect("CAN bus unavailable at startup")
+        else:
+            self._recv_thread = self._spawn_recv_thread(event_loop)
         try:
             while self._running:
                 await asyncio.sleep(0.5)
                 # Watchdog: if the thread dies unexpectedly, try reconnecting
                 if (
-                    not self._recv_thread.is_alive()
+                    not (self._recv_thread and self._recv_thread.is_alive())
                     and self._running
                     and not self._reconnecting
                 ):
@@ -213,10 +226,11 @@ class CANReader:
 
     async def _close_recv_thread(self) -> None:
         """Close the current bus and wait briefly for its blocked recv() to return."""
-        try:
-            self._bus.shutdown()
-        except Exception:
-            logger.debug("CAN bus shutdown during reconnect failed", exc_info=True)
+        if self._bus is not None:
+            try:
+                self._bus.shutdown()
+            except Exception:
+                logger.debug("CAN bus shutdown during reconnect failed", exc_info=True)
 
         if self._recv_thread and self._recv_thread.is_alive():
             await asyncio.get_running_loop().run_in_executor(
@@ -252,6 +266,25 @@ class CANReader:
         )
         return True
 
+    def notify_frontend_activity(self) -> bool:
+        """Wake a sleeping reconnect loop when an active frontend is observed.
+
+        Repeated HTTP requests and WebSocket heartbeats are coalesced so an
+        active frontend cannot turn failed CAN discovery into a retry storm.
+        """
+        if (
+            not self._frontend_retry_enabled
+            or not self._running
+            or not self._reconnecting
+        ):
+            return False
+        now = time.monotonic()
+        if now - self._last_frontend_retry_monotonic < _FRONTEND_RETRY_MIN_INTERVAL_SEC:
+            return False
+        self._last_frontend_retry_monotonic = now
+        self._reconnect_wakeup.set()
+        return True
+
     def _recv_loop(self, event_loop: asyncio.AbstractEventLoop) -> None:
         """Run in a dedicated OS thread: a tight recv() loop that posts frames via call_soon_threadsafe.
 
@@ -260,9 +293,17 @@ class CANReader:
         """
         logger.debug("CAN recv thread started (tid=%d)", threading.get_ident())
         bus = self._bus  # local snapshot — avoids race with _reconnect() reassigning self._bus
+        prefetched_msg = getattr(bus, "_car_hmi_prefetched_message", None)
+        if prefetched_msg is not None:
+            with contextlib.suppress(AttributeError):
+                delattr(bus, "_car_hmi_prefetched_message")
         while self._running:
             try:
-                msg: can.Message | None = bus.recv(timeout=0.2)
+                if prefetched_msg is not None:
+                    msg: can.Message | None = prefetched_msg
+                    prefetched_msg = None
+                else:
+                    msg = bus.recv(timeout=0.2)
                 if msg is None:
                     continue
                 self._received_count += 1
@@ -270,7 +311,7 @@ class CANReader:
                 self._last_recv_monotonic = time.monotonic()
                 self._last_error = None
                 # Opening a socket is not enough to prove recovery. Reset the
-                # staged backoff only after the replacement bus delivers data.
+                # staged backoff only after the replacement bus delivers DBC data.
                 self._reconnect_attempt = 0
                 # Copy data before posting — some backends reuse internal buffers
                 msg_copy = can.Message(
@@ -514,18 +555,22 @@ class CANReader:
                 attempt = self._reconnect_attempt
                 delay = self._reconnect_delay(attempt, self._max_retries)
                 logger.info("Reconnect attempt %d in %ds...", attempt, delay)
-                await asyncio.sleep(delay)
+                await self._wait_for_reconnect_delay(delay)
                 if not self._running:  # honour stop() during reconnect backoff
                     return
                 try:
-                    self._bus.shutdown()
+                    if self._bus is not None:
+                        self._bus.shutdown()
                     if self._bus_factory is None:
                         logger.warning("No bus_factory — cannot re-open bus; stopping reader")
                         self._fatal_error = "no_bus_factory"
                         self.stop()
                         return
 
-                    self._bus = self._bus_factory()
+                    # Auto SocketCAN selection may probe multiple interfaces for
+                    # several seconds. Keep that blocking I/O off the event loop
+                    # so the API and signal pipeline remain responsive.
+                    self._bus = await asyncio.to_thread(self._bus_factory)
                     if self._on_bus_reconnected is not None:
                         await self._on_bus_reconnected(self._bus)
                     # Force a complete first snapshot from the replacement bus;
@@ -542,6 +587,7 @@ class CANReader:
                     self._bus_opened_monotonic = time.monotonic()
                     if self._event_loop is not None:
                         self._recv_thread = self._spawn_recv_thread(self._event_loop)
+                    self._reconnect_wakeup.clear()
                     logger.info("CAN bus re-opened: %s", self._bus)
                     return
                 except can.CanError as exc:
@@ -560,6 +606,16 @@ class CANReader:
                     return
         finally:
             self._reconnecting = False
+
+    async def _wait_for_reconnect_delay(self, delay: float) -> None:
+        """Wait for backoff expiry or a throttled frontend-activity wakeup."""
+        try:
+            await asyncio.wait_for(self._reconnect_wakeup.wait(), timeout=delay)
+            logger.info("Frontend activity requested an immediate CAN reconnect attempt")
+        except TimeoutError:
+            pass
+        finally:
+            self._reconnect_wakeup.clear()
 
     @staticmethod
     def _reconnect_delay(attempt: int, initial_retries: int) -> int:
@@ -620,3 +676,17 @@ class CANReader:
     def set_queue(self, queue: asyncio.Queue) -> None:
         """Swap the reference to the output queue (the caller is responsible for data migration)."""
         self._queue = queue
+
+    def apply_runtime_config(
+        self,
+        *,
+        queue_policy: str,
+        max_rate_hz: float,
+        priority_sec: float,
+        stale_threshold_sec: float,
+    ) -> None:
+        """Synchronize all reader settings that are safe to change live."""
+        self._policy = queue_policy
+        self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
+        self._priority_sec = max(0.0, float(priority_sec))
+        self._stale_threshold_sec = max(0.0, float(stale_threshold_sec))

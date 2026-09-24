@@ -13,7 +13,9 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from src.core.config import AppConfig, load_config
+import can
+
+from src.core.config import AppConfig, apply_environment_overrides, load_config
 from src.core.signal_store import SignalStore
 
 logger = logging.getLogger(__name__)
@@ -125,11 +127,14 @@ class AppRunner:
 
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        self._boot_config = config.model_dump(mode="json")
         self.store = SignalStore()
         self._shutting_down = False
         self._tasks: list[asyncio.Task] = []
         # Component references (created in start())
         self._pipeline = None
+        self._rate_limiter = None
+        self._oms_classifier = None
         self._readers: list = []
         self._writers: list = []
         self._writer_router = None
@@ -149,6 +154,7 @@ class AppRunner:
         self._ping_unavailable_logged = False
         self._reboot_requested = False
         self._reboot_task: asyncio.Task[None] | None = None
+        self.pending_reboot_paths: set[str] = set()
 
     async def start(self) -> None:
         """Start all components and block until shutdown."""
@@ -206,11 +212,11 @@ class AppRunner:
             raise
 
     async def _init_components(self, loop: asyncio.AbstractEventLoop) -> None:
-        from src.can_io.bus_factory import create_bus
+        from src.can_io.bus_factory import create_bus, resolve_auto_match_ids
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
-        from src.processor.computed import ComputedSignals
+        from src.processor.computed import ComputedSignals, OMSClassificationProcessor
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
         from src.storage.database import init_db
@@ -282,7 +288,15 @@ class AppRunner:
             batch_interval_sec=store_cfg.batch_interval_sec,
             batch_drain_size=proc_cfg.batch_drain_size,
         )
-        self._pipeline.add_stage(RateLimiter(max_hz=proc_cfg.max_update_rate_hz))
+        self._rate_limiter = RateLimiter(max_hz=proc_cfg.max_update_rate_hz)
+        self._pipeline.add_stage(self._rate_limiter)
+        oms_cfg = self.config.oms_config
+        self._oms_classifier = OMSClassificationProcessor(
+            bypass_simi_input=oms_cfg.bypass_simi_input,
+            class_config=oms_cfg.class_config,
+            target_signals=oms_cfg.target_signal,
+        )
+        self._pipeline.add_stage(self._oms_classifier)
         self._pipeline.add_stage(ComputedSignals())
 
         # 4. Check the simulator early — before opening the bus ──────────────────
@@ -300,11 +314,21 @@ class AppRunner:
         for idx, ch_cfg in enumerate(can_channels):
             db_loader = self._db_loaders[idx]
 
-            def _make_bus_factory(cfg=ch_cfg):
-                return lambda: create_bus(cfg)
+            def _make_bus_factory(cfg=ch_cfg, loader=db_loader):
+                match_ids = resolve_auto_match_ids(cfg, loader) if cfg.channel == "auto" else set()
+                return lambda: create_bus(cfg, auto_match_ids=match_ids)
 
             bus_factory = _make_bus_factory()
-            bus = bus_factory()
+            try:
+                bus = bus_factory()
+            except can.CanError as exc:
+                if ch_cfg.channel != "auto":
+                    raise
+                bus = None
+                logger.warning(
+                    "Automatic CAN discovery unavailable at startup: %s — continuing in degraded mode",
+                    exc,
+                )
             self._bus_factories.append(bus_factory)
             self._buses.append(bus)
 
@@ -340,6 +364,7 @@ class AppRunner:
                 max_rate_hz=proc_cfg.max_update_rate_hz,
                 priority_sec=self.config.reader.frequency_piority,
                 stale_threshold_sec=self.config.reader.stale_threshold_sec,
+                frontend_retry_enabled=ch_cfg.channel == "auto",
                 on_bus_disconnecting=_mark_channel_bus_unavailable,
                 on_bus_reconnected=_replace_channel_bus,
             )
@@ -575,8 +600,8 @@ class AppRunner:
         from src.core.system_metrics import collect_system_metrics, metrics_to_dict
 
         # metrics interval configurable via API config; default 3s -> allow float
-        interval = float(getattr(self.config.api, "ws_metrics_interval_sec", 3.0))
         while not self._shutting_down:
+            interval = float(getattr(self.config.api, "ws_metrics_interval_sec", 3.0))
             await asyncio.sleep(interval)
             if self._ws_manager is None:
                 continue
@@ -737,14 +762,14 @@ class AppRunner:
         """
         import time as _time_mod
 
-        retention_sec = self.config.storage.retention_days * 86400
-        max_bytes = int(self.config.storage.max_disk_mb) * 1024 * 1024
-        db_path = Path(self.config.storage.sqlite_path)
         while not self._shutting_down:
             await asyncio.sleep(3600)
             if self._shutting_down:
                 break
             try:
+                retention_sec = self.config.storage.retention_days * 86400
+                max_bytes = int(self.config.storage.max_disk_mb) * 1024 * 1024
+                db_path = Path(self.config.storage.sqlite_path)
                 cutoff = _time_mod.time() - retention_sec
                 deleted = await self._repo.delete_old_signals(cutoff)
                 if deleted:
@@ -894,6 +919,89 @@ class AppRunner:
         """Request immediate reconnect processing for every configured CAN reader."""
         return [await reader.request_reconnect() for reader in self._readers]
 
+    def notify_frontend_activity(self) -> int:
+        """Wake disconnected CAN readers when HTTP/WS activity shows a frontend is active."""
+        return sum(reader.notify_frontend_activity() for reader in self._readers)
+
+    async def apply_system_config(self, new_config: AppConfig, changed_paths: list[str]) -> dict:
+        """Apply every policy-approved live field and synchronize runtime references."""
+        from src.core.config_policy import ReloadLevel, diff_paths, match_policy
+
+        # Keep deployment-only port and secret overrides after a config PATCH,
+        # reset, restore, or explicit runtime reload.
+        new_config = apply_environment_overrides(new_config)
+
+        live_paths = [
+            path
+            for path in changed_paths
+            if (policy := match_policy(path)) is not None
+            and policy.reload_level == ReloadLevel.LIVE
+        ]
+        live_set = set(live_paths)
+        boot_diff = diff_paths(
+            self._boot_config,
+            new_config.model_dump(mode="json"),
+        )
+        self.pending_reboot_paths = {
+            path
+            for path in boot_diff
+            if (policy := match_policy(path)) is None
+            or policy.reload_level != ReloadLevel.LIVE
+        }
+
+        if "processor.max_queue_size" in live_set:
+            await self.migrate_rx_queue(new_config.processor.max_queue_size)
+
+        if self._pipeline is not None:
+            self._pipeline.apply_runtime_config(
+                queue_policy=new_config.processor.queue_policy,
+                batch_size=new_config.storage.batch_size,
+                batch_interval_sec=new_config.storage.batch_interval_sec,
+                batch_drain_size=new_config.processor.batch_drain_size,
+            )
+        if self._rate_limiter is not None:
+            self._rate_limiter.set_max_hz(new_config.processor.max_update_rate_hz)
+        if self._oms_classifier is not None:
+            oms_cfg = new_config.oms_config
+            self._oms_classifier.apply_runtime_config(
+                bypass_simi_input=oms_cfg.bypass_simi_input,
+                class_config=oms_cfg.class_config,
+                target_signals=oms_cfg.target_signal,
+            )
+
+        for reader in self._readers:
+            reader.apply_runtime_config(
+                queue_policy=new_config.processor.queue_policy,
+                max_rate_hz=new_config.processor.max_update_rate_hz,
+                priority_sec=new_config.reader.frequency_piority,
+                stale_threshold_sec=new_config.reader.stale_threshold_sec,
+            )
+        for writer in self._writers:
+            writer.apply_runtime_config(new_config.writer)
+
+        if self._ws_manager is not None:
+            self._ws_manager.set_only_send_signal_update(
+                new_config.reader.only_send_signal_update
+            )
+        if self._api_app is not None:
+            self._api_app.state.reader_stale_threshold_sec = (
+                new_config.reader.stale_threshold_sec
+            )
+            self._api_app.state.devmode_bypass_can_status = (
+                new_config.devmode.bypass_check_CAN_status
+            )
+
+        if "logging.level" in live_set:
+            level = getattr(logging, new_config.logging.level, logging.INFO)
+            root_logger = logging.getLogger()
+            root_logger.setLevel(level)
+            for handler in root_logger.handlers:
+                handler.setLevel(level)
+
+        self.config = new_config
+        logger.info("Applied live system config fields: %s", live_paths)
+        return {"applied": live_paths, "unavailable": []}
+
     async def request_reboot(self) -> bool:
         """Gracefully stop this process; systemd Restart=on-failure starts it again."""
         if self._shutting_down or self._reboot_requested:
@@ -969,6 +1077,8 @@ class AppRunner:
             await asyncio.gather(*(task for task in self._tasks if task.get_name() != "api"), return_exceptions=True)
 
         for bus in self._buses:
+            if bus is None:
+                continue
             try:
                 bus.shutdown()
             except Exception:
@@ -1017,7 +1127,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = apply_environment_overrides(load_config(args.config))
     if args.log_level:
         cfg.logging.level = args.log_level
 

@@ -89,11 +89,11 @@ async def test_list_signals_with_auth(client):
     resp = await client.get("/signals", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 200
     data = resp.json()
-    # With the new profile-based access, the request may be filtered by profile scope.
-    # By default, the fixture does not send X-Profile-Name, so the current total = 0.
-    assert data["total"] == 0
-    assert data["items"] == []
-    assert isinstance(data.get("warnings", []), list)
+    # RX values remain readable with a valid API key and no profile header.
+    assert data["total"] == 1
+    assert data["items"][0]["signal_name"] == "VehicleSpeed"
+    assert data["items"][0]["value"] == 60.0
+    assert data["warnings"] == []
 
 def test_api_key_auth_verify_valid():
     """verify() returns True for correct key."""

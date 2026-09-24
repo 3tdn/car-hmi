@@ -1,293 +1,125 @@
-# 02 — API Reference
+# 02 — API Reference and Frontend Integration
 
-> Toan bo REST endpoints va WebSocket protocol cua CAN-HMI backend  
-> Base URL: `http://<host>:8000` (mac dinh `localhost:8000`)
+Verified against the registered backend routes on 2026-09-19: **54 HTTP operations
+(48 operations plus 6 system aliases) and 3 WebSocket endpoints**.
 
----
+Use the [complete English API reference](../docs/api_reference.md) for all request
+parameters, bodies, response formats, exact error messages, and curl examples.
+The [OpenAPI snapshot](../docs/api.openapi.json) contains HTTP schemas.
+The [frontend integration guide](../docs/frontend_integration.md) covers both the bundled
+dashboard and a separately hosted frontend.
 
-## Authentication va Access Control
+## Common contract
 
-| Kenh | Co che |
-|---|---|
-| REST | Header `X-API-Key: <key>` |
-| WebSocket | Query param `?api_key=<key>` |
+Use `X-API-Key` on protected HTTP routers, `X-Profile-Name` for explicit profile scope,
+and `X-Client-Id` for client sessions and Dev Mode locks. Browser WebSockets use
+`?api_key=...&profile_name=...`. `X-Dev-Mode: true` does not bypass API key authentication.
+System controls require both a real configured key and Dev Mode. Public routes include
+system GET, adaptive restraint, camera, and restraints/video.
 
-Neu `api_key` trong `config/system.json` de trong hoac la placeholder (`change-me-in-production`) thi auth REST/WS se duoc tat (dev mode).
+HTTP errors can contain string, object, or validation-array `detail`. Successful responses
+can contain `warnings`; batch writes return HTTP 202 even when individual signals fail.
+Inspect `errors` and per-seat `applied` results instead of checking HTTP status alone.
 
-He thong hien tai bo sung profile-based access control:
-- Header `X-Profile-Name`: profile duoc ap dung cho request.
-- Header `X-Client-Id`: dinh danh session cua tung frontend client (de map active profile theo client).
-- Header `X-Dev-Mode: true`: bo qua check permission cho mot so thao tac profile mutate trong moi truong dev.
+The current backend has no alarm REST/config/WebSocket routes and no root `/health` or
+`/ready` business routes. Use `/system/health` and `/system/ready` (or their `/api` aliases).
+These probes return HTTP 200 even when their JSON body reports degraded health or not-ready.
 
-Permission cua profile:
-- `read`: doc signal/du lieu.
-- `write`: ghi signal, acknowledge/resolve alarm.
-- `full`: toan quyen (bao gom config mutate va profile mutate).
+## Complete HTTP inventory
 
----
-
-## REST Endpoints
-
-### Signals
-
-| Method | Path | Mo ta |
+| Method | API | Purpose (from implementation) |
 |---|---|---|
-| `GET` | `/signals` | Lay snapshot signal hien tai (co the kem `warnings`) |
-| `GET` | `/signals/available` | Metadata day du + alarm thresholds + current value |
-| `GET` | `/signals/{name}` | Lay gia tri 1 signal |
-| `GET` | `/signals/{name}/history` | Lich su signal tu DB |
-| `PUT` | `/signals/{name}` | Ghi 1 signal vao CAN (202 Accepted) |
-| `POST` | `/signals/batch_update` | Ghi nhieu signal cung luc (batch) |
+| GET | `/signals` | List latest signal values |
+| GET | `/signals/available` | List all available signals with metadata |
+| GET | `/signals/{signal_name}` | Get latest value for one signal |
+| PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
+| GET | `/signals/{signal_name}/history` | Query signal history from DB |
+| POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
+| GET | `/config` | List all signal configurations |
+| GET | `/config/signal/{signal_name}` | Get config for one signal |
+| PATCH | `/config/signal/{signal_name}` | Update signal config |
+| GET | `/config/processor` | Get processor config |
+| POST | `/config/processor` | Update processor config |
+| GET | `/config/system` | Get system config and field update policy |
+| PATCH | `/config/system` | Patch system config without dropping unrelated fields |
+| GET | `/config/system/backups` | List fixed-path system config backups |
+| POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
+| POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
+| POST | `/config/system/reset` | Reset system config from the fixed project template |
+| POST | `/config/system/reload` | Re-apply live fields from the system config file |
+| GET | `/config/general` | Get full application config |
+| PATCH | `/config/general` | Patch application config (partial) |
+| POST | `/config/general/reset` | Reset application config to defaults |
+| GET | `/adaptive_restraint/available` | Get all available options for adaptive restraint filters |
+| GET | `/adaptive_restraint/chart_info` | Get statistic and chart information for adaptive restraint systems |
+| GET | `/system/info` | Get project & system information |
+| GET | `/system/health` | Health check |
+| GET | `/system/ready` | Readiness probe (for container/systemd) |
+| GET | `/system/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/system/can/retry` | Retry CAN connections |
+| POST | `/system/reboot` | Reboot Car-HMI service |
+| GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
+| GET | `/api/camera/status` | Camera stream proxy status |
+| GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
+| GET | `/api/devmode/status` | Current Dev Mode seat locks |
+| POST | `/api/devmode/seats/select` | Select seats for Dev Mode (locks other sections out) |
+| POST | `/api/devmode/exit` | Leave Dev Mode and release all seat locks of this section |
+| POST | `/api/devmode/signals` | Apply one signal family to several seats at once |
+| GET | `/api/info` | Get project & system information |
+| GET | `/api/health` | Health check |
+| GET | `/api/ready` | Readiness probe (for container/systemd) |
+| GET | `/api/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/api/can/retry` | Retry CAN connections |
+| POST | `/api/reboot` | Reboot Car-HMI service |
+| GET | `/api/profiles` | List all profiles |
+| GET | `/api/profile/sessions` | List client active-profile sessions |
+| POST | `/api/profile/heartbeat` | Heartbeat for client profile session |
+| POST | `/api/profile/offline` | Mark client profile session offline |
+| GET | `/api/profile` | Get profile by name (or active profile) |
+| POST | `/api/profile` | Create new profile |
+| PUT | `/api/profile` | Update profile (optimistic lock) |
+| PUT | `/api/profile/active` | Set active profile |
+| DELETE | `/api/profile/{name}` | Delete profile |
 
-API ho tro ca canonical signal name va `std_name` alias. Server tu resolve alias ve canonical truoc khi doc/ghi.
+## WebSocket formats
 
-Ghi chu hanh vi quyen truy cap:
-- Neu profile active khong cho phep mot signal, endpoint doc co the tra `200` voi `warnings` va danh sach da bi loc.
-- Voi endpoint single-signal (`GET /signals/{name}`, `PUT /signals/{name}`), check permission/profile duoc xu ly truoc check ton tai signal, vi vay co the nhan `403` thay vi `404` neu signal nam ngoai scope profile.
+The three registered WebSocket endpoints are `/ws/signals`, `/ws/subscribe` (alias),
+and `/ws/all` (legacy automatic broadcast). Use the first two for subscription commands:
 
-**GET /signals** (vi du):
 ```json
-{
-  "items": [
-    {"signal_name": "VehicleSpeed", "std_name": "VehicleSpeed", "value": 84.1, "unit": "km/h", "timestamp": 1742000000.0}
-  ],
-  "total": 1,
-  "warnings": []
-}
+{"type":"subscribe","signals":["COM_Status_ElkCan","metrics"],"rate_ms":200,"mode":"continuous"}
 ```
 
-**POST /signals/batch_update** request:
 ```json
-{
-  "signals": [
-    {"signal_name": "VehicleSpeed", "value": 80.0},
-    {"signal_name": "FuelLevel", "value": 25.0}
-  ]
-}
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan","metrics"],"count":2,"warnings":[]}
 ```
 
-Response co the tra warning neu mot so signal nam ngoai scope cua profile:
 ```json
-{
-  "queued": [{"signal_name": "VehicleSpeed", "value": 80.0}],
-  "count": 1,
-  "queued_at": 1742000001.0,
-  "errors": [],
-  "warnings": [
-    {
-      "code": "profile_signal_filtered",
-      "required_permission": "write",
-      "signals": ["FuelLevel"]
-    }
-  ]
-}
+{"timestamp":"2026-09-17T00:00:00Z","signals":[{"name":"COM_Status_ElkCan","std_name":"COM_Status_ElkCan","value":1}]}
 ```
 
----
+Signal frames have no `type` field. Metrics use `type: "metrics"`. Send
+`{"type":"ping"}` for a `pong`, and `{"type":"unsubscribe","signals":["COM_Status_ElkCan"]}`
+to unsubscribe. `mode: "once"` waits for the next eligible broadcast; fetch initial values
+with REST. `/ws/all` does not handle subscription/ping commands. No alarm channel exists.
 
-### Alarms
+## Frontend workflow
 
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/alarms` | Danh sach lich su canh bao |
-| `GET` | `/alarms/{id}` | Chi tiet 1 canh bao |
-| `POST` | `/alarms/{id}/acknowledge` | Xac nhan canh bao (can `write`) |
-| `POST` | `/alarms/{id}/resolve` | Resolve canh bao (can `write`) |
+Load metadata and a REST snapshot before subscribing. Keep one client ID per tab and
+pass the selected profile explicitly on HTTP requests and the WebSocket URL. After a
+profile change, refresh metadata/snapshot and reconnect the subscription. Inspect warnings
+and partial failures. Release Dev Mode locks and mark the session offline on disconnect.
 
-Neu alarm khong ton tai/da xu ly roi thi server tra detail co code co cau truc (`alarm_not_found`, `alarm_acknowledge_conflict`, `alarm_resolve_conflict`).
+Set both `window.API_BASE` and `window.WS_BASE` before loading the bundled API helper.
+Use repeated query parameters for adaptive chart lists. Resolve video URLs against the
+backend origin. Open camera streams only while visible and close the HTTP subscription
+on leaving the view; the last viewer leaving stops the shared upstream connection.
 
----
+System settings come from backend field policy. Object patches merge recursively, but
+arrays replace completely. Show pending reboot paths and explicitly invoke the authorized
+reboot control when a restart is required. See [configuration management](../docs/system_config_management.md).
 
-### Config
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/config` | Danh sach config hien thi signal |
-| `GET` | `/config/signal/{name}` | Config 1 signal |
-| `PATCH` | `/config/signal/{name}` | Cap nhat config signal (can `full`) |
-| `GET` | `/config/processor` | Lay processor config |
-| `POST` | `/config/processor` | Cap nhat processor config (can `full`) |
-| `GET` | `/config/general` | Lay full app config |
-| `PATCH` | `/config/general` | Patch app config (can `full`) |
-| `POST` | `/config/general/reset` | Reset app config ve mac dinh (can `full`) |
-| `GET` | `/config/alarms` | Lay alarms config |
-| `POST` | `/config/alarms` | Cap nhat alarms config (can `full`) |
-| `POST` | `/config/alarms/reset` | Reset alarms config (can `full`) |
-
-Luu y: thay doi `max_queue_size` se thu migrate runtime RX queue ma khong can restart app.
-
----
-
-### Profiles
-
-Tat ca profile endpoints nam duoi prefix `/api`.
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/api/profiles` | Liet ke profiles + active + global_active |
-| `GET` | `/api/profile` | Lay profile theo `name` query hoac active profile |
-| `POST` | `/api/profile` | Tao profile moi |
-| `PUT` | `/api/profile` | Cap nhat profile (optimistic lock qua `section_id`) |
-| `DELETE` | `/api/profile/{name}` | Xoa profile |
-| `PUT` | `/api/profile/active` | Dat active profile (global hoac theo `X-Client-Id`) |
-| `GET` | `/api/profile/sessions` | Liet ke map client -> active profile + online/offline |
-| `POST` | `/api/profile/heartbeat` | Cap nhat heartbeat cho client session |
-| `POST` | `/api/profile/offline` | Danh dau client session offline ngay lap tuc |
-
-Chi tiet quan trong:
-- `PUT /api/profile` bat buoc `section_id` dung voi state hien tai; sai thi `409 profile_section_mismatch`.
-- Neu gui `X-Client-Id`, `PUT /api/profile/active` chi doi active cho client do, khong doi `global_active`.
-- Heartbeat/offline yeu cau `X-Client-Id`, neu thieu se tra `400 client_id_required`.
-- Profile schema moi: moi signal co permission rieng trong `signals[]`.
-- `exinfo` la object tu do, frontend co the luu metadata rieng; neu khong gui trong PUT thi backend giu gia tri cu.
-
-Vi du payload tao/cap nhat profile:
-```json
-{
-  "name": "driver",
-  "signals": [
-    {"name": "VehicleSpeed", "permission": ["read"]},
-    {"name": "FuelLevel", "permission": ["read", "write"]}
-  ],
-  "exinfo": {"role": "dev", "color": "#22c55e"},
-  "description": "Driver view"
-}
-```
-
----
-
-### Camera
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/api/camera/stream` | Proxy MJPEG stream tu camera |
-| `GET` | `/api/camera/status` | Trang thai ket noi stream, so viewers, loi gan nhat |
-
----
-
-### Adaptive Restraint
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/adaptive_restraint/available` | Gia tri filter kha dung |
-| `GET` | `/adaptive_restraint/chart_info` | Box-plot + raw data preview |
-
-Neu DB adaptive restraint chua san sang thi endpoint se tra `503 Service Unavailable`.
-
----
-
-### Restraints Video Match
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/api/restraints/match` | Tim video restraint phu hop nhat |
-| `GET` | `/api/restraints/video/{filename}` | Stream file video |
-
-Tai lieu chi tiet nam trong `docs/restraints_api.md`.
-
----
-
-### System
-
-| Method | Path | Mo ta |
-|---|---|---|
-| `GET` | `/system/info` | Thong tin tong quan app/system |
-| `GET` | `/system/health` | Health check |
-| `GET` | `/system/ready` | Readiness check |
-| `GET` | `/system/metrics` | CPU/RAM/disk/network/process/queue metrics |
-
-System router duoc mount them duoi `/api`, nen cac endpoint sau cung kha dung:
-- `/api/info`
-- `/api/health`
-- `/api/ready`
-- `/api/metrics`
-
----
-
-## WebSocket Endpoints
-
-| Endpoint | Mo ta |
-|---|---|
-| `WS /ws/signals` | Endpoint chinh, ho tro subscribe/unsubscribe/ping |
-| `WS /ws/subscribe` | Alias backward-compatible cua `/ws/signals` |
-| `WS /ws/alarms` | Push alarm stream theo topic |
-| `WS /ws/all` | Push tat ca theo topic cu |
-
-WS auth dung query param `api_key`.
-
-### Command format cho `/ws/signals` va `/ws/subscribe`
-
-Ho tro dong thoi 2 dinh dang message:
-
-Demo format:
-```json
-{"type": "subscribe", "signals": ["VehicleSpeed", "*", "alarms", "metrics"]}
-```
-```json
-{"type": "unsubscribe", "signals": ["VehicleSpeed"]}
-```
-```json
-{"type": "ping"}
-```
-
-Legacy format:
-```json
-{"action": "subscribe", "channels": ["VehicleSpeed"], "mode": "continuous", "rate_ms": 100}
-```
-
-Ack format:
-```json
-{
-  "type": "subscribe_ack",
-  "action": "subscribe",
-  "channels": ["VehicleSpeed"],
-  "count": 1,
-  "warnings": []
-}
-```
-
-Signal frame format tu server:
-```json
-{
-  "timestamp": "2026-05-20T10:00:00.123Z",
-  "signals": [
-    {"name": "VehicleSpeed", "std_name": "VehicleSpeed", "value": 23.0}
-  ]
-}
-```
-
-Alarm frame format:
-```json
-{"type": "alarm", "signal_name": "EngineRPM", "level": "critical", "value": 7650.0}
-```
-
-Metrics frame format:
-```json
-{"type": "metrics", "cpu_percent": 12.4, "ram_percent": 33.1}
-```
-
-### Profile filtering tren WS
-
-- Neu client subscribe bang `*` nhung co profile scope, server chi cho phep cac signal trong profile.
-- Neu request signal ngoai scope profile, ack se kem warning `profile_signal_denied`.
-- Neu profile khong du `read`, ack se kem warning `profile_permission_denied`.
-
----
-
-## Error Codes
-
-| HTTP Code | Y nghia |
-|---|---|
-| `200 OK` | Thanh cong |
-| `201 Created` | Tao profile thanh cong |
-| `202 Accepted` | Lenh ghi CAN da duoc queue |
-| `400 Bad Request` | Thieu header bat buoc, payload khong hop le |
-| `401 Unauthorized` | Sai/thieu API key |
-| `403 Forbidden` | Thieu quyen profile hoac khong co profile hop le |
-| `404 Not Found` | Signal/profile/alarm khong ton tai |
-| `409 Conflict` | Optimistic lock mismatch hoac trang thai conflict |
-| `422 Unprocessable Entity` | Sai schema request body |
-| `503 Service Unavailable` | CAN writer/DB service chua san sang |
-
-WebSocket close code:
-- `4401` - Unauthorized (invalid `api_key`)
+See the [frontend error and warning catalogue](../docs/api_errors.md) for API, HTTP status, application code, and exact backend message templates.

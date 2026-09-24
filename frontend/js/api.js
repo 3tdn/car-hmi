@@ -95,7 +95,13 @@ const DEFAULT_ORIGIN = `${originProtocol}//${originHost}${originPort}`;
 const API_BASE = window.API_BASE || DEFAULT_ORIGIN;
 const WS_BASE =
   window.WS_BASE || `${originProtocol === "https:" ? "wss" : "ws"}://${originHost}${originPort}`;
-const API_KEY = window.API_KEY || "";
+let storedApiKey = "";
+try {
+  storedApiKey = sessionStorage.getItem("can_hmi_api_key") || "";
+} catch {
+  // Storage can be unavailable in privacy-restricted browser contexts.
+}
+const API_KEY = window.API_KEY || storedApiKey;
 let PROFILE_NAME = window.PROFILE_NAME || "";
 
 function _getOrCreateClientId() {
@@ -225,12 +231,10 @@ async function fetchProfile(name) {
  * @param {string} name
  * @returns {Promise<{active:string, warnings?:Array}>}
  */
-async function setActiveProfile(name, options = {}) {
-  const headers = _headers();
-  if (options.devMode) headers["X-Dev-Mode"] = "true";
+async function setActiveProfile(name) {
   return _fetchJson(`${API_BASE}/api/profile/active`, {
     method:  "PUT",
-    headers,
+    headers: _devHeaders(),
     body:    JSON.stringify({ name }),
   });
 }
@@ -239,10 +243,8 @@ async function setActiveProfile(name, options = {}) {
  * List active-profile sessions by client.
  * @returns {Promise<{sessions:Array, total:number, global_active:string|null}>}
  */
-async function listProfileSessions(options = {}) {
-  const headers = _headers();
-  if (options.devMode) headers["X-Dev-Mode"] = "true";
-  return _fetchJson(`${API_BASE}/api/profile/sessions`, { headers });
+async function listProfileSessions() {
+  return _fetchJson(`${API_BASE}/api/profile/sessions`, { headers: _devHeaders() });
 }
 
 /**
@@ -275,7 +277,7 @@ async function markProfileSessionOffline() {
 async function createProfile(body) {
   return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "POST",
-    headers: _headers(),
+    headers: _devHeaders(),
     body:    JSON.stringify(body),
   });
 }
@@ -289,7 +291,7 @@ async function createProfile(body) {
 async function updateProfile(body) {
   return _fetchJson(`${API_BASE}/api/profile`, {
     method:  "PUT",
-    headers: _headers(),
+    headers: _devHeaders(),
     body:    JSON.stringify(body),
   });
 }
@@ -301,7 +303,7 @@ async function updateProfile(body) {
 async function deleteProfile(name) {
   return _fetchJson(`${API_BASE}/api/profile/${encodeURIComponent(name)}`, {
     method:  "DELETE",
-    headers: _headers(),
+    headers: _devHeaders(),
   });
 }
 
@@ -428,6 +430,59 @@ async function retryCanConnections() {
 /** Gracefully restart the Car-HMI service through the system supervisor. */
 async function rebootCarHmi() {
   return _fetchJson(`${API_BASE}/system/reboot`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+/** Load system config and field policy using Dev Mode, independently of profiles. */
+async function getSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system`, { headers: _devHeaders() });
+}
+
+/** Apply a partial system config update. */
+async function patchSystemConfig(patch) {
+  return _fetchJson(`${API_BASE}/config/system`, {
+    method: "PATCH",
+    headers: _devHeaders(),
+    body: JSON.stringify(patch),
+  });
+}
+
+async function createSystemConfigBackup() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function listSystemConfigBackups() {
+  return _fetchJson(`${API_BASE}/config/system/backups`, { headers: _devHeaders() });
+}
+
+async function deleteSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}`, {
+    method: "DELETE",
+    headers: _devHeaders(),
+  });
+}
+
+async function restoreSystemConfigBackup(backupId) {
+  return _fetchJson(`${API_BASE}/config/system/backups/${encodeURIComponent(backupId)}/restore`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function resetSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reset`, {
+    method: "POST",
+    headers: _devHeaders(),
+  });
+}
+
+async function reloadSystemConfig() {
+  return _fetchJson(`${API_BASE}/config/system/reload`, {
     method: "POST",
     headers: _devHeaders(),
   });

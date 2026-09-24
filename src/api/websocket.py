@@ -18,9 +18,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from src.api.routes.profiles import (
     build_access_warning,
     get_profile_context,
-    profile_allows_signal,
     profile_has_permission,
-    profile_signal_names,
 )
 
 logger = logging.getLogger(__name__)
@@ -178,27 +176,31 @@ class ConnectionManager:
             if sub is None:
                 return
 
-            profile_name: str | None = None
-            profile: dict | None = None
-            try:
-                profile_name, profile, _ = get_profile_context(sub.profile_name, allow_bootstrap=True)
-            except Exception as exc:
-                detail = getattr(exc, "detail", None)
-                if isinstance(detail, dict):
-                    warnings.append(detail)
-                else:
-                    warnings.append(build_access_warning("profile_access_error", str(exc)))
-
-            has_read_permission = profile is None or profile_has_permission(profile, "read")
-            if profile is not None and not has_read_permission:
-                warnings.append(
-                    build_access_warning(
-                        "profile_permission_denied",
-                        f"Profile '{profile_name}' lacks 'read' permission",
-                        profile_name=profile_name,
-                        required_permission="read",
+            has_read_permission = True
+            if action == "subscribe" and any(ch.lower() == "metrics" for ch in channels):
+                profile_name: str | None = None
+                profile: dict | None = None
+                try:
+                    profile_name, profile, _ = get_profile_context(
+                        sub.profile_name, allow_bootstrap=True
                     )
-                )
+                except Exception as exc:
+                    detail = getattr(exc, "detail", None)
+                    if isinstance(detail, dict):
+                        warnings.append(detail)
+                    else:
+                        warnings.append(build_access_warning("profile_access_error", str(exc)))
+
+                has_read_permission = profile is None or profile_has_permission(profile, "read")
+                if profile is not None and not has_read_permission:
+                    warnings.append(
+                        build_access_warning(
+                            "profile_permission_denied",
+                            f"Profile '{profile_name}' lacks 'read' permission",
+                            profile_name=profile_name,
+                            required_permission="read",
+                        )
+                    )
 
             # Apply rate limit if provided
             try:
@@ -217,46 +219,12 @@ class ConnectionManager:
                         sub.subscribe_metrics = True
                         accepted_channels.append("metrics")
                     elif ch == "*":
-                        if not has_read_permission:
-                            continue
-                        if profile is None:
-                            sub.signal_names.add("*")
-                            accepted_channels.append("*")
-                        else:
-                            allowed = profile_signal_names(profile, required="read")
-                            if "*" in allowed:
-                                sub.signal_names.add("*")
-                                accepted_channels.append("*")
-                            else:
-                                canonical_names = list(allowed)
-                                sub.signal_names.update(canonical_names)
-                                accepted_channels.extend(canonical_names)
-                                warnings.append(
-                                    build_access_warning(
-                                        "profile_signal_filtered",
-                                        f"Wildcard subscription limited to profile '{profile_name}' signals",
-                                        profile_name=profile_name,
-                                        required_permission="read",
-                                        signals=sorted(canonical_names),
-                                    )
-                                )
+                        # Profiles control TX, never the received signal stream.
+                        sub.signal_names.add("*")
+                        accepted_channels.append("*")
                     else:
-                        if not has_read_permission:
-                            continue
-                        signal_name = ch
-                        if profile is not None and not profile_allows_signal(profile, signal_name, [signal_name], required="read"):
-                            warnings.append(
-                                build_access_warning(
-                                    "profile_signal_denied",
-                                    f"Signal '{signal_name}' is outside profile '{profile_name}' scope",
-                                    profile_name=profile_name,
-                                    required_permission="read",
-                                    signal_name=signal_name,
-                                )
-                            )
-                            continue
-                        sub.signal_names.add(signal_name)
-                        accepted_channels.append(signal_name)
+                        sub.signal_names.add(ch)
+                        accepted_channels.append(ch)
 
                     if mode == "once":
                         if ch == "*":

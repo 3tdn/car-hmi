@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -103,10 +104,8 @@ async def client():
 
 async def test_get_signal_not_found(client):
     resp = await client.get("/signals/Unknown", headers={"X-API-Key": "test-key"})
-    # Profile permission is checked before signal existence, so this may be 403 instead of 404.
-    assert resp.status_code == 403
-    detail = resp.json()["detail"]
-    assert detail["code"] in {"profile_not_selected", "profile_signal_denied"}
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Signal 'Unknown' not found"
 
 async def test_available_signals_requires_auth(client):
     resp = await client.get("/signals/available")
@@ -316,7 +315,11 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
         active="operator",
         profiles={
             "operator": {
-                "signals": [{"name": "VehicleSpeed", "permission": ["write"]}],
+                "signals": [
+                    {"name": "VehicleSpeed", "permission": ["write"]},
+                    {"name": "EngineRPM", "permission": ["full"]},
+                    {"name": "CoolantTemp", "permission": ["read"]},
+                ],
                 "description": "Operator",
             }
         },
@@ -326,6 +329,7 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
     store = SignalStore()
     app = create_app(store, _FakeRepo(), api_key="test-key")
     app.state.writer = _FakeWriter()
+    app.state.writer.send_signals_batch = AsyncMock(wraps=app.state.writer.send_signals_batch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/signals/batch_update",
@@ -333,6 +337,8 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
             json={
                 "signals": [
                     {"signal_name": "VehicleSpeed", "value": 80.0},
+                    {"signal_name": "EngineRPM", "value": 2000.0},
+                    {"signal_name": "CoolantTemp", "value": 90.0},
                     {"signal_name": "FuelLevel", "value": 25.0},
                 ]
             },
@@ -340,6 +346,62 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
 
     assert resp.status_code == 202
     data = resp.json()
-    assert data["queued"] == [{"signal_name": "VehicleSpeed", "value": 80.0}]
+    assert data["queued"] == [
+        {"signal_name": "VehicleSpeed", "value": 80.0},
+        {"signal_name": "EngineRPM", "value": 2000.0},
+    ]
     assert data["warnings"][0]["code"] == "profile_signal_filtered"
-    assert data["warnings"][0]["signals"] == ["FuelLevel"]
+    assert data["warnings"][0]["signals"] == ["CoolantTemp", "FuelLevel"]
+    app.state.writer.send_signals_batch.assert_awaited_once_with(
+        {"VehicleSpeed": 80.0, "EngineRPM": 2000.0}
+    )
+
+
+@pytest.mark.parametrize(
+    ("active", "profile_signals", "requested_profile", "warning_code"),
+    [
+        ("operator", [{"name": "VehicleSpeed", "permission": ["write"]}], "missing", "profile_not_found"),
+        ("missing", [{"name": "VehicleSpeed", "permission": ["write"]}], None, "profile_not_found"),
+        (None, [{"name": "VehicleSpeed", "permission": ["write"]}], None, "profile_not_selected"),
+        (None, None, None, "profile_not_selected"),
+        ("missing", None, "missing", "profile_not_found"),
+        ("operator", [], None, "profile_permission_denied"),
+        ("operator", [{"name": "VehicleSpeed", "permission": ["read"]}], None, "profile_permission_denied"),
+        ("operator", [{"name": "OtherSignal", "permission": ["full"]}], None, "profile_signal_filtered"),
+    ],
+)
+async def test_batch_write_rejects_unresolved_or_disallowed_profile(
+    monkeypatch, tmp_path, active, profile_signals, requested_profile, warning_code
+):
+    """Profile errors and batches without authorized signals never reach the writer."""
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    _write_profiles(
+        profiles_path,
+        active=active,
+        profiles={"operator": {"signals": profile_signals}} if profile_signals is not None else {},
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+    monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", tmp_path / "sessions.json")
+
+    app = create_app(SignalStore(), _FakeRepo(), api_key="test-key")
+    app.state.writer = _FakeWriter()
+    app.state.writer.send_signals_batch = AsyncMock(wraps=app.state.writer.send_signals_batch)
+    headers = {"X-API-Key": "test-key"}
+    if requested_profile:
+        headers["X-Profile-Name"] = requested_profile
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/signals/batch_update",
+            headers=headers,
+            json={"signals": [{"signal_name": "VehicleSpeed", "value": 80.0}]},
+        )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["queued"] == []
+    assert body["count"] == 0
+    assert body["warnings"][0]["code"] == warning_code
+    app.state.writer.send_signals_batch.assert_not_awaited()
+    assert app.state.writer.writes == []

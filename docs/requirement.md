@@ -1,5 +1,12 @@
 # CAN-HMI System — Requirement Specification
 
+> Implementation update (2026-09-17): the API contract below reflects the current code.
+> Other design examples and diagrams in this document are historical requirements/analysis,
+> not a claim that every component is currently implemented. Alarm processing/storage/routes,
+> smoothing, automatic WebSocket snapshots, `signal_config`/`signal_update` frame types, and
+> writer token-bucket limiting are not active contracts. Use the [current API reference](api_reference.md)
+> and [frontend integration guide](frontend_integration.md) for integration.
+
 | Field | Value |
 |---|---|
 | Document ID | REQ-CANHMI-001 |
@@ -21,6 +28,7 @@
 | 0.6.0 | 2026-03-19 | HMI Team | Final round: expand AC (11–16), clarify /health vs /ready vs /status, update running section (dev + prod), align roadmap with new sections |
 | 0.7.0 | 2026-03-21 | HMI Team | Sync docs with implemented code: fix API routes (no /api/v1/ prefix), update DB schema, remove unimplemented VehicleStateMachine, add DatabaseLoader/bus_factory/config_manager/RandomCANSimulator, fix alarm config format, update directory structure |
 | 0.8.0 | 2026-03-22 | HMI Team | Add subscribe-based WS protocol (/ws/subscribe), GET /signals/available metadata endpoint, per-signal/channel filtering, metrics push, one-shot mode |
+| Documentation update | 2026-09-17 | HMI Team | English API inventory and current WS contract; add frontend integration and mark historical designs |
 | 0.8.1 | 2026-03-21 | HMI Team | Add frontend modes (dev/user) with client-side whitelist and subscription filtering |
 
 ---
@@ -384,214 +392,107 @@ CREATE TABLE IF NOT EXISTS signal_config (
 
 ### 2.5 FastAPI / WebSocket Server
 
-> Provide REST API + WebSocket for reading and writing signals, receiving real-time streams, and receiving video streams from the DMS/OMS camera (GStreamer over Ethernet).
+Use `X-API-Key` on protected HTTP routers, `X-Profile-Name` for explicit profile scope,
+and `X-Client-Id` for client sessions and Dev Mode locks. Browser WebSockets use
+`?api_key=...&profile_name=...`. `X-Dev-Mode: true` does not bypass API key authentication.
+System controls require both a real configured key and Dev Mode. Public routes include
+system GET, adaptive restraint, camera, and restraints/video.
 
-> **Note:** All CAN RW, signal processing, storage, and FastAPI/WebSocket functionality are located inside the **CarPC** block (including video streaming). In production mode, CarPC runs as a single node responsible for both CAN and network communication.
+HTTP errors can contain string, object, or validation-array `detail`. Successful responses
+can contain `warnings`; batch writes return HTTP 202 even when individual signals fail.
+Inspect `errors` and per-seat `applied` results instead of checking HTTP status alone.
 
-#### REST API Endpoints
+The current backend has no alarm REST/config/WebSocket routes and no root `/health` or
+`/ready` business routes. Use `/system/health` and `/system/ready` (or their `/api` aliases).
+These probes return HTTP 200 even when their JSON body reports degraded health or not-ready.
 
-> **Note:** The actual route prefixes are `/signals`, `/alarms`, `/config`, `/system` (there is no `/api/v1/`). OpenAPI docs are at `/docs`.
+#### Registered HTTP operations
 
-| Method | Path | Description |
+| Method | API | Purpose (from implementation) |
 |---|---|---|
-| GET | `/signals` | List of all current signals (snapshot) |
-| GET | `/signals/available` | **Full metadata** for all signals (unit, min/max, alarm thresholds, widget, value, status) — called once when the client starts |
-| GET | `/signals/{signal_name}` | Current value of one signal |
-| PUT | `/signals/{signal_name}` | **Write a new value** for the signal (send to CAN bus) — returns 202 ACCEPTED |
-| GET | `/signals/{signal_name}/history` | Signal history (query params: `start`, `end`, `limit`, `offset`) |
-| GET | `/alarms` | Alarm list (filter: `signal_name`, `level`, `acknowledged`, `start`, `end`, `limit`, `offset`) |
-| GET | `/alarms/{alarm_id}` | Details of one alarm |
-| POST | `/alarms/{alarm_id}/acknowledge` | Acknowledge an alarm (mark as seen) |
-| POST | `/alarms/{alarm_id}/resolve` | Resolve an alarm (mark as handled) |
-| GET | `/config` | List of signal configs (unit, widget, writable) |
-| GET | `/config/signal/{signal_name}` | Get the config for one signal |
-| PATCH | `/config/signal/{signal_name}` | Update signal config (upsert into the `signal_config` table) |
-| GET | `/config/processor` | View processor config (max_queue_size, queue_policy) |
-| POST | `/config/processor` | Update processor config (live apply attempt) |
-| GET | `/config/general` | View full application config (AppConfig.model_dump()) |
-| PATCH | `/config/general` | Patch application config (partial update, persist to system.json) |
+| GET | `/signals` | List latest signal values |
+| GET | `/signals/available` | List all available signals with metadata |
+| GET | `/signals/{signal_name}` | Get latest value for one signal |
+| PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
+| GET | `/signals/{signal_name}/history` | Query signal history from DB |
+| POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
+| GET | `/config` | List all signal configurations |
+| GET | `/config/signal/{signal_name}` | Get config for one signal |
+| PATCH | `/config/signal/{signal_name}` | Update signal config |
+| GET | `/config/processor` | Get processor config |
+| POST | `/config/processor` | Update processor config |
+| GET | `/config/system` | Get system config and field update policy |
+| PATCH | `/config/system` | Patch system config without dropping unrelated fields |
+| GET | `/config/system/backups` | List fixed-path system config backups |
+| POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
+| POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
+| POST | `/config/system/reset` | Reset system config from the fixed project template |
+| POST | `/config/system/reload` | Re-apply live fields from the system config file |
+| GET | `/config/general` | Get full application config |
+| PATCH | `/config/general` | Patch application config (partial) |
 | POST | `/config/general/reset` | Reset application config to defaults |
-| GET | `/config/alarms` | View alarms config (raw YAML as JSON) |
-| POST | `/config/alarms` | Update alarms config (overwrite) |
-| POST | `/config/alarms/reset` | Reset alarms config to the empty default |
-| GET | `/system/health` | Liveness probe — returns `200` + `{"status":"ok","uptime_seconds":...}` |
-| GET | `/system/ready` | Readiness probe — returns `200` when all components are initialized |
-| GET | `/system/metrics` | CarPC resource information: CPU, RAM, disk, swap, queue, heap, network, async tasks, uptime, platform |
+| GET | `/adaptive_restraint/available` | Get all available options for adaptive restraint filters |
+| GET | `/adaptive_restraint/chart_info` | Get statistic and chart information for adaptive restraint systems |
+| GET | `/system/info` | Get project & system information |
+| GET | `/system/health` | Health check |
+| GET | `/system/ready` | Readiness probe (for container/systemd) |
+| GET | `/system/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/system/can/retry` | Retry CAN connections |
+| POST | `/system/reboot` | Reboot Car-HMI service |
+| GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
+| GET | `/api/camera/status` | Camera stream proxy status |
+| GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
+| GET | `/api/devmode/status` | Current Dev Mode seat locks |
+| POST | `/api/devmode/seats/select` | Select seats for Dev Mode (locks other sections out) |
+| POST | `/api/devmode/exit` | Leave Dev Mode and release all seat locks of this section |
+| POST | `/api/devmode/signals` | Apply one signal family to several seats at once |
+| GET | `/api/info` | Get project & system information |
+| GET | `/api/health` | Health check |
+| GET | `/api/ready` | Readiness probe (for container/systemd) |
+| GET | `/api/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/api/can/retry` | Retry CAN connections |
+| POST | `/api/reboot` | Reboot Car-HMI service |
+| GET | `/api/profiles` | List all profiles |
+| GET | `/api/profile/sessions` | List client active-profile sessions |
+| POST | `/api/profile/heartbeat` | Heartbeat for client profile session |
+| POST | `/api/profile/offline` | Mark client profile session offline |
+| GET | `/api/profile` | Get profile by name (or active profile) |
+| POST | `/api/profile` | Create new profile |
+| PUT | `/api/profile` | Update profile (optimistic lock) |
+| PUT | `/api/profile/active` | Set active profile |
+| DELETE | `/api/profile/{name}` | Delete profile |
 
-**Signal Naming**
+#### Current WebSocket protocol
 
-The system no longer maps between aliases and canonical names. API responses keep the `std_name` field for compatibility, but `std_name` is always identical to `signal_name`; read/write requests must use the actual signal name.
-
-#### Error Response Format
-
-All errors are returned in a consistent JSON format:
-
-```json
-{
-  "error": {
-    "code": "SIGNAL_NOT_FOUND",
-    "message": "Signal 'FooBar' not found",
-    "status": 404
-  }
-}
-```
-
-| HTTP Status | Description |
-|---|---|
-| 400 | Bad Request — invalid parameters |
-| 401 | Unauthorized — missing or incorrect API key |
-| 404 | Not Found — signal/resource does not exist |
-| 429 | Too Many Requests — rate limit exceeded |
-| 500 | Internal Server Error |
-
-#### WebSocket Endpoints
-
-| Path | Description |
-|---|---|
-| `ws://host/ws/signals` | (Legacy) Stream real-time signal updates (topic: SIGNALS) |
-| `ws://host/ws/alarms` | (Legacy) Stream alarm events (topic: ALARMS) |
-| `ws://host/ws/all` | (Legacy) Stream all events — signals + alarms (topic: ALL) |
-| `ws://host/ws/subscribe` | **Subscribe protocol** — the client sends subscribe/unsubscribe JSON to choose which channels to receive |
-
-> **Note:** Endpoint `/ws/subscribe` is the new protocol that allows per-signal subscriptions to reduce bandwidth. Legacy endpoints still work for backward compatibility.
-
-**WebSocket message format (implemented in `api/websocket.py`):**
-
-Signal broadcast format:
-```json
-{"type": "signal", "signal": "VehicleSpeed", "value": 85.3, "timestamp": 1742000000.123}
-```
-
-Alarm broadcast format:
-```json
-{"type": "alarm", "signal": "CoolantTemp", "level": "critical", "value": 97.2, "threshold": 95, "timestamp": 1742000000.456}
-```
-
-Metrics broadcast format (via subscribe):
-```json
-{"type": "metrics", "cpu_percent": 23.4, "ram_percent": 41.0, "disk_percent": 15.2, "...": "..."}
-```
-
-Subscribe ack format:
-```json
-{"type": "subscribe_ack", "action": "subscribe", "channels": ["EngineSpeed", "alarms"], "mode": "continuous"}
-```
-
-**Subscribe Protocol (`/ws/subscribe`):**
-
-Client sends JSON commands after the WS connection is established:
-```json
-{"action": "subscribe", "channels": ["EngineSpeed", "BatterySOC", "alarms", "metrics"], "mode": "continuous"}
-{"action": "subscribe", "channels": ["*"], "mode": "continuous"}
-{"action": "subscribe", "channels": ["EngineTemp"], "mode": "once"}
-{"action": "unsubscribe", "channels": ["BatterySOC"]}
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `action` | `"subscribe"` \| `"unsubscribe"` | Subscribe or unsubscribe |
-| `channels` | `string[]` | List of signal names, `"alarms"`, `"metrics"`, or `"*"` (all signals) |
-| `mode` | `"continuous"` \| `"once"` | `continuous`: receive continuously; `once`: receive once and then auto-unsubscribe |
-
-> **Notes:**
-> - `ConnectionManager` manages connections with topic-based subscriptions (`SubscriptionTopic` enum: SIGNALS, ALARMS, ALL) for legacy endpoints, and per-channel `_ClientSubscription` for `/ws/subscribe`.
-> - Broadcast uses `asyncio.gather()` to send concurrently to all clients and automatically remove stale connections.
-> - New frontend flow: (1) GET /signals/available → cache metadata; (2) WS /ws/subscribe → subscribe to channels → receive lightweight value+timestamp updates. This significantly reduces bandwidth compared with broadcasting ALL.
-
-#### 1) `signal_config` (static metadata, sent when the client subscribes)
+The three registered WebSocket endpoints are `/ws/signals`, `/ws/subscribe` (alias),
+and `/ws/all` (legacy automatic broadcast). Use the first two for subscription commands:
 
 ```json
-{
-  "type": "signal_config",
-  "timestamp": 1742000000.100,
-  "signal": "VehicleSpeed",
-  "msg_name": "ESP_VehicleDynamics1",
-  "display_name": "Vehicle Speed",
-  "unit": "km/h",
-  "min": 0,
-  "max": 655.35,
-  "writable": false
-}
+{"type":"subscribe","signals":["COM_Status_ElkCan","metrics"],"rate_ms":200,"mode":"continuous"}
 ```
-
-#### 2) `signal_update` (real-time signal values)
 
 ```json
-{
-  "type": "signal_update",
-  "timestamp": 1742000000.123,
-  "data": {
-    "VehicleSpeed": {
-      "value": 85.3,
-      "status": "ok"          // ok | warning | critical
-    },
-    "EngineRPM": {
-      "value": 3200,
-      "status": "ok"
-    }
-  }
-}
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan","metrics"],"count":2,"warnings":[]}
 ```
-
-#### 3) `alarm` (alarm/threshold)
 
 ```json
-{
-  "type": "alarm",
-  "timestamp": 1742000000.456,
-  "signal": "CoolantTemp",
-  "level": "critical",            // one of: info / warning / critical
-  "value": 97.2,
-  "threshold": 95,
-  "description": "Coolant temperature exceeded the critical threshold (>= 95°C)"
-}
+{"timestamp":"2026-09-17T00:00:00Z","signals":[{"name":"COM_Status_ElkCan","std_name":"COM_Status_ElkCan","value":1}]}
 ```
 
-#### 4) `snapshot` (when a client first connects)
+Signal frames have no `type` field. Metrics use `type: "metrics"`. Send
+`{"type":"ping"}` for a `pong`, and `{"type":"unsubscribe","signals":["COM_Status_ElkCan"]}`
+to unsubscribe. `mode: "once"` waits for the next eligible broadcast; fetch initial values
+with REST. `/ws/all` does not handle subscription/ping commands. No alarm channel exists.
 
-```json
-{
-  "type": "snapshot",
-  "timestamp": 1742000000.500,
-  "data": {
-    "VehicleSpeed": { "value": 84.1, "status": "ok" },
-    "EngineRPM": { "value": 3100, "status": "ok" }
-  }
-}
-```
+See the [complete reference](api_reference.md) for parameter/schema/error tables and examples.
 
-> **Notes:**
-> - The client can open `ws://host/ws/signals` to receive all signals, or `ws://host/ws/signals/{name}` to receive one specific signal.
-> - The server can be extended with more message types (for example: `system_status`, `config_update`) as needed.
-
-#### 5) `heartbeat` (keep-alive)
-
-```json
-{
-  "type": "heartbeat",
-  "timestamp": 1742000005.000,
-  "uptime_sec": 1425
-}
-```
-
-> **Reconnection strategy:**
-> - The server sends `heartbeat` every **5 seconds** (configurable via `ws_heartbeat_interval_sec`).
-> - The client detects a lost connection if it does not receive a heartbeat within **15 seconds**.
-> - The client automatically reconnects with **exponential backoff** (1s → 2s → 4s → … → max 30s).
-> - After reconnect, the server resends `signal_config` + `snapshot` so the client can resynchronize state.
-
-| Item | Requirement |
-|---|---|
-| Framework | FastAPI + uvicorn |
-| Video stream | GStreamer RTP/RTSP stream from the DMS/OMS camera over Ethernet (CarPC) |
-| Auth | REST: API key (header `X-API-Key`), optional JWT. WebSocket: token via query param `?token=` when connecting |
-| Rate limit | Limit write requests (prevent CAN bus spam) |
-| CORS | Allow cross-origin access from the frontend dev server |
-| Docs | Auto-generate Swagger UI at `/docs` |
-| Validation | Pydantic models for request/response |
-
----
 ### 2.6 Web Demo Dashboard (Frontend)
+
+For current REST/WS formats, profile lifecycle, settings policy, error handling, and camera cleanup, see the [frontend integration guide](frontend_integration.md). Client-side modes do not replace backend profile permission checks.
+
 
 > Web UI that displays real-time signals and allows parameter editing.
 
@@ -1155,11 +1056,9 @@ jobs:
     "host": "0.0.0.0",
     "port": 8000,
     "api_key": "change-me-in-production",
-    "ws_heartbeat_interval_sec": 5,
     "cors_origins": ["http://localhost:8000"]
   },
   "storage": {
-    "engine": "sqlite",
     "sqlite_path": "data/signals.db",
     "batch_size": 100,
     "batch_interval_sec": 2.0,
@@ -1167,10 +1066,20 @@ jobs:
     "max_disk_mb": 2048
   },
   "processor": {
-    "smoothing_window": 5,
     "max_update_rate_hz": 10.0,
     "max_queue_size": 10000,
     "queue_policy": "reject"
+  },
+  "oms_config": {
+    "bypass_simi_input": false,
+    "class_config": [65, 90],
+    "target_signal": {
+      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
+      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
+      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
+      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
+    }
   },
   "writer": {
     "rate_limit_per_sec": 10,

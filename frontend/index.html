@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CAN-HMI Dashboard</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body>
   <header class="hmi-header">
@@ -441,60 +441,6 @@
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
   <script src="js/adaptive.js"></script>
   <script src="js/devmode.js"></script>
-  <script>
-    // Modal container for settings
-    const settingsModal = document.createElement('div');
-    settingsModal.id = 'settings-modal';
-    settingsModal.style.display = 'none';
-    settingsModal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal">
-        <h3>General Settings (config/system.json)</h3>
-        <textarea id="settings-editor" style="width:100%;height:320px;font-family:monospace"></textarea>
-        <div style="margin-top:8px;text-align:right;">
-          <button id="settings-reset">Reset</button>
-          <button id="settings-cancel">Cancel</button>
-          <button id="settings-save">Save</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(settingsModal);
-
-    // Wire buttons
-    document.getElementById('btn-settings').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
-      editor.value = '';
-      try {
-        const json = await _fetchJson(`${API_BASE}/config/general`, { headers: _headers() });
-        editor.value = JSON.stringify(json, null, 2);
-      } catch (e) { editor.value = 'Failed to load config: '+e; }
-      settingsModal.style.display = 'block';
-    });
-    document.getElementById('settings-cancel').addEventListener('click', () => settingsModal.style.display = 'none');
-    document.getElementById('settings-reset').addEventListener('click', async () => {
-      if (!window.requestDangerConfirmation || !window.requestDangerConfirmation('settings_reset', 'Reset the configuration to defaults? This will overwrite config/system.json')) return;
-      try {
-        const json = await _fetchJson(`${API_BASE}/config/general/reset`, { method: 'POST', headers: _headers() });
-        document.getElementById('settings-editor').value = JSON.stringify(json.default || {}, null, 2);
-        window.showUiNotice?.('General configuration has been reset to defaults (file overwritten).', { source: 'settings', code: 'settings_reset_ok' });
-      } catch (e) {
-        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
-        window.showUiNotice?.(`Reset failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_reset_failed' });
-      }
-    });
-    document.getElementById('settings-save').addEventListener('click', async () => {
-      const editor = document.getElementById('settings-editor');
-      try {
-        const body = JSON.parse(editor.value);
-        await _fetchJson(`${API_BASE}/config/general`, { method: 'PATCH', headers: _headers(), body: JSON.stringify(body) });
-        settingsModal.style.display = 'none';
-        window.showUiNotice?.('Config updated (on-disk). API attempted live apply where possible.', { source: 'settings', code: 'settings_save_ok' });
-      } catch (e) {
-        showPermissionWarnings(normalizeWarnings(e.payload || e), 'settings');
-        window.showUiNotice?.(`Save failed: ${e.message || e}`, { level: 'error', source: 'settings', code: 'settings_save_failed' });
-      }
-    });
-
-  </script>
+  <script src="js/settings.js?v=5"></script>
 </body>
 </html>

@@ -4,14 +4,17 @@
       "interface": "virtual",
       "channel": "vcan0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
+      "channel_tracking_signals": [
+        "COM_Status_ElkCan"
+      ]
     }
   ],
   "simulator": {
     "enabled": true,
-    "random_mode": false,
+    "random_mode": true,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v7.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
@@ -21,7 +24,6 @@
     "host": "0.0.0.0",
     "port": 8000,
     "api_key": "change-me-in-production",
-    "ws_heartbeat_interval_sec": 0.5,
     "ws_metrics_interval_sec": 0.3,
     "cors_origins": [
       "http://localhost:8000",
@@ -31,12 +33,12 @@
   "profiles": {
     "profiles_path": "config/profiles.json",
     "sessions_path": "data/profile_sessions.json",
-    "allow_legacy_profile_mutations": false,
     "default_profile_permission": [
       "read"
     ],
     "session_online_ttl_seconds": 600,
-    "session_history_limit": 50
+    "session_history_limit": 50,
+    "session_cleanup_interval_sec": 5.0
   },
   "camera": {
     "enabled": true,
@@ -61,12 +63,11 @@
       "COM_Status_PumaRR1Ethernet": "192.168.1.105",
       "COM_Status_PantherEthernet": "192.168.1.100",
       "COM_Status_NvidiaJetsonEthernet": "192.168.2.119:8080",
-      "COM_Status_NvidiaJetsonCan": "OMS_FL_HandsOnWheel",
-      "COM_Status_PantherCan": "COM_Status_PumaFLCan"
+      "COM_Status_NvidiaJetsonCan": "COM_State_JetsonCan",
+      "COM_Status_PantherCan": "COM_Status_ElkCan"
     }
   },
   "storage": {
-    "engine": "sqlite",
     "sqlite_path": "data/signals.db",
     "batch_size": 100,
     "batch_interval_sec": 2.0,
@@ -74,7 +75,6 @@
     "max_disk_mb": 2048
   },
   "processor": {
-    "smoothing_window": 5,
     "max_update_rate_hz": 5000.0,
     "max_queue_size": 10000,
     "queue_policy": "drop_oldest",
@@ -90,7 +90,8 @@
     "burst": 5,
     "periodic_mode": false,
     "periodic_time_step": 20,
-    "periodic_duration": 10000
+    "periodic_duration": 5000,
+    "use_prevalue_for_unwritten_signal": false
   },
   "shutdown": {
     "timeout_sec": 10
@@ -108,5 +109,22 @@
     "file_path": "logs/can-hmi.log",
     "max_size_mb": 50,
     "backup_count": 5
+  },
+  "config_management": {
+    "backup_retention_count": 20
+  },
+  "oms_config": {
+    "bypass_simi_input": false,
+    "class_config": [
+      65,
+      90
+    ],
+    "target_signal": {
+      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
+      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
+      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
+      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
+    }
   }
 }

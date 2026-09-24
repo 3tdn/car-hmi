@@ -95,7 +95,7 @@ def _batch_access_context(request: Request, required: str) -> tuple[str | None, 
         profile_name, profile, _ = get_profile_context(
             request.headers.get(PROFILE_HEADER),
             client_id=request.headers.get(CLIENT_ID_HEADER),
-            allow_bootstrap=True,
+            allow_bootstrap=False,
         )
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else build_access_warning("profile_access_error", str(exc.detail))
@@ -135,11 +135,7 @@ def _append_filtered_warning(warnings: list[dict], profile_name: str, required: 
 async def list_signals(request: Request):
     store = request.app.state.store
     snapshot = await store.get_snapshot()
-    profile_name, profile, warnings = _batch_access_context(request, "read")
-    if warnings and profile is not None:
-        return SignalListResponse(items=[], total=0, warnings=warnings)
-
-    skipped: list[str] = []
+    # Profiles restrict TX only; all received values remain readable.
     items = [
         SignalValueResponse(
             signal_name=name,
@@ -149,15 +145,8 @@ async def list_signals(request: Request):
             timestamp=sv.timestamp,
         )
         for name, sv in snapshot.items()
-        if profile is None
-        or profile_allows_signal(profile, name, [name], required="read")
     ]
-    if profile is not None:
-        for name in snapshot:
-            if not profile_allows_signal(profile, name, [name], required="read"):
-                skipped.append(name)
-        _append_filtered_warning(warnings, profile_name, "read", skipped)
-    return SignalListResponse(items=items, total=len(items), warnings=warnings)
+    return SignalListResponse(items=items, total=len(items))
 
 
 # ── Available signals (full metadata, one-time fetch) ────────────────────────
@@ -177,14 +166,9 @@ async def list_available_signals(request: Request):
     """
     store = request.app.state.store
     snapshot = await store.get_snapshot()
-    profile_name, profile, warnings = _batch_access_context(request, "read")
-    if warnings and profile is not None:
-        return SignalMetadataListResponse(signals_info=[], total=0, warnings=warnings)
-
     signal_configs = _dbc_signal_configs()
 
     items: list[SignalMetadata] = []
-    skipped: list[str] = []
     # Merge all known signal names from store + config
     all_names = set(snapshot.keys()) | set(signal_configs.keys())
 
@@ -192,9 +176,6 @@ async def list_available_signals(request: Request):
         sv = snapshot.get(name)
         sig_cfg = signal_configs.get(name, {})
         std_name = name
-        can_read = profile is None or profile_allows_signal(profile, name, [std_name], required="read")
-        if profile is not None and not can_read:
-            skipped.append(name)
 
         items.append(
             SignalMetadata(
@@ -208,26 +189,17 @@ async def list_available_signals(request: Request):
                 states=sig_cfg.get("states"),
                 group_name=None,
                 widget_type=None,
-                value=sv.value if sv and can_read else None,
-                timestamp=sv.timestamp if sv and can_read else None,
+                value=sv.value if sv else None,
+                timestamp=sv.timestamp if sv else None,
             )
         )
-    if profile is not None:
-        _append_filtered_warning(warnings, profile_name, "read", skipped)
-    return SignalMetadataListResponse(signals_info=items, total=len(items), warnings=warnings)
+    return SignalMetadataListResponse(signals_info=items, total=len(items))
 
 
 @router.get(
     "/{signal_name}", response_model=SignalValueResponse, summary="Get latest value for one signal"
 )
 async def get_signal(signal_name: str, request: Request):
-    require_profile_permission(
-        request,
-        "read",
-        signal_name=signal_name,
-        alternates=[signal_name],
-        allow_bootstrap=True,
-    )
     store = request.app.state.store
     sv = await store.get(signal_name)
     if sv is None:
@@ -256,13 +228,6 @@ async def get_signal_history(
     limit: int = Query(100, ge=1, le=10_000),
     offset: int = Query(0, ge=0),
 ):
-    require_profile_permission(
-        request,
-        "read",
-        signal_name=signal_name,
-        alternates=[signal_name],
-        allow_bootstrap=True,
-    )
     repo = request.app.state.repo
     records = await repo.query_signals(
         signal_name=signal_name, start=start, end=end, limit=limit, offset=offset
@@ -342,7 +307,8 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="CAN writer not available"
         )
     profile_name, profile, warnings = _batch_access_context(request, "write")
-    if warnings and profile is not None:
+    # Profile resolution errors must stop TX even when no profile was returned.
+    if warnings:
         return {"queued": [], "count": 0, "queued_at": time.time(), "errors": [], "warnings": warnings}
 
     resolved: dict[str, float] = {}

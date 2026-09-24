@@ -1,5 +1,12 @@
 # Car HMI Source Code Architecture Analysis
 
+> Implementation update (2026-09-17): the API contract below reflects the current code.
+> Other design examples and diagrams in this document are historical requirements/analysis,
+> not a claim that every component is currently implemented. Alarm processing/storage/routes,
+> smoothing, automatic WebSocket snapshots, `signal_config`/`signal_update` frame types, and
+> writer token-bucket limiting are not active contracts. Use the [current API reference](api_reference.md)
+> and [frontend integration guide](frontend_integration.md) for integration.
+
 **Project:** CAN-HMI Signal API (CarPC)  
 **Language:** Python 3.10+  
 **Framework:** FastAPI, asyncio, python-can  
@@ -71,8 +78,8 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
 - **Key Classes**:
   - `CANConfig`: Single CAN bus channel definition (interface, channel, bitrate, database paths)
   - `APIConfig`: REST/WebSocket server settings (host, port, API key, CORS origins)
-  - `StorageConfig`: Persistence backend selection and tuning (SQLite, TimescaleDB, InfluxDB)
-  - `ProcessorConfig`: Signal pipeline tuning (smoothing window, max rate, queue size)
+  - `StorageConfig`: SQLite persistence tuning
+  - `ProcessorConfig`: Signal pipeline tuning (max rate, queue size)
   - `WriterConfig`: CAN write rate limiting
   - `ShutdownConfig`: Graceful shutdown timeout
   - `LoggingConfig`: Log level, file rotation settings
@@ -397,7 +404,7 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
   - `add_formula(name, fn)`: Register formula
   - `async process()`: Apply all formulas, add results to signal dict
 
-#### `alarms.py` — **AlarmChecker** (Threshold-Based Alarm Detection)
+#### Historical, removed: `alarms.py` — **AlarmChecker** (Threshold-Based Alarm Detection)
 
 - **Purpose**: Monitor signals for threshold violations, generate alarm events
 - **Key Data Classes**:
@@ -659,7 +666,7 @@ The CAN-HMI system follows a **layered architecture** with clear separation of c
   - `write_signal()`: Call writer router, return 202 Accepted
   - `batch_update_signals()`: Loop through signals, collect errors, return mixed success/errors
 
-#### `routes/alarms.py` — **Alarm Management Endpoints**
+#### Historical, removed: `routes/alarms.py` — **Alarm Management Endpoints**
 
 - **REST Endpoints**:
   - `GET /alarms` — List alarms (filter by signal, level, acknowledged status)
@@ -1026,7 +1033,7 @@ ConnectionManager.broadcast_signal(name, value, timestamp)
     └─ Broadcast complete
 ```
 
-### 4. **Alarm Trigger Workflow**
+### 4. **Historical, removed: Alarm Trigger Workflow**
 
 ```
 AlarmChecker.process(signals)
@@ -1126,77 +1133,100 @@ SIGINT (Ctrl+C) received
 
 ### 1. **REST API Endpoints**
 
-| Method | Path | Auth | Purpose | Status |
-|--------|------|------|---------|--------|
-| GET | `/signals` | ✓ | List latest signal values | 200 OK |
-| GET | `/signals/available` | ✓ | Full metadata + alarm thresholds | 200 OK |
-| GET | `/signals/{signal_name}` | ✓ | Get 1 signal latest value | 200/404 |
-| GET | `/signals/{signal_name}/history` | ✓ | Query signal history (time range) | 200/404 |
-| PUT | `/signals/{signal_name}` | ✓ | Write signal value to CAN bus | 202/404/503 |
-| POST | `/signals/batch_update` | ✓ | Write multiple signals | 202/404/503 |
-| GET | `/alarms` | ✓ | List alarms (filter by signal, level, acknowledged) | 200 OK |
-| GET | `/alarms/{alarm_id}` | ✓ | Get single alarm | 200/404 |
-| POST | `/alarms/{alarm_id}/acknowledge` | ✓ | Mark alarm acknowledged | 200/409 |
-| POST | `/alarms/{alarm_id}/resolve` | ✓ | Mark alarm resolved | 200/409 |
-| GET | `/config` | ✓ | List signal configurations | 200 OK |
-| GET | `/config/signal/{signal_name}` | ✓ | Get signal config | 200/404 |
-| PATCH | `/config/signal/{signal_name}` | ✓ | Update signal config | 200/404 |
-| GET | `/config/processor` | ✓ | Processor runtime config | 200 OK |
-| GET | `/config/general` | ✓ | Full app config | 200 OK |
-| PATCH | `/config/general` | ✓ | Partial app config update | 200/400 |
-| POST | `/config/general/reset` | ✓ | Reset config to defaults | 200 OK |
-| GET | `/config/alarms` | ✗ | Get alarm thresholds | 200 OK |
-| POST | `/config/alarms` | ✗ | Update alarm thresholds | 200 OK |
-| POST | `/config/alarms/reset` | ✗ | Reset alarms to defaults | 200 OK |
-| GET | `/api/info` | ✗ | Project info (name, version, uptime, signal count) | 200 OK |
-| GET | `/api/health` | ✗ | Health check | 200 OK |
-| GET | `/api/ready` | ✗ | Readiness probe (Kubernetes/systemd) | 200 OK |
-| GET | `/api/metrics` | ✗ | System resource metrics | 200 OK |
+Use `X-API-Key` on protected HTTP routers, `X-Profile-Name` for explicit profile scope,
+and `X-Client-Id` for client sessions and Dev Mode locks. Browser WebSockets use
+`?api_key=...&profile_name=...`. `X-Dev-Mode: true` does not bypass API key authentication.
+System controls require both a real configured key and Dev Mode. Public routes include
+system GET, adaptive restraint, camera, and restraints/video.
 
-**Auth**: ✓ = Requires X-API-Key header, ✗ = Public
+HTTP errors can contain string, object, or validation-array `detail`. Successful responses
+can contain `warnings`; batch writes return HTTP 202 even when individual signals fail.
+Inspect `errors` and per-seat `applied` results instead of checking HTTP status alone.
+
+The current backend has no alarm REST/config/WebSocket routes and no root `/health` or
+`/ready` business routes. Use `/system/health` and `/system/ready` (or their `/api` aliases).
+These probes return HTTP 200 even when their JSON body reports degraded health or not-ready.
+
+| Method | API | Purpose (from implementation) |
+|---|---|---|
+| GET | `/signals` | List latest signal values |
+| GET | `/signals/available` | List all available signals with metadata |
+| GET | `/signals/{signal_name}` | Get latest value for one signal |
+| PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
+| GET | `/signals/{signal_name}/history` | Query signal history from DB |
+| POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
+| GET | `/config` | List all signal configurations |
+| GET | `/config/signal/{signal_name}` | Get config for one signal |
+| PATCH | `/config/signal/{signal_name}` | Update signal config |
+| GET | `/config/processor` | Get processor config |
+| POST | `/config/processor` | Update processor config |
+| GET | `/config/system` | Get system config and field update policy |
+| PATCH | `/config/system` | Patch system config without dropping unrelated fields |
+| GET | `/config/system/backups` | List fixed-path system config backups |
+| POST | `/config/system/backups` | Back up system config |
+| DELETE | `/config/system/backups/{backup_id}` | Delete a system config backup |
+| POST | `/config/system/backups/{backup_id}/restore` | Restore a system config backup |
+| POST | `/config/system/reset` | Reset system config from the fixed project template |
+| POST | `/config/system/reload` | Re-apply live fields from the system config file |
+| GET | `/config/general` | Get full application config |
+| PATCH | `/config/general` | Patch application config (partial) |
+| POST | `/config/general/reset` | Reset application config to defaults |
+| GET | `/adaptive_restraint/available` | Get all available options for adaptive restraint filters |
+| GET | `/adaptive_restraint/chart_info` | Get statistic and chart information for adaptive restraint systems |
+| GET | `/system/info` | Get project & system information |
+| GET | `/system/health` | Health check |
+| GET | `/system/ready` | Readiness probe (for container/systemd) |
+| GET | `/system/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/system/can/retry` | Retry CAN connections |
+| POST | `/system/reboot` | Reboot Car-HMI service |
+| GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
+| GET | `/api/camera/status` | Camera stream proxy status |
+| GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
+| GET | `/api/devmode/status` | Current Dev Mode seat locks |
+| POST | `/api/devmode/seats/select` | Select seats for Dev Mode (locks other sections out) |
+| POST | `/api/devmode/exit` | Leave Dev Mode and release all seat locks of this section |
+| POST | `/api/devmode/signals` | Apply one signal family to several seats at once |
+| GET | `/api/info` | Get project & system information |
+| GET | `/api/health` | Health check |
+| GET | `/api/ready` | Readiness probe (for container/systemd) |
+| GET | `/api/metrics` | CarPC resource information (CPU, RAM, disk, queue, heap…) |
+| POST | `/api/can/retry` | Retry CAN connections |
+| POST | `/api/reboot` | Reboot Car-HMI service |
+| GET | `/api/profiles` | List all profiles |
+| GET | `/api/profile/sessions` | List client active-profile sessions |
+| POST | `/api/profile/heartbeat` | Heartbeat for client profile session |
+| POST | `/api/profile/offline` | Mark client profile session offline |
+| GET | `/api/profile` | Get profile by name (or active profile) |
+| POST | `/api/profile` | Create new profile |
+| PUT | `/api/profile` | Update profile (optimistic lock) |
+| PUT | `/api/profile/active` | Set active profile |
+| DELETE | `/api/profile/{name}` | Delete profile |
 
 ### 2. **WebSocket Endpoints**
 
-**Legacy Protocol (Topic-Based)**
+The three registered WebSocket endpoints are `/ws/signals`, `/ws/subscribe` (alias),
+and `/ws/all` (legacy automatic broadcast). Use the first two for subscription commands:
 
-- `GET /ws/signals` → Subscribe to all signal updates
-- `GET /ws/alarms` → Subscribe to all alarm events
-- `GET /ws/all` → Subscribe to everything
-
-**New Protocol (Command-Based)**
-
-- `GET /ws/subscribe` → Establish connection, send commands
-
-**Message Format (New Protocol)**
-
-Client → Server:
 ```json
-{"type": "subscribe", "signals": ["EngineRPM", "Speed", "*"], "mode": "continuous"}
-{"type": "subscribe", "signals": ["alarms"]}
-{"type": "subscribe", "signals": ["metrics"]}
-{"type": "unsubscribe", "signals": ["EngineRPM"]}
-{"type": "ping"}
+{"type":"subscribe","signals":["COM_Status_ElkCan","metrics"],"rate_ms":200,"mode":"continuous"}
 ```
 
-Server → Client (Subscription Ack):
 ```json
-{"type": "subscribed", "signals": ["EngineRPM"], "count": 1}
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan","metrics"],"count":2,"warnings":[]}
 ```
 
-Server → Client (Signal Updates):
 ```json
-{"timestamp": "2024-06-04T12:34:56.789Z", "signals": [{"name": "EngineRPM", "value": 2500}]}
+{"timestamp":"2026-09-17T00:00:00Z","signals":[{"name":"COM_Status_ElkCan","std_name":"COM_Status_ElkCan","value":1}]}
 ```
 
-Server → Client (Alarms):
-```json
-{"type": "alarm", "id": 42, "signal_name": "Temperature", "level": "critical", "value": 120, "threshold": 100, "triggered_at": 1234567890}
-```
+Signal frames have no `type` field. Metrics use `type: "metrics"`. Send
+`{"type":"ping"}` for a `pong`, and `{"type":"unsubscribe","signals":["COM_Status_ElkCan"]}`
+to unsubscribe. `mode: "once"` waits for the next eligible broadcast; fetch initial values
+with REST. `/ws/all` does not handle subscription/ping commands. No alarm channel exists.
 
-Server → Client (Metrics):
-```json
-{"type": "metrics", "cpu_percent": 35.2, "ram_percent": 62.1, "queue_size": 45, "uptime_seconds": 3600}
-```
+See the [complete reference](api_reference.md) and [frontend integration guide](frontend_integration.md) for formats, errors, and lifecycle examples.
 
 ### 3. **Configuration Files**
 
@@ -1388,12 +1418,10 @@ AppConfig (BaseModel)
 │  ├─ host: str
 │  ├─ port: int
 │  ├─ api_key: str
-│  ├─ ws_heartbeat_interval_sec: float
 │  ├─ ws_metrics_interval_sec: float
 │  └─ cors_origins: list[str]
 │
 ├─ storage: StorageConfig
-│  ├─ engine: str (sqlite, timescaledb, influxdb)
 │  ├─ sqlite_path: str
 │  ├─ batch_size: int
 │  ├─ batch_interval_sec: float
@@ -1401,7 +1429,6 @@ AppConfig (BaseModel)
 │  └─ max_disk_mb: int
 │
 ├─ processor: ProcessorConfig
-│  ├─ smoothing_window: int
 │  ├─ max_update_rate_hz: float
 │  ├─ max_queue_size: int
 │  ├─ queue_policy: str (drop_oldest, reject)

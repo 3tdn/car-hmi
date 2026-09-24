@@ -46,15 +46,7 @@ ws -> client : {"type":"alarm",\n "signal_name":"CoolantTemp","level":"warning",
 ws <- ws : broadcast_metrics(metrics_dict)
 ws -> client : {"type":"metrics",\n "cpu_percent":23.4,"ram_percent":41.0,...}
 
-== 6. Heartbeat ==
-note over ws
-  Runs concurrently (asyncio task)
-end note
-loop every ws_heartbeat_interval_sec (e.g. 0.5s)
-    ws -> client : {"type":"heartbeat",\n "timestamp":..., "uptime_sec":...}
-end
-
-== 7. Per-Signal Subscribe (/ws/subscribe) ==
+== 6. Per-Signal Subscribe (/ws/subscribe) ==
 note over client
   Alternative: use /ws/subscribe for
   selective signal streaming

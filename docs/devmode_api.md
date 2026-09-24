@@ -256,9 +256,9 @@ If a seat does not have a corresponding signal in the DBC (for example `HB_Reque
 - `Failure Detected`: FE marks failure when the ELK signal reports `-1`, or when CAN signal status is not updated within the timeout.
 - If at least 1 seat is in `failure`, the overall system state is `failure_detected`.
 
-### Source signals in DBC v7 (TBD means not yet present in DBC v7, only a placeholder)
+### Source signal examples (verify against the configured DBC)
 
-Use only signals that already exist in DBC v7; do not create any new API/WS:
+Discover the current signal list and states with `GET /signals/available`. The examples below come from earlier DBC revisions; subscribe only to names present in the configured DBC. No dedicated ELK API/WS is required:
 - `ELK_FL_ActuatorStatus`, `ELK_FR_ActuatorStatus`, `ELK_RL1_ActuatorStatus`, `ELK_RL2_ActuatorStatus`, `ELK_RR1_ActuatorStatus`
 - `COM_Status_PumaFLCan`, `COM_Status_PumaFRCan`, `COM_Status_PumaRL1Can`, `COM_Status_PumaRL2Can`, `COM_Status_PumaRR1Can`
 - `COM_Status_PumaFLEthernet`, `COM_Status_PumaFREthernet`, `COM_Status_PumaRL1Ethernet`, `COM_Status_PumaRL2Ethernet`, `COM_Status_PumaRR1Ethernet`
@@ -316,6 +316,7 @@ Use only signals that already exist in DBC v7; do not create any new API/WS:
 
 ```json
 {
+  "type": "subscribe",
   "signals": [
     "ELK_FL_ActuatorStatus",
     "ELK_FR_ActuatorStatus",
@@ -342,7 +343,7 @@ Use only signals that already exist in DBC v7; do not create any new API/WS:
 ```
 * `"signals"` or `"channels"` can be used interchangeably in the request body, but `"signals"` is preferred for clarity.
 
-### Ack format
+### Signal update format
 
 ```json
 {
@@ -379,7 +380,7 @@ Use only signals that already exist in DBC v7; do not create any new API/WS:
 - `2`: ELK `failure now` - red
 - `3`: invalid state, wait response after reset - gray
 
-> Ethernet and some status signals are not present in DBC v7
+> Ethernet and some status signals may be absent from the configured DBC; check live metadata.
   COM_Status_PumaFLEthernet
   COM_Status_PumaFREthernet
   COM_Status_PumaRL1Ethernet
@@ -393,7 +394,7 @@ Use only signals that already exist in DBC v7; do not create any new API/WS:
 
 ## 6. SEAL AIRBAG
 - If Inflate/Exflate airbag control is needed, use the existing signals `SEAL_AirbagRequestInflate`/`SEAL_AirbagRequestExflate`
-via `PUT /signals/SEAL_InflateAirbag` or `PUT /signals/SEAL_ExflateAirbag` with payload:
+via `PUT /signals/{signal_name}` using the exact discovered signal name (the names above are examples), with payload:
 
 ```json
 { "value": 1 }
@@ -428,3 +429,28 @@ each component shows the connection/disconnection status of the signals
 
 
 add 1 button to request "reset Elocking Failure Memory"
+
+## Current integration contract (2026-09-17)
+
+Use the [complete API reference](api_reference.md) for schemas and exact error messages,
+and the [frontend integration guide](frontend_integration.md) for client/session lifecycle.
+Protected Dev Mode routes still require the configured API key. Selection, seat writes,
+renewal, and release must use the same `X-Client-Id`. Profile heartbeat and offline routes
+require that client ID; offline cleanup releases its locks.
+
+Catalog entries include `signal_name`, `kind`, `states`, and the generated per-seat `signals` names (these are not filtered to DBC availability).
+Do not assume all five seats support every family. Seat keys are `fl`, `fr`, `rl1`, `rl2`,
+and `rr1`. Inspect each seat's `applied` result: partial success can return HTTP 200, while
+all-seat failure can return HTTP 409 with details. Ordinary writes blocked by another
+client's seat lock return HTTP 423; batch writes can report the failure in their body.
+
+The actual subscription acknowledgement, distinct from the signal frame above, is:
+
+```json
+{"type":"subscribe_ack","action":"subscribe","channels":["COM_Status_ElkCan"],"count":1,"warnings":[]}
+```
+
+Use `/ws/signals` or `/ws/subscribe` with URL-encoded `api_key` and explicit `profile_name`.
+Fetch REST metadata/snapshot first; no automatic WebSocket snapshot is guaranteed.
+`std_name` currently equals the signal name, and signal update frames have no `type` field.
+Profile changes require refreshed metadata/snapshot and a reconnected subscription.

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from src.core.config import AppConfig, CANConfig, load_config
+from src.core.config import AppConfig, CANConfig, apply_environment_overrides, load_config
 from src.core.signal_store import SignalStore
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -22,7 +22,9 @@ def test_load_config_from_file():
     assert isinstance(cfg, AppConfig)
     assert isinstance(cfg.can, list)
     assert len(cfg.can) >= 1
-    assert cfg.can[0].interface == "virtual"
+    raw = json.loads(Path("config/system.json").read_text())
+    assert cfg.can[0].interface == raw["can"][0]["interface"]
+    assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
 
@@ -31,6 +33,13 @@ def test_can_config_defaults():
     cfg = CANConfig(interface="virtual", channel="vcan0")
     assert cfg.bitrate == 500_000
     assert cfg.can_db_file == "db/can_db/p_v2.dbc"
+    assert cfg.channel_tracking_signals == []
+
+
+@pytest.mark.parametrize("signals", [[""], ["  "], [123], "COM_Status_ElkCan"])
+def test_can_config_rejects_invalid_tracking_signals(signals):
+    with pytest.raises(ValueError):
+        CANConfig(channel_tracking_signals=signals)
 
 
 def test_reader_config_defaults():
@@ -45,7 +54,10 @@ def test_writer_config_use_prevalue_for_unwritten_signal():
     from src.core.config import WriterConfig
 
     assert WriterConfig().use_prevalue_for_unwritten_signal is True
-    assert WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal is False
+    assert (
+        WriterConfig(use_prevalue_for_unwritten_signal=False).use_prevalue_for_unwritten_signal
+        is False
+    )
     with pytest.raises(ValueError):
         WriterConfig(use_prevalue_for_unwritten_signal="invalid")
 
@@ -79,6 +91,90 @@ def test_app_config_duplicate_channel_rejected():
                 CANConfig(channel="vcan0"),
             ]
         )
+
+
+def test_app_config_accepts_auto_for_single_socketcan_channel():
+    app_cfg = AppConfig(can=[CANConfig(interface="socketcan", channel="auto")])
+
+    assert app_cfg.can[0].channel == "auto"
+
+
+def test_app_config_auto_rejects_non_socketcan_interface():
+    with pytest.raises(ValueError, match="requires interface 'socketcan'"):
+        AppConfig(can=[CANConfig(interface="virtual", channel="auto")])
+
+
+def test_app_config_auto_rejects_multiple_channels():
+    with pytest.raises(ValueError, match="single-channel mode"):
+        AppConfig(
+            can=[
+                CANConfig(interface="socketcan", channel="auto"),
+                CANConfig(interface="socketcan", channel="can0"),
+            ]
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tracking_signals",
+    [[], ["COM_Status_ElkCan"], ["COM_Status_ElkCan", "COM_State_JetsonCan"]],
+)
+async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path, tracking_signals):
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    import can
+
+    from src.core.runner import AppRunner
+
+    cfg = AppConfig(
+        can=[
+            CANConfig(
+                interface="socketcan",
+                channel="auto",
+                can_db_file="db/can_db/Interface_Panther_To_CarPC_v8.dbc",
+                channel_tracking_signals=tracking_signals,
+            )
+        ],
+        simulator={"enabled": False},
+        camera={"enabled": False},
+        status_monitor={"enabled": False},
+        supervisor={"watchdog_interval_sec": 0},
+        storage={"sqlite_path": str(tmp_path / "signals.db")},
+    )
+    runner = AppRunner(cfg)
+
+    with (
+        patch(
+            "src.can_io.bus_factory.create_bus",
+            side_effect=can.CanInitializationError("no UP CAN"),
+        ) as create_bus,
+        patch.object(
+            runner,
+            "_build_api_server",
+            new=AsyncMock(return_value=None),
+        ) as build_api,
+    ):
+        await runner._init_components(asyncio.get_running_loop())
+        await asyncio.sleep(0)
+
+        assert runner._buses == [None]
+        assert runner._writers[0]._bus is None
+        assert runner._readers[0].get_runtime_state()["reconnecting"] is True
+        build_api.assert_awaited_once_with()
+        db = runner._db_loaders[0]
+        expected = (
+            {db.get_message_for_signal(signal).msg_id for signal in tracking_signals}
+            if tracking_signals
+            else {msg_id for msg_id, message in db.messages.items() if message.signals}
+        )
+        assert create_bus.call_args.kwargs["auto_match_ids"] == expected
+        # Reconnection must keep the same tracking restriction.
+        with pytest.raises(can.CanInitializationError):
+            runner._bus_factories[0]()
+        assert create_bus.call_args.kwargs["auto_match_ids"] == expected
+
+        await runner.shutdown()
 
 
 def test_app_config_empty_can_rejected():
@@ -119,6 +215,39 @@ def test_load_config_custom(tmp_path):
     assert cfg.reader.only_send_signal_update is True
 
 
+def test_environment_overrides_render_port_and_api_key():
+    cfg = AppConfig()
+
+    result = apply_environment_overrides(
+        cfg,
+        {
+            "PORT": "10000",
+            "CAR_HMI_API_KEY": "render-secret",
+            "CAR_HMI_REQUIRE_API_KEY": "true",
+        },
+    )
+
+    assert result is cfg
+    assert cfg.api.port == 10000
+    assert cfg.api.api_key == "render-secret"
+
+
+@pytest.mark.parametrize("port", ["not-a-port", "0", "65536"])
+def test_environment_overrides_reject_invalid_port(port):
+    with pytest.raises(ValueError, match="PORT must be an integer"):
+        apply_environment_overrides(AppConfig(), {"PORT": port})
+
+
+@pytest.mark.parametrize("api_key", [None, "", "change-me-in-production"])
+def test_environment_overrides_require_real_api_key(api_key):
+    environ = {"CAR_HMI_REQUIRE_API_KEY": "true"}
+    if api_key is not None:
+        environ["CAR_HMI_API_KEY"] = api_key
+
+    with pytest.raises(ValueError, match="CAR_HMI_API_KEY must be set"):
+        apply_environment_overrides(AppConfig(), environ)
+
+
 def test_app_config_accepts_status_monitor_section():
     cfg = AppConfig(
         status_monitor={
@@ -139,6 +268,31 @@ def test_app_config_accepts_devmode_can_status_bypass():
     cfg = AppConfig(devmode={"bypass_check_CAN_status": True})
 
     assert cfg.devmode.bypass_check_CAN_status is True
+def test_app_config_accepts_oms_classification_config():
+    cfg = AppConfig(
+        oms_config={
+            "bypass_simi_input": True,
+            "class_config": [60, 85],
+            "target_signal": {
+                "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            },
+        }
+    )
+
+    assert cfg.oms_config.bypass_simi_input is True
+    assert cfg.oms_config.class_config == [60.0, 85.0]
+    assert cfg.oms_config.target_signal == {
+        "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+    }
+
+
+@pytest.mark.parametrize(
+    "thresholds",
+    ([65], [65, 65], [90, 65], [-1, 90], [65, float("inf")]),
+)
+def test_app_config_rejects_invalid_oms_class_config(thresholds):
+    with pytest.raises(ValueError, match="class_config"):
+        AppConfig(oms_config={"class_config": thresholds})
 
 
 def test_extract_host_supports_raw_ip_host_port_and_url():
@@ -316,6 +470,124 @@ async def test_disconnected_reader_only_marks_its_channel_status_offline():
     rear_right = await runner.store.get("COM_Status_PumaRRCan")
     assert front_left is not None and front_left.value == 0.0
     assert rear_right is not None and rear_right.value == 1.0
+
+
+@pytest.mark.asyncio
+async def test_system_config_live_reload_synchronizes_runtime_references():
+    from types import SimpleNamespace
+
+    from src.core.runner import AppRunner
+
+    class ConfigSink:
+        def __init__(self):
+            self.calls = []
+
+        def apply_runtime_config(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
+
+    class RateSink:
+        def __init__(self):
+            self.max_hz = None
+
+        def set_max_hz(self, value):
+            self.max_hz = value
+
+    class WsSink:
+        def __init__(self):
+            self.only_updates = None
+
+        def set_only_send_signal_update(self, value):
+            self.only_updates = value
+
+    class OmsSink:
+        def __init__(self):
+            self.config = None
+
+        def apply_runtime_config(self, **kwargs):
+            self.config = kwargs
+
+    runner = AppRunner(AppConfig())
+    pipeline = ConfigSink()
+    reader = ConfigSink()
+    writer = ConfigSink()
+    rate = RateSink()
+    websocket = WsSink()
+    oms_classifier = OmsSink()
+    runner._pipeline = pipeline
+    runner._readers = [reader]
+    runner._writers = [writer]
+    runner._rate_limiter = rate
+    runner._ws_manager = websocket
+    runner._oms_classifier = oms_classifier
+    runner._api_app = SimpleNamespace(state=SimpleNamespace())
+
+    updated = AppConfig(
+        processor={
+            "max_update_rate_hz": 25.0,
+            "queue_policy": "drop_oldest",
+            "batch_drain_size": 99,
+        },
+        storage={"batch_size": 12, "batch_interval_sec": 0.4},
+        reader={
+            "frequency_piority": 2.0,
+            "only_send_signal_update": True,
+            "stale_threshold_sec": 8.0,
+        },
+        writer={
+            "periodic_mode": True,
+            "periodic_time_step": 40,
+            "periodic_duration": 500,
+            "use_prevalue_for_unwritten_signal": False,
+        },
+        devmode={"bypass_check_CAN_status": True},
+        oms_config={
+            "bypass_simi_input": True,
+            "class_config": [60, 85],
+            "target_signal": {
+                "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            },
+        },
+    )
+    changed = [
+        "processor.max_update_rate_hz",
+        "processor.queue_policy",
+        "storage.batch_size",
+        "reader.frequency_piority",
+        "reader.only_send_signal_update",
+        "reader.stale_threshold_sec",
+        "writer.periodic_mode",
+        "devmode.bypass_check_CAN_status",
+        "oms_config.bypass_simi_input",
+        "oms_config.class_config.0",
+        "oms_config.class_config.1",
+    ]
+
+    result = await runner.apply_system_config(updated, changed)
+
+    assert result["applied"] == changed
+    assert pipeline.calls[-1][1]["batch_size"] == 12
+    assert reader.calls[-1][1]["priority_sec"] == 2.0
+    assert writer.calls[-1][0] == (updated.writer,)
+    assert rate.max_hz == 25.0
+    assert websocket.only_updates is True
+    assert oms_classifier.config == {
+        "bypass_simi_input": True,
+        "class_config": [60.0, 85.0],
+        "target_signals": {
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+        },
+    }
+    assert runner._api_app.state.reader_stale_threshold_sec == 8.0
+    assert runner._api_app.state.devmode_bypass_can_status is True
+    assert runner.config is updated
+
+    reboot_config = updated.model_copy(deep=True)
+    reboot_config.api.port = 9000
+    await runner.apply_system_config(reboot_config, ["api.port"])
+    assert runner.pending_reboot_paths == {"api.port"}
+
+    await runner.apply_system_config(updated, ["api.port"])
+    assert runner.pending_reboot_paths == set()
 
 
 # ── SignalStore ───────────────────────────────────────────────────────────────
@@ -508,6 +780,7 @@ async def test_signal_store_get_snapshot_isolated():
     snap = await store.get_snapshot()
     # Mutate the snapshot
     from src.core.signal_store import SignalValue
+
     snap["A"] = SignalValue(value=999.0)
     # Internal store must be unchanged
     sv = await store.get("A")

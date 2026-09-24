@@ -28,6 +28,35 @@ async def test_rate_limiter_drops_fast_updates():
     assert "rpm" not in r2
 
 
+def test_pipeline_and_rate_limiter_apply_runtime_config():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.signal_store import SignalStore
+    from src.processor.filters import RateLimiter
+    from src.processor.pipeline import SignalPipeline
+
+    pipeline = SignalPipeline(
+        input_queue=asyncio.Queue(maxsize=10),
+        signal_store=SignalStore(),
+        repository=AsyncMock(),
+    )
+    limiter = RateLimiter(max_hz=10.0)
+
+    pipeline.apply_runtime_config(
+        queue_policy="drop_oldest",
+        batch_size=12,
+        batch_interval_sec=0.4,
+        batch_drain_size=99,
+    )
+    limiter.set_max_hz(25.0)
+
+    assert pipeline._policy == "drop_oldest"
+    assert pipeline._batch_size == 12
+    assert pipeline._batch_interval == pytest.approx(0.4)
+    assert pipeline._batch_drain_size == 99
+    assert limiter._min_interval == pytest.approx(0.04)
+
 
 @pytest.mark.asyncio
 async def test_computed_signals_formula():
@@ -53,6 +82,107 @@ async def test_computed_signals_exception_safety():
     assert "bad" not in result
     assert result.get("ok") == pytest.approx(1.0)
     assert result["rpm"] == pytest.approx(100.0)
+
+
+@pytest.mark.asyncio
+async def test_oms_classification_keeps_can_value_when_bypass_is_disabled():
+    from src.processor.computed import OMSClassificationProcessor
+
+    processor = OMSClassificationProcessor(
+        bypass_simi_input=False,
+        class_config=[65, 90],
+        target_signals={
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+        },
+    )
+    result = await processor.process(
+        {
+            "OMS_FL_OccupantClassification": 2.0,
+            "OMS_FL_OccupantWeightMean": 50.0,
+        }
+    )
+
+    assert result["OMS_FL_OccupantClassification"] == pytest.approx(2.0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("weight", "expected_class"),
+    [(64.9, 0.0), (65.0, 1.0), (90.0, 1.0), (90.1, 2.0)],
+)
+async def test_oms_classification_derives_zero_based_class_from_weight(weight, expected_class):
+    from src.processor.computed import OMSClassificationProcessor
+
+    processor = OMSClassificationProcessor(
+        bypass_simi_input=True,
+        class_config=[65, 90],
+        target_signals={
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+        },
+    )
+    result = await processor.process(
+        {
+            "OMS_FL_OccupantClassification": 99.0,
+            "OMS_FL_OccupantWeightMean": weight,
+        }
+    )
+
+    assert result["OMS_FL_OccupantClassification"] == pytest.approx(expected_class)
+
+
+@pytest.mark.asyncio
+async def test_oms_classification_only_updates_target_with_available_weight():
+    from src.processor.computed import OMSClassificationProcessor
+
+    processor = OMSClassificationProcessor(
+        bypass_simi_input=True,
+        class_config=[65, 90],
+        target_signals={
+            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
+            "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
+        },
+    )
+    result = await processor.process(
+        {
+            "OMS_FL_OccupantWeightMean": 70.0,
+            "OMS_FR_OccupantClassification": 2.0,
+        }
+    )
+
+    assert result["OMS_FL_OccupantClassification"] == pytest.approx(1.0)
+    assert result["OMS_FR_OccupantClassification"] == pytest.approx(2.0)
+
+
+@pytest.mark.asyncio
+async def test_oms_classification_pipeline_publishes_derived_value_to_store():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.signal_store import SignalStore
+    from src.processor.computed import OMSClassificationProcessor
+    from src.processor.pipeline import SignalPipeline
+
+    store = SignalStore()
+    pipeline = SignalPipeline(
+        input_queue=asyncio.Queue(),
+        signal_store=store,
+        repository=AsyncMock(),
+    )
+    pipeline.add_stage(
+        OMSClassificationProcessor(
+            bypass_simi_input=True,
+            class_config=[65, 90],
+            target_signals={
+                "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
+            },
+        )
+    )
+
+    await pipeline._process_signals({"OMS_RL1_OccupantWeightMean": 91.0})
+
+    value = await store.get("OMS_RL1_OccupantClassification")
+    assert value is not None
+    assert value.value == pytest.approx(2.0)
 
 
 @pytest.mark.asyncio

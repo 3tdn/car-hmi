@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import can
 import pytest
 
-from src.can_io.bus_factory import create_bus, create_virtual_bus
+from src.can_io.bus_factory import (
+    create_bus,
+    create_virtual_bus,
+    list_socketcan_channel_devices,
+    list_up_socketcan_channels,
+    resolve_auto_match_ids,
+)
 from src.can_io.parser import DatabaseLoader
 from src.can_io.reader import CANReader, DecodedFrame
 from src.can_io.writer import CANWriter, CANWriteRejectedError, CANWriterRouter
@@ -147,6 +153,50 @@ async def test_writer_zeroes_unwritten_signals_for_batch_write(virtual_bus_pair,
 
 
 @pytest.mark.asyncio
+async def test_writer_runtime_config_preserves_replacement_periodic_task(
+    virtual_bus_pair, json_db
+):
+    """A cancelled sender must not remove a newer task for the same message."""
+    bus_tx, _ = virtual_bus_pair
+    writer = CANWriter(
+        bus=bus_tx,
+        db=json_db,
+        writer_config=WriterConfig(
+            periodic_mode=True,
+            periodic_time_step=1000,
+            periodic_duration=10000,
+        ),
+    )
+    old_task = asyncio.create_task(
+        writer._periodic_sender(100, json_db.messages[100], {"Speed": 1.0})
+    )
+    writer._periodic_tasks[100] = old_task
+    await asyncio.sleep(0)
+
+    writer.apply_runtime_config(
+        WriterConfig(
+            periodic_mode=False,
+            periodic_time_step=25,
+            periodic_duration=50,
+            use_prevalue_for_unwritten_signal=False,
+        )
+    )
+    replacement = asyncio.create_task(asyncio.sleep(10))
+    writer._periodic_tasks[100] = replacement
+    await old_task
+
+    assert writer._periodic_tasks[100] is replacement
+    assert writer._periodic_mode is False
+    assert writer._periodic_time_step_ms == 25
+    assert writer._periodic_duration_ms == 50
+    assert writer._use_prevalue_for_unwritten_signal is False
+
+    replacement.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await replacement
+
+
+@pytest.mark.asyncio
 async def test_writer_send_message(virtual_bus_pair, json_db):
     bus_tx, bus_rx = virtual_bus_pair
     writer = CANWriter(bus=bus_tx, db=json_db)
@@ -194,6 +244,14 @@ def v8_db():
         Path(__file__).resolve().parents[2]
         / "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
     )
+    loader.load_dbc(dbc_path)
+    return loader
+
+
+@pytest.fixture
+def v9_db():
+    loader = DatabaseLoader()
+    dbc_path = Path(__file__).resolve().parents[2] / "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
     loader.load_dbc(dbc_path)
     return loader
 
@@ -290,6 +348,53 @@ async def test_elk_batch_groups_two_explicit_requests_into_one_frame(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("preserve_unwritten", [False, True])
+async def test_hb_frame_uses_states_for_unwritten_requests(
+    virtual_bus_pair,
+    v9_db,
+    preserve_unwritten,
+):
+    bus_tx, bus_rx = virtual_bus_pair
+    store = SignalStore()
+    await store.bulk_update(
+        {
+            "HB_State_RR1": 3.0,
+            "HB_State_RL2": 2.0,
+            "HB_State_RL1": 1.0,
+            "HB_State_FR": 3.0,
+        }
+    )
+    writer = CANWriter(
+        bus=bus_tx,
+        db=v9_db,
+        signal_store=store,
+        writer_config=WriterConfig(use_prevalue_for_unwritten_signal=preserve_unwritten),
+    )
+    msg_def = v9_db.get_message_for_signal("HB_Request_RR1")
+    assert msg_def is not None
+
+    await writer._send_frame(
+        msg_def.msg_id,
+        msg_def,
+        {"HB_Request_FR": 1.0},
+        123.0,
+    )
+
+    msg = bus_rx.recv(timeout=1.0)
+    assert msg is not None
+    assert msg.arbitration_id == 0x83
+    decoded = v9_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded == {
+        "HB_IncarTemp": 0.0,
+        "HB_Request_RR1": 3.0,
+        "HB_Request_RL2": 2.0,
+        "HB_Request_RL1": 1.0,
+        "HB_Request_FR": 1.0,
+    }
+    assert bus_rx.recv(timeout=0.05) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preserve_unwritten", [False, True])
 async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
     virtual_bus_pair,
     v8_db,
@@ -329,6 +434,23 @@ async def test_sensor_fusion_batch_uses_oms_state_for_unwritten_requests(
 
 
 # ── CANReader ─────────────────────────────────────────────────────────────────
+
+
+def test_reader_applies_runtime_config(virtual_bus_pair, json_db):
+    _, bus_rx = virtual_bus_pair
+    reader = CANReader(bus=bus_rx, db=json_db, queue=asyncio.Queue(maxsize=10))
+
+    reader.apply_runtime_config(
+        queue_policy="drop_oldest",
+        max_rate_hz=25.0,
+        priority_sec=2.5,
+        stale_threshold_sec=7.0,
+    )
+
+    assert reader._policy == "drop_oldest"
+    assert reader._min_interval == pytest.approx(0.04)
+    assert reader._priority_sec == pytest.approx(2.5)
+    assert reader._stale_threshold_sec == pytest.approx(7.0)
 
 
 @pytest.mark.asyncio
@@ -443,3 +565,155 @@ def test_create_bus_socketcan_parameters(mock_bus):
     # Asserting the factory returned the mock instance correctly
     assert bus == "MockSocketcanBus"
     mock_bus.assert_called_once_with(interface="socketcan", channel="can0", bitrate=250000)
+
+
+def test_list_up_socketcan_channels_filters_type_and_flags_and_sorts_naturally(tmp_path):
+    def add_interface(name: str, hardware_type: str, flags: str, operstate: str) -> None:
+        interface = tmp_path / name
+        interface.mkdir()
+        (interface / "type").write_text(hardware_type)
+        (interface / "flags").write_text(flags)
+        (interface / "operstate").write_text(operstate)
+
+    add_interface("can10", "280", "0x1", "dormant")
+    add_interface("can2", "280", "0x1001", "up")
+    add_interface("can0", "280", "0x0", "down")
+    add_interface("eth0", "1", "0x1", "up")
+
+    assert list_up_socketcan_channels(tmp_path) == ["can2", "can10"]
+    assert list_socketcan_channel_devices(tmp_path) == [
+        {
+            "channel": "can0",
+            "interface": "socketcan",
+            "state": "down",
+            "operstate": "down",
+        },
+        {
+            "channel": "can2",
+            "interface": "socketcan",
+            "state": "up",
+            "operstate": "up",
+        },
+        {
+            "channel": "can10",
+            "interface": "socketcan",
+            "state": "up",
+            "operstate": "dormant",
+        },
+    ]
+
+
+def test_auto_tracking_resolves_only_configured_messages():
+    db = DatabaseLoader()
+    db.load_dbc("db/can_db/Interface_Panther_To_CarPC_v9.dbc")
+    cfg = CANConfig(channel_tracking_signals=["COM_Status_ElkCan"])
+    expected = db.get_message_for_signal("COM_Status_ElkCan").msg_id
+
+    assert resolve_auto_match_ids(cfg, db) == {expected}
+    assert len(resolve_auto_match_ids(CANConfig(), db)) > 1
+    cfg.channel_tracking_signals.append("missing_signal")
+    with pytest.raises(ValueError, match="missing_signal"):
+        resolve_auto_match_ids(cfg, db)
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_channels):
+    class ProbeBus:
+        def __init__(self, messages):
+            self.messages = iter(messages)
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            return next(self.messages, None)
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+        def set_filters(self, filters):
+            self.filters = filters
+
+    silent_bus = ProbeBus([can.Message(arbitration_id=0x456, data=[0])])
+    matching_bus = ProbeBus([can.Message(arbitration_id=0x123, data=[0])])
+    mock_bus.side_effect = [silent_bus, matching_bus]
+    cfg = CANConfig(interface="socketcan", channel="auto", bitrate=500000)
+
+    selected = create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0.1)
+
+    assert selected is matching_bus
+    assert selected._car_hmi_prefetched_message.arbitration_id == 0x123
+    assert silent_bus.shutdown_called is True
+    assert matching_bus.shutdown_called is False
+    assert matching_bus.filters is None
+    expected_filters = [{"can_id": 0x123, "can_mask": 0x1FFFFFFF, "extended": False}]
+    assert mock_bus.call_args_list == [
+        call(
+            interface="socketcan",
+            channel="can0",
+            bitrate=500000,
+            can_filters=expected_filters,
+        ),
+        call(
+            interface="socketcan",
+            channel="can2",
+            bitrate=500000,
+            can_filters=expected_filters,
+        ),
+    ]
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=[])
+def test_create_bus_auto_requires_an_up_socketcan_channel(_mock_channels):
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="No UP SocketCAN interface"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0)
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_closes_all_candidates_when_no_dbc_traffic(mock_bus, _mock_channels):
+    class SilentBus:
+        def __init__(self):
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            return None
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    candidates = [SilentBus(), SilentBus()]
+    mock_bus.side_effect = candidates
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="No UP SocketCAN interface received"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0)
+
+    assert all(bus.shutdown_called for bus in candidates)
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_drops_broken_probe_without_busy_loop(mock_bus, _mock_channels):
+    class BrokenBus:
+        def __init__(self):
+            self.recv_calls = 0
+            self.shutdown_called = False
+
+        def recv(self, timeout):
+            self.recv_calls += 1
+            raise can.CanError("link down")
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    broken_bus = BrokenBus()
+    mock_bus.return_value = broken_bus
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    with pytest.raises(can.CanInitializationError, match="failed while probing"):
+        create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=3.0)
+
+    assert broken_bus.recv_calls == 1
+    assert broken_bus.shutdown_called is True

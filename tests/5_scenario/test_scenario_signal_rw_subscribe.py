@@ -16,7 +16,7 @@ from starlette.testclient import TestClient
 
 @pytest.mark.asyncio
 async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeypatch, tmp_path):
-    """The operator can write VehicleSpeed, but reading FuelLevel (outside scope) is blocked."""
+    """The operator can write VehicleSpeed and read FuelLevel outside the TX scope."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -27,7 +27,7 @@ async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeyp
                 "description": "Operator",
             }
         },
-        initial_signals={"VehicleSpeed": 40.0},
+        initial_signals={"VehicleSpeed": 40.0, "FuelLevel": 55.0},
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -47,12 +47,12 @@ async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeyp
         # The store value changes only when the CAN bus echoes it back, not immediately after sending the write.
         assert read_resp.json()["value"] == 40.0
 
-        denied = await c.get(
+        rx_read = await c.get(
             "/signals/FuelLevel",
             headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"},
         )
-        assert denied.status_code == 403
-        assert denied.json()["detail"]["code"] == "profile_signal_denied"
+        assert rx_read.status_code == 200
+        assert rx_read.json()["value"] == 55.0
 
 
 @pytest.mark.asyncio
@@ -129,8 +129,8 @@ def test_ws_subscribe_receives_broadcast_then_stops_after_unsubscribe(app_builde
             assert "VehicleSpeed" not in remaining.signal_names
 
 
-def test_ws_wildcard_subscribe_limited_to_profile_signals(app_builder_sync):
-    """Subscribe '*' only receives signals included in the active profile, with a warning."""
+def test_ws_wildcard_subscribe_includes_signals_outside_profile(app_builder_sync):
+    """Subscribe '*' receives RX signals outside the profile without a warning."""
     app = app_builder_sync(
         active="viewer",
         profiles={
@@ -146,8 +146,14 @@ def test_ws_wildcard_subscribe_limited_to_profile_signals(app_builder_sync):
         with sc.websocket_connect("/ws/subscribe?profile_name=viewer") as ws:
             ws.send_text(json.dumps({"type": "subscribe", "signals": ["*"]}))
             ack = json.loads(ws.receive_text())
-            assert ack["channels"] == ["VehicleSpeed"]
-            assert ack["warnings"][0]["code"] == "profile_signal_filtered"
+            assert ack["channels"] == ["*"]
+            assert ack["warnings"] == []
+
+            import asyncio
+
+            asyncio.run(app.state.ws_manager.broadcast_signal("FuelLevel", 55.0, 1717243200.0))
+            frame = json.loads(ws.receive_text())
+            assert frame["signals"][0]["name"] == "FuelLevel"
 
 
 def test_two_ws_clients_only_interested_subscriber_receives_update(app_builder_sync):

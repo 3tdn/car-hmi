@@ -28,6 +28,13 @@ _MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
         "ELK_RR1_LockingRequest": "ELK_RR1_LockingStatus",
         "ELK_ResetErrorFlags": 0.0,
     },
+    "SBS_HB_Request": {
+        "HB_IncarTemp_dgradC": 0.0,
+        "HB_Request_RR1": "HB_State_RR1",
+        "HB_Request_RL2": "HB_State_RL2",
+        "HB_Request_RL1": "HB_State_RL1",
+        "HB_Request_FR": "HB_State_FR"
+    },
     "INC_HMI_SensorFusionRequest": {
         "HMI_SensorFusion_CapSensor": "OMS_State_CapSensor",
         "HMI_SensorFusion_StrainGage": "OMS_State_StrainGauge",
@@ -71,14 +78,15 @@ class CANWriter:
 
     def __init__(
         self,
-        bus: can.BusABC,
+        bus: can.BusABC | None,
         db: DatabaseLoader,
         signal_store: SignalStore | None = None,
         writer_config: WriterConfig | None = None,
     ) -> None:
         """
         Args:
-            bus:           Open ``can.Bus`` object used for transmission.
+            bus:           Open ``can.Bus`` object used for transmission, or
+                           ``None`` while the reader discovers a channel.
             db:            ``DatabaseLoader`` used to encode signals.
             signal_store:  Reference to SignalStore for read-modify-write and
                            dashboard updates after sending (optional).
@@ -89,7 +97,9 @@ class CANWriter:
         self._store = signal_store
         self._lock = asyncio.Lock()
         self._sent_count = 0
-        self._bus_unavailable_reason: str | None = None
+        self._bus_unavailable_reason: str | None = (
+            "CAN channel discovery is still in progress" if bus is None else None
+        )
 
         # Periodic mode config
         if writer_config is not None:
@@ -147,6 +157,30 @@ class CANWriter:
             )
         self._require_tx_message(msg_def, signal_name=signal_name)
         return msg_def
+
+    def apply_runtime_config(self, writer_config: WriterConfig) -> None:
+        """Apply writer settings and stop periodic jobs when their mode changes."""
+        old_periodic = (
+            self._periodic_mode,
+            self._periodic_time_step_ms,
+            self._periodic_duration_ms,
+        )
+        self._periodic_mode = writer_config.periodic_mode
+        self._periodic_time_step_ms = writer_config.periodic_time_step
+        self._periodic_duration_ms = writer_config.periodic_duration
+        self._use_prevalue_for_unwritten_signal = (
+            writer_config.use_prevalue_for_unwritten_signal
+        )
+        new_periodic = (
+            self._periodic_mode,
+            self._periodic_time_step_ms,
+            self._periodic_duration_ms,
+        )
+        if old_periodic != new_periodic:
+            for task in self._periodic_tasks.values():
+                if not task.done():
+                    task.cancel()
+            self._periodic_tasks.clear()
 
     async def send_signal(self, name: str, value: float) -> None:
         """Encode a single signal and transmit the corresponding CAN frame.
@@ -308,6 +342,7 @@ class CANWriter:
         """Repeatedly send a CAN frame every ``periodic_time_step`` ms for
         ``periodic_duration`` ms.
         """
+        current_task = asyncio.current_task()
         interval = self._periodic_time_step_ms / 1000.0
         deadline = time.monotonic() + self._periodic_duration_ms / 1000.0
         try:
@@ -322,7 +357,11 @@ class CANWriter:
         except asyncio.CancelledError:
             logger.debug("Periodic sender cancelled for msg_id=%#x", msg_id)
         finally:
-            self._periodic_tasks.pop(msg_id, None)
+            # A cancelled sender can finish after a replacement sender has
+            # already been registered for the same message. Remove only this
+            # task so the replacement remains tracked and cancellable.
+            if self._periodic_tasks.get(msg_id) is current_task:
+                self._periodic_tasks.pop(msg_id, None)
             logger.debug(
                 "Periodic sender stopped for msg_id=%#x after %.1f ms",
                 msg_id,

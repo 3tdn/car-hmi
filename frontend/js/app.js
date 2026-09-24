@@ -213,18 +213,14 @@ function isSignalInProfileScope(signalName, stdName) {
 function getSignalAccessState(signalName, stdName, writable) {
   const signalPermissions = new Set(getSignalPermissions(signalName, stdName));
   const inScope = isSignalInProfileScope(signalName, stdName);
-  const canRead = inScope && (signalPermissions.has('read') || signalPermissions.has('full'));
+  const canRead = true; // Profiles restrict TX only.
   const canWrite = writable && inScope && (signalPermissions.has('write') || signalPermissions.has('full'));
   let reason = '';
   let required = null;
-  if (!inScope) {
-    reason = 'Signal is outside the current profile scope';
-    required = 'read/write';
-  } else if (!canRead) {
-    reason = 'Current signal lacks read permission';
-    required = 'read';
-  } else if (writable && !canWrite) {
-    reason = 'Current signal lacks write permission';
+  if (writable && !canWrite) {
+    reason = inScope
+      ? 'Current signal lacks write permission'
+      : 'TX signal is outside the current profile scope';
     required = 'write';
   }
   return { canRead, canWrite, reason, required };
@@ -311,7 +307,7 @@ function ensureProfileSelector() {
     const selectedName = event.target.value;
     const previousName = currentProfile?.name || getProfileName() || '';
     try {
-      const switched = await setActiveProfile(selectedName, { devMode: FRONTEND_MODE === 'dev' });
+      const switched = await setActiveProfile(selectedName);
       if (switched?.warnings?.length) {
         showPermissionWarnings(switched.warnings, 'profile');
       }
@@ -367,6 +363,7 @@ function getKnownSignalNames() {
 function getKnownSignalTags() {
   const tags = new Set();
   signalMetadataCache.forEach((meta, signalName) => {
+    if (!meta.writable) return;
     const metaTags = Array.isArray(meta?.tag) && meta.tag.length
       ? meta.tag
       : signalName.split('_').filter((part) => /^[A-Z]+$/.test(part));
@@ -380,7 +377,7 @@ function getKnownSignalTags() {
 function getSignalsForTag(tag) {
   if (!tag) return [];
   return Array.from(signalMetadataCache.values())
-    .filter((meta) => Array.isArray(meta?.tag) && meta.tag.includes(tag))
+    .filter((meta) => meta.writable && Array.isArray(meta?.tag) && meta.tag.includes(tag))
     .map((meta) => meta.signal_name)
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
@@ -443,7 +440,7 @@ function ensureProfileManagerModal() {
             <button id="profile-add-tag-btn" class="btn">Add Tag</button>
           </div>
           <label class="profile-signal-editor">
-            <span>Signals</span>
+            <span>TX signals (RX is always readable)</span>
             <textarea id="profile-form-signals" rows="14" placeholder="One signal per line"></textarea>
           </label>
           <div class="profile-manager-modal__actions">
@@ -600,7 +597,9 @@ function renderProfileSignalPicker() {
   const select = document.getElementById('profile-signal-select');
   if (!select) return;
   const currentSignals = new Set(readSignalsFromForm().map((item) => item.name));
-  const options = getKnownSignalNames().filter((name) => !currentSignals.has(name));
+  const options = getKnownSignalNames().filter((name) =>
+    !currentSignals.has(name) && signalMetadataCache.get(name)?.writable !== false
+  );
   select.innerHTML = options.length
     ? options.map((name) => `<option value="${name}">${name}</option>`).join('')
     : '<option value="">No more known signals</option>';
@@ -628,7 +627,7 @@ function renderProfileManager() {
 
 async function refreshProfileSessions() {
   try {
-    const sessionsData = await listProfileSessions({ devMode: FRONTEND_MODE === 'dev' });
+    const sessionsData = await listProfileSessions();
     profileSessions = sessionsData.sessions || [];
     profileSessionStats = sessionsData.by_profile || [];
     profileSessionStatsByName = new Map(profileSessionStats.map((item) => [item.profile_name, item]));
@@ -851,13 +850,15 @@ function refreshPermissionDecorations() {
     updateSignalRowAccess(row, row.dataset.signalName, row.dataset.writable === 'true');
   });
   const settingsBtn = document.getElementById('btn-settings');
+  if (settingsBtn) {
+    settingsBtn.classList.remove('btn--permission-warn');
+    settingsBtn.title = '';
+  }
   const profilesBtn = document.getElementById('btn-profiles');
-  [settingsBtn, profilesBtn].forEach((btn) => {
-    if (!btn) return;
-    const allowed = hasProfilePermission('full');
-    btn.classList.toggle('btn--permission-warn', !allowed);
-    btn.title = allowed ? '' : 'Current profile lacks full permission';
-  });
+  if (profilesBtn) {
+    profilesBtn.classList.remove('btn--permission-warn');
+    profilesBtn.title = '';
+  }
 }
 
 // ── Signal tracking for the table + fast gauges ────────────────────────────

@@ -3,6 +3,10 @@
 > **Source:** `Interface_Panther_To_CarPC_v3.dbc`  
 > **Version:** Generated from CSV
 
+> Signal tables below preserve raw DBC names. At runtime, the parser removes trailing
+> lowercase unit/type suffixes, so for example `OMS_FL_OccupantWeightMean_kg` is exposed as
+> `OMS_FL_OccupantWeightMean` and must be referenced without `_kg` in application config.
+
 ---
 
 ## Table of Contents

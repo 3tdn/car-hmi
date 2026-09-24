@@ -2,16 +2,82 @@
 
 Covers the flow of creating/updating profiles, switching the active profile
 (globally and per client), then confirming that signal read/write/subscribe
-permissions change accordingly when a signal is inside or outside the profile.
+TX permissions change with the profile while RX remains unrestricted.
 """
 
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from starlette.testclient import TestClient
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("permissions", [None, ["read"], ["write"], ["full"]])
+async def test_rx_reads_do_not_require_profile_entries(app_builder, monkeypatch, tmp_path, permissions):
+    """RX-only values, metadata and history stay readable even for an empty profile."""
+    app, writer = await app_builder(
+        monkeypatch,
+        tmp_path,
+        active="operator",
+        profiles={"operator": {"signals": (
+            [{"name": "VehicleSpeed", "permission": permissions}] if permissions else []
+        )}},
+        initial_signals={"VehicleSpeed": 10.0, "OMS_State_Camera": 1.0},
+    )
+
+    async def query_history(**kwargs):
+        assert kwargs["signal_name"] == "OMS_State_Camera"
+        return [SimpleNamespace(signal_name="OMS_State_Camera", value=1.0, unit=None, timestamp=123.0)]
+
+    monkeypatch.setattr(app.state.repo, "query_signals", query_history)
+    headers = {"X-API-Key": "test-key", "X-Profile-Name": "operator"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        value = await c.get("/signals/OMS_State_Camera", headers=headers)
+        assert value.status_code == 200
+        assert value.json()["value"] == 1.0
+
+        snapshot = await c.get("/signals", headers=headers)
+        assert snapshot.status_code == 200
+        assert {item["signal_name"] for item in snapshot.json()["items"]} == {"VehicleSpeed", "OMS_State_Camera"}
+        assert snapshot.json()["warnings"] == []
+
+        metadata = await c.get("/signals/available", headers=headers)
+        assert metadata.status_code == 200
+        rx = next(item for item in metadata.json()["signals_info"] if item["signal_name"] == "OMS_State_Camera")
+        assert rx["writable"] is False
+        assert rx["value"] == 1.0
+        assert rx["timestamp"] is not None
+        assert metadata.json()["warnings"] == []
+
+        history = await c.get("/signals/OMS_State_Camera/history", headers=headers)
+        assert history.status_code == 200
+        assert history.json()["items"][0]["value"] == 1.0
+
+        denied = await c.put("/signals/OMS_State_Camera", headers=headers, json={"value": 0.0})
+        assert denied.status_code == 403
+        assert writer.writes == []
+
+
+@pytest.mark.parametrize("endpoint", ["/ws/signals", "/ws/subscribe"])
+@pytest.mark.parametrize("signals", [[], [{"name": "VehicleSpeed", "permission": ["write"]}]])
+@pytest.mark.parametrize("channels", [["*"], ["OMS_State_Camera"]])
+def test_rx_subscription_delivers_without_read_permission(app_builder_sync, endpoint, signals, channels):
+    """Both WS endpoints deliver RX outside empty or write-only profiles."""
+    app = app_builder_sync(active="operator", profiles={"operator": {"signals": signals}}, api_key="test-key")
+    with TestClient(app) as sc, sc.websocket_connect(
+        f"{endpoint}?api_key=test-key&profile_name=operator"
+    ) as ws:
+        ws.send_json({"type": "subscribe", "signals": channels})
+        ack = ws.receive_json()
+        assert ack["channels"] == channels
+        assert ack["warnings"] == []
+        sc.portal.call(app.state.ws_manager.broadcast_signal, "OMS_State_Camera", 1.0, 123.0)
+        frame = ws.receive_json()
+        assert frame["signals"] == [{"name": "OMS_State_Camera", "std_name": "OMS_State_Camera", "value": 1.0}]
 
 
 @pytest.mark.asyncio
@@ -74,7 +140,7 @@ async def test_create_profile_then_update_adds_write_permission(app_builder, mon
 
 @pytest.mark.asyncio
 async def test_switch_active_profile_requires_full_permission_and_changes_scope(app_builder, monkeypatch, tmp_path):
-    """Switching the active profile requires 'full'; after switching, the read/write scope changes with the new profile."""
+    """Switching the active profile requires 'full'; after switching, only the write scope changes with the new profile."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -102,11 +168,11 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
         assert denied.status_code == 403
         assert denied.json()["detail"]["required_permission"] == "full"
 
-        # While active is still viewer: reading VehicleSpeed is OK, FuelLevel is blocked.
+        # Both signals are readable even though FuelLevel is outside the viewer profile.
         vs_ok = await c.get("/signals/VehicleSpeed", headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"})
         assert vs_ok.status_code == 200
-        fl_denied = await c.get("/signals/FuelLevel", headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"})
-        assert fl_denied.status_code == 403
+        fl_read = await c.get("/signals/FuelLevel", headers={"X-API-Key": "test-key", "X-Profile-Name": "viewer"})
+        assert fl_read.status_code == 200
 
         # The Dev Mode header allows bypassing the 'full' permission requirement to switch profiles.
         switched = await c.put(
@@ -117,7 +183,7 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
         assert switched.status_code == 200
         assert switched.json()["active"] == "operator"
 
-        # After switching to operator: FuelLevel can be read/written, VehicleSpeed is blocked.
+        # After switching, FuelLevel can be written and both signals remain readable.
         fl_ok = await c.get("/signals/FuelLevel", headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"})
         assert fl_ok.status_code == 200
         fl_write = await c.put(
@@ -126,8 +192,14 @@ async def test_switch_active_profile_requires_full_permission_and_changes_scope(
             json={"value": 33.0},
         )
         assert fl_write.status_code == 202
-        vs_denied_now = await c.get("/signals/VehicleSpeed", headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"})
-        assert vs_denied_now.status_code == 403
+        vs_read = await c.get("/signals/VehicleSpeed", headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"})
+        assert vs_read.status_code == 200
+        vs_write_denied = await c.put(
+            "/signals/VehicleSpeed",
+            headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"},
+            json={"value": 44.0},
+        )
+        assert vs_write_denied.status_code == 403
         assert writer.writes == [("FuelLevel", 33.0)]
 
 
@@ -177,8 +249,8 @@ async def test_per_client_active_profile_session_is_isolated(app_builder, monkey
 
 
 @pytest.mark.asyncio
-async def test_signal_outside_any_profile_scope_is_denied_for_read_write_and_batch(app_builder, monkeypatch, tmp_path):
-    """A signal not declared in the profile is blocked on every channel: read, write, batch."""
+async def test_signal_outside_profile_is_readable_but_denied_for_write_and_batch(app_builder, monkeypatch, tmp_path):
+    """A signal outside the profile remains readable; single and batch TX stay restricted."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -189,14 +261,15 @@ async def test_signal_outside_any_profile_scope_is_denied_for_read_write_and_bat
                 "description": "Operator",
             }
         },
-        initial_signals={"VehicleSpeed": 10.0},
+        initial_signals={"VehicleSpeed": 10.0, "CoolantTemp": 80.0},
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        read_denied = await c.get(
+        read_allowed = await c.get(
             "/signals/CoolantTemp", headers={"X-API-Key": "test-key", "X-Profile-Name": "operator"}
         )
-        assert read_denied.status_code == 403
+        assert read_allowed.status_code == 200
+        assert read_allowed.json()["value"] == 80.0
 
         write_denied = await c.put(
             "/signals/CoolantTemp",
@@ -223,8 +296,8 @@ async def test_signal_outside_any_profile_scope_is_denied_for_read_write_and_bat
         assert writer.writes == [("VehicleSpeed", 66.0)]
 
 
-def test_ws_subscribe_scope_follows_active_profile_switch(app_builder_sync):
-    """WS subscribe '*' reflects the signal scope of the profile provided at connect time."""
+def test_ws_wildcard_is_unrestricted_across_profiles(app_builder_sync):
+    """WS subscribe '*' reads all signals for either profile."""
     app = app_builder_sync(
         active="viewer",
         profiles={
@@ -244,9 +317,11 @@ def test_ws_subscribe_scope_follows_active_profile_switch(app_builder_sync):
         with sc.websocket_connect("/ws/subscribe?profile_name=viewer") as ws_viewer:
             ws_viewer.send_text(json.dumps({"type": "subscribe", "signals": ["*"]}))
             ack_viewer = json.loads(ws_viewer.receive_text())
-            assert ack_viewer["channels"] == ["VehicleSpeed"]
+            assert ack_viewer["channels"] == ["*"]
+            assert ack_viewer["warnings"] == []
 
         with sc.websocket_connect("/ws/subscribe?profile_name=operator") as ws_operator:
             ws_operator.send_text(json.dumps({"type": "subscribe", "signals": ["*"]}))
             ack_operator = json.loads(ws_operator.receive_text())
-            assert ack_operator["channels"] == ["FuelLevel"]
+            assert ack_operator["channels"] == ["*"]
+            assert ack_operator["warnings"] == []

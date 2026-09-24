@@ -1,0 +1,3569 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CAN-HMI Signal API",
+    "description": "Real-time CAN bus signal monitoring and control API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/signals": {
+      "get": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "List latest signal values",
+        "operationId": "list_signals_signals_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/signals/available": {
+      "get": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "List all available signals with metadata",
+        "description": "Return the full metadata list for all signals.\n\nThe client calls this once at startup to get the structure, then only subscribes\nto lightweight value + timestamp updates over WebSocket.",
+        "operationId": "list_available_signals_signals_available_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalMetadataListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/signals/{signal_name}": {
+      "get": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "Get latest value for one signal",
+        "operationId": "get_signal_signals__signal_name__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalValueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "Write value to signal (CAN write)",
+        "operationId": "write_signal_signals__signal_name__put",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteSignalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/signals/{signal_name}/history": {
+      "get": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "Query signal history from DB",
+        "operationId": "get_signal_history_signals__signal_name__history_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Name"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/signals/batch_update": {
+      "post": {
+        "tags": [
+          "Signals"
+        ],
+        "summary": "Write multiple writable signals simultaneously (batch)",
+        "description": "Write multiple CAN signals at once.\n\nSignals belonging to the same CAN message are grouped together and sent as a single\nframe. Other signals in the same message that are not included in the\nbatch use ``writer.use_prevalue_for_unwritten_signal`` from ``system.json``.\nREST writes are broadcast immediately to all subscribed WS clients.",
+        "operationId": "batch_update_signals_signals_batch_update_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchSignalWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "List all signal configurations",
+        "operationId": "list_signal_configs_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SignalConfigResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Signal Configs Config Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/signal/{signal_name}": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Get config for one signal",
+        "operationId": "get_signal_config_config_signal__signal_name__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Update signal config",
+        "operationId": "update_signal_config_config_signal__signal_name__patch",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signal_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Signal Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSignalConfigRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config/processor": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Get processor config",
+        "operationId": "get_processor_config_config_processor_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessorConfigResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Update processor config",
+        "operationId": "update_processor_config_endpoint_config_processor_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProcessorConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessorConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/system": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Get system config and field update policy",
+        "operationId": "get_system_config_config_system_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Patch system config without dropping unrelated fields",
+        "operationId": "patch_system_config_config_system_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/system/backups": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "List fixed-path system config backups",
+        "operationId": "list_system_config_backups_config_system_backups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Back up system config",
+        "operationId": "backup_system_config_config_system_backups_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/system/backups/{backup_id}": {
+      "delete": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Delete a system config backup",
+        "operationId": "delete_system_config_backup_config_system_backups__backup_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Backup Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config/system/backups/{backup_id}/restore": {
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Restore a system config backup",
+        "operationId": "restore_system_config_backup_config_system_backups__backup_id__restore_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Backup Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/config/system/reset": {
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Reset system config from the fixed project template",
+        "operationId": "reset_system_config_config_system_reset_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/system/reload": {
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Re-apply live fields from the system config file",
+        "operationId": "reload_system_config_config_system_reload_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/general": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Get full application config",
+        "operationId": "get_general_config_config_general_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Patch application config (partial)",
+        "operationId": "patch_general_config_config_general_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/config/general/reset": {
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "summary": "Reset application config to defaults",
+        "operationId": "reset_general_config_config_general_reset_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/adaptive_restraint/available": {
+      "get": {
+        "tags": [
+          "Adaptive Restraint"
+        ],
+        "summary": "Get all available options for adaptive restraint filters",
+        "description": "Get list of possible criteria values to populate the UI select elements.",
+        "operationId": "get_available_adaptive_restraint_available_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {},
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response Get Available Adaptive Restraint Available Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/adaptive_restraint/chart_info": {
+      "get": {
+        "tags": [
+          "Adaptive Restraint"
+        ],
+        "summary": "Get statistic and chart information for adaptive restraint systems",
+        "description": "Get detailed Box-plot statistics and raw values filtered by input parameters.\nSupports GET with query lists or parsing a JSON request body if present or needed.",
+        "operationId": "get_chart_info_adaptive_restraint_chart_info_get",
+        "parameters": [
+          {
+            "name": "System",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "System"
+            }
+          },
+          {
+            "name": "Age",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "Age"
+            }
+          },
+          {
+            "name": "Seatbelt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "Seatbelt"
+            }
+          },
+          {
+            "name": "Velocity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "title": "Velocity"
+            }
+          },
+          {
+            "name": "Weight",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "title": "Weight"
+            }
+          },
+          {
+            "name": "Height",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "title": "Height"
+            }
+          },
+          {
+            "name": "Distance",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "title": "Distance"
+            }
+          },
+          {
+            "name": "RawData",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include raw_rows in response (up to 100 rows). Set false to reduce payload size.",
+              "default": true,
+              "title": "Rawdata"
+            },
+            "description": "Include raw_rows in response (up to 100 rows). Set false to reduce payload size."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Chart Info Adaptive Restraint Chart Info Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/info": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Get project & system information",
+        "description": "Project overview: name, version, uptime, connection status, signal count.",
+        "operationId": "system_info_system_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Health check",
+        "operationId": "health_system_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/ready": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Readiness probe (for container/systemd)",
+        "operationId": "ready_system_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/metrics": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "CarPC resource information (CPU, RAM, disk, queue, heap…)",
+        "description": "Collect and return CarPC system resource information.",
+        "operationId": "system_metrics_system_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemMetricsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/can/retry": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Retry CAN connections",
+        "description": "Close stale CAN buses and immediately begin their reconnect schedules.",
+        "operationId": "retry_can_connections_system_can_retry_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Retry Can Connections System Can Retry Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/reboot": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Reboot Car-HMI service",
+        "description": "Gracefully exit so the systemd service restarts the Car-HMI process.",
+        "operationId": "reboot_system_reboot_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Reboot System Reboot Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/restraints/match": {
+      "get": {
+        "tags": [
+          "Restraints"
+        ],
+        "summary": "Find best-matching restraint video for crash conditions",
+        "description": "Return the best-matching restraint video for the given crash parameters.\n\nResolution order for seat-position zone:\n1. `seat_x_mm` query parameter (explicit value from HMI)\n2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore\n3. Fallback default from seat identifier (fl / fr → mid)\n\nResolution order for occupant percentile:\n1. Latest OMS_FL/FR_OccupantClassification value in SignalStore\n   (class 0/1/2 maps to video bucket 5p/50p/95p)\n2. Weight-derived percentile from `weight` parameter\n\nSignalStore values are accepted without a receive-freshness or provenance check, so\nan initial DBC-seeded value or stale value can take priority over request parameters.",
+        "operationId": "match_restraint_api_restraints_match_get",
+        "parameters": [
+          {
+            "name": "weight",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)",
+              "title": "Weight"
+            },
+            "description": "Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)"
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "Occupant height in cm (recorded for reference)",
+              "title": "Height"
+            },
+            "description": "Occupant height in cm (recorded for reference)"
+          },
+          {
+            "name": "crash_severity",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Crash velocity in km/h (35, 40, 50, or 56)",
+              "title": "Crash Severity"
+            },
+            "description": "Crash velocity in km/h (35, 40, 50, or 56)"
+          },
+          {
+            "name": "seatbelt_system",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Seatbelt system: SLL | CLL | MSLL",
+              "title": "Seatbelt System"
+            },
+            "description": "Seatbelt system: SLL | CLL | MSLL"
+          },
+          {
+            "name": "seat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Seat identifier: fl (front-left) | fr (front-right)",
+              "default": "fl",
+              "title": "Seat"
+            },
+            "description": "Seat identifier: fl (front-left) | fr (front-right)"
+          },
+          {
+            "name": "seat_x_mm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the latest SignalStore value. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm.",
+              "title": "Seat X Mm"
+            },
+            "description": "Seat travel distance in mm from SPS_SeatDirectionX (0 mm = frontmost / closest to instrument panel, 227 mm = rearmost). If omitted the backend reads the latest SignalStore value. Zone mapping: front 0–56.75 mm, mid 56.75–170.25 mm, rear ≥170.25 mm."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/restraints/video/{filename}": {
+      "get": {
+        "tags": [
+          "Restraints"
+        ],
+        "summary": "Stream a video file from the media directory",
+        "description": "Serve a video file from the media directory.",
+        "operationId": "get_video_api_restraints_video__filename__get",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/camera/stream": {
+      "get": {
+        "tags": [
+          "Camera"
+        ],
+        "summary": "Proxy live MJPEG stream from the vehicle camera",
+        "description": "Stream MJPEG video to the current client.\n\nMultiple clients can open this endpoint simultaneously — the CarPC shares 1\nupstream connection to the camera (source-side 1-receiver mutex limit) and\nfans out the data to all clients.",
+        "operationId": "camera_stream_api_camera_stream_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/camera/status": {
+      "get": {
+        "tags": [
+          "Camera"
+        ],
+        "summary": "Camera stream proxy status",
+        "description": "Current camera stream proxy status: connection, viewer count, latest error.",
+        "operationId": "camera_status_api_camera_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CameraStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devmode/catalog": {
+      "get": {
+        "tags": [
+          "Dev Mode"
+        ],
+        "summary": "Dev Mode signal families and selectable states",
+        "description": "Metadata the frontend uses to build one tab and its state buttons per signal family.",
+        "operationId": "devmode_catalog_api_devmode_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/devmode/status": {
+      "get": {
+        "tags": [
+          "Dev Mode"
+        ],
+        "summary": "Current Dev Mode seat locks",
+        "operationId": "devmode_status_api_devmode_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/devmode/seats/select": {
+      "post": {
+        "tags": [
+          "Dev Mode"
+        ],
+        "summary": "Select seats for Dev Mode (locks other sections out)",
+        "operationId": "select_seats_api_devmode_seats_select_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevModeSeatSelectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/devmode/exit": {
+      "post": {
+        "tags": [
+          "Dev Mode"
+        ],
+        "summary": "Leave Dev Mode and release all seat locks of this section",
+        "operationId": "exit_devmode_api_devmode_exit_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/devmode/signals": {
+      "post": {
+        "tags": [
+          "Dev Mode"
+        ],
+        "summary": "Apply one signal family to several seats at once",
+        "operationId": "apply_devmode_signal_api_devmode_signals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevModeSignalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/info": {
+      "get": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "Get project & system information",
+        "description": "Project overview: name, version, uptime, connection status, signal count.",
+        "operationId": "system_info_api_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "Health check",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "Readiness probe (for container/systemd)",
+        "operationId": "ready_api_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "CarPC resource information (CPU, RAM, disk, queue, heap…)",
+        "description": "Collect and return CarPC system resource information.",
+        "operationId": "system_metrics_api_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemMetricsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/can/retry": {
+      "post": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "Retry CAN connections",
+        "description": "Close stale CAN buses and immediately begin their reconnect schedules.",
+        "operationId": "retry_can_connections_api_can_retry_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Retry Can Connections Api Can Retry Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reboot": {
+      "post": {
+        "tags": [
+          "System Info"
+        ],
+        "summary": "Reboot Car-HMI service",
+        "description": "Gracefully exit so the systemd service restarts the Car-HMI process.",
+        "operationId": "reboot_api_reboot_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Reboot Api Reboot Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profiles": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "List all profiles",
+        "description": "Return the list of all profiles and the active profile name.",
+        "operationId": "list_profiles_api_profiles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfilesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/profile/sessions": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "List client active-profile sessions",
+        "description": "Return the list of clients mapped to each active profile.",
+        "operationId": "list_profile_sessions_api_profile_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSessionsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/profile/heartbeat": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Heartbeat for client profile session",
+        "description": "Update the heartbeat to keep the client session alive and support online/offline status.",
+        "operationId": "profile_heartbeat_api_profile_heartbeat_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileHeartbeatResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/profile/offline": {
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Mark client profile session offline",
+        "description": "Mark the client session offline as soon as the frontend loses its realtime connection.",
+        "operationId": "profile_offline_api_profile_offline_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileHeartbeatResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Get profile by name (or active profile)",
+        "description": "Get a profile by name, or the active profile if no name is provided.",
+        "operationId": "get_profile_api_profile_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Profile name; leave empty to get the active profile",
+              "title": "Name"
+            },
+            "description": "Profile name; leave empty to get the active profile"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Create new profile",
+        "description": "Create a new profile. The first profile will automatically be set as active.",
+        "operationId": "create_profile_api_profile_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Update profile (optimistic lock)",
+        "description": "Update a profile. section_id must match the server to avoid concurrent conflicts.\n\nIf section_id does not match → HTTP 409 → the client must GET it again and retry.",
+        "operationId": "update_profile_api_profile_put",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/active": {
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Set active profile",
+        "description": "Change the active profile on the server so other clients also see the new state.",
+        "operationId": "set_active_profile_api_profile_active_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileSetActiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/profile/{name}": {
+      "delete": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Delete profile",
+        "description": "Delete a profile by name. If it is the active profile, active will switch to the next profile.",
+        "operationId": "delete_profile_api_profile__name__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessWarning": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Warning or access error code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Short description for the frontend"
+          },
+          "profile_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Name",
+            "description": "Profile name currently in effect"
+          },
+          "required_permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Permission",
+            "description": "Permission required for the operation"
+          },
+          "signal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Name",
+            "description": "Affected signal name if this is a single-signal warning"
+          },
+          "signals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "List of signals skipped in the batch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AccessWarning",
+        "description": "Access/profile warning information for a profile-scoped operation."
+      },
+      "ActiveProfileResponse": {
+        "properties": {
+          "active": {
+            "type": "string",
+            "title": "Active",
+            "description": "Active profile name after the update"
+          },
+          "global_active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global Active",
+            "description": "Globally active profile name"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "Client ID if updated for a client session"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AccessWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Warnings if the state did not change"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active"
+        ],
+        "title": "ActiveProfileResponse",
+        "description": "Active profile change result."
+      },
+      "BatchSignalWrite": {
+        "properties": {
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/BatchSignalWriteItem"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "List of signals to be written"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signals"
+        ],
+        "title": "BatchSignalWrite",
+        "description": "Request to write multiple CAN signals at once — POST /signals/batch_update."
+      },
+      "BatchSignalWriteItem": {
+        "properties": {
+          "signal_name": {
+            "type": "string",
+            "title": "Signal Name",
+            "description": "Signal name"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Value to write"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal_name",
+          "value"
+        ],
+        "title": "BatchSignalWriteItem",
+        "description": "One signal in a batch write request."
+      },
+      "CameraStatusResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether the camera stream is enabled in config"
+          },
+          "stream_url": {
+            "type": "string",
+            "title": "Stream Url",
+            "description": "MJPEG source URL proxied by CarPC"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected",
+            "description": "Whether CarPC is currently able to connect to the camera"
+          },
+          "viewer_count": {
+            "type": "integer",
+            "title": "Viewer Count",
+            "description": "Number of clients currently viewing the stream through CarPC"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error",
+            "description": "Most recent upstream error, if any"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "stream_url",
+          "connected",
+          "viewer_count"
+        ],
+        "title": "CameraStatusResponse",
+        "description": "Status of the MJPEG camera stream proxy."
+      },
+      "ClientProfileSession": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id",
+            "description": "Client ID from the X-Client-Id header"
+          },
+          "active": {
+            "type": "string",
+            "title": "Active",
+            "description": "Active profile name for this client"
+          },
+          "updated_at": {
+            "type": "number",
+            "title": "Updated At",
+            "description": "Unix timestamp of the latest update"
+          },
+          "last_seen": {
+            "type": "number",
+            "title": "Last Seen",
+            "description": "Unix timestamp of the latest heartbeat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "online",
+              "offline"
+            ],
+            "title": "Status",
+            "description": "Online/offline status based on TTL"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "active",
+          "updated_at",
+          "last_seen",
+          "status"
+        ],
+        "title": "ClientProfileSession",
+        "description": "Current profile session for a client."
+      },
+      "DevModeSeatSelectRequest": {
+        "properties": {
+          "seats": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Seats",
+            "description": "Map seat_id → selected (fl, fr, rl1, rl2, rr1)"
+          },
+          "block_timeout_sec": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 3600.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Timeout Sec",
+            "description": "How long other sections stay blocked from writing the seat (seconds); defaults to 60"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seats"
+        ],
+        "title": "DevModeSeatSelectRequest",
+        "description": "Select/deselect seats in Dev Mode — POST /api/devmode/seats/select."
+      },
+      "DevModeSignalRequest": {
+        "properties": {
+          "signal_name": {
+            "type": "string",
+            "title": "Signal Name",
+            "description": "Signal family: ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Value applied to every selected seat"
+          },
+          "seats": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Seats",
+            "description": "Map seat_id → whether the value is applied"
+          },
+          "block_timeout_sec": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 3600.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Timeout Sec",
+            "description": "Seat lock renewal duration (seconds); defaults to 60"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal_name",
+          "value",
+          "seats"
+        ],
+        "title": "DevModeSignalRequest",
+        "description": "Apply one signal family to several seats at once — POST /api/devmode/signals."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Overall status: 'ok', 'degraded', or 'error'"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds",
+            "description": "Number of seconds the system has been running continuously"
+          },
+          "bus_connected": {
+            "type": "boolean",
+            "title": "Bus Connected",
+            "description": "True if the CAN bus connection is active"
+          },
+          "db_connected": {
+            "type": "boolean",
+            "title": "Db Connected",
+            "description": "True if the database connection is active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "uptime_seconds",
+          "bus_connected",
+          "db_connected"
+        ],
+        "title": "HealthResponse",
+        "description": "Overall system health status."
+      },
+      "ProcessorConfigResponse": {
+        "properties": {
+          "max_queue_size": {
+            "type": "integer",
+            "title": "Max Queue Size",
+            "description": "Maximum signal queue size"
+          },
+          "queue_policy": {
+            "type": "string",
+            "title": "Queue Policy",
+            "description": "Policy when the queue is full: 'drop_oldest' or 'reject'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_queue_size",
+          "queue_policy"
+        ],
+        "title": "ProcessorConfigResponse",
+        "description": "Current processor pipeline configuration."
+      },
+      "ProfileCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Profile name (unique)"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSignal"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "List of signals and per-signal permissions"
+          },
+          "exinfo": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Exinfo",
+            "description": "Arbitrary data for the frontend"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Short profile description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProfileCreate",
+        "description": "Request to create a new profile — POST /api/profile."
+      },
+      "ProfileHeartbeatResponse": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "title": "Client Id",
+            "description": "Client ID whose heartbeat was updated"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active",
+            "description": "Active profile for the client, or the global fallback"
+          },
+          "last_seen": {
+            "type": "number",
+            "title": "Last Seen",
+            "description": "Unix timestamp of the latest heartbeat"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "title": "Ttl Seconds",
+            "description": "Current session TTL"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "last_seen",
+          "ttl_seconds"
+        ],
+        "title": "ProfileHeartbeatResponse",
+        "description": "Client session heartbeat update result."
+      },
+      "ProfileResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Profile name"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSignal"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "List of signals and per-signal permissions"
+          },
+          "exinfo": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Exinfo",
+            "description": "Arbitrary data for the frontend"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Description"
+          },
+          "section_id": {
+            "type": "string",
+            "title": "Section Id",
+            "description": "Hash used for optimistic locking"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "signals",
+          "section_id"
+        ],
+        "title": "ProfileResponse",
+        "description": "Profile information."
+      },
+      "ProfileSessionProfileStat": {
+        "properties": {
+          "profile_name": {
+            "type": "string",
+            "title": "Profile Name",
+            "description": "Profile name currently active for the session"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total sessions currently using this active profile"
+          },
+          "online": {
+            "type": "integer",
+            "title": "Online",
+            "description": "Number of online sessions for this profile"
+          },
+          "offline": {
+            "type": "integer",
+            "title": "Offline",
+            "description": "Number of offline sessions for this profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_name",
+          "total",
+          "online",
+          "offline"
+        ],
+        "title": "ProfileSessionProfileStat",
+        "description": "Session counts by active profile."
+      },
+      "ProfileSessionsResponse": {
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ClientProfileSession"
+            },
+            "type": "array",
+            "title": "Sessions",
+            "description": "List mapping client -> active profile"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total client sessions"
+          },
+          "online_total": {
+            "type": "integer",
+            "title": "Online Total",
+            "description": "Total online sessions",
+            "default": 0
+          },
+          "offline_total": {
+            "type": "integer",
+            "title": "Offline Total",
+            "description": "Total offline sessions",
+            "default": 0
+          },
+          "by_profile": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSessionProfileStat"
+            },
+            "type": "array",
+            "title": "By Profile",
+            "description": "Statistics for active sessions by profile"
+          },
+          "global_active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global Active",
+            "description": "Default active profile at the global level"
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "title": "Ttl Seconds",
+            "description": "TTL used to determine online/offline status"
+          },
+          "server_time": {
+            "type": "number",
+            "title": "Server Time",
+            "description": "Current Unix timestamp on the server"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "ttl_seconds",
+          "server_time"
+        ],
+        "title": "ProfileSessionsResponse",
+        "description": "List of active-profile sessions by client."
+      },
+      "ProfileSetActiveRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Profile name to become active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProfileSetActiveRequest",
+        "description": "Request to change the active profile on the server."
+      },
+      "ProfileSignal": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Signal name"
+          },
+          "permission": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "full"
+              ]
+            },
+            "type": "array",
+            "title": "Permission",
+            "description": "Permissions for the signal: read, write, full"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProfileSignal",
+        "description": "Signal scope in a profile with signal-specific permissions."
+      },
+      "ProfileUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Profile name to update"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileSignal"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "List of signals and per-signal permissions"
+          },
+          "exinfo": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exinfo",
+            "description": "Arbitrary data for the frontend (leave empty to keep unchanged)"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "Short description"
+          },
+          "section_id": {
+            "type": "string",
+            "title": "Section Id",
+            "description": "Current section_id (from GET /api/profile). Used to prevent concurrent overwrites — 409 on mismatch."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "signals",
+          "section_id"
+        ],
+        "title": "ProfileUpdate",
+        "description": "Request to update a profile (optimistic lock) — PUT /api/profile."
+      },
+      "ProfilesResponse": {
+        "properties": {
+          "profiles": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileResponse"
+            },
+            "type": "array",
+            "title": "Profiles"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active",
+            "description": "Currently active profile name"
+          },
+          "global_active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global Active",
+            "description": "Globally active profile name"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id",
+            "description": "Client ID if the request includes X-Client-Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profiles",
+          "total"
+        ],
+        "title": "ProfilesResponse",
+        "description": "List of all profiles."
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "description": "True if the application is ready to accept requests"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Details",
+            "description": "Status of each component (key: component name, value: ready or not)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "details"
+        ],
+        "title": "ReadinessResponse",
+        "description": "Readiness status for processing incoming requests."
+      },
+      "SignalConfigResponse": {
+        "properties": {
+          "signal_name": {
+            "type": "string",
+            "title": "Signal Name",
+            "description": "Signal identifier"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Measurement unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "Minimum valid value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value",
+            "description": "Maximum valid value"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name",
+            "description": "Functional grouping"
+          },
+          "widget_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widget Type",
+            "description": "Frontend widget type"
+          },
+          "writable": {
+            "type": "boolean",
+            "title": "Writable",
+            "description": "Whether the signal is writable",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal_name"
+        ],
+        "title": "SignalConfigResponse",
+        "description": "Display configuration and metadata for a signal."
+      },
+      "SignalListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SignalValueResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of signals"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of signals in the list"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AccessWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Access warnings, if any"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SignalListResponse",
+        "description": "List of signal values returned by the API."
+      },
+      "SignalMetadata": {
+        "properties": {
+          "signal_name": {
+            "type": "string",
+            "title": "Signal Name",
+            "description": "Unique signal identifier"
+          },
+          "std_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std Name",
+            "description": "Standard signal name; currently identical to signal_name"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag",
+            "description": "Tags inferred from the signal name or DBC configuration"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Measurement unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "Minimum valid value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value",
+            "description": "Maximum valid value"
+          },
+          "writable": {
+            "type": "boolean",
+            "title": "Writable",
+            "description": "Whether the signal can be written via the API",
+            "default": false
+          },
+          "states": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "States",
+            "description": "List of enum states [{value, description}], or None for continuous numeric signals"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name",
+            "description": "Functional group (for example: engine, body)"
+          },
+          "widget_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widget Type",
+            "description": "Frontend widget type"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Current value (snapshot, optional)"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp",
+            "description": "Unix timestamp of the latest read"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal_name"
+        ],
+        "title": "SignalMetadata",
+        "description": "Full metadata for one signal — returned by GET /signals/available."
+      },
+      "SignalMetadataListResponse": {
+        "properties": {
+          "signals_info": {
+            "items": {
+              "$ref": "#/components/schemas/SignalMetadata"
+            },
+            "type": "array",
+            "title": "Signals Info",
+            "description": "List of signal metadata"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Total number of signals"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AccessWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Access warnings, if any"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signals_info",
+          "total"
+        ],
+        "title": "SignalMetadataListResponse",
+        "description": "List of signal metadata."
+      },
+      "SignalValueResponse": {
+        "properties": {
+          "signal_name": {
+            "type": "string",
+            "title": "Signal Name",
+            "description": "Unique signal identifier"
+          },
+          "std_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std Name",
+            "description": "Standard signal name; currently identical to signal_name"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Decoded real value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Measurement unit (for example: km/h, °C)"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp",
+            "description": "Unix timestamp (seconds) when the value was read"
+          }
+        },
+        "type": "object",
+        "required": [
+          "signal_name",
+          "value",
+          "timestamp"
+        ],
+        "title": "SignalValueResponse",
+        "description": "Current value of a CAN signal."
+      },
+      "SystemInfoResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Application name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "API version"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Description"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds",
+            "description": "Uptime (seconds)"
+          },
+          "bus_connected": {
+            "type": "boolean",
+            "title": "Bus Connected",
+            "description": "Whether the CAN bus is connected"
+          },
+          "db_connected": {
+            "type": "boolean",
+            "title": "Db Connected",
+            "description": "Whether the database is connected"
+          },
+          "signal_count": {
+            "type": "integer",
+            "title": "Signal Count",
+            "description": "Number of signals currently in the store"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "description",
+          "uptime_seconds",
+          "bus_connected",
+          "db_connected",
+          "signal_count"
+        ],
+        "title": "SystemInfoResponse",
+        "description": "Project overview and system status — GET /api/info."
+      },
+      "SystemMetricsResponse": {
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp",
+            "description": "Unix timestamp when metrics were collected"
+          },
+          "cpu_percent": {
+            "type": "number",
+            "title": "Cpu Percent",
+            "description": "Overall CPU usage (%)"
+          },
+          "cpu_percent_per_core": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Cpu Percent Per Core",
+            "description": "Per-core CPU usage (%)"
+          },
+          "cpu_count_logical": {
+            "type": "integer",
+            "title": "Cpu Count Logical",
+            "description": "Logical CPU core count"
+          },
+          "cpu_count_physical": {
+            "type": "integer",
+            "title": "Cpu Count Physical",
+            "description": "Physical CPU core count"
+          },
+          "cpu_freq_current_mhz": {
+            "type": "number",
+            "title": "Cpu Freq Current Mhz",
+            "description": "Current CPU frequency (MHz)"
+          },
+          "cpu_freq_max_mhz": {
+            "type": "number",
+            "title": "Cpu Freq Max Mhz",
+            "description": "Maximum CPU frequency (MHz)"
+          },
+          "process_cpu_percent": {
+            "type": "number",
+            "title": "Process Cpu Percent",
+            "description": "Application process CPU usage (%)"
+          },
+          "process_memory_rss_mb": {
+            "type": "number",
+            "title": "Process Memory Rss Mb",
+            "description": "Process RSS memory (MB)"
+          },
+          "process_memory_vms_mb": {
+            "type": "number",
+            "title": "Process Memory Vms Mb",
+            "description": "Process virtual memory (VMS) (MB)"
+          },
+          "process_memory_percent": {
+            "type": "number",
+            "title": "Process Memory Percent",
+            "description": "Percentage of system RAM used by the process"
+          },
+          "process_threads": {
+            "type": "integer",
+            "title": "Process Threads",
+            "description": "Process thread count"
+          },
+          "process_open_files": {
+            "type": "integer",
+            "title": "Process Open Files",
+            "description": "Number of open file descriptors"
+          },
+          "process_pid": {
+            "type": "integer",
+            "title": "Process Pid",
+            "description": "Application process PID"
+          },
+          "ram_total_mb": {
+            "type": "number",
+            "title": "Ram Total Mb",
+            "description": "Total physical RAM (MB)"
+          },
+          "ram_available_mb": {
+            "type": "number",
+            "title": "Ram Available Mb",
+            "description": "Available RAM (MB)"
+          },
+          "ram_used_mb": {
+            "type": "number",
+            "title": "Ram Used Mb",
+            "description": "RAM currently in use (MB)"
+          },
+          "ram_percent": {
+            "type": "number",
+            "title": "Ram Percent",
+            "description": "RAM usage (%)"
+          },
+          "swap_total_mb": {
+            "type": "number",
+            "title": "Swap Total Mb",
+            "description": "Total swap capacity (MB)"
+          },
+          "swap_used_mb": {
+            "type": "number",
+            "title": "Swap Used Mb",
+            "description": "Swap currently in use (MB)"
+          },
+          "swap_percent": {
+            "type": "number",
+            "title": "Swap Percent",
+            "description": "Swap usage (%)"
+          },
+          "disk_total_gb": {
+            "type": "number",
+            "title": "Disk Total Gb",
+            "description": "Total disk capacity (GB)"
+          },
+          "disk_used_gb": {
+            "type": "number",
+            "title": "Disk Used Gb",
+            "description": "Used disk space (GB)"
+          },
+          "disk_free_gb": {
+            "type": "number",
+            "title": "Disk Free Gb",
+            "description": "Free disk space (GB)"
+          },
+          "disk_percent": {
+            "type": "number",
+            "title": "Disk Percent",
+            "description": "Disk usage (%)"
+          },
+          "net_bytes_sent": {
+            "type": "integer",
+            "title": "Net Bytes Sent",
+            "description": "Total bytes sent over the network"
+          },
+          "net_bytes_recv": {
+            "type": "integer",
+            "title": "Net Bytes Recv",
+            "description": "Total bytes received over the network"
+          },
+          "net_packets_sent": {
+            "type": "integer",
+            "title": "Net Packets Sent",
+            "description": "Total packets sent"
+          },
+          "net_packets_recv": {
+            "type": "integer",
+            "title": "Net Packets Recv",
+            "description": "Total packets received"
+          },
+          "queue_size": {
+            "type": "integer",
+            "title": "Queue Size",
+            "description": "Current number of items in the signal processing queue"
+          },
+          "queue_maxsize": {
+            "type": "integer",
+            "title": "Queue Maxsize",
+            "description": "Maximum queue size"
+          },
+          "queue_usage_percent": {
+            "type": "number",
+            "title": "Queue Usage Percent",
+            "description": "Queue usage (%)"
+          },
+          "heap_allocated_mb": {
+            "type": "number",
+            "title": "Heap Allocated Mb",
+            "description": "Allocated Python heap memory (MB)"
+          },
+          "gc_objects": {
+            "type": "integer",
+            "title": "Gc Objects",
+            "description": "Number of Python objects tracked by the Garbage Collector"
+          },
+          "asyncio_tasks": {
+            "type": "integer",
+            "title": "Asyncio Tasks",
+            "description": "Number of running asyncio tasks"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "title": "Uptime Seconds",
+            "description": "Application uptime (seconds)"
+          },
+          "python_version": {
+            "type": "string",
+            "title": "Python Version",
+            "description": "Python version in use"
+          },
+          "platform": {
+            "type": "string",
+            "title": "Platform",
+            "description": "Operating system / platform information"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "cpu_percent",
+          "cpu_percent_per_core",
+          "cpu_count_logical",
+          "cpu_count_physical",
+          "cpu_freq_current_mhz",
+          "cpu_freq_max_mhz",
+          "process_cpu_percent",
+          "process_memory_rss_mb",
+          "process_memory_vms_mb",
+          "process_memory_percent",
+          "process_threads",
+          "process_open_files",
+          "process_pid",
+          "ram_total_mb",
+          "ram_available_mb",
+          "ram_used_mb",
+          "ram_percent",
+          "swap_total_mb",
+          "swap_used_mb",
+          "swap_percent",
+          "disk_total_gb",
+          "disk_used_gb",
+          "disk_free_gb",
+          "disk_percent",
+          "net_bytes_sent",
+          "net_bytes_recv",
+          "net_packets_sent",
+          "net_packets_recv",
+          "queue_size",
+          "queue_maxsize",
+          "queue_usage_percent",
+          "heap_allocated_mb",
+          "gc_objects",
+          "asyncio_tasks",
+          "uptime_seconds",
+          "python_version",
+          "platform"
+        ],
+        "title": "SystemMetricsResponse",
+        "description": "System resource and application process information (CarPC metrics)."
+      },
+      "UpdateProcessorConfigRequest": {
+        "properties": {
+          "max_queue_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Queue Size",
+            "description": "New queue size"
+          },
+          "queue_policy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "drop_oldest",
+                  "reject"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Policy",
+            "description": "Handling policy when the queue is full"
+          }
+        },
+        "type": "object",
+        "title": "UpdateProcessorConfigRequest",
+        "description": "Request to update the processor configuration (PATCH)."
+      },
+      "UpdateSignalConfigRequest": {
+        "properties": {
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "New measurement unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "New minimum value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value",
+            "description": "New maximum value"
+          },
+          "widget_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widget Type",
+            "description": "New widget type"
+          },
+          "writable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writable",
+            "description": "Allow writes or not"
+          }
+        },
+        "type": "object",
+        "title": "UpdateSignalConfigRequest",
+        "description": "Request to update a partial signal configuration (PATCH)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WriteSignalRequest": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "Value to write to the CAN bus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "WriteSignalRequest",
+        "description": "Request to write a value onto the CAN bus."
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+}

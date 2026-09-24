@@ -27,7 +27,7 @@
 | Library | Version | Purpose |
 |---|---|---|
 | `fastapi` | ≥ 0.115 | REST API framework, automatically generates OpenAPI docs |
-| `uvicorn[standard]` | ≥ 0.30 | ASGI server (HTTP/1.1 + HTTP/2 + WebSocket) |
+| `uvicorn[standard]` | ≥ 0.30 | ASGI server (HTTP/1.1 + WebSocket) |
 | `websockets` | ≥ 12.0 | WebSocket protocol support |
 
 ### Data Validation
@@ -47,8 +47,8 @@
 
 | Library | Version | Purpose |
 |---|---|---|
-| `numpy` | ≥ 1.26 | Smoothing, computed signals |
-| `pyyaml` | ≥ 6.0 | Load/save YAML config files |
+| `numpy` | ≥ 1.26 | Numerical/computed-signal utilities |
+| `pyyaml` | ≥ 6.0 | Legacy dependency; current runtime configuration is JSON |
 | `psutil` | ≥ 5.9 | Collect system metrics (CPU, RAM, disk, process) |
 
 ---
@@ -59,7 +59,7 @@
 |---|---|
 | `pytest` + `pytest-asyncio` | Test framework, async test support |
 | `pytest-cov` | Coverage report |
-| `httpx` | HTTP client for FastAPI tests |
+| `httpx` | HTTP client for tests and the runtime camera proxy |
 | `ruff` | Linter + formatter (replaces flake8, isort, black) |
 | `locust` | Load testing |
 
@@ -85,7 +85,7 @@ Security rules (bandit): SQL injection, hardcoded secrets, subprocess, bind 0.0.
 | **CSS** | `frontend/css/style.css` — dark theme, responsive |
 | **JavaScript (Vanilla)** | `frontend/js/app.js` — state management, mode selection |
 | | `frontend/js/api.js` — REST/WebSocket client |
-| | `frontend/js/widgets.js` — gauge, chart, table, alarm widgets |
+| | `frontend/js/widgets.js` — gauge, chart, and table widgets |
 
 No heavy JS framework is used (React/Vue) — suitable for embedded CarPC, with lower resource usage.
 
@@ -97,7 +97,7 @@ No heavy JS framework is used (React/Vue) — suitable for embedded CarPC, with 
 |---|---|
 | **Engine** | SQLite 3 (file-based, zero-config) |
 | **Async driver** | `aiosqlite` — async wrapper, does not block the event loop |
-| **Schema** | 3 tables: `signal_log`, `alarm_log`, `signal_config` |
+| **Schema** | 2 active tables: `signal_log`, `signal_config` |
 | **Retention** | Auto-purge records older than `retention_days` (default 30) |
 | **Batch insert** | Buffer signal records, flush by `batch_size` or `batch_interval_sec` |
 
@@ -191,3 +191,14 @@ ruff format src/ tests/
 | **Handlers** | Console + RotatingFileHandler |
 | **File** | `logs/can-hmi.log`, max 10 MB × 5 backup |
 | **Level** | Configurable via config or `--log-level` CLI arg |
+
+## Current API and frontend integration
+
+The current runtime has two active SQLite tables (`signal_log`, `signal_config`) and no
+alarm/smoothing pipeline stages. Older diagrams and examples describe historical designs.
+The camera proxy uses `httpx` at runtime. Dependency constraints are maintained in
+`pyproject.toml`; version labels above describe the original stack overview.
+
+Use the [English API reference](../docs/api_reference.md), [OpenAPI snapshot](../docs/api.openapi.json),
+and [frontend integration guide](../docs/frontend_integration.md) for current HTTP/WS formats,
+authentication, profile scope, error handling, and resource cleanup.

@@ -247,11 +247,13 @@ async def test_reconnect_success_first_attempt():
     # Mock stop so we can verify it's not called
     reader.stop = Mock()
 
-    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+    with patch.object(
+        reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+    ) as mock_wait:
         await reader._reconnect()
 
-        # Verify sleep was called once with delay=1
-        mock_sleep.assert_called_once_with(1)
+        # Verify the staged delay was requested once with delay=1
+        mock_wait.assert_awaited_once_with(1)
 
         # Verify bus shutdown was called
         bus_mock.shutdown.assert_called_once()
@@ -266,6 +268,81 @@ async def test_reconnect_success_first_attempt():
 
         # Verify stop was not called
         reader.stop.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_can_start_without_an_initial_bus():
+    import asyncio
+    from unittest.mock import AsyncMock, Mock, patch
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    replacement_bus = Mock(spec=can.BusABC)
+    bus_factory = Mock(return_value=replacement_bus)
+    reader = CANReader(
+        bus=None,
+        db=Mock(),
+        queue=asyncio.Queue(),
+        bus_factory=bus_factory,
+    )
+    reader._running = True
+
+    with patch.object(
+        reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+    ) as mock_wait:
+        await reader._reconnect(max_retries=1)
+
+    mock_wait.assert_awaited_once_with(1)
+    bus_factory.assert_called_once_with()
+    assert reader._bus is replacement_bus
+
+
+@pytest.mark.asyncio
+async def test_frontend_activity_wakes_reconnect_wait_and_is_throttled():
+    import asyncio
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=Mock(),
+        queue=asyncio.Queue(),
+        frontend_retry_enabled=True,
+    )
+    reader._running = True
+    reader._reconnecting = True
+
+    wait_task = asyncio.create_task(reader._wait_for_reconnect_delay(3600))
+    await asyncio.sleep(0)
+
+    assert reader.notify_frontend_activity() is True
+    await asyncio.wait_for(wait_task, timeout=0.1)
+    assert reader.notify_frontend_activity() is False
+
+
+def test_frontend_activity_does_not_wake_fixed_channel_reader():
+    import asyncio
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    reader = CANReader(
+        bus=Mock(spec=can.BusABC),
+        db=Mock(),
+        queue=asyncio.Queue(),
+    )
+    reader._running = True
+    reader._reconnecting = True
+
+    assert reader.notify_frontend_activity() is False
+    assert reader._reconnect_wakeup.is_set() is False
 
 
 @pytest.mark.asyncio
@@ -287,10 +364,12 @@ async def test_silent_reopened_bus_keeps_advancing_reconnect_backoff():
     reader._running = True
     reader._reconnect_attempt = 5
 
-    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+    with patch.object(
+        reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+    ) as mock_wait:
         await reader._reconnect(max_retries=1)
 
-    mock_sleep.assert_awaited_once_with(30)
+    mock_wait.assert_awaited_once_with(30)
     assert reader._reconnect_attempt == 6
     assert reader._last_recv_monotonic == 0.0
     assert reader._bus_opened_monotonic > 0.0
@@ -326,14 +405,16 @@ async def test_reconnect_exponential_backoff():
 
     reader.stop = Mock()
 
-    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+    with patch.object(
+        reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+    ) as mock_wait:
         await reader._reconnect(max_retries=3)
 
-        # Verify sleep was called 3 times with delays 1, 2, 4
-        assert mock_sleep.call_count == 3
-        mock_sleep.assert_any_call(1)
-        mock_sleep.assert_any_call(2)
-        mock_sleep.assert_any_call(4)
+        # Verify the staged waits were 1, 2, 4 seconds
+        assert mock_wait.await_count == 3
+        mock_wait.assert_any_await(1)
+        mock_wait.assert_any_await(2)
+        mock_wait.assert_any_await(4)
 
         # Verify bus shutdown was called 3 times (on the original bus)
         # Note: `self._bus.shutdown()` is called, and `self._bus` is replaced if `_bus_factory()` succeeds.
@@ -375,13 +456,15 @@ async def test_reconnect_no_bus_factory():
     reader.stop = Mock()
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch.object(
+            reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+        ) as mock_wait,
         patch("src.can_io.reader.logger") as mock_logger,
     ):
         await reader._reconnect()
 
-        # Verify sleep was called once with delay=1
-        mock_sleep.assert_called_once_with(1)
+        # Verify the staged delay was requested once with delay=1
+        mock_wait.assert_awaited_once_with(1)
 
         # Verify bus shutdown was called
         bus_mock.shutdown.assert_called_once()
@@ -447,6 +530,45 @@ def test_reader_detects_bus_that_is_silent_from_startup():
     assert reader._is_bus_stale() is True
 
 
+def test_unrelated_can_id_confirms_fixed_channel_transport_health():
+    import asyncio
+    from unittest.mock import Mock
+
+    import can
+
+    from src.can_io.reader import CANReader
+
+    class BusWithUnrelatedFrame:
+        def __init__(self):
+            self.reader = None
+            self.calls = 0
+
+        def recv(self, timeout):
+            self.calls += 1
+            if self.calls == 1:
+                return can.Message(arbitration_id=0x456, data=[0])
+            self.reader._running = False
+            return None
+
+    bus = BusWithUnrelatedFrame()
+    reader = CANReader(
+        bus=bus,
+        db=Mock(),
+        queue=asyncio.Queue(),
+        filter_ids={0x123},
+    )
+    bus.reader = reader
+    reader._running = True
+    reader._reconnect_attempt = 4
+
+    reader._recv_loop(Mock())
+
+    assert reader._received_count == 1
+    assert reader._last_recv_monotonic > 0.0
+    assert reader._last_frame_timestamp > 0.0
+    assert reader._reconnect_attempt == 0
+
+
 @pytest.mark.asyncio
 async def test_reconnect_exhaust_retries():
     import asyncio
@@ -475,16 +597,18 @@ async def test_reconnect_exhaust_retries():
     reader.stop = Mock()
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        patch.object(
+            reader, "_wait_for_reconnect_delay", new_callable=AsyncMock
+        ) as mock_wait,
         patch("src.can_io.reader.logger") as mock_logger,
     ):
         await reader._reconnect(max_retries=3)
 
-        # Verify sleep was called 3 times with delays 1, 2, 4
-        assert mock_sleep.call_count == 3
-        mock_sleep.assert_any_call(1)
-        mock_sleep.assert_any_call(2)
-        mock_sleep.assert_any_call(4)
+        # Verify the staged waits were 1, 2, 4 seconds
+        assert mock_wait.await_count == 3
+        mock_wait.assert_any_await(1)
+        mock_wait.assert_any_await(2)
+        mock_wait.assert_any_await(4)
 
         # Verify bus shutdown was called 3 times
         assert bus_mock.shutdown.call_count == 3
