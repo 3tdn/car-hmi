@@ -27,6 +27,7 @@ def test_load_config_from_file():
     assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
+    assert cfg.storage.sqlite_path == "data/config.db"
 
 
 def test_can_config_defaults():
@@ -34,6 +35,12 @@ def test_can_config_defaults():
     assert cfg.bitrate == 500_000
     assert cfg.can_db_file == "db/can_db/p_v2.dbc"
     assert cfg.channel_tracking_signals == []
+
+
+def test_can_config_normalizes_legacy_cansocket_alias():
+    cfg = CANConfig(interface="cansocket", channel="can0")
+
+    assert cfg.interface == "socketcan"
 
 
 @pytest.mark.parametrize("signals", [[""], ["  "], [123], "COM_Status_ElkCan"])
@@ -213,6 +220,83 @@ def test_load_config_custom(tmp_path):
     assert cfg.api.port == 9000
     assert cfg.reader.frequency_piority == pytest.approx(0.0)
     assert cfg.reader.only_send_signal_update is True
+
+
+def test_api_socket_reservation_rejects_duplicate_listener():
+    from src.core.runner import _reserve_api_socket
+
+    first = _reserve_api_socket("127.0.0.1", 0)
+    try:
+        port = int(first.getsockname()[1])
+        with pytest.raises(OSError):
+            _reserve_api_socket("127.0.0.1", port)
+    finally:
+        first.close()
+
+
+@pytest.mark.asyncio
+async def test_runtime_task_failure_triggers_shutdown():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    keep_running = asyncio.create_task(asyncio.Event().wait(), name="pipeline")
+
+    async def api_task():
+        await asyncio.sleep(0)
+        raise RuntimeError("API crashed")
+
+    api = asyncio.create_task(api_task(), name="api")
+    tasks = (keep_running, api)
+
+    async def shutdown_tasks():
+        runner._shutting_down = True
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    runner.shutdown = AsyncMock(side_effect=shutdown_tasks)
+
+    with pytest.raises(RuntimeError, match="failed: API crashed"):
+        await runner._wait_for_runtime_tasks(tasks)
+
+    runner.shutdown.assert_awaited_once()
+    assert keep_running.done()
+
+
+@pytest.mark.asyncio
+async def test_runtime_task_unexpected_exit_triggers_shutdown():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    keep_running = asyncio.create_task(asyncio.Event().wait(), name="pipeline")
+
+    async def api_task():
+        await asyncio.sleep(0)
+
+    api = asyncio.create_task(api_task(), name="api")
+    tasks = (keep_running, api)
+
+    async def shutdown_tasks():
+        runner._shutting_down = True
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    runner.shutdown = AsyncMock(side_effect=shutdown_tasks)
+
+    with pytest.raises(RuntimeError, match="Task 'api' exited unexpectedly"):
+        await runner._wait_for_runtime_tasks(tasks)
+
+    runner.shutdown.assert_awaited_once()
+    assert keep_running.done()
 
 
 def test_environment_overrides_render_port_and_api_key():
@@ -527,7 +611,6 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
             "queue_policy": "drop_oldest",
             "batch_drain_size": 99,
         },
-        storage={"batch_size": 12, "batch_interval_sec": 0.4},
         reader={
             "frequency_piority": 2.0,
             "only_send_signal_update": True,
@@ -551,7 +634,6 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     changed = [
         "processor.max_update_rate_hz",
         "processor.queue_policy",
-        "storage.batch_size",
         "reader.frequency_piority",
         "reader.only_send_signal_update",
         "reader.stale_threshold_sec",
@@ -565,7 +647,10 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     result = await runner.apply_system_config(updated, changed)
 
     assert result["applied"] == changed
-    assert pipeline.calls[-1][1]["batch_size"] == 12
+    assert pipeline.calls[-1][1] == {
+        "queue_policy": "drop_oldest",
+        "batch_drain_size": 99,
+    }
     assert reader.calls[-1][1]["priority_sec"] == 2.0
     assert writer.calls[-1][0] == (updated.writer,)
     assert rate.max_hz == 25.0

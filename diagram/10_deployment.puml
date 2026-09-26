@@ -19,7 +19,7 @@ node "CarPC (Embedded Linux)" as carpc {
         artifact "Signal Processor\n(pipeline.py)" as proc
         artifact "FastAPI + Uvicorn\n(port 8000)" as api
     }
-    database "SQLite\n(data/signals.db)" as sqlite
+    database "SQLite config\n(data/config.db)" as sqlite
     artifact "Watchdog / Supervisor\n(runner.py + systemd WatchdogSec=30)" as mon
     folder "Config" as conf {
         file "system.json"
@@ -48,10 +48,7 @@ real_ecu -- canio1 : CAN Bus\n(vcan1 / socketcan\n500 kbps)
 carpc -- net : Ethernet\n(HTTP/WS port 8000)
 net -- client : HTTP / WebSocket
 
-canio0 --> sqlite : query config
-canio1 --> sqlite : query config
-proc --> sqlite : batch insert
-api --> sqlite : query history
+api --> sqlite : signal display config
 conf --> pyruntime : load on startup
 data --> canio0 : can0.json parsing
 data --> canio1 : can1.json parsing

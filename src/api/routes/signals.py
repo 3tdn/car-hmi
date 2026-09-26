@@ -1,4 +1,4 @@
-"""REST routes for reading real-time signals and history, plus WebSocket push."""
+"""REST routes for reading real-time signals plus WebSocket push."""
 
 from __future__ import annotations
 
@@ -213,32 +213,6 @@ async def get_signal(signal_name: str, request: Request):
         unit=getattr(sv, "unit", None),
         timestamp=sv.timestamp,
     )
-
-
-@router.get(
-    "/{signal_name}/history",
-    response_model=SignalListResponse,
-    summary="Query signal history from DB",
-)
-async def get_signal_history(
-    signal_name: str,
-    request: Request,
-    start: float | None = Query(None),
-    end: float | None = Query(None),
-    limit: int = Query(100, ge=1, le=10_000),
-    offset: int = Query(0, ge=0),
-):
-    repo = request.app.state.repo
-    records = await repo.query_signals(
-        signal_name=signal_name, start=start, end=end, limit=limit, offset=offset
-    )
-    items = [
-        SignalValueResponse(
-            signal_name=r.signal_name, value=r.value, unit=r.unit, timestamp=r.timestamp
-        )
-        for r in records
-    ]
-    return SignalListResponse(items=items, total=len(items))
 
 
 @router.put(

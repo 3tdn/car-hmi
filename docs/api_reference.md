@@ -1,6 +1,6 @@
 # CAN-HMI — API Reference
 
-Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-23. There are **54 HTTP operations (48 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
+Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-26. There are **53 HTTP operations (47 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
 
 ## Common Usage
 
@@ -32,7 +32,6 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 | GET | `/signals/available` | List all available signals with metadata |
 | GET | `/signals/{signal_name}` | Get latest value for one signal |
 | PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
-| GET | `/signals/{signal_name}/history` | Query signal history from DB |
 | POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
 | GET | `/config` | List all signal configurations |
 | GET | `/config/signal/{signal_name}` | Get config for one signal |
@@ -250,52 +249,6 @@ Response format taken from the implementation (OpenAPI does not declare a detail
   "signal_name": "ABL_FL_RetractRequest",
   "value": 0,
   "queued_at": 1789600000.0
-}
-```
-
-### `GET /signals/{signal_name}/history`
-
-Query signal history from DB
-
-Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
-
-| Parameter | Location | Type | Required | Default/Constraints |
-|---|---|---|---|---|
-| `signal_name` | path | string | Yes |  |
-| `start` | query | number / null | No |  |
-| `end` | query | number / null | No |  |
-| `limit` | query | integer | No | default=100; minimum=1; maximum=10000 |
-| `offset` | query | integer | No | default=0; minimum=0 |
-
-Body: none.
-
-Example:
-
-```bash
-curl -sS \
-  "$BASE/signals/COM_Status_ElkCan/history?start=1789600000&end=1789603600&limit=100&offset=0" \
-  -H "X-API-Key: $API_KEY" \
-  -H "X-Profile-Name: $PROFILE" \
-  -H "X-Client-Id: $CLIENT_ID"
-```
-
-Successful response: HTTP 200.
-
-Response schema: `SignalListResponse`.
-
-```json
-{
-  "items": [
-    {
-      "signal_name": "COM_Status_ElkCan",
-      "std_name": "COM_Status_ElkCan",
-      "value": 1.0,
-      "unit": null,
-      "timestamp": 1789600000.0
-    }
-  ],
-  "total": 1,
-  "warnings": []
 }
 ```
 

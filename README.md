@@ -5,10 +5,10 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 ## Features
 
 - **Multi-channel CAN I/O** — Read and write CAN frames via `python-can` across multiple independent bus channels; decode/encode signals using per-channel `can_db_file` DBC databases (read directly via `cantools`, no JSON export step)
-- **Signal Processing** — Rate limiting, computed signals, bounded queues, and batch persistence
+- **Signal Processing** — Rate limiting, computed signals, bounded queues, and in-memory latest values
 - **REST + WebSocket API** — FastAPI-based API for live signal streaming, full signal metadata, profile permissions, CAN write commands, and system metrics
 - **Per-signal WebSocket subscription** — Clients subscribe to specific signal names or `metrics` channels via a structured JSON protocol on `/ws/subscribe`
-- **Storage** — Async SQLite persistence with configurable batch inserts and retention; internal CSV/JSON export utility
+- **Storage** — Small async SQLite database for persistent `signal_config` metadata only
 - **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
 - **Simulator** — Built-in CAN simulator for development without hardware; driven directly by the `can_db_file` DBC signal definitions
 - **Standardized signal names (`std_name`)** — API responses include `std_name` for compatibility; it is identical to `signal_name`.
@@ -146,7 +146,7 @@ the same policy from the backend and supports multiple CAN channel cards.
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
 | `oms_config`  | Controls frontend-facing `OMS_xx_OccupantClassification` values. With `bypass_simi_input: false`, keep the decoded CAN/SIMI class; with `true`, derive class `0`/`1`/`2` from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. Applies live. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
-| `storage`     | `sqlite_path`, `batch_size`, `batch_interval_sec`, `retention_days`, `max_disk_mb` |
+| `storage`     | `sqlite_path` for the small `signal_config` database; realtime values stay only in `SignalStore` |
 | `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`). `INC_HMI_SensorFusionRequest` follows this standard sibling policy; it no longer sources unwritten fields from `OMS_State_*`. |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
 | `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
@@ -184,7 +184,6 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | GET | `/signals/available` | List all available signals with metadata |
 | GET | `/signals/{signal_name}` | Get latest value for one signal |
 | PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
-| GET | `/signals/{signal_name}/history` | Query signal history from DB |
 | POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
 | GET | `/config` | List all signal configurations |
 | GET | `/config/signal/{signal_name}` | Get config for one signal |

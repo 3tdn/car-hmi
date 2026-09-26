@@ -11,7 +11,6 @@ participant "CAN Reader[i]\n(reader.py)" as reader
 queue "asyncio.Queue\n(shared, all channels)" as q
 participant "Signal Processor\n(pipeline.py)" as proc
 participant "Signal Store\n(signal_store.py)" as store
-database "SQLite\n(signal_log)" as db
 participant "WebSocket\n(websocket.py)" as ws
 actor "Dashboard\n(Browser)" as dash
 
@@ -39,32 +38,13 @@ end
 loop consume from queue
     q -> proc : get batch up to batch_drain_size
     note right of proc : Merge same signal_id→keep latest value
-    proc -> proc : 1. SmoothingFilter.process()
-    note right of proc
-      NOT CONFIGURED / NOT ACTIVE IN CURRENT PIPELINE
-      Design intent only. Not added to pipeline in code.
-      See SDD_DETAILED_VERIFICATION.md
-    end note
-    proc -> proc : 2. RateLimiter.process()
-    proc -> proc : 3. ComputedSignals.process()
-    proc -> proc : 4. AlarmChecker.process()
+    proc -> proc : 1. RateLimiter.process()
+    proc -> proc : 2. ComputedSignals.process()
     
     proc -> store : update(signal_name, value, status)
     activate store
     store -> ws : notify subscribers
     deactivate store
-    
-    proc -> db : buffer.append(record)
-    alt batch_size reached OR batch_interval_sec elapsed
-        proc -> db : INSERT INTO signal_log\n(batch insert)
-    end
-
-    alt alarm triggered (value exceeds threshold)
-        proc -> proc : call alarm_handler (AppRunner._on_alarm)
-        proc -> db : INSERT INTO alarm_log
-        proc -> ws : broadcast_alarm(alarm_payload)
-        ws -> dash : {"type":"alarm",\n "signal_name":"CoolantTemp","level":"warning"}
-    end
 end
 
 == WebSocket Push ==

@@ -110,11 +110,11 @@ location.reload();
   reachable from the Render service.
 - A Free Web Service can spin down while idle, so its first subsequent request can take time
   to start the service again.
-- The Free plan uses an ephemeral filesystem. The SQLite `data/signals.db` file, profile
+- The Free plan uses an ephemeral filesystem. The SQLite `data/config.db` signal metadata, profile
   sessions, configuration backups, and configuration changes made through the UI are lost
   when the service restarts, redeploys, or spins down.
-- Persistent SQLite storage requires a paid plan with a Persistent Disk. Alternatively, the
-  storage layer must be migrated to PostgreSQL before using Render Postgres.
+- Persistent signal display metadata requires a paid plan with a Persistent Disk. Realtime
+  signal values are held in memory and are never written to SQLite.
 
 ## Common issues
 

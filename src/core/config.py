@@ -28,6 +28,15 @@ class CANConfig(BaseModel):
     # For channel='auto', probe only messages containing these signals.
     # An empty list preserves discovery using all messages with signals in the DBC.
 
+    @field_validator("interface", mode="before")
+    @classmethod
+    def normalize_interface(cls, interface: object) -> object:
+        """Normalize the legacy ``cansocket`` typo used by older deployments."""
+        if not isinstance(interface, str):
+            return interface
+        normalized = interface.strip().lower()
+        return "socketcan" if normalized == "cansocket" else normalized
+
     @field_validator("channel_tracking_signals")
     @classmethod
     def validate_channel_tracking_signals(cls, signals: list[str]) -> list[str]:
@@ -162,18 +171,10 @@ class DevModeConfig(BaseModel):
 
 
 class StorageConfig(BaseModel):
-    """Configuration for SQLite historical signal data storage."""
+    """Configuration for persistent signal display metadata."""
 
-    sqlite_path: str = "data/signals.db"
-    # Path to the SQLite file
-    batch_size: int = Field(default=100, ge=1)
-    # Number of records accumulated before flushing to DB; increase it to reduce write I/O frequency
-    batch_interval_sec: float = Field(default=2.0, gt=0)
-    # Maximum time between flushes even if the buffer is not full (seconds)
-    retention_days: int = Field(default=30, ge=0)
-    # Number of days to retain data; older records will be deleted by the retention task
-    max_disk_mb: int = Field(default=2048, ge=0)
-    # DB size limit (MB); when exceeded, the retention task trims oldest rows and runs VACUUM
+    sqlite_path: str = "data/config.db"
+    # Small SQLite file containing only the signal_config table
 
 
 class ProcessorConfig(BaseModel):

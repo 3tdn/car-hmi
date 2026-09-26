@@ -1,6 +1,11 @@
 # CAN-HMI System — Requirement Specification
 
-> Implementation update (2026-09-17): the API contract below reflects the current code.
+> Implementation update (2026-09-26): signal sample history was removed. Any requirement below
+> mentioning `signal_log`, history queries, retention, batch persistence, or signal export is
+> superseded by [Signal History Removal Report](signal_history_removal.md). The realtime path
+> ends at the in-memory `SignalStore`; SQLite keeps only `signal_config`.
+>
+> The API contract below otherwise reflects the current code.
 > Other design examples and diagrams in this document are historical requirements/analysis,
 > not a claim that every component is currently implemented. Alarm processing/storage/routes,
 > smoothing, automatic WebSocket snapshots, `signal_config`/`signal_update` frame types, and

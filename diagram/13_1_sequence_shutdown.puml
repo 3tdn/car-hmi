@@ -21,9 +21,6 @@ api -> api : await pending responses
 api --> runner : API stopped
 
 runner -> pipe : stop pipeline
-pipe -> pipe : flush() — drain remaining buffer
-pipe -> db : batch INSERT remaining records
-db --> pipe : flushed
 pipe --> runner : Pipeline stopped
 
 loop for each CAN channel

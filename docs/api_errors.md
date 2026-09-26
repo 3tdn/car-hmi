@@ -118,7 +118,7 @@ For `system_config_runtime_apply_failed`, `detail` is
 
 `profile_already_active` is an HTTP 200 warning. Batch writes
 can return permission/scope warnings with HTTP 202 rather than raising an HTTP error.
-Signal reads, metadata, history, and RX subscriptions are independent of profiles.
+Current signal reads, metadata, and RX subscriptions are independent of profiles.
 WebSocket metrics access failures appear in ACK `warnings`. Single-signal TX permission failures raise
 HTTP 403. Single writes blocked by seat locks raise HTTP 423; batch writes carry lock errors
 in the result or warnings. Preserve the accompanying `signals`, `profile_name`,

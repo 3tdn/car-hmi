@@ -1,72 +1,88 @@
-"""Integration tests for SQLiteRepository."""
+"""Unit tests for persistent signal display configuration."""
 
 from __future__ import annotations
-
-import time
 
 import pytest
 import pytest_asyncio
 
 from src.storage.database import init_db
-from src.storage.repository import SignalRecord, SQLiteRepository
+from src.storage.repository import SignalConfigRecord, SQLiteRepository
 
 
 @pytest_asyncio.fixture
 async def repo(tmp_path):
-    conn = await init_db(str(tmp_path / "test.db"))
+    conn = await init_db(str(tmp_path / "config.db"))
     yield SQLiteRepository(conn)
     await conn.close()
 
 
 @pytest.mark.asyncio
-async def test_insert_and_query_signal(repo):
-    rec = SignalRecord("VehicleSpeed", 80.0, "km/h", time.time())
-    await repo.insert_signal(rec)
-    results = await repo.query_signals(signal_name="VehicleSpeed")
-    assert len(results) == 1
-    assert results[0].value == pytest.approx(80.0)
+async def test_config_database_contains_no_signal_history_table(repo):
+    async with repo._conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    ) as cur:
+        tables = {row[0] for row in await cur.fetchall()}
+
+    assert "signal_config" in tables
+    assert "signal_log" not in tables
 
 
 @pytest.mark.asyncio
-async def test_query_signals_filters(repo):
-    base_ts = time.time()
-    for i in range(5):
-        await repo.insert_signal(
-            SignalRecord("EngineRPM", 1000.0 + i * 100, "rpm", base_ts + i * 10)
-        )
-    for i in range(3):
-        await repo.insert_signal(
-            SignalRecord("VehicleSpeed", 50.0 + i * 10, "km/h", base_ts + i * 10)
-        )
+async def test_upsert_and_get_signal_config(repo):
+    record = SignalConfigRecord(
+        signal_name="VehicleSpeed",
+        unit="km/h",
+        min_value=0.0,
+        max_value=250.0,
+        group_name="Vehicle",
+        widget_type="gauge",
+        writable=False,
+    )
 
-    # Test filtering by signal_name
-    results = await repo.query_signals(signal_name="EngineRPM")
-    assert len(results) == 5
+    await repo.upsert_signal_config(record)
 
-    # Test filtering by start and end timestamp
-    results = await repo.query_signals(start=base_ts + 15, end=base_ts + 35)
-    # The timestamps for EngineRPM are: +0, +10, +20, +30, +40
-    # The timestamps for VehicleSpeed are: +0, +10, +20
-    # So we should get 2 EngineRPM (+20, +30) and 1 VehicleSpeed (+20) -> total 3
-    assert len(results) == 3
-
-    # Test limit and offset
-    results = await repo.query_signals(signal_name="EngineRPM", limit=2, offset=1)
-    assert len(results) == 2
-    # The query is ordered by timestamp DESC, so all 5 EngineRPM records sorted by TS DESC:
-    # index 0: +40
-    # index 1: +30
-    # index 2: +20
-    # index 3: +10
-    # index 4: +0
-    # Limit 2, Offset 1 should return index 1 and 2, which correspond to +30 and +20
-    assert results[0].timestamp == pytest.approx(base_ts + 30)
-    assert results[1].timestamp == pytest.approx(base_ts + 20)
+    assert await repo.get_signal_config("VehicleSpeed") == record
 
 
 @pytest.mark.asyncio
-async def test_delete_old_signals(repo):
-    old_ts = time.time() - 3600
-    await repo.insert_signal(SignalRecord("EngineRPM", 1500.0, "rpm", old_ts))
-    deleted = await repo.delete_old_signals(older_than=time.time() - 1800)
-    assert deleted == 1
+async def test_upsert_signal_config_updates_existing_record(repo):
+    initial = SignalConfigRecord(
+        "CabinTemp", "degC", -40.0, 85.0, "HVAC", "gauge", False
+    )
+    updated = SignalConfigRecord(
+        "CabinTemp", "degC", 16.0, 30.0, "Climate", "slider", True
+    )
+
+    await repo.upsert_signal_config(initial)
+    await repo.upsert_signal_config(updated)
+
+    assert await repo.get_signal_config("CabinTemp") == updated
+    assert await repo.get_signal_config("missing") is None
+
+
+@pytest.mark.asyncio
+async def test_new_config_db_migrates_only_legacy_signal_config(tmp_path):
+    legacy_conn = await init_db(str(tmp_path / "signals.db"))
+    legacy_repo = SQLiteRepository(legacy_conn)
+    record = SignalConfigRecord(
+        "VehicleSpeed", "km/h", 0.0, 250.0, "Vehicle", "gauge", False
+    )
+    await legacy_repo.upsert_signal_config(record)
+    await legacy_conn.execute(
+        "CREATE TABLE signal_log (id INTEGER PRIMARY KEY, signal_name TEXT)"
+    )
+    await legacy_conn.execute("INSERT INTO signal_log (signal_name) VALUES ('VehicleSpeed')")
+    await legacy_conn.commit()
+    await legacy_conn.close()
+
+    config_conn = await init_db(str(tmp_path / "config.db"))
+    config_repo = SQLiteRepository(config_conn)
+    try:
+        assert await config_repo.get_signal_config("VehicleSpeed") == record
+        async with config_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ) as cur:
+            tables = {row[0] for row in await cur.fetchall()}
+        assert "signal_log" not in tables
+    finally:
+        await config_conn.close()

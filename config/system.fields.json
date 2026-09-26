@@ -677,74 +677,14 @@
     },
     {
       "path": "storage.sqlite_path",
-      "title": "Sqlite Path",
+      "title": "Signal Config Database",
       "type": "string",
       "editable": false,
       "setting_mode": "expand",
       "reload_level": "immutable",
-      "description": "An open database cannot change at runtime.",
+      "description": "SQLite path used only for persistent signal display configuration.",
       "ui": {
         "control": "text"
-      }
-    },
-    {
-      "path": "storage.batch_size",
-      "title": "Batch Size",
-      "type": "integer",
-      "editable": true,
-      "setting_mode": "expand",
-      "reload_level": "live",
-      "description": "Pipeline batch flush threshold.",
-      "validation": {
-        "minimum": 1
-      },
-      "ui": {
-        "control": "number"
-      }
-    },
-    {
-      "path": "storage.batch_interval_sec",
-      "title": "Batch Interval Sec",
-      "type": "number",
-      "editable": true,
-      "setting_mode": "expand",
-      "reload_level": "live",
-      "description": "Pipeline batch flush interval.",
-      "validation": {
-        "exclusiveMinimum": 0
-      },
-      "ui": {
-        "control": "number"
-      }
-    },
-    {
-      "path": "storage.retention_days",
-      "title": "Retention Days",
-      "type": "integer",
-      "editable": true,
-      "setting_mode": "base",
-      "reload_level": "live",
-      "description": "Signal history retention period.",
-      "validation": {
-        "minimum": 0
-      },
-      "ui": {
-        "control": "number"
-      }
-    },
-    {
-      "path": "storage.max_disk_mb",
-      "title": "Max Disk Mb",
-      "type": "integer",
-      "editable": true,
-      "setting_mode": "base",
-      "reload_level": "live",
-      "description": "Database disk usage limit.",
-      "validation": {
-        "minimum": 0
-      },
-      "ui": {
-        "control": "number"
       }
     },
     {

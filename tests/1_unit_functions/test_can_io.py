@@ -217,6 +217,52 @@ def test_recv_loop_coalesces_continuously_changing_frames_before_callback():
     assert queue.get_nowait().signals == {"Speed": 183.0}
 
 
+def test_expected_socket_close_does_not_report_negative_fd_as_unexpected():
+    import asyncio
+    import threading
+    from unittest.mock import Mock, patch
+
+    from src.can_io.reader import CANReader
+
+    stop_event = threading.Event()
+
+    class ClosingBus:
+        def recv(self, timeout=0.2):
+            stop_event.set()
+            raise ValueError("file descriptor cannot be a negative integer (-1)")
+
+    reader = CANReader(bus=ClosingBus(), db=Mock(), queue=asyncio.Queue())
+    reader._running = True
+
+    with patch("src.can_io.reader.logger") as logger:
+        reader._recv_loop(Mock(), stop_event)
+
+    assert reader.get_metrics()["error_count"] == 0
+    assert reader.get_metrics()["last_error"] is None
+    logger.exception.assert_not_called()
+
+
+def test_unexpected_negative_fd_is_recoverable_transport_error():
+    import asyncio
+    from unittest.mock import Mock, patch
+
+    from src.can_io.reader import CANReader
+
+    class BrokenBus:
+        def recv(self, timeout=0.2):
+            raise ValueError("file descriptor cannot be a negative integer (-1)")
+
+    reader = CANReader(bus=BrokenBus(), db=Mock(), queue=asyncio.Queue())
+    reader._running = True
+
+    with patch("src.can_io.reader.logger") as logger:
+        reader._recv_loop(Mock())
+
+    assert reader.get_metrics()["error_count"] == 1
+    assert "negative integer" in reader.get_metrics()["last_error"]
+    logger.error.assert_called_once()
+
+
 @pytest.mark.asyncio
 async def test_reconnect_success_first_attempt():
     import asyncio

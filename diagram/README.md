@@ -11,13 +11,13 @@ Format: **PlantUML** (`.puml`).
 | 02 | `02_container.puml` | C4 Level 2 | Container diagram — major runtime blocks |
 | 03 | `03_component.puml` | Component | CarPC internal modules and their relationships |
 | 04 | `04_class_diagram.puml` | Class | Key classes, interfaces, design patterns (Strategy, Pipeline, Repository, Observer, Factory) |
-| 05 | `05_sequence_signal_read.puml` | Sequence | CAN Bus → Reader → Processor → Dashboard (4 stages, with NFR timing) |
+| 05 | `05_sequence_signal_read.puml` | Sequence | CAN Bus → Reader → Processor → in-memory store → Dashboard |
 | 06 | `06_sequence_signal_write.puml` | Sequence | Dashboard → API → CAN Writer → CAN Bus (202 response, bus error handling) |
 | 07 | `07_sequence_websocket.puml` | Sequence | WebSocket lifecycle (topic-based: /ws/signals, /ws/alarms, /ws/all; per-signal: /ws/subscribe) |
-| 08 | `08_activity_pipeline.puml` | Activity | Signal processing pipeline (4 stages + backpressure: drop_oldest/reject + exception handling) |
+| 08 | `08_activity_pipeline.puml` | Activity | Realtime pipeline (rate limit + computed signals + backpressure) |
 | 09 | `09_state_vehicle.puml` | State Machine | Vehicle state detection — **PROPOSED, not yet implemented** |
 | 10 | `10_deployment.puml` | Deployment | Physical nodes, multi-channel CAN bus (vcan0/vcan1), LAN, frontend, deploy_linux.sh |
-| 11 | `11_database_er.puml` | ER | Database schema (signal_log, signal_config, alarm_log — epoch REAL timestamps) |
+| 11 | `11_database_er.puml` | ER | Configuration database schema (`signal_config` only) |
 | 12 | `12_data_flow.puml` | Data Flow | End-to-end data flow overview |
 | 13 | `13_sequence_startup_shutdown.puml` | Sequence | System startup (all tasks: pipeline, readers, watchdog, metrics-push, retention) and graceful shutdown |
 | 14 | `14_state_ws_client.puml` | State Machine | WebSocket client reconnection logic |

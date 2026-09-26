@@ -18,16 +18,15 @@
 │                                                        │ asyncio.Queue        │
 │  ┌─────────────────┐                    ┌──────────────▼────────────────────┐ │
 │  │  Vehicle ECU    │────────────────────│        Signal Processor           │ │
-│  │  (hardware)     │   CAN Bus          │  Smooth → Rate → Computed → Alarm  │ │
+│  │  (hardware)     │   CAN Bus          │  RateLimiter → ComputedSignals     │ │
 │  └─────────────────┘   500 kbps         └──────┬───────────────┬────────────┘ │
-│                                                │               │              │
-│                                  ┌─────────────▼──┐   ┌────────▼────────────┐ │
-│                                  │  Signal Store  │   │   SQLite Storage    │ │
-│                                  │  (in-memory)   │   │  signal_log         │ │
-│                                  │  Observer/PubSub│   │  alarm_log          │ │
-│                                  └────────┬───────┘   │  signal_config      │ │
-│                                           │           └────────┬────────────┘ │
-│                                  ┌────────▼──────────────────▼──────────────┐│
+│                                                │                              │
+│                                  ┌─────────────▼──┐   ┌─────────────────────┐ │
+│                                  │  Signal Store  │   │ SQLite config DB    │ │
+│                                  │  (in-memory)   │   │ signal_config only  │ │
+│                                  │ Observer/PubSub│   └────────┬────────────┘ │
+│                                  └────────┬───────┘            │              │
+│                                  ┌────────▼────────────────────▼────────────┐│
 │                                  │            FastAPI Server :8000           ││
 │                                  │  REST + WebSocket + Static frontend serve ││
 │                                  └──────────────────┬────────────────────────┘│
@@ -72,11 +71,11 @@ msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 
 The runner installs two asynchronous processing stages, `RateLimiter` and `ComputedSignals`.
 Frames from the shared queue are drained in bounded batches, coalesced to the latest values,
-then published to SignalStore and buffered for SQLite inserts. Smoothing and alarm stages
-are not installed.
+then published to SignalStore. Smoothing, alarm, and historical persistence stages are not
+installed.
 
 ```text
-CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore + SQLite
+CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore
 ```
 
 Stages implement `async def process(self, signals: dict[str, float]) -> dict[str, float]`.
@@ -106,20 +105,20 @@ ISignalRepository (ABC)
         └── SQLiteRepository  (aiosqlite, async)
 ```
 
-New databases contain two active tables:
+New databases contain one table:
 
 | Table | Purpose |
 |---|---|
-| `signal_log` | Time series (timestamp, signal_name, value, unit) — indexed |
 | `signal_config` | Per-signal display config (unit, min, max, widget_type, writable) |
 
-`DataExporter` is an internal CSV/JSON utility; no REST export route is registered.
+Realtime signal samples are not written to this database, and no history/export route is
+registered.
 
 ---
 
 ### 2.5 `src/api/` — FastAPI Backend
 
-`create_app()` injects dependencies through `app.state`. The current API has 54 HTTP
+`create_app()` injects dependencies through `app.state`. The current API has 53 HTTP
 operations (including 6 system aliases) and 3 WebSocket endpoints. Signal, config, profiles,
 and Dev Mode routers use configured API key authentication; system GET, camera, adaptive
 restraint, and restraints/video routes are public. System retry/reboot require a real key
@@ -226,9 +225,7 @@ api:
   api_key: ""                 # empty = auth disabled
 
 storage:
-  sqlite_path: data/signals.db
-  batch_size: 100
-  retention_days: 30
+  sqlite_path: data/config.db
 ```
 
 The example above is YAML notation for readability; the runtime file is JSON.

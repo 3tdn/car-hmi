@@ -107,6 +107,16 @@ async def test_get_signal_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Signal 'Unknown' not found"
 
+
+@pytest.mark.asyncio
+async def test_signal_history_endpoint_is_removed(client):
+    response = await client.get(
+        "/signals/VehicleSpeed/history",
+        headers={"X-API-Key": "test-key"},
+    )
+
+    assert response.status_code == 404
+
 async def test_available_signals_requires_auth(client):
     resp = await client.get("/signals/available")
     assert resp.status_code == 401

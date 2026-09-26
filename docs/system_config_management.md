@@ -48,7 +48,6 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | Group | Fields |
 |---|---|
 | API | `api.ws_metrics_interval_sec` |
-| Storage | `storage.batch_size`, `storage.batch_interval_sec`, `storage.retention_days`, `storage.max_disk_mb` |
 | Processor | `processor.max_update_rate_hz`, `processor.max_queue_size`, `processor.queue_policy`, `processor.batch_drain_size` |
 | Reader | `reader.frequency_piority`, `reader.only_send_signal_update`, `reader.stale_threshold_sec` |
 | Writer | `writer.periodic_mode`, `writer.periodic_time_step`, `writer.periodic_duration`, `writer.use_prevalue_for_unwritten_signal` |
@@ -60,6 +59,10 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 Changing `processor.max_queue_size` switches the reader and pipeline to a new queue and
 drains pending data from the old queue. Reader, writer, pipeline, WebSocket, and app-state
 references are updated during the same configuration operation.
+
+`storage.sqlite_path` is immutable because the connection is opened at startup. The database
+contains only persistent `signal_config` display metadata; realtime values remain in memory and
+are not written to SQLite.
 
 ## OMS occupant classification
 

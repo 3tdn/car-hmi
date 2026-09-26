@@ -32,7 +32,8 @@ note right of system
   **Responsibilities:**
   - Read / decode CAN signals (multi-channel)
   - Process, filter, alarm detection
-  - Store time-series data (SQLite)
+  - Keep latest values in memory
+  - Store signal display config (SQLite)
   - Serve REST API + WebSocket
   - Monitor system resources (psutil)
 end note

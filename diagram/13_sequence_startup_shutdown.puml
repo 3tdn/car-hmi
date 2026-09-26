@@ -19,7 +19,6 @@ activate runner
 
 runner -> config : load("config/system.json")
 config -> config : validate JSON schema
-runner -> config : load("config/alarms.json")
 alt config invalid
     config --> runner : ConfigValidationError\n(schema mismatch / missing required)
     runner --> cli : Exit with error message
@@ -28,7 +27,7 @@ else config valid
 end
 
 runner -> db : init_db(sqlite_path)
-db -> db : CREATE TABLE IF NOT EXISTS\nsignal_log, signal_config
+db -> db : CREATE TABLE IF NOT EXISTS\nsignal_config
 db --> runner : DB ready
 
 loop for each CAN channel in config.can
@@ -45,8 +44,8 @@ opt simulator enabled
     sim --> runner : Simulator ready
 end
 
-runner -> pipe : SignalPipeline(stages, store, storage)
-pipe -> pipe : add_stage(RateLimiter)\nadd_stage(ComputedSignals)\nalt alarm configs present\n  add_stage(AlarmChecker)\nend
+runner -> pipe : SignalPipeline(stages, store)
+pipe -> pipe : add_stage(RateLimiter)\nadd_stage(ComputedSignals)
 pipe --> runner : Pipeline ready
 
 runner -> api : create_app(config)
@@ -62,7 +61,6 @@ note right of runner
   - api (uvicorn server)
   - watchdog (health monitor)
   - metrics-push (psutil metrics -> WS broadcast)
-  - retention (old data cleanup)
 end note
 runner -> mon : start watchdog\n(monitor all processes)
 
@@ -86,9 +84,6 @@ api -> api : await pending responses
 api --> runner : API stopped
 
 runner -> pipe : stop pipeline
-pipe -> pipe : flush() — drain remaining buffer
-pipe -> db : batch INSERT remaining records
-db --> pipe : flushed
 pipe --> runner : Pipeline stopped
 
 loop for each CAN channel

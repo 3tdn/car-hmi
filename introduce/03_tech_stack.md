@@ -97,11 +97,10 @@ No heavy JS framework is used (React/Vue) — suitable for embedded CarPC, with 
 |---|---|
 | **Engine** | SQLite 3 (file-based, zero-config) |
 | **Async driver** | `aiosqlite` — async wrapper, does not block the event loop |
-| **Schema** | 2 active tables: `signal_log`, `signal_config` |
-| **Retention** | Auto-purge records older than `retention_days` (default 30) |
-| **Batch insert** | Buffer signal records, flush by `batch_size` or `batch_interval_sec` |
+| **Schema** | 1 active table: `signal_config` |
+| **Runtime role** | Persist display metadata only; realtime signal values stay in memory |
 
-Can be swapped to **TimescaleDB** / **InfluxDB** by implementing the `ISignalRepository` interface.
+The database is outside the realtime CAN read path.
 
 ---
 
@@ -194,8 +193,8 @@ ruff format src/ tests/
 
 ## Current API and frontend integration
 
-The current runtime has two active SQLite tables (`signal_log`, `signal_config`) and no
-alarm/smoothing pipeline stages. Older diagrams and examples describe historical designs.
+The current runtime has one active SQLite table (`signal_config`) and no historical signal,
+alarm, or smoothing pipeline stages. Older diagrams and examples describe historical designs.
 The camera proxy uses `httpx` at runtime. Dependency constraints are maintained in
 `pyproject.toml`; version labels above describe the original stack overview.
 
