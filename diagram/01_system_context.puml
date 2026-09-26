@@ -13,7 +13,7 @@ actor "Vehicle ECU\n(Real / Simulator)" as ecu
 rectangle "CAN-HMI System\n(CarPC)" as system #LightBlue {
 }
 
-rectangle "CAN Database\n(config/can0.json, can1.json)" as candb #Wheat
+rectangle "DBC Files\n(per configured CAN channel)" as candb #Wheat
 
 user -down-> system : "View real-time signals,\nedit writable parameters\n(HTTP / WebSocket)"
 system -down-> user : "Signal data, alarms,\nsystem metrics (CPU/RAM/disk)"
@@ -33,7 +33,7 @@ note right of system
   - Read / decode CAN signals (multi-channel)
   - Process, filter, alarm detection
   - Keep latest values in memory
-  - Store signal display config (SQLite)
+  - Keep latest values and DBC metadata in memory
   - Serve REST API + WebSocket
   - Monitor system resources (psutil)
 end note

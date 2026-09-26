@@ -8,12 +8,10 @@ from src.api.models import (
     ProcessorConfigResponse,
     SignalConfigResponse,
     UpdateProcessorConfigRequest,
-    UpdateSignalConfigRequest,
 )
 from src.api.routes.profiles import build_access_warning, require_profile_permission
 from src.can_io.bus_factory import list_socketcan_channel_devices
 from src.core.config_manager import ConfigUpdateError
-from src.storage.repository import SignalConfigRecord
 
 router = APIRouter()
 
@@ -24,13 +22,25 @@ def _config_error(code: str, message: str, *, signal_name: str | None = None) ->
 
 @router.get("", summary="List all signal configurations")
 async def list_signal_configs(request: Request) -> list[SignalConfigResponse]:
-    # TODO: load from the signal_config table (Phase 4)
-    cfg = request.app.state.store
-    snapshot = await cfg.get_snapshot()
+    snapshot = await request.app.state.store.get_snapshot()
+    metadata = request.app.state.signal_metadata.snapshot()
     return [
-        SignalConfigResponse(signal_name=name, unit=getattr(sv, "unit", None))
-        for name, sv in snapshot.items()
+        _signal_config_response(name, metadata.get(name), snapshot.get(name))
+        for name in sorted(set(snapshot) | set(metadata))
     ]
+
+
+def _signal_config_response(signal_name: str, metadata: dict | None, signal_value=None):
+    item = metadata or {}
+    return SignalConfigResponse(
+        signal_name=signal_name,
+        unit=item.get("unit") or getattr(signal_value, "unit", None),
+        min_value=item.get("min_value"),
+        max_value=item.get("max_value"),
+        group_name=item.get("group_name"),
+        widget_type=item.get("widget_type"),
+        writable=item.get("writable", False),
+    )
 
 
 @router.get(
@@ -40,7 +50,8 @@ async def list_signal_configs(request: Request) -> list[SignalConfigResponse]:
 )
 async def get_signal_config(signal_name: str, request: Request):
     sv = await request.app.state.store.get(signal_name)
-    if sv is None:
+    metadata = request.app.state.signal_metadata.get(signal_name)
+    if sv is None and metadata is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_config_error(
@@ -49,62 +60,7 @@ async def get_signal_config(signal_name: str, request: Request):
                 signal_name=signal_name,
             ),
         )
-    return SignalConfigResponse(signal_name=signal_name, unit=getattr(sv, "unit", None))
-
-
-@router.patch(
-    "/signal/{signal_name}", response_model=SignalConfigResponse, summary="Update signal config"
-)
-async def update_signal_config(signal_name: str, body: UpdateSignalConfigRequest, request: Request):
-    require_profile_permission(request, "full")
-    sv = await request.app.state.store.get(signal_name)
-    if sv is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_config_error(
-                "signal_config_not_found",
-                f"Signal '{signal_name}' not found",
-                signal_name=signal_name,
-            ),
-        )
-
-    repo = request.app.state.repo
-    existing = None
-    if repo:
-        existing = await repo.get_signal_config(signal_name)
-
-    updates = body.model_dump(exclude_unset=True)
-
-    # Default from the existing DB record if available; otherwise read from the signal store
-    unit = updates.get("unit", existing.unit if existing else getattr(sv, "unit", None))
-    min_value = updates.get("min_value", existing.min_value if existing else None)
-    max_value = updates.get("max_value", existing.max_value if existing else None)
-    group_name = existing.group_name if existing else None
-    widget_type = updates.get("widget_type", existing.widget_type if existing else None)
-    writable = updates.get("writable", existing.writable if existing else False)
-
-    # Save to the signal_config table
-    record = SignalConfigRecord(
-        signal_name=signal_name,
-        unit=unit,
-        min_value=min_value,
-        max_value=max_value,
-        group_name=group_name,
-        widget_type=widget_type,
-        writable=writable,
-    )
-    if repo:
-        await repo.upsert_signal_config(record)
-
-    return SignalConfigResponse(
-        signal_name=signal_name,
-        unit=unit,
-        min_value=min_value,
-        max_value=max_value,
-        group_name=group_name,
-        widget_type=widget_type,
-        writable=writable,
-    )
+    return _signal_config_response(signal_name, metadata, sv)
 
 
 # ----- Processor runtime config endpoints -----

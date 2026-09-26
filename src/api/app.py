@@ -130,8 +130,9 @@ class _FrontendActivityMiddleware:
 
 def create_app(
     signal_store,  # SignalStore
-    repository,  # ISignalRepository
+    *,
     can_readers=None,  # list[CANReader] | None
+    signal_metadata=None,  # SignalMetadataCatalog | None
     api_key: str = "",
     cors_origins: list[str] | None = None,
     system_config_manager: SystemConfigManager | None = None,
@@ -159,7 +160,11 @@ def create_app(
 
     # Shared state — access via request.app.state
     app.state.store = signal_store
-    app.state.repo = repository
+    if signal_metadata is None:
+        from src.core.signal_metadata import SignalMetadataCatalog
+
+        signal_metadata = SignalMetadataCatalog()
+    app.state.signal_metadata = signal_metadata
     app.state.readers = can_readers or []
     app.state.start_time = time.time()
     app.state.runner = None

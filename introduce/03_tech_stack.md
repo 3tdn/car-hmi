@@ -10,7 +10,7 @@
 | Component | Version | Notes |
 |---|---|---|
 | **Python** | ≥ 3.10 (target 3.12) | `asyncio` native, type hints, `match` statement |
-| **asyncio** | stdlib | All I/O (CAN, DB, HTTP, WS) uses async/await |
+| **asyncio** | stdlib | CAN orchestration, HTTP, and WebSocket I/O use async/await |
 
 ---
 
@@ -36,12 +36,6 @@
 |---|---|---|
 | `pydantic` | ≥ 2.9 | Request/response models, config validation |
 | `pydantic-settings` | ≥ 2.0 | Env var → config object binding |
-
-### Storage
-
-| Library | Version | Purpose |
-|---|---|---|
-| `aiosqlite` | ≥ 0.20 | Async wrapper for SQLite — does not block the event loop |
 
 ### Processing & Config
 
@@ -91,16 +85,12 @@ No heavy JS framework is used (React/Vue) — suitable for embedded CarPC, with 
 
 ---
 
-## 6. Database
+## 6. Signal metadata
 
-| Component | Details |
-|---|---|
-| **Engine** | SQLite 3 (file-based, zero-config) |
-| **Async driver** | `aiosqlite` — async wrapper, does not block the event loop |
-| **Schema** | 1 active table: `signal_config` |
-| **Runtime role** | Persist display metadata only; realtime signal values stay in memory |
-
-The database is outside the realtime CAN read path.
+Signal metadata is a Python in-memory catalog built from the configured DBC loaders. No external
+driver or persistent store is required. The adaptive-restraint API separately uses the standard
+library `sqlite3` module and a NumPy cache for its crash dataset; that dataset is outside the CAN
+signal metadata path.
 
 ---
 
@@ -193,8 +183,8 @@ ruff format src/ tests/
 
 ## Current API and frontend integration
 
-The current runtime has one active SQLite table (`signal_config`) and no historical signal,
-alarm, or smoothing pipeline stages. Older diagrams and examples describe historical designs.
+The current runtime has no persistent signal metadata/history and no alarm or smoothing pipeline
+stages. Older diagrams and examples describe historical designs.
 The camera proxy uses `httpx` at runtime. Dependency constraints are maintained in
 `pyproject.toml`; version labels above describe the original stack overview.
 

@@ -27,7 +27,7 @@ def test_load_config_from_file():
     assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
-    assert cfg.storage.sqlite_path == "data/config.db"
+    assert not hasattr(cfg, "storage")
 
 
 def test_can_config_defaults():
@@ -147,7 +147,6 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path, t
         camera={"enabled": False},
         status_monitor={"enabled": False},
         supervisor={"watchdog_interval_sec": 0},
-        storage={"sqlite_path": str(tmp_path / "signals.db")},
     )
     runner = AppRunner(cfg)
 
@@ -210,7 +209,6 @@ def test_load_config_custom(tmp_path):
                     }
                 ],
                 "api": {"host": "127.0.0.1", "port": 9000},
-                "storage": {"sqlite_path": str(tmp_path / "test.db")},
                 "reader": {"only_send_signal_update": True},
             }
         )

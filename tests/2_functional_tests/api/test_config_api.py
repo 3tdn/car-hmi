@@ -10,6 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.can_io.parser import DatabaseLoader
 from src.core.config import AppConfig
 from src.core.config_manager import SystemConfigManager, write_config
 from src.core.config_policy import (
@@ -20,27 +21,8 @@ from src.core.config_policy import (
     validate_policy_values,
 )
 from src.core.paths import DEFAULT_CONFIG_FIELDS_PATH, DEFAULT_CONFIG_PATH
+from src.core.signal_metadata import SignalMetadataCatalog
 from src.core.signal_store import SignalStore
-
-
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, _record):
-        pass
-
-    async def insert_signals_bulk(self, _records):
-        pass
-
-    async def delete_old_signals(self, _older_than):
-        return 0
-
-    async def get_signal_config(self, _signal_name):
-        return None
-
-    async def upsert_signal_config(self, _record):
-        pass
 
 
 class _FakeRunner:
@@ -55,7 +37,7 @@ class _FakeRunner:
             "applied": [
                 path
                 for path in changed_paths
-                if path.startswith(("reader.", "processor.", "writer.", "storage."))
+                if path.startswith(("reader.", "processor.", "writer."))
             ],
             "unavailable": [],
         }
@@ -111,9 +93,13 @@ async def config_client(tmp_path, monkeypatch):
 
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
+    loader = DatabaseLoader()
+    loader.load_dbc("db/can_db/m_dummy.dbc")
+    metadata = SignalMetadataCatalog()
+    metadata.replace_from_loaders([loader])
     app = create_app(
         store,
-        _FakeRepo(),
+        signal_metadata=metadata,
         api_key="test-key",
         system_config_manager=manager,
     )
@@ -602,22 +588,6 @@ async def test_patch_supports_reboot_level_list_values(config_client):
 
 
 @pytest.mark.asyncio
-async def test_patch_rejects_immutable_field_without_writing(config_client):
-    client, manager, _ = config_client
-    before = manager.config_path.read_bytes()
-    response = await client.patch(
-        "/config/system",
-        headers=_headers(),
-        json={"storage": {"sqlite_path": "data/other.db"}},
-    )
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "system_config_field_immutable"
-    assert manager.config_path.read_bytes() == before
-    assert manager.list_backups() == []
-
-
-@pytest.mark.asyncio
 async def test_patch_requires_same_full_permission_as_profile_mutation(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()
@@ -862,3 +832,27 @@ async def test_get_signal_config_not_found_returns_structured_error(config_clien
     detail = response.json()["detail"]
     assert detail["code"] == "signal_config_not_found"
     assert detail["signal_name"] == "Unknown"
+
+
+@pytest.mark.asyncio
+async def test_get_signal_config_returns_read_only_dbc_metadata(config_client):
+    client, _, _ = config_client
+
+    response = await client.get("/config/signal/VehicleSpeed", headers=_headers())
+    patch_response = await client.patch(
+        "/config/signal/VehicleSpeed",
+        headers=_headers(),
+        json={"unit": "mph"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "signal_name": "VehicleSpeed",
+        "unit": "km/h",
+        "min_value": 0.0,
+        "max_value": 655.35,
+        "group_name": None,
+        "widget_type": None,
+        "writable": False,
+    }
+    assert patch_response.status_code == 405

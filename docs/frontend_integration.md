@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-Verified against the backend and bundled frontend on 2026-09-26. See the [complete API reference](api_reference.md) for all 53 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
+Verified against the backend and bundled frontend on 2026-09-26. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
 ## Backend URL and authentication
 

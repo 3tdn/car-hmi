@@ -142,8 +142,8 @@ POST /config/processor
 ## 5. Realtime storage
 
 The latest value of each signal is kept in `SignalStore` and broadcast to subscribers. Signal
-samples are not buffered or written to disk. SQLite is used independently for the small
-`signal_config` metadata table.
+samples are not buffered or written to disk. Read-only metadata is kept in the process-local
+`SignalMetadataCatalog` built from the active DBC files.
 
 ---
 
@@ -201,7 +201,7 @@ AppRunner.start()
     ├── _setup_logging()
     ├── DatabaseLoader.load_dbc()        ← load can[].can_db_file
     ├── SignalStore.bulk_update()      ← seed all signal names + units
-    ├── init_db() / SQLiteRepository  ← create tables if missing
+    ├── SignalMetadataCatalog.replace_from_loaders()
     ├── create_bus()                  ← open CAN interface
     ├── SignalPipeline + stages        ← RateLimiter + ComputedSignals
     ├── CANReader                     ← async producer
@@ -226,7 +226,6 @@ AppRunner.shutdown()
     ├── CANReader.stop()             ← drain queue, close bus
     ├── CANSimulator.stop()          ← if running
     ├── SignalPipeline.stop()        ← stop realtime processing
-    ├── SQLite connection close      ← close signal-config DB
     └── FastAPI shutdown             ← close WebSocket connections
 ```
 

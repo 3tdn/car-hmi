@@ -221,9 +221,9 @@
       "path": "api.host",
       "title": "Host",
       "type": "string",
-      "editable": true,
-      "setting_mode": "base",
-      "reload_level": "reboot",
+      "editable": false,
+      "setting_mode": "expand",
+      "reload_level": "immutable",
       "description": "API server bind address.",
       "ui": {
         "control": "text"
@@ -671,18 +671,6 @@
       "validation": {
         "minLength": 1
       },
-      "ui": {
-        "control": "text"
-      }
-    },
-    {
-      "path": "storage.sqlite_path",
-      "title": "Signal Config Database",
-      "type": "string",
-      "editable": false,
-      "setting_mode": "expand",
-      "reload_level": "immutable",
-      "description": "SQLite path used only for persistent signal display configuration.",
       "ui": {
         "control": "text"
       }

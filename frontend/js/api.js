@@ -190,7 +190,7 @@ const _headers = () => {
 
 /**
  * Project overview: name, version, uptime, signal count, connection status.
- * @returns {Promise<{name:string, version:string, uptime_seconds:number, signal_count:number, bus_connected:boolean, db_connected:boolean}>}
+ * @returns {Promise<{name:string, version:string, uptime_seconds:number, signal_count:number, bus_connected:boolean}>}
  */
 async function fetchSystemInfo() {
   return _fetchJson(`${API_BASE}/api/info`, { headers: _headers() });

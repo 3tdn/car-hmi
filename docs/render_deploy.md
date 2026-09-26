@@ -110,11 +110,11 @@ location.reload();
   reachable from the Render service.
 - A Free Web Service can spin down while idle, so its first subsequent request can take time
   to start the service again.
-- The Free plan uses an ephemeral filesystem. The SQLite `data/config.db` signal metadata, profile
-  sessions, configuration backups, and configuration changes made through the UI are lost
+- The Free plan uses an ephemeral filesystem. Profile sessions, configuration backups, and
+  configuration changes made through the UI are lost
   when the service restarts, redeploys, or spins down.
-- Persistent signal display metadata requires a paid plan with a Persistent Disk. Realtime
-  signal values are held in memory and are never written to SQLite.
+- Signal metadata is rebuilt from the deployed DBC files on every start. Realtime signal values
+  are held in memory and are not persisted.
 
 ## Common issues
 
@@ -126,5 +126,4 @@ location.reload();
 - Health check timeout: confirm that the logs show a bind to `0.0.0.0` on the value of `$PORT`.
 - HTTP 401 from `/signals` or `/config`: authentication was enabled and the request or browser
   API key does not match the Render environment variable.
-- Data disappears after a restart: this is a limitation of the Free plan's ephemeral
-  filesystem, not a SQLite error.
+- Runtime signal values disappear after a restart by design; metadata is rebuilt from DBC files.

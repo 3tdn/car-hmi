@@ -28,7 +28,7 @@ The system is designed to run **without real hardware** thanks to the built-in *
 | Read → WebSocket latency | ≤ 50 ms |
 | Processing rate | ≥ 1 000 signal updates/second |
 | Maximum queue size | 10 000 frame |
-| Storage | In-memory realtime values; SQLite only for persistent `signal_config` metadata |
+| Signal state | Realtime values and DBC metadata are process-local and in memory |
 | Deployment | systemd service (`can-hmi.service`) or Docker |
 
 ---
@@ -50,8 +50,9 @@ CAN channels / Simulator
 ```
 
 The current pipeline does not install smoothing or alarm stages and does not persist signal
-samples. New databases contain only `signal_config`; there is no signal-history or REST export
-route. See the [current API reference](../docs/api_reference.md).
+samples or signal metadata. Metadata is rebuilt from the active DBC files at process startup;
+there is no signal-history or REST export route. See the
+[current API reference](../docs/api_reference.md).
 
 
 ## 4. Main modules
@@ -61,7 +62,7 @@ route. See the [current API reference](../docs/api_reference.md).
 | **CAN I/O** | `src/can_io/` | Read/write CAN frames, decode/encode from configured DBC files |
 | **Signal Processor** | `src/processor/` | RateLimiter and ComputedSignals pipeline |
 | **Signal Store** | `src/core/signal_store.py` | In-memory cache, Observer pattern |
-| **Storage** | `src/storage/` | Small SQLite repository for persistent signal display configuration |
+| **Signal Metadata** | `src/core/signal_metadata.py` | Read-only in-memory catalog built from active DBC loaders |
 | **FastAPI Backend** | `src/api/` | REST routes, WebSocket, auth |
 | **CAN Simulator** | `src/can_simulator/` | DBC-driven random signal simulator |
 | **Config Manager** | `src/core/config_manager.py` | JSON configuration and field-policy management |

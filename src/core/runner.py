@@ -98,7 +98,7 @@ def _setup_logging(cfg: AppConfig) -> None:
 
 
 def _reserve_api_socket(host: str, port: int) -> socket.socket:
-    """Bind the API socket before opening CAN and SQLite resources."""
+    """Bind the API socket before opening CAN and API resources."""
     last_error: OSError | None = None
     for family, socktype, proto, _, address in socket.getaddrinfo(
         host,
@@ -129,7 +129,7 @@ class AppRunner:
     -------------
     1. Logging
     2. Load CAN database (scan DBC / CANdb)
-    3. Storage (initialize signal configuration schema)
+    3. Build the in-memory signal metadata catalog
     4. CAN bus (open interface)
     5. CAN Reader (decode → queue)
     6. CAN Writer (encode → bus)
@@ -154,11 +154,10 @@ class AppRunner:
         self._writer_router = None
         self._simulator = None
         self._simulator_bus = None
-        self._db_conn = None
-        self._repo = None
         self._buses: list = []
         self._bus_factories: list = []
         self._db_loaders: list = []
+        self._signal_metadata = None
         self._fastapi_server = None
         self._api_app = None
         self._shutdown_noise_filter = _ShutdownNoiseFilter()
@@ -278,15 +277,13 @@ class AppRunner:
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
+        from src.core.signal_metadata import SignalMetadataCatalog
         from src.processor.computed import ComputedSignals, OMSClassificationProcessor
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
-        from src.storage.database import init_db
-        from src.storage.repository import SQLiteRepository
 
         can_channels = self.config.can
         proc_cfg = self.config.processor
-        store_cfg = self.config.storage
         sim_cfg = self.config.simulator
 
         # 1. CAN DB — load each channel directly from its own DBC file ─────────
@@ -329,13 +326,12 @@ class AppRunner:
                 len(initial_values), len(can_channels),
             )
         except Exception:
-            logger.exception("Failed to seed SignalStore with DB signals")
+            logger.exception("Failed to seed SignalStore with DBC signals")
 
-        # 2. Storage ────────────────────────────────────────────────────────────
-        db_path = Path(store_cfg.sqlite_path)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db_conn = await init_db(str(db_path))
-        self._repo = SQLiteRepository(self._db_conn)
+        # 2. In-memory DBC metadata
+        self._signal_metadata = SignalMetadataCatalog()
+        self._signal_metadata.replace_from_loaders(self._db_loaders)
+        logger.info("Loaded metadata for %d signals into memory", len(self._signal_metadata))
 
         # 3. Signal Pipeline (share one queue across all channels) ───────────────
         rx_queue: asyncio.Queue = asyncio.Queue(maxsize=proc_cfg.max_queue_size)
@@ -522,7 +518,7 @@ class AppRunner:
         api_cfg = self.config.api
         app = create_app(
             signal_store=self.store,
-            repository=self._repo,
+            signal_metadata=self._signal_metadata,
             can_readers=self._readers,
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
@@ -1101,9 +1097,6 @@ class AppRunner:
                 self._simulator_bus.shutdown()
             except Exception:
                 pass
-
-        if self._db_conn:
-            await self._db_conn.close()
 
         if self._api_socket is not None:
             with contextlib.suppress(OSError):

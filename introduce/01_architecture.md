@@ -22,8 +22,8 @@
 │  └─────────────────┘   500 kbps         └──────┬───────────────┬────────────┘ │
 │                                                │                              │
 │                                  ┌─────────────▼──┐   ┌─────────────────────┐ │
-│                                  │  Signal Store  │   │ SQLite config DB    │ │
-│                                  │  (in-memory)   │   │ signal_config only  │ │
+│                                  │  Signal Store  │   │ DBC Metadata        │ │
+│                                  │  (in-memory)   │   │ (in-memory catalog) │ │
 │                                  │ Observer/PubSub│   └────────┬────────────┘ │
 │                                  └────────┬───────┘            │              │
 │                                  ┌────────▼────────────────────▼────────────┐│
@@ -95,30 +95,19 @@ snap = store.get_snapshot()        # → full current cache
 
 ---
 
-### 2.4 `src/storage/` — Storage Layer
+### 2.4 `src/core/signal_metadata.py` — Signal Metadata Catalog
 
-**Repository Pattern** with interface `ISignalRepository` allows swapping backends:
+`SignalMetadataCatalog` is built from the same per-channel `DatabaseLoader` instances used by
+CAN readers and writers. It keeps unit, range, enum states, tags, source DBC, and DBC-derived TX
+ownership in memory. Rebuilding replaces the complete snapshot, and API callers receive copies.
 
-```
-ISignalRepository (ABC)
-        │
-        └── SQLiteRepository  (aiosqlite, async)
-```
-
-New databases contain one table:
-
-| Table | Purpose |
-|---|---|
-| `signal_config` | Per-signal display config (unit, min, max, widget_type, writable) |
-
-Realtime signal samples are not written to this database, and no history/export route is
-registered.
+Signal metadata is read-only and is not persisted.
 
 ---
 
 ### 2.5 `src/api/` — FastAPI Backend
 
-`create_app()` injects dependencies through `app.state`. The current API has 53 HTTP
+`create_app()` injects dependencies through `app.state`. The current API has 52 HTTP
 operations (including 6 system aliases) and 3 WebSocket endpoints. Signal, config, profiles,
 and Dev Mode routers use configured API key authentication; system GET, camera, adaptive
 restraint, and restraints/video routes are public. System retry/reboot require a real key
@@ -149,7 +138,7 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 1. Setup logging (rotating file + console)
 2. Load configured DBC databases once per channel and share each loader with its channel components
 3. Seed SignalStore with initial values from every channel DB
-4. Initialize SQLite storage
+4. Build the in-memory signal metadata catalog
 5. Create a CAN Bus instance for each channel
 6. Initialize the Signal Pipeline + stages (shared queue)
 7. Create CANReader + CANWriter
@@ -166,7 +155,7 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 |---|---|
 | **Pipeline** | `SignalPipeline` — chain processing stages |
 | **Observer / Pub-Sub** | `SignalStore.subscribe()` — push to WS clients |
-| **Repository** | `ISignalRepository` / `SQLiteRepository` — separate storage logic |
+| **Snapshot catalog** | `SignalMetadataCatalog` — replace metadata atomically from active DBC loaders |
 | **Factory** | `create_app()` — FastAPI application factory; `create_bus()` — CAN bus factory |
 | **Strategy** | `DatabaseLoader` — loads can.json, built-in bit-level decode/encode |
 
@@ -224,8 +213,6 @@ api:
   port: 8000
   api_key: ""                 # empty = auth disabled
 
-storage:
-  sqlite_path: data/config.db
 ```
 
 The example above is YAML notation for readability; the runtime file is JSON.

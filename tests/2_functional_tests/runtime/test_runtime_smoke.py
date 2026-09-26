@@ -43,9 +43,6 @@ def _make_runtime_config(tmp_path: Path, port: int) -> Path:
     cfg["api"]["port"] = port
     cfg["api"]["api_key"] = RUNTIME_API_KEY
 
-    cfg.setdefault("storage", {})
-    cfg["storage"]["sqlite_path"] = str(tmp_path / "runtime_smoke.db")
-
     cfg.setdefault("devmode", {})
     cfg["devmode"]["require_seat_connected"] = False
 

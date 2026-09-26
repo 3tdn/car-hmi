@@ -24,7 +24,7 @@ WS -> Frontend : WebSocket push (JSON)
 note right of Pipeline
   Current stages: RateLimiter, ComputedSignals.
   Realtime samples remain in SignalStore and
-  are not persisted to SQLite.
+  remain in the process-local SignalStore.
 end note
 
 @enduml

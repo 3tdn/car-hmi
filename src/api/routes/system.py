@@ -91,7 +91,6 @@ async def system_info(request: Request) -> SystemInfoResponse:
     stale_threshold_sec = float(getattr(request.app.state, "reader_stale_threshold_sec", 30.0))
     reader_summary = _summarize_readers(readers, stale_threshold_sec)
     bus_ok = reader_summary["bus"]
-    db_ok = bool(request.app.state.repo)
     store = request.app.state.store
     snapshot = await store.get_snapshot()
     return SystemInfoResponse(
@@ -100,7 +99,6 @@ async def system_info(request: Request) -> SystemInfoResponse:
         description="Real-time CAN bus signal monitoring and control API",
         uptime_seconds=round(uptime, 1),
         bus_connected=bus_ok,
-        db_connected=db_ok,
         signal_count=len(snapshot),
     )
 
@@ -116,8 +114,7 @@ async def health(request: Request) -> HealthResponse:
     stale_threshold_sec = float(getattr(request.app.state, "reader_stale_threshold_sec", 30.0))
     reader_summary = _summarize_readers(readers, stale_threshold_sec)
     bus_ok = reader_summary["bus"]
-    db_ok = bool(request.app.state.repo)
-    if bus_ok and db_ok:
+    if bus_ok:
         overall = "ok"
     elif reader_summary["readers_present"] and (not reader_summary["readers_no_fatal_error"]):
         overall = "error"
@@ -127,7 +124,6 @@ async def health(request: Request) -> HealthResponse:
         status=overall,
         uptime_seconds=round(uptime, 1),
         bus_connected=bus_ok,
-        db_connected=db_ok,
     )
 
 
@@ -139,10 +135,8 @@ async def ready(request: Request) -> ReadinessResponse:
     stale_threshold_sec = float(getattr(request.app.state, "reader_stale_threshold_sec", 30.0))
     reader_summary = _summarize_readers(readers, stale_threshold_sec)
     bus_ok = reader_summary["bus"]
-    db_ok = bool(request.app.state.repo)
     details = {
         "bus": bus_ok,
-        "db": db_ok,
         "readers_thread_alive": reader_summary["readers_thread_alive"],
         "readers_recent_frames": reader_summary["readers_recent_frames"],
         "readers_no_fatal_error": reader_summary["readers_no_fatal_error"],

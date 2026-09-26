@@ -13,7 +13,7 @@ rectangle "CAN-HMI System" {
     usecase "CAN Read\n& Decode" as read
     usecase "Signal\nProcessing" as proc
     usecase "Signal Store\n(In-memory)" as memstore
-    usecase "Config Storage\n(SQLite)" as store
+    usecase "DBC Metadata\n(In-memory)" as metadata
     usecase "REST API" as rest
     usecase "WebSocket\nBroadcast" as wsbc
     usecase "CAN Write\n& Encode" as write
@@ -30,10 +30,10 @@ end note
 proc --> memstore : "update latest\n(in-memory)"
 memstore --> wsbc : "real-time\nsignal updates"
 memstore --> rest : "snapshot\n(latest values)"
-store --> rest : "signal display config"
+metadata --> rest : "read-only signal metadata"
 wsbc --> user : "JSON stream\n(WebSocket)"
 rest --> user : "JSON response\n(HTTP)"
-user --> rest : "GET / PUT / POST\n(signals and config)"
+user --> rest : "GET metadata / values\nPUT / POST CAN writes"
 rest --> write : "encode command"
 write --> ecu : "CAN frame\n(write-back)"
 

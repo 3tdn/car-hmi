@@ -43,8 +43,7 @@ endif
 :Notify WebSocket subscribers;
 
 note right
-  Realtime samples are not
-  written to SQLite.
+  Realtime samples remain in memory.
 end note
 
 stop

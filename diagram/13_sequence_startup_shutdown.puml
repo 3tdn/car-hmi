@@ -8,7 +8,7 @@ participant "Config\n(config.py)" as config
 participant "CAN Simulator\n(simulator.py)" as sim
 participant "CAN Reader\n(reader.py)" as reader
 participant "Signal Pipeline\n(pipeline.py)" as pipe
-participant "Storage\n(database.py)" as db
+participant "Signal Metadata\n(signal_metadata.py)" as metadata
 participant "FastAPI\n(app.py)" as api
 participant "Monitoring\n(watchdog)" as mon
 
@@ -26,10 +26,6 @@ else config valid
     config --> runner : AppConfig object
 end
 
-runner -> db : init_db(sqlite_path)
-db -> db : CREATE TABLE IF NOT EXISTS\nsignal_config
-db --> runner : DB ready
-
 loop for each CAN channel in config.can
     runner -> parser : DatabaseLoader.load_dbc(can_db_file) [channel_i]
     parser --> runner : db_loader
@@ -37,6 +33,9 @@ loop for each CAN channel in config.can
     reader -> reader : connect to CAN bus (channel_i)
     reader --> runner : Reader #i ready
 end
+
+runner -> metadata : replace_from_loaders(db_loaders)
+metadata --> runner : read-only catalog ready
 
 opt simulator enabled
     runner -> sim : CANSimulator(can_db_file, cycle_ms)
@@ -96,9 +95,6 @@ opt simulator running
     runner -> sim : stop simulator
     sim --> runner : Simulator stopped
 end
-
-runner -> db : close connection
-db --> runner : DB closed
 
 runner --> cli : Shutdown complete
 deactivate runner

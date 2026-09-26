@@ -8,7 +8,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 - **Signal Processing** — Rate limiting, computed signals, bounded queues, and in-memory latest values
 - **REST + WebSocket API** — FastAPI-based API for live signal streaming, full signal metadata, profile permissions, CAN write commands, and system metrics
 - **Per-signal WebSocket subscription** — Clients subscribe to specific signal names or `metrics` channels via a structured JSON protocol on `/ws/subscribe`
-- **Storage** — Small async SQLite database for persistent `signal_config` metadata only
+- **DBC metadata catalog** — Signal unit/range/state/TX metadata is loaded once with the active DBC files and kept in memory
 - **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
 - **Simulator** — Built-in CAN simulator for development without hardware; driven directly by the `can_db_file` DBC signal definitions
 - **Standardized signal names (`std_name`)** — API responses include `std_name` for compatibility; it is identical to `signal_name`.
@@ -18,7 +18,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 - Python ≥ 3.10
 - (Optional) SocketCAN interface or compatible CAN adapter for real hardware
-- Key dependencies: `python-can`, `fastapi`, `uvicorn[standard]`, `pydantic`, `aiosqlite`, `numpy`, `psutil`, `pyyaml`
+- Key dependencies: `python-can`, `cantools`, `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`, `psutil`, `pyyaml`
 
 ## Quick Start
 
@@ -29,8 +29,7 @@ cd car-hmi
 
 # Create virtual environment
 python -m venv .venv
-.venv/Scripts/activate   # Windows
-# source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate
 
 # Install with dev dependencies
 pip install -e ".[dev]"
@@ -48,11 +47,6 @@ can-hmi --config config/system.json --log-level DEBUG
 
 The project includes convenience scripts under the `scripts/` directory to prepare the virtual environment, install dependencies, run the app, and run tests.
 
-- Windows (PowerShell):
-	- `scripts/run_windows.ps1` — prepare `.venv`, install deps and run the application.
-	- `scripts/test_windows.ps1` — prepare `.venv` (optionally install) and run tests with coverage.
-  - `scripts/perf_windows.ps1` — run k6 performance script and save JSON report.
-
 - Linux / macOS (Bash):
 	- `scripts/run_linux.sh` — prepare `.venv`, install deps and run the application.
 	- `scripts/test_linux.sh` — prepare `.venv`, install deps and run tests with coverage.
@@ -60,17 +54,6 @@ The project includes convenience scripts under the `scripts/` directory to prepa
   - `scripts/runtime_smoke_linux.sh` — start app runtime smoke suite (API + WebSocket + Dev Mode lock flow).
 
 Usage examples:
-
-PowerShell (run app):
-```powershell
-.\scripts\run_windows.ps1 -Config config/system.json -LogLevel INFO
-```
-
-PowerShell (run tests, install before running):
-```powershell
-.\scripts\test_windows.ps1 -InstallBefore
-.\scripts\test_windows.ps1 -Suite unit
-```
 
 Bash (make scripts executable once and run):
 ```bash
@@ -82,12 +65,8 @@ chmod +x scripts/*.sh
 ./scripts/perf_linux.sh http://localhost:8000
 ```
 
-Notes:
-- On Windows you may need to allow script execution for the current session:
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-- The scripts create and use a local `.venv` in the project root and install the project in editable mode with dev dependencies.
+The scripts create and use a local `.venv` in the project root and install the project in
+editable mode with dev dependencies.
 
 ## Deploy on Render
 
@@ -101,7 +80,7 @@ exact push, Dashboard, optional authentication, health-check, and verification s
 ```
 car-hmi/
 ├── config/                 # JSON configuration files
-│   ├── system.json         # CAN channels, API, storage, simulator, processor settings
+│   ├── system.json         # CAN channels, API, simulator, processor settings
 │   ├── system.fields.json  # Validation, editability, reload policy, and GUI metadata
 │   └── system_bk.json      # Fixed reset template
 ├── db/
@@ -112,9 +91,8 @@ car-hmi/
 │   │   └── routes/         # signals, config, profiles, devmode, system, camera, restraints
 │   ├── can_io/             # bus_factory, parser, reader, writer
 │   ├── can_simulator/      # DBC-driven CAN simulator
-│   ├── core/               # config, config_manager, runner, signal_store, system_metrics
+│   ├── core/               # config, runner, signal_store, DBC metadata, system metrics
 │   ├── processor/          # Rate limiter, computed signals, and pipeline
-│   └── storage/            # SQLite repository, database init, exporter (CSV/JSON)
 ├── tests/
 │   ├── 1_unit_functions/   # Unit tests by module/function
 │   ├── 2_functional_tests/ # API, WebSocket, and integration tests
@@ -146,7 +124,6 @@ the same policy from the backend and supports multiple CAN channel cards.
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
 | `oms_config`  | Controls frontend-facing `OMS_xx_OccupantClassification` values. With `bypass_simi_input: false`, keep the decoded CAN/SIMI class; with `true`, derive class `0`/`1`/`2` from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. Applies live. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
-| `storage`     | `sqlite_path` for the small `signal_config` database; realtime values stay only in `SignalStore` |
 | `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`). `INC_HMI_SensorFusionRequest` follows this standard sibling policy; it no longer sources unwritten fields from `OMS_State_*`. |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
 | `supervisor`  | `watchdog_interval_sec` for component health monitoring                          |
@@ -187,7 +164,6 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
 | GET | `/config` | List all signal configurations |
 | GET | `/config/signal/{signal_name}` | Get config for one signal |
-| PATCH | `/config/signal/{signal_name}` | Update signal config |
 | GET | `/config/processor` | Get processor config |
 | POST | `/config/processor` | Update processor config |
 | GET | `/config/system` | Get system config and field update policy |

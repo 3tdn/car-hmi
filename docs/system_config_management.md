@@ -60,9 +60,10 @@ Changing `processor.max_queue_size` switches the reader and pipeline to a new qu
 drains pending data from the old queue. Reader, writer, pipeline, WebSocket, and app-state
 references are updated during the same configuration operation.
 
-`storage.sqlite_path` is immutable because the connection is opened at startup. The database
-contains only persistent `signal_config` display metadata; realtime values remain in memory and
-are not written to SQLite.
+Signal metadata is not part of system configuration. It is read from each configured DBC during
+startup and kept in memory. Changing a `can.*.can_db_file` path or replacing a DBC file requires a
+process restart; startup then replaces the complete metadata catalog, including removing signals
+that no longer exist.
 
 ## OMS occupant classification
 
@@ -128,7 +129,6 @@ or checking every signal. An empty list permits all DBC messages with signals. S
 | `adaptive_restraint.db_path`, `adaptive_restraint.csv_path` | Data resources are already opened/cached. |
 | `api.api_key` | Authentication secret; GET redacts it as `********`. |
 | `profiles.profiles_path`, `profiles.sessions_path` | Data/access paths remain fixed for the process lifetime. |
-| `storage.sqlite_path` | Cannot replace an open database in place. |
 | `writer.rate_limit_per_sec`, `writer.burst` | Writer token-bucket limiting is not implemented. |
 | `logging.file_path` | The file handler is already open. |
 

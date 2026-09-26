@@ -1,8 +1,8 @@
 {
   "can": [
     {
-      "interface": "virtual",
-      "channel": "vcan0",
+      "interface": "socketcan",
+      "channel": "can0",
       "bitrate": 500000,
       "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
       "channel_tracking_signals": [
@@ -11,7 +11,7 @@
     }
   ],
   "simulator": {
-    "enabled": true,
+    "enabled": false,
     "random_mode": true,
     "default_cycle_ms": 10,
     "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
@@ -67,9 +67,6 @@
       "COM_Status_NvidiaJetsonCan": "COM_State_JetsonCan",
       "COM_Status_PantherCan": "COM_Status_ElkCan"
     }
-  },
-  "storage": {
-    "sqlite_path": "data/config.db"
   },
   "processor": {
     "max_update_rate_hz": 5000.0,

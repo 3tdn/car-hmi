@@ -6,7 +6,6 @@ participant "Runner\n(AppRunner)" as Runner
 participant "API" as API
 participant "Pipeline" as Pipeline
 participant "Readers" as Readers
-participant "DB" as DB
 
 == Graceful shutdown ==
 Admin -> Runner : SIGTERM / SIGINT
@@ -15,7 +14,6 @@ Runner -> API : handle_exit() + close WS
 Runner -> Pipeline : stop()
 Runner -> Readers : stop() per-channel
 Readers -> Readers : close CAN bus
-Runner -> DB : close connection
 Runner --> Admin : Shutdown complete
 
 note right of Runner

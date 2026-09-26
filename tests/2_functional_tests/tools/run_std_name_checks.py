@@ -7,19 +7,13 @@ import json
 import tempfile
 from pathlib import Path
 
-from httpx import AsyncClient
-from httpx import ASGITransport
+from httpx import ASGITransport, AsyncClient
 from starlette.testclient import TestClient
 
 from src.api.app import create_app
 from src.api.routes import profiles as profile_routes
-from src.core.signal_store import SignalStore
 from src.api.websocket import ConnectionManager
-
-
-class FakeRepo:
-    async def query_signals(self, **_):
-        return []
+from src.core.signal_store import SignalStore
 
 
 class FakeWriter:
@@ -42,7 +36,7 @@ async def run_rest_checks():
     store = SignalStore()
     # set a canonical signal value
     await store.update("HMI_FL_OccupantAge_years", 21)
-    app = create_app(store, FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     # attach fake writer so write endpoints work
     app.state.writer = FakeWriter()
 
@@ -68,7 +62,7 @@ def ws_checks_sync():
     store = SignalStore()
     loop = asyncio.new_event_loop()
     loop.run_until_complete(store.update("HMI_FL_OccupantAge_years", 22))
-    app = create_app(store, FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     mgr: ConnectionManager = app.state.ws_manager
 
     with TestClient(app) as tc:

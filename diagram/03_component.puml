@@ -26,11 +26,6 @@ package "src/processor" as pkg_proc #PaleGreen {
     [computed.py\nOMS + Computed Signals] as proc_comp
 }
 
-package "src/storage" as pkg_store #Wheat {
-    [database.py\nDB Connection + Schema Init] as store_db
-    [repository.py\nsignal_config CRUD] as store_repo
-}
-
 package "src/api" as pkg_api #LightBlue {
     [app.py\nFastAPI Factory] as api_app
     [websocket.py\nWebSocket Handlers] as api_ws
@@ -47,6 +42,7 @@ package "src/core" as pkg_core #LightGray {
     [config.py\nPydantic Config Models] as core_config
     [config_manager.py\nRuntime Config CRUD] as core_cfgmgr
     [signal_store.py\nIn-memory State] as core_store
+    [signal_metadata.py\nRead-only DBC Metadata] as core_metadata
     [runner.py\nOrchestrator] as core_runner
     [system_metrics.py\npsutil Metrics Collector] as core_metrics
 }
@@ -79,13 +75,14 @@ r_signals --> api_models : "Pydantic validate"
 r_signals --> core_store : "read snapshot"
 r_signals --> io_writer : "write-back"
 api_ws --> core_store : "broadcast"
-r_config --> store_repo : "read/update config"
+r_config --> core_metadata : "read signal metadata"
 r_config --> core_store : "read live values"
 
 core_runner --> sim_engine : "start"
 core_runner --> io_reader : "start"
 core_runner --> io_writer : "init"
 core_runner --> core_store : "init store"
+core_runner --> core_metadata : "replace from loaded DBCs"
 core_runner --> proc_pipe : "start"
 r_system --> core_store : "bus status, queue"
 r_system --> core_metrics : "CPU/RAM/disk/queue"
@@ -94,7 +91,5 @@ r_system --> proc_pipe : "error counters"
 core_runner --> api_app : "start"
 core_runner --> core_config : "load"
 core_runner --> core_cfgmgr : "runtime CRUD"
-
-store_repo --> store_db
 
 @enduml

@@ -19,7 +19,7 @@ node "CarPC (Embedded Linux)" as carpc {
         artifact "Signal Processor\n(pipeline.py)" as proc
         artifact "FastAPI + Uvicorn\n(port 8000)" as api
     }
-    database "SQLite config\n(data/config.db)" as sqlite
+    artifact "In-memory signal metadata\n(rebuilt from DBC at startup)" as metadata
     artifact "Watchdog / Supervisor\n(runner.py + systemd WatchdogSec=30)" as mon
     folder "Config" as conf {
         file "system.json"
@@ -48,10 +48,10 @@ real_ecu -- canio1 : CAN Bus\n(vcan1 / socketcan\n500 kbps)
 carpc -- net : Ethernet\n(HTTP/WS port 8000)
 net -- client : HTTP / WebSocket
 
-api --> sqlite : signal display config
+metadata --> api : read-only signal metadata
 conf --> pyruntime : load on startup
-data --> canio0 : can0.json parsing
-data --> canio1 : can1.json parsing
+data --> canio0 : DBC parsing
+data --> canio1 : DBC parsing
 sim -- canio0 : "CAN frames\n(internal vcan0, dev mode)"
 fedir --> api : serve static files
 mon --> pyruntime : process supervision

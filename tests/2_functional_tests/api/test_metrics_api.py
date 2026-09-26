@@ -3,35 +3,13 @@
 from __future__ import annotations
 
 import json
-import time
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
-from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
-
-
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, r):
-        pass
-
-    async def insert_signals_bulk(self, records):
-        pass
-
-    async def delete_old_signals(self, o):
-        return 0
-
-    async def get_signal_config(self, signal_name):
-        return None
-
-    async def upsert_signal_config(self, record):
-        pass
 
 
 class _FakeReader:
@@ -74,7 +52,7 @@ def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_pa
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 

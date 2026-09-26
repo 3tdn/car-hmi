@@ -12,8 +12,6 @@ import logging
 import time
 from contextlib import suppress
 from datetime import datetime, timezone
-from functools import lru_cache
-from pathlib import Path
 
 import can
 from fastapi import APIRouter, HTTPException, Request, status
@@ -180,30 +178,10 @@ def _normalize_seats(seats: dict[str, bool]) -> dict[str, bool]:
     return normalized
 
 
-@lru_cache(maxsize=1)
-def _dbc_signal_states() -> dict[str, list[dict]]:
-    """States per signal, merged from every can_db_file listed in config/system.json."""
-    from src.can_io.parser import DatabaseLoader
-    from src.core.config_manager import read_config
-
-    states: dict[str, list[dict]] = {}
-    for channel in read_config().get("can", []):
-        can_db_file = channel.get("can_db_file")
-        if not can_db_file or not Path(can_db_file).exists():
-            continue
-        loader = DatabaseLoader()
-        try:
-            loader.load_dbc(can_db_file)
-        except (FileNotFoundError, ValueError, RuntimeError):
-            continue
-        for name, signal in loader.signals.items():
-            states[name] = signal.states
-    return states
-
-
-def _family_states(family: str, spec: dict) -> list[dict]:
+def _family_states(request: Request, family: str, spec: dict) -> list[dict]:
     reference = spec["templates"][0].format(seat="FL")
-    dbc_states = _dbc_signal_states().get(reference) or []
+    metadata = request.app.state.signal_metadata.get(reference) or {}
+    dbc_states = metadata.get("states") or []
     allowed = spec.get("allowed_values")
     if dbc_states:
         if allowed is None:
@@ -296,7 +274,7 @@ async def devmode_catalog(request: Request):
             {
                 "signal_name": family,
                 "kind": spec["kind"],
-                "states": _family_states(family, spec),
+                "states": _family_states(request, family, spec),
                 "signals": [
                     template.format(seat=seat.upper())
                     for seat in SEAT_IDS

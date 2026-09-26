@@ -9,7 +9,6 @@ participant "FastAPI\n(app.py)" as api
 participant "Signal Pipeline\n(pipeline.py)" as pipe
 participant "CAN Reader\n(reader.py)" as reader
 participant "CAN Simulator\n(simulator.py)" as sim
-participant "Storage\n(database.py)" as db
 
 cli -> runner : SIGTERM / SIGINT received
 activate runner #salmon
@@ -33,9 +32,6 @@ opt simulator running
     runner -> sim : stop simulator
     sim --> runner : Simulator stopped
 end
-
-runner -> db : close connection
-db --> runner : DB closed
 
 runner --> cli : Shutdown complete
 deactivate runner

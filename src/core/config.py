@@ -170,13 +170,6 @@ class DevModeConfig(BaseModel):
     # Allow Dev Mode to write signals without requiring COM_Status_*Can to be online.
 
 
-class StorageConfig(BaseModel):
-    """Configuration for persistent signal display metadata."""
-
-    sqlite_path: str = "data/config.db"
-    # Small SQLite file containing only the signal_config table
-
-
 class ProcessorConfig(BaseModel):
     """Configuration for the signal processing pipeline."""
 
@@ -299,8 +292,6 @@ class AppConfig(BaseModel):
     # Optional frontend-facing OMS classification derived from CAN occupant weight
     devmode: DevModeConfig = Field(default_factory=DevModeConfig)
     # Seat selection and signal writing configuration for Dev Mode
-    storage: StorageConfig = Field(default_factory=StorageConfig)
-    # Historical data storage configuration
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)
     # Signal processing pipeline configuration
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
