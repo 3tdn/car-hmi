@@ -7,7 +7,7 @@
 
 ## 1. End-to-end data flow overview
 
-The diagram below is a historical design snapshot. Its smoothing/alarm branches are no longer active; sections 3 and 6 describe the current pipeline and WebSocket contract.
+The diagram below describes the current realtime path. Signal samples are not persisted.
 
 
 ```
@@ -28,21 +28,18 @@ The diagram below is a historical design snapshot. Its smoothing/alarm branches 
 ┌─────────────────────────────────────────────┐
 │  SignalPipeline (processor/pipeline.py)     │
 │  ─────────────────────────────────────────  │
-│  Stage 1: SmoothingFilter                  │
-│  Stage 2: RateLimiter                      │
-│  Stage 3: ComputedSignals                  │
-│  Stage 4: AlarmChecker                     │
-└────────┬─────────────────────┬─────────────┘
-         │                     │
-         ▼                     ▼
-┌──────────────────┐  ┌────────────────────────┐
-│  SignalStore     │  │  SQLiteRepository       │
-│  (in-memory)     │  │  (storage/repository.py)│
-│  dict[str,       │  │                        │
-│    SignalValue]  │  │  signal_log table       │
-│                  │  │  (batch insert)         │
-│  Observer/PubSub │  │                        │
-└────────┬─────────┘  └────────────────────────┘
+│  Stage 1: RateLimiter                      │
+│  Stage 2: ComputedSignals                  │
+└────────┬────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│  SignalStore     │
+│  (in-memory)     │
+│  dict[str,       │
+│    SignalValue]  │
+│  Observer/PubSub │
+└────────┬─────────┘
          │ notify subscribers
          ▼
 ┌─────────────────────────────────────────────┐
@@ -117,8 +114,8 @@ _signal_to_msg: dict[str, int]        ← reverse index
 
 The runner installs `RateLimiter` followed by `ComputedSignals`. Both implement asynchronous
 `process()` methods. The pipeline drains at most `processor.batch_drain_size` frames per
-cycle, keeps the latest value per signal in the batch, publishes to SignalStore, and batches
-SQLite inserts. `processor.max_update_rate_hz` controls the rate-limiter stage.
+cycle, keeps the latest value per signal in the batch, and publishes to SignalStore.
+`processor.max_update_rate_hz` controls the rate-limiter stage.
 
 No smoothing stage is installed. AlarmChecker, alarm storage, and alarm REST/WebSocket
 routes are removed.
@@ -126,7 +123,7 @@ routes are removed.
 
 ## 4. Backpressure — Queue Policy
 
-When the pipeline processes more slowly than the CAN reader produces (e.g. CPU busy, DB slow):
+When the pipeline processes more slowly than the CAN reader produces (for example, CPU busy):
 
 | Policy | Behavior |
 |---|---|
@@ -142,28 +139,11 @@ POST /config/processor
 
 ---
 
-## 5. Storage — Batch Insert
+## 5. Realtime storage
 
-To avoid writing to the DB too often (once per signal update):
-
-```
-Signal updates → Buffer list[SignalRecord]
-                      │
-              Buffer full (batch_size=100)
-                   or
-              Timer tick (batch_interval_sec=2.0)
-                      │
-                      ▼
-              SQLite batch INSERT
-              (1 transaction: BEGIN/COMMIT/ROLLBACK)
-```
-
-**Config**:
-```yaml
-storage:
-  batch_size: 100
-  batch_interval_sec: 2.0
-```
+The latest value of each signal is kept in `SignalStore` and broadcast to subscribers. Signal
+samples are not buffered or written to disk. Read-only metadata is kept in the process-local
+`SignalMetadataCatalog` built from the active DBC files.
 
 ---
 
@@ -221,7 +201,7 @@ AppRunner.start()
     ├── _setup_logging()
     ├── DatabaseLoader.load_dbc()        ← load can[].can_db_file
     ├── SignalStore.bulk_update()      ← seed all signal names + units
-    ├── init_db() / SQLiteRepository  ← create tables if missing
+    ├── SignalMetadataCatalog.replace_from_loaders()
     ├── create_bus()                  ← open CAN interface
     ├── SignalPipeline + stages        ← RateLimiter + ComputedSignals
     ├── CANReader                     ← async producer
@@ -245,8 +225,7 @@ AppRunner.shutdown()
     ├── _shutting_down = True         ← stop watchdog + metrics loops
     ├── CANReader.stop()             ← drain queue, close bus
     ├── CANSimulator.stop()          ← if running
-    ├── SignalPipeline.flush()       ← flush remaining buffer to DB
-    ├── SQLiteRepository.close()     ← close DB connection
+    ├── SignalPipeline.stop()        ← stop realtime processing
     └── FastAPI shutdown             ← close WebSocket connections
 ```
 

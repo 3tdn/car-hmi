@@ -1,11 +1,8 @@
-"""REST routes for reading real-time signals and history, plus WebSocket push."""
+"""REST routes for reading real-time signals plus WebSocket push."""
 
 from __future__ import annotations
 
-import re
 import time
-from functools import lru_cache
-from pathlib import Path
 
 import can
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, status
@@ -31,7 +28,6 @@ from src.api.routes.profiles import (
 from src.api.websocket import ConnectionManager, SubscriptionTopic
 from src.can_io.writer import (
     CANWriteRejectedError,
-    is_message_writable_by_local_node,
 )
 from src.core.devmode_locks import get_seat_lock_registry
 
@@ -52,40 +48,6 @@ def _seat_lock_warning(signal_name: str, lock) -> dict:
         signal_name=signal_name,
         required_permission="write",
     )
-
-
-def _infer_signal_tags(signal_name: str) -> list[str]:
-    return [part for part in signal_name.split("_") if re.match(r'^[A-Z0-9]+$', part)]
-
-
-@lru_cache(maxsize=1)
-def _dbc_signal_configs() -> dict[str, dict]:
-    """Signal metadata (min/max/unit/writable/states/tag), merged from every can_db_file in system.json."""
-    from src.can_io.parser import DatabaseLoader
-    from src.core.config_manager import read_config
-
-    configs: dict[str, dict] = {}
-    for ch in read_config().get("can", []):
-        can_db_file = ch.get("can_db_file")
-        if not can_db_file or not Path(can_db_file).exists():
-            continue
-        loader = DatabaseLoader()
-        try:
-            loader.load_dbc(can_db_file)
-        except (FileNotFoundError, ValueError, RuntimeError):
-            continue
-        for msg in loader.messages.values():
-            writable = is_message_writable_by_local_node(msg)
-            for sig_name, sig in msg.signals.items():
-                configs.setdefault(sig_name, {
-                    "min_value": sig.minimum,
-                    "max_value": sig.maximum,
-                    "unit": sig.unit or None,
-                    "writable": writable,
-                    "states": sig.states or None,
-                    "tag": _infer_signal_tags(sig_name) or None,
-                })
-    return configs
 
 
 def _batch_access_context(request: Request, required: str) -> tuple[str | None, dict | None, list[dict]]:
@@ -166,15 +128,15 @@ async def list_available_signals(request: Request):
     """
     store = request.app.state.store
     snapshot = await store.get_snapshot()
-    signal_configs = _dbc_signal_configs()
+    metadata = request.app.state.signal_metadata.snapshot()
 
     items: list[SignalMetadata] = []
     # Merge all known signal names from store + config
-    all_names = set(snapshot.keys()) | set(signal_configs.keys())
+    all_names = set(snapshot.keys()) | set(metadata.keys())
 
     for name in sorted(all_names):
         sv = snapshot.get(name)
-        sig_cfg = signal_configs.get(name, {})
+        sig_cfg = metadata.get(name, {})
         std_name = name
 
         items.append(
@@ -213,32 +175,6 @@ async def get_signal(signal_name: str, request: Request):
         unit=getattr(sv, "unit", None),
         timestamp=sv.timestamp,
     )
-
-
-@router.get(
-    "/{signal_name}/history",
-    response_model=SignalListResponse,
-    summary="Query signal history from DB",
-)
-async def get_signal_history(
-    signal_name: str,
-    request: Request,
-    start: float | None = Query(None),
-    end: float | None = Query(None),
-    limit: int = Query(100, ge=1, le=10_000),
-    offset: int = Query(0, ge=0),
-):
-    repo = request.app.state.repo
-    records = await repo.query_signals(
-        signal_name=signal_name, start=start, end=end, limit=limit, offset=offset
-    )
-    items = [
-        SignalValueResponse(
-            signal_name=r.signal_name, value=r.value, unit=r.unit, timestamp=r.timestamp
-        )
-        for r in records
-    ]
-    return SignalListResponse(items=items, total=len(items))
 
 
 @router.put(

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime
-from pathlib import Path
 import signal
 import threading
 import time
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
 from typing import Generator
 
 import pytest
-
 
 REPORT_DEFAULT = "./reports/test_case_realtime_vi.log"
 CASE_TIMEOUT_SECONDS = 300
@@ -89,7 +88,6 @@ def _describe_test_case_vi(item: pytest.Item) -> str:
         "bus": "CAN bus",
         "parser": "parser",
         "processor": "processor",
-        "storage": "storage",
         "core": "core",
     }
 

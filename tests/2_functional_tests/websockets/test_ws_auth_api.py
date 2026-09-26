@@ -3,35 +3,13 @@
 from __future__ import annotations
 
 import json
-import time
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
-from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
-
-
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, r):
-        pass
-
-    async def insert_signals_bulk(self, records):
-        pass
-
-    async def delete_old_signals(self, o):
-        return 0
-
-    async def get_signal_config(self, signal_name):
-        return None
-
-    async def upsert_signal_config(self, record):
-        pass
 
 
 class _FakeReader:
@@ -74,15 +52,16 @@ def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_pa
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
 
 def test_ws_subscribe_allows_signal_outside_profile(monkeypatch, tmp_path):
     """Subscribe accepts received signals outside the TX profile scope."""
-    import src.api.routes.profiles as profile_routes
     from starlette.testclient import TestClient
+
+    import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
     _write_profiles(
@@ -98,7 +77,7 @@ def test_ws_subscribe_allows_signal_outside_profile(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
+    app = create_app(store, api_key="ws-secret")
     with TestClient(app) as sc:
         with sc.websocket_connect("/ws/signals?api_key=ws-secret&profile_name=viewer") as ws:
             ws.send_text(json.dumps({"type": "subscribe", "signals": ["FuelLevel"]}))
@@ -113,7 +92,7 @@ def test_ws_auth_rejected_without_key():
     from starlette.testclient import TestClient
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
+    app = create_app(store, api_key="ws-secret")
     with TestClient(app, raise_server_exceptions=False) as sc:
         with pytest.raises(Exception):
             with sc.websocket_connect("/ws/signals") as ws:
@@ -124,9 +103,9 @@ def test_ws_auth_accepted_with_valid_key():
     from starlette.testclient import TestClient
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="ws-secret")
+    app = create_app(store, api_key="ws-secret")
     with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/signals?api_key=ws-secret") as ws:
+        with sc.websocket_connect("/ws/signals?api_key=ws-secret"):
             pass  # connection established — no exception raised
 
 def test_ws_no_auth_when_disabled():
@@ -134,15 +113,16 @@ def test_ws_no_auth_when_disabled():
     from starlette.testclient import TestClient
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     with TestClient(app) as sc:
-        with sc.websocket_connect("/ws/signals") as ws:
+        with sc.websocket_connect("/ws/signals"):
             pass  # should connect without any key
 
 def test_ws_subscribe_signal_payload_format(monkeypatch, tmp_path):
     """WS signal frame uses timestamp + signals[{name,std_name,value}] format."""
-    import src.api.routes.profiles as profile_routes
     from starlette.testclient import TestClient
+
+    import src.api.routes.profiles as profile_routes
 
     profiles_path = tmp_path / "profiles.json"
     _write_profiles(
@@ -158,7 +138,7 @@ def test_ws_subscribe_signal_payload_format(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     mgr = app.state.ws_manager
 
     with TestClient(app) as sc:

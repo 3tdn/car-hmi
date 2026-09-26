@@ -1,7 +1,7 @@
 # 02 — API Reference and Frontend Integration
 
-Verified against the registered backend routes on 2026-09-19: **54 HTTP operations
-(48 operations plus 6 system aliases) and 3 WebSocket endpoints**.
+Verified against the registered backend routes on 2026-09-26: **52 HTTP operations
+(46 operations plus 6 system aliases) and 3 WebSocket endpoints**.
 
 Use the [complete English API reference](../docs/api_reference.md) for all request
 parameters, bodies, response formats, exact error messages, and curl examples.
@@ -33,11 +33,9 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | GET | `/signals/available` | List all available signals with metadata |
 | GET | `/signals/{signal_name}` | Get latest value for one signal |
 | PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
-| GET | `/signals/{signal_name}/history` | Query signal history from DB |
 | POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
 | GET | `/config` | List all signal configurations |
 | GET | `/config/signal/{signal_name}` | Get config for one signal |
-| PATCH | `/config/signal/{signal_name}` | Update signal config |
 | GET | `/config/processor` | Get processor config |
 | POST | `/config/processor` | Update processor config |
 | GET | `/config/system` | Get system config and field update policy |

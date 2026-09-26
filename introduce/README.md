@@ -12,7 +12,7 @@
 - **Reading** real-time signals from vehicle ECUs over **CAN Bus** (CAN 2.0B protocol)
 - **Decoding** CAN frames into physical signal values according to the configured DBC file (`can[].can_db_file`; for example `VehicleSpeed`, `EngineRPM`, `BrakePressure`)
 - **Processing**: limiting update rate, calculating derived signals, coalescing ingress updates, and controlling queue backpressure
-- **Storing** time series in SQLite, with support for historical queries
+- **Keeping** the latest decoded signal values in the in-memory `SignalStore`
 - **Serving** REST API + WebSocket (FastAPI) for the frontend web dashboard to display real-time data
 - **Writing back** signals to the CAN Bus when the user changes parameters from the UI
 
@@ -28,7 +28,7 @@ The system is designed to run **without real hardware** thanks to the built-in *
 | Read → WebSocket latency | ≤ 50 ms |
 | Processing rate | ≥ 1 000 signal updates/second |
 | Maximum queue size | 10 000 frame |
-| Storage | SQLite, default retention 30 days |
+| Signal state | Realtime values and DBC metadata are process-local and in memory |
 | Deployment | systemd service (`can-hmi.service`) or Docker |
 
 ---
@@ -44,14 +44,15 @@ CAN channels / Simulator
           |
     RateLimiter -> ComputedSignals
           |
-    SignalStore + SQLite batch persistence
+    SignalStore (in-memory realtime values)
           |
     FastAPI REST + WebSocket -> Web dashboard
 ```
 
-The current pipeline does not install smoothing or alarm stages. Alarm APIs and the
-`alarm_log` schema are historical designs. New databases contain `signal_log` and
-`signal_config`; there is no REST export route. See the [current API reference](../docs/api_reference.md).
+The current pipeline does not install smoothing or alarm stages and does not persist signal
+samples or signal metadata. Metadata is rebuilt from the active DBC files at process startup;
+there is no signal-history or REST export route. See the
+[current API reference](../docs/api_reference.md).
 
 
 ## 4. Main modules
@@ -61,7 +62,7 @@ The current pipeline does not install smoothing or alarm stages. Alarm APIs and 
 | **CAN I/O** | `src/can_io/` | Read/write CAN frames, decode/encode from configured DBC files |
 | **Signal Processor** | `src/processor/` | RateLimiter and ComputedSignals pipeline |
 | **Signal Store** | `src/core/signal_store.py` | In-memory cache, Observer pattern |
-| **Storage** | `src/storage/` | SQLite repository, time-series history; internal CSV/JSON exporter |
+| **Signal Metadata** | `src/core/signal_metadata.py` | Read-only in-memory catalog built from active DBC loaders |
 | **FastAPI Backend** | `src/api/` | REST routes, WebSocket, auth |
 | **CAN Simulator** | `src/can_simulator/` | DBC-driven random signal simulator |
 | **Config Manager** | `src/core/config_manager.py` | JSON configuration and field-policy management |

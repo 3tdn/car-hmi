@@ -9,16 +9,11 @@ from src.api.app import create_app
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-
 @pytest.mark.asyncio
 async def test_signal_lookup_with_injection_payload_does_not_crash():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
 
     payload = "' OR 1=1 --"
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

@@ -10,28 +10,11 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.can_io.parser import DatabaseLoader
 from src.can_io.writer import CANWriteRejectedError
+from src.core.config import AppConfig, load_json_with_defaults
+from src.core.signal_metadata import SignalMetadataCatalog
 from src.core.signal_store import SignalStore
-
-
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, r):
-        pass
-
-    async def insert_signals_bulk(self, records):
-        pass
-
-    async def delete_old_signals(self, o):
-        return 0
-
-    async def get_signal_config(self, signal_name):
-        return None
-
-    async def upsert_signal_config(self, record):
-        pass
 
 
 class _FakeReader:
@@ -95,7 +78,17 @@ def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_pa
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    loaders = []
+    config = AppConfig.model_validate(
+        load_json_with_defaults("config/system.json", "config/system_bk.json")
+    )
+    for channel in config.can:
+        loader = DatabaseLoader()
+        loader.load_dbc(channel.can_db_file)
+        loaders.append(loader)
+    metadata = SignalMetadataCatalog()
+    metadata.replace_from_loaders(loaders)
+    app = create_app(store, signal_metadata=metadata, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -106,6 +99,16 @@ async def test_get_signal_not_found(client):
     resp = await client.get("/signals/Unknown", headers={"X-API-Key": "test-key"})
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Signal 'Unknown' not found"
+
+
+@pytest.mark.asyncio
+async def test_signal_history_endpoint_is_removed(client):
+    response = await client.get(
+        "/signals/VehicleSpeed/history",
+        headers={"X-API-Key": "test-key"},
+    )
+
+    assert response.status_code == 404
 
 async def test_available_signals_requires_auth(client):
     resp = await client.get("/signals/available")
@@ -148,7 +151,7 @@ async def test_write_signal_requires_write_permission(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
@@ -181,7 +184,7 @@ async def test_write_signal_allows_write_permission(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
@@ -214,7 +217,7 @@ async def test_wildcard_full_profile_allows_any_signal(monkeypatch, tmp_path):
 
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         read_resp = await c.get(
@@ -249,7 +252,7 @@ async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
@@ -269,7 +272,7 @@ async def test_write_signal_allows_dev_mode_override(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_write_signal_rejects_non_tx_message_with_dbc_context():
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _NonTxRejectingWriter()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -289,7 +292,7 @@ async def test_write_signal_rejects_non_tx_message_with_dbc_context():
 @pytest.mark.asyncio
 async def test_batch_write_rejects_non_tx_messages_with_dbc_context():
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _NonTxRejectingWriter()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -327,7 +330,7 @@ async def test_batch_write_filters_signals_outside_profile_scope(monkeypatch, tm
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     app.state.writer.send_signals_batch = AsyncMock(wraps=app.state.writer.send_signals_batch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -385,7 +388,7 @@ async def test_batch_write_rejects_unresolved_or_disallowed_profile(
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", tmp_path / "sessions.json")
 
-    app = create_app(SignalStore(), _FakeRepo(), api_key="test-key")
+    app = create_app(SignalStore(), api_key="test-key")
     app.state.writer = _FakeWriter()
     app.state.writer.send_signals_batch = AsyncMock(wraps=app.state.writer.send_signals_batch)
     headers = {"X-API-Key": "test-key"}

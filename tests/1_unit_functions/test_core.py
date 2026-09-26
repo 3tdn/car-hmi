@@ -6,27 +6,35 @@ import json
 
 import pytest
 
-from src.core.config import AppConfig, CANConfig, apply_environment_overrides, load_config
+from src.core.config import (
+    AppConfig,
+    CANConfig,
+    apply_environment_overrides,
+    load_config,
+    load_json_with_defaults,
+)
 from src.core.signal_store import SignalStore
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
 
 def test_load_config_from_file():
-    """Load the project's system.json and validate it produces AppConfig."""
+    """Load the project's system config, including its backup fallback."""
     from pathlib import Path
 
-    if not Path("config/system.json").exists():
-        pytest.skip("config/system.json not found")
-    cfg = load_config("config/system.json")
+    raw = load_json_with_defaults(
+        Path("config/system.json"),
+        Path("config/system_bk.json"),
+    )
+    cfg = AppConfig.model_validate(raw)
     assert isinstance(cfg, AppConfig)
     assert isinstance(cfg.can, list)
     assert len(cfg.can) >= 1
-    raw = json.loads(Path("config/system.json").read_text())
     assert cfg.can[0].interface == raw["can"][0]["interface"]
     assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
     assert cfg.reader.frequency_piority == pytest.approx(1.0)
+    assert not hasattr(cfg, "storage")
 
 
 def test_can_config_defaults():
@@ -34,6 +42,12 @@ def test_can_config_defaults():
     assert cfg.bitrate == 500_000
     assert cfg.can_db_file == "db/can_db/p_v2.dbc"
     assert cfg.channel_tracking_signals == []
+
+
+def test_can_config_normalizes_legacy_cansocket_alias():
+    cfg = CANConfig(interface="cansocket", channel="can0")
+
+    assert cfg.interface == "socketcan"
 
 
 @pytest.mark.parametrize("signals", [[""], ["  "], [123], "COM_Status_ElkCan"])
@@ -140,7 +154,6 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path, t
         camera={"enabled": False},
         status_monitor={"enabled": False},
         supervisor={"watchdog_interval_sec": 0},
-        storage={"sqlite_path": str(tmp_path / "signals.db")},
     )
     runner = AppRunner(cfg)
 
@@ -188,6 +201,96 @@ def test_load_config_missing_file(tmp_path):
         load_config(str(tmp_path / "nope.json"))
 
 
+def test_load_config_uses_backup_when_primary_is_missing(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    backup.write_text(
+        json.dumps({"api": {"host": "127.0.0.1", "port": 8123}}),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.host == "127.0.0.1"
+    assert cfg.api.port == 8123
+    assert json.loads(primary.read_text(encoding="utf-8"))["api"] == {
+        "host": "127.0.0.1",
+        "port": 8123,
+    }
+
+
+def test_load_config_fills_missing_nested_fields_from_backup(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text(json.dumps({"api": {"port": 9000}}), encoding="utf-8")
+    backup.write_text(
+        json.dumps(
+            {
+                "api": {"host": "127.0.0.1", "port": 8123},
+                "reader": {"only_send_signal_update": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.host == "127.0.0.1"
+    assert cfg.api.port == 9000
+    assert cfg.reader.only_send_signal_update is True
+    repaired = json.loads(primary.read_text(encoding="utf-8"))
+    assert repaired["api"] == {"host": "127.0.0.1", "port": 9000}
+    assert repaired["reader"]["only_send_signal_update"] is True
+
+
+def test_load_config_fills_fields_inside_matching_list_items(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text(
+        json.dumps({"can": [{"channel": "can0", "bitrate": 250000}]}),
+        encoding="utf-8",
+    )
+    backup.write_text(
+        json.dumps(
+            {
+                "can": [
+                    {
+                        "interface": "socketcan",
+                        "channel": "can0",
+                        "bitrate": 500000,
+                        "can_db_file": "backup.dbc",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.can[0].interface == "socketcan"
+    assert cfg.can[0].bitrate == 250000
+    assert cfg.can[0].can_db_file == "backup.dbc"
+    repaired = json.loads(primary.read_text(encoding="utf-8"))
+    assert repaired["can"][0]["interface"] == "socketcan"
+    assert repaired["can"][0]["can_db_file"] == "backup.dbc"
+
+
+def test_load_config_repairs_invalid_primary_from_backup(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text('{"api":', encoding="utf-8")
+    backup.write_text(
+        json.dumps({"api": {"host": "127.0.0.1", "port": 8123}}),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.port == 8123
+    assert json.loads(primary.read_text(encoding="utf-8"))["api"]["port"] == 8123
+
+
 def test_load_config_custom(tmp_path):
     """Load a minimal custom config."""
     cfg_file = tmp_path / "test.json"
@@ -203,7 +306,6 @@ def test_load_config_custom(tmp_path):
                     }
                 ],
                 "api": {"host": "127.0.0.1", "port": 9000},
-                "storage": {"sqlite_path": str(tmp_path / "test.db")},
                 "reader": {"only_send_signal_update": True},
             }
         )
@@ -213,6 +315,83 @@ def test_load_config_custom(tmp_path):
     assert cfg.api.port == 9000
     assert cfg.reader.frequency_piority == pytest.approx(0.0)
     assert cfg.reader.only_send_signal_update is True
+
+
+def test_api_socket_reservation_rejects_duplicate_listener():
+    from src.core.runner import _reserve_api_socket
+
+    first = _reserve_api_socket("127.0.0.1", 0)
+    try:
+        port = int(first.getsockname()[1])
+        with pytest.raises(OSError):
+            _reserve_api_socket("127.0.0.1", port)
+    finally:
+        first.close()
+
+
+@pytest.mark.asyncio
+async def test_runtime_task_failure_triggers_shutdown():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    keep_running = asyncio.create_task(asyncio.Event().wait(), name="pipeline")
+
+    async def api_task():
+        await asyncio.sleep(0)
+        raise RuntimeError("API crashed")
+
+    api = asyncio.create_task(api_task(), name="api")
+    tasks = (keep_running, api)
+
+    async def shutdown_tasks():
+        runner._shutting_down = True
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    runner.shutdown = AsyncMock(side_effect=shutdown_tasks)
+
+    with pytest.raises(RuntimeError, match="failed: API crashed"):
+        await runner._wait_for_runtime_tasks(tasks)
+
+    runner.shutdown.assert_awaited_once()
+    assert keep_running.done()
+
+
+@pytest.mark.asyncio
+async def test_runtime_task_unexpected_exit_triggers_shutdown():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from src.core.runner import AppRunner
+
+    runner = AppRunner(AppConfig())
+    keep_running = asyncio.create_task(asyncio.Event().wait(), name="pipeline")
+
+    async def api_task():
+        await asyncio.sleep(0)
+
+    api = asyncio.create_task(api_task(), name="api")
+    tasks = (keep_running, api)
+
+    async def shutdown_tasks():
+        runner._shutting_down = True
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    runner.shutdown = AsyncMock(side_effect=shutdown_tasks)
+
+    with pytest.raises(RuntimeError, match="Task 'api' exited unexpectedly"):
+        await runner._wait_for_runtime_tasks(tasks)
+
+    runner.shutdown.assert_awaited_once()
+    assert keep_running.done()
 
 
 def test_environment_overrides_render_port_and_api_key():
@@ -527,7 +706,6 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
             "queue_policy": "drop_oldest",
             "batch_drain_size": 99,
         },
-        storage={"batch_size": 12, "batch_interval_sec": 0.4},
         reader={
             "frequency_piority": 2.0,
             "only_send_signal_update": True,
@@ -551,7 +729,6 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     changed = [
         "processor.max_update_rate_hz",
         "processor.queue_policy",
-        "storage.batch_size",
         "reader.frequency_piority",
         "reader.only_send_signal_update",
         "reader.stale_threshold_sec",
@@ -565,7 +742,10 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     result = await runner.apply_system_config(updated, changed)
 
     assert result["applied"] == changed
-    assert pipeline.calls[-1][1]["batch_size"] == 12
+    assert pipeline.calls[-1][1] == {
+        "queue_policy": "drop_oldest",
+        "batch_drain_size": 99,
+    }
     assert reader.calls[-1][1]["priority_sec"] == 2.0
     assert writer.calls[-1][0] == (updated.writer,)
     assert rate.max_hz == 25.0

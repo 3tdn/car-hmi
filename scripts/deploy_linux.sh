@@ -67,9 +67,13 @@ if [[ ! -x "${VENV_BIN}" ]]; then
 fi
 
 CONFIG_FILE="${PROJECT_DIR}/config/system.json"
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    err "Config not found: ${CONFIG_FILE}"
+CONFIG_BACKUP_FILE="${PROJECT_DIR}/config/system_bk.json"
+if [[ ! -f "${CONFIG_FILE}" && ! -f "${CONFIG_BACKUP_FILE}" ]]; then
+    err "Config not found: ${CONFIG_FILE} or ${CONFIG_BACKUP_FILE}"
     exit 1
+fi
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+    warn "Primary config not found; runtime will recreate it from ${CONFIG_BACKUP_FILE}."
 fi
 
 # ── Create data/ and logs/ if they do not exist ───────────────────────────────

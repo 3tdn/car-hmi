@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-Verified against the backend and bundled frontend on 2026-09-23. See the [complete API reference](api_reference.md) for all 54 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
+Verified against the backend and bundled frontend on 2026-09-26. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
 ## Backend URL and authentication
 
@@ -164,7 +164,7 @@ The bundled profile selector and Profile Manager send `X-Dev-Mode: true` when se
 5. Send `POST /api/profile/heartbeat` while online. It has no body and requires `X-Client-Id`; choose an interval below the configured session TTL.
 6. On explicit disconnect or page teardown, send `POST /api/profile/offline` with the same client ID. It releases owned Dev Mode locks. A `fetch` with `keepalive: true` preserves custom headers; unload delivery is best effort and TTL remains the fallback. Stop heartbeat timers after disconnect so they do not mark the session online again.
 
-Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Profiles restrict TX only: a signal needs `write` or `full` permission to be transmitted. All signal values, metadata, history, and RX subscriptions are readable regardless of profile entries, including for an empty profile. RX-only signals do not need to be added. The legacy `read` permission remains accepted but is not required for signal reads. Do not treat a client-side whitelist as backend authorization.
+Profile updates require the latest `section_id` from GET to prevent stale edits. PUT replaces the `signals` array. Omitted `exinfo` is retained; omitted/null `description` becomes null in the current implementation. Profiles restrict TX only: a signal needs `write` or `full` permission to be transmitted. All current signal values, metadata, and RX subscriptions are readable regardless of profile entries, including for an empty profile. RX-only signals do not need to be added. The legacy `read` permission remains accepted but is not required for signal reads. Do not treat a client-side whitelist as backend authorization.
 
 ## Dev Mode and seat locks
 

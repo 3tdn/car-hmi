@@ -30,7 +30,6 @@ async def test_rate_limiter_drops_fast_updates():
 
 def test_pipeline_and_rate_limiter_apply_runtime_config():
     import asyncio
-    from unittest.mock import AsyncMock
 
     from src.core.signal_store import SignalStore
     from src.processor.filters import RateLimiter
@@ -39,21 +38,16 @@ def test_pipeline_and_rate_limiter_apply_runtime_config():
     pipeline = SignalPipeline(
         input_queue=asyncio.Queue(maxsize=10),
         signal_store=SignalStore(),
-        repository=AsyncMock(),
     )
     limiter = RateLimiter(max_hz=10.0)
 
     pipeline.apply_runtime_config(
         queue_policy="drop_oldest",
-        batch_size=12,
-        batch_interval_sec=0.4,
         batch_drain_size=99,
     )
     limiter.set_max_hz(25.0)
 
     assert pipeline._policy == "drop_oldest"
-    assert pipeline._batch_size == 12
-    assert pipeline._batch_interval == pytest.approx(0.4)
     assert pipeline._batch_drain_size == 99
     assert limiter._min_interval == pytest.approx(0.04)
 
@@ -156,7 +150,6 @@ async def test_oms_classification_only_updates_target_with_available_weight():
 @pytest.mark.asyncio
 async def test_oms_classification_pipeline_publishes_derived_value_to_store():
     import asyncio
-    from unittest.mock import AsyncMock
 
     from src.core.signal_store import SignalStore
     from src.processor.computed import OMSClassificationProcessor
@@ -166,7 +159,6 @@ async def test_oms_classification_pipeline_publishes_derived_value_to_store():
     pipeline = SignalPipeline(
         input_queue=asyncio.Queue(),
         signal_store=store,
-        repository=AsyncMock(),
     )
     pipeline.add_stage(
         OMSClassificationProcessor(
@@ -201,56 +193,7 @@ async def test_rate_limiter_allows_after_interval():
 
 
 @pytest.mark.asyncio
-async def test_pipeline_unit_stored_in_db(tmp_path):
-    """Units seeded into SignalStore should be persisted to the DB via pipeline."""
-    import asyncio
-    import time
-
-    from src.can_io.reader import DecodedFrame, RawCANFrame
-    from src.core.signal_store import SignalStore
-    from src.processor.pipeline import SignalPipeline
-    from src.storage.database import init_db
-    from src.storage.repository import SQLiteRepository
-
-    conn = await init_db(str(tmp_path / "test.db"))
-    repo = SQLiteRepository(conn)
-    store = SignalStore()
-
-    # Pre-seed unit for EngineRPM
-    await store.update("EngineRPM", 0.0, unit="rpm")
-
-    queue: asyncio.Queue = asyncio.Queue(maxsize=10)
-    pipeline = SignalPipeline(
-        input_queue=queue,
-        signal_store=store,
-        repository=repo,
-        batch_size=1,
-        batch_interval_sec=60.0,
-    )
-    task = asyncio.create_task(pipeline.start())
-
-    raw = RawCANFrame(
-        timestamp=time.time(), bus="test", msg_id=1, is_extended=False, is_fd=False, data=bytes(8)
-    )
-    frame = DecodedFrame(raw=raw, signals={"EngineRPM": 1000.0})
-    await queue.put(frame)
-    await asyncio.sleep(0.4)
-
-    records = await repo.query_signals(signal_name="EngineRPM")
-    assert len(records) >= 1
-    assert records[0].unit == "rpm"
-
-    pipeline.stop()
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    await conn.close()
-
-
-@pytest.mark.asyncio
-async def test_pipeline_keeps_latest_signal_value(tmp_path):
+async def test_pipeline_keeps_latest_signal_value():
     """When multiple updates for the same signal are queued, only the latest value should survive."""
     import asyncio
     import time
@@ -258,20 +201,12 @@ async def test_pipeline_keeps_latest_signal_value(tmp_path):
     from src.can_io.reader import DecodedFrame, RawCANFrame
     from src.core.signal_store import SignalStore
     from src.processor.pipeline import SignalPipeline
-    from src.storage.database import init_db
-    from src.storage.repository import SQLiteRepository
-
-    conn = await init_db(str(tmp_path / "test.db"))
-    repo = SQLiteRepository(conn)
     store = SignalStore()
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=10)
     pipeline = SignalPipeline(
         input_queue=queue,
         signal_store=store,
-        repository=repo,
-        batch_size=100,
-        batch_interval_sec=60.0,
     )
 
     for value in (10.0, 20.0, 30.0):
@@ -298,18 +233,11 @@ async def test_pipeline_keeps_latest_signal_value(tmp_path):
     assert latest.value == pytest.approx(30.0)
 
     pipeline.stop()
-    await pipeline.flush()
-
-    records = await repo.query_signals(signal_name="EngineRPM")
-    assert len(records) == 1
-    assert records[0].value == pytest.approx(30.0)
-
     task.cancel()
     try:
         await task
     except asyncio.CancelledError:
         pass
-    await conn.close()
 
 
 @pytest.mark.asyncio
@@ -317,7 +245,6 @@ async def test_pipeline_respects_batch_drain_size():
     """A large backlog should be processed in bounded batches, not drained all at once."""
     import asyncio
     import time
-    from unittest.mock import AsyncMock
 
     from src.can_io.reader import DecodedFrame, RawCANFrame
     from src.core.signal_store import SignalStore
@@ -325,13 +252,9 @@ async def test_pipeline_respects_batch_drain_size():
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=10)
     store = SignalStore()
-    repo = AsyncMock()
     pipeline = SignalPipeline(
         input_queue=queue,
         signal_store=store,
-        repository=repo,
-        batch_size=100,
-        batch_interval_sec=60.0,
         batch_drain_size=2,
     )
     seen_batches: list[dict[str, float]] = []
@@ -365,20 +288,15 @@ async def test_pipeline_respects_batch_drain_size():
 async def test_pipeline_stop_while_idle():
     """Pipeline.stop() should exit cleanly even when queue is empty."""
     import asyncio
-    from unittest.mock import AsyncMock
 
     from src.core.signal_store import SignalStore
     from src.processor.pipeline import SignalPipeline
 
-    repo = AsyncMock()
     store = SignalStore()
     queue: asyncio.Queue = asyncio.Queue(maxsize=10)
     pipeline = SignalPipeline(
         input_queue=queue,
         signal_store=store,
-        repository=repo,
-        batch_size=100,
-        batch_interval_sec=60.0,
     )
     task = asyncio.create_task(pipeline.start())
     await asyncio.sleep(0.1)  # let pipeline settle in idle loop

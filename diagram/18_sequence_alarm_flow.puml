@@ -1,12 +1,11 @@
 @startuml
-title Sequence — Alarm Detection & Notification
+title PROPOSED — Alarm Detection & Notification (not implemented)
 actor Vehicle
 participant "CAN Bus" as CANBus
 participant "CANReader" as CANReader
 participant "SignalPipeline" as Pipeline
 participant "AlarmChecker" as AlarmChecker
 participant "AppRunner\n_on_alarm()" as Runner
-participant "Repository" as Repo
 participant "WebSocket Manager" as WS
 participant Frontend
 participant API
@@ -22,8 +21,6 @@ alt alarm triggered
     AppRunner registers _on_alarm()
     as the handler when creating AlarmChecker
   end note
-  Runner -> Repo: insert_alarm(alarm_record)
-  Repo -> Repo: persist alarm
   Runner -> WS: broadcast_alarm(alarm_payload)
   WS -> Frontend: push alarm notification
 else no alarm
@@ -32,7 +29,6 @@ end
 
 == Acknowledge flow ==
 Frontend -> API: POST /alarms/{id}/acknowledge
-API -> Repo: set acknowledged=true
 API -> WS: broadcast alarm_update (acknowledged)
 WS -> Frontend: push alarm update
 

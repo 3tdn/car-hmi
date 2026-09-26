@@ -4,7 +4,7 @@ title System Startup — Arch Flow
 actor "Admin\n(CLI)" as Admin
 participant "Runner\n(AppRunner)" as Runner
 participant "Config" as Config
-participant "DB" as DB
+participant "Metadata Catalog" as Metadata
 participant "CAN Layer" as CAN
 participant "Pipeline" as Pipeline
 participant "API" as API
@@ -13,8 +13,8 @@ participant "API" as API
 Admin -> Runner : start(config_path)
 Runner -> Config : load(system.json, alarms.json)
 Runner -> Config : validate schema
-Runner -> DB : init_db() + schema
 Runner -> CAN : per-channel: load DB, init CANReader
+Runner -> Metadata : replace catalog from loaded DBCs
 Runner -> Pipeline : create + add stages
 Runner -> API : create_app(config)
 Runner -> Runner : asyncio.create_task(all)

@@ -14,11 +14,6 @@ from src.api.app import create_app
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-
 async def _build_client(monkeypatch, tmp_path, *, initial_signals=None, video_names=()):
     import src.api.routes.restraints as restraints_route
 
@@ -31,7 +26,7 @@ async def _build_client(monkeypatch, tmp_path, *, initial_signals=None, video_na
         await store.update(name, value)
 
     # api_key="" — the route has no auth dependency (see app.py), so leave it empty for brevity.
-    app = create_app(store, _FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
