@@ -58,7 +58,7 @@ end
 == Write to CAN Bus ==
 api -> store : get("BrakePressure")
 store --> api : SignalValue{value=current}
-api -> api : verify signal is writable\n(from signal_config)
+api -> api : verify message TX ownership\n(from loaded DBC)
 alt signal not writable
     api --> dash : 400 {"error":{"code":"SIGNAL_NOT_WRITABLE","status":400}}
 end

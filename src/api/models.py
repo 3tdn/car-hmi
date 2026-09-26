@@ -138,16 +138,6 @@ class SignalConfigResponse(BaseModel):
     writable: bool = Field(False, description="Whether the signal is writable")
 
 
-class UpdateSignalConfigRequest(BaseModel):
-    """Request to update a partial signal configuration (PATCH)."""
-
-    unit: str | None = Field(None, description="New measurement unit")
-    min_value: float | None = Field(None, description="New minimum value")
-    max_value: float | None = Field(None, description="New maximum value")
-    widget_type: str | None = Field(None, description="New widget type")
-    writable: bool | None = Field(None, description="Allow writes or not")
-
-
 # ── System / health models ────────────────────────────────────────────────
 
 
@@ -157,7 +147,6 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Overall status: 'ok', 'degraded', or 'error'")
     uptime_seconds: float = Field(..., description="Number of seconds the system has been running continuously")
     bus_connected: bool = Field(..., description="True if the CAN bus connection is active")
-    db_connected: bool = Field(..., description="True if the database connection is active")
 
 
 class ReadinessResponse(BaseModel):
@@ -442,7 +431,6 @@ class SystemInfoResponse(BaseModel):
     description: str = Field(..., description="Description")
     uptime_seconds: float = Field(..., description="Uptime (seconds)")
     bus_connected: bool = Field(..., description="Whether the CAN bus is connected")
-    db_connected: bool = Field(..., description="Whether the database is connected")
     signal_count: int = Field(..., description="Number of signals currently in the store")
 
 

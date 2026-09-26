@@ -9,17 +9,11 @@ from src.api.app import create_app
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wildcard", ["*", "x"])
 async def test_cors_origins_allows_ipv4_wildcards_on_port_5173(wildcard):
     app = create_app(
         SignalStore(),
-        _FakeRepo(),
         cors_origins=[
             "http://localhost:5173",
             f"http://192.168.{wildcard}.{wildcard}:5173",
@@ -60,7 +54,6 @@ async def test_cors_origins_allows_ipv4_wildcards_on_port_5173(wildcard):
 async def test_cors_origins_wildcard_rejects_other_subnets_ports_and_schemes(origin):
     app = create_app(
         SignalStore(),
-        _FakeRepo(),
         cors_origins=["http://192.168.*.*:5173"],
     )
     headers = {"Origin": origin, "Access-Control-Request-Method": "GET"}

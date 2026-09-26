@@ -18,28 +18,6 @@ from src.core.devmode_locks import reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
-class FakeRepo:
-    """Fake repository — scenario tests do not need real SQLite persistence."""
-
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, _record):
-        pass
-
-    async def insert_signals_bulk(self, _records):
-        pass
-
-    async def delete_old_signals(self, _older_than):
-        return 0
-
-    async def get_signal_config(self, _signal_name):
-        return None
-
-    async def upsert_signal_config(self, _record):
-        pass
-
-
 class FakeWriter:
     """Fake CAN writer — records every write so tests can assert it later."""
 
@@ -112,7 +90,7 @@ async def build_app(
     for name, value in (initial_signals or {}).items():
         await store.update(name, value, timestamp=now)
 
-    app = create_app(store, FakeRepo(), api_key=api_key)
+    app = create_app(store, api_key=api_key)
     writer = FakeWriter()
     writer.unavailable_signals = unavailable_signals or set()
     app.state.writer = writer

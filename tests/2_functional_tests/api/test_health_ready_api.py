@@ -13,26 +13,6 @@ from src.api.app import create_app
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, r):
-        pass
-
-    async def insert_signals_bulk(self, records):
-        pass
-
-    async def delete_old_signals(self, o):
-        return 0
-
-    async def get_signal_config(self, signal_name):
-        return None
-
-    async def upsert_signal_config(self, record):
-        pass
-
-
 class _FakeReader:
     def __init__(self, *, thread_alive: bool, last_frame_timestamp: float, fatal_error: str | None = None):
         self._state = {
@@ -92,7 +72,7 @@ def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_pa
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -107,7 +87,7 @@ async def test_health_endpoint(client):
 
 async def test_http_activity_notifies_can_reconnect():
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     runner = _FakeRunner()
     app.state.runner = runner
 
@@ -126,7 +106,7 @@ def test_websocket_connect_and_message_notify_can_reconnect():
     from starlette.testclient import TestClient
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="")
+    app = create_app(store, api_key="")
     runner = _FakeRunner()
     app.state.runner = runner
 
@@ -147,7 +127,6 @@ async def test_health_endpoint_error_on_reader_fatal():
     now = time.time()
     app = create_app(
         store,
-        _FakeRepo(),
         can_readers=[_FakeReader(thread_alive=False, last_frame_timestamp=now - 120.0, fatal_error="reconnect_failed")],
         api_key="",
     )
@@ -162,7 +141,6 @@ async def test_ready_false_when_reader_frames_stale():
     now = time.time()
     app = create_app(
         store,
-        _FakeRepo(),
         can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=now - 120.0, fatal_error=None)],
         api_key="",
     )
@@ -179,7 +157,6 @@ async def test_ready_ignores_frame_age_when_stale_detection_is_disabled():
     await store.update("VehicleSpeed", 60.0)
     app = create_app(
         store,
-        _FakeRepo(),
         can_readers=[_FakeReader(thread_alive=True, last_frame_timestamp=0.0)],
         api_key="",
     )
@@ -232,7 +209,7 @@ async def test_reboot_endpoint_requires_auth_and_schedules_reboot(client):
 
 async def test_system_controls_are_disabled_without_real_api_key():
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="change-me-in-production")
+    app = create_app(store, api_key="change-me-in-production")
     runner = _FakeRunner()
     app.state.runner = runner
 

@@ -8,7 +8,6 @@ TX permissions change with the profile while RX remains unrestricted.
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -18,7 +17,7 @@ from starlette.testclient import TestClient
 @pytest.mark.asyncio
 @pytest.mark.parametrize("permissions", [None, ["read"], ["write"], ["full"]])
 async def test_rx_reads_do_not_require_profile_entries(app_builder, monkeypatch, tmp_path, permissions):
-    """RX-only values, metadata and history stay readable even for an empty profile."""
+    """RX-only values and metadata stay readable even for an empty profile."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -29,11 +28,6 @@ async def test_rx_reads_do_not_require_profile_entries(app_builder, monkeypatch,
         initial_signals={"VehicleSpeed": 10.0, "OMS_State_Camera": 1.0},
     )
 
-    async def query_history(**kwargs):
-        assert kwargs["signal_name"] == "OMS_State_Camera"
-        return [SimpleNamespace(signal_name="OMS_State_Camera", value=1.0, unit=None, timestamp=123.0)]
-
-    monkeypatch.setattr(app.state.repo, "query_signals", query_history)
     headers = {"X-API-Key": "test-key", "X-Profile-Name": "operator"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         value = await c.get("/signals/OMS_State_Camera", headers=headers)
@@ -52,10 +46,6 @@ async def test_rx_reads_do_not_require_profile_entries(app_builder, monkeypatch,
         assert rx["value"] == 1.0
         assert rx["timestamp"] is not None
         assert metadata.json()["warnings"] == []
-
-        history = await c.get("/signals/OMS_State_Camera/history", headers=headers)
-        assert history.status_code == 200
-        assert history.json()["items"][0]["value"] == 1.0
 
         denied = await c.put("/signals/OMS_State_Camera", headers=headers, json={"value": 0.0})
         assert denied.status_code == 403

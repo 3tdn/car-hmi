@@ -7,7 +7,7 @@ Literal text below preserves the backend wording. `{expression}` denotes a value
 by the source at runtime, not text sent literally to the frontend. Rows containing `str(exc)`,
 `message`, `errors`, or a structured dictionary carry dynamic content; the following sections
 identify its providers. There is no application error code on plain-string `detail` responses.
-HTTP validation messages and underlying CAN/filesystem/database errors can vary by exception
+HTTP validation messages and underlying CAN/filesystem errors can vary by exception
 and installed library version, so no fixed string is invented for those cases.
 
 ## Route errors
@@ -31,7 +31,6 @@ those generic HTTP 500 responses are not a stable application JSON error contrac
 | POST /signals/batch_update | 403 | — | `errors` |
 | POST /signals/batch_update | 404 | — | `errors` |
 | GET /config/signal/{signal_name} | 404 | signal_config_not_found | `Signal '{signal_name}' not found` |
-| PATCH /config/signal/{signal_name} | 404 | signal_config_not_found | `Signal '{signal_name}' not found` |
 | Config mutation routes | 422 / 404 / 500 | See configuration providers below | Manager error message |
 | Protected profile-scoped routes (profile context) | 403 | profile_not_selected | `No profile selected for this operation` |
 | Protected profile-scoped routes (profile context) | 404 | profile_not_found | `Profile '{target}' not found` |
@@ -118,7 +117,7 @@ For `system_config_runtime_apply_failed`, `detail` is
 
 `profile_already_active` is an HTTP 200 warning. Batch writes
 can return permission/scope warnings with HTTP 202 rather than raising an HTTP error.
-Signal reads, metadata, history, and RX subscriptions are independent of profiles.
+Current signal reads, metadata, and RX subscriptions are independent of profiles.
 WebSocket metrics access failures appear in ACK `warnings`. Single-signal TX permission failures raise
 HTTP 403. Single writes blocked by seat locks raise HTTP 423; batch writes carry lock errors
 in the result or warnings. Preserve the accompanying `signals`, `profile_name`,

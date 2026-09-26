@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
-import json
-import os
 import re
-import tempfile
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +12,12 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
-from src.core.config import AppConfig
+from src.core.config import (
+    AppConfig,
+    load_json_with_defaults,
+    sync_json_file,
+    write_json_atomically,
+)
 from src.core.config_policy import (
     ReloadLevel,
     classify_paths,
@@ -40,31 +41,31 @@ class ConfigUpdateError(ValueError):
         self.code = code
 
 
-def read_config(path: str | Path | None = None) -> dict[str, Any]:
+def read_config(
+    path: str | Path | None = None,
+    fallback_path: str | Path | None = None,
+    *,
+    repair: bool = False,
+) -> dict[str, Any]:
     target = Path(path) if path is not None else DEFAULT_CONFIG_PATH
-    return json.loads(target.read_text(encoding="utf-8")) or {}
+    if fallback_path is not None:
+        fallback = Path(fallback_path)
+    elif target.resolve() == DEFAULT_CONFIG_PATH.resolve():
+        fallback = DEFAULT_CONFIG_TEMPLATE_PATH
+    else:
+        fallback = None
+    raw = load_json_with_defaults(target, fallback)
+    if fallback is not None:
+        _validate(raw)
+        if repair:
+            sync_json_file(target, raw)
+    return raw
 
 
 def write_config(data: dict[str, Any], path: str | Path | None = None) -> None:
     """Write JSON atomically via a sibling temporary file and ``os.replace``."""
     target = Path(path) if path is not None else DEFAULT_CONFIG_PATH
-    target.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8") + b"\n"
-    fd, temporary = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            fd = -1
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, target)
-    except Exception:
-        if fd >= 0:
-            with contextlib.suppress(OSError):
-                os.close(fd)
-        with contextlib.suppress(OSError):
-            os.unlink(temporary)
-        raise
+    write_json_atomically(data, target)
 
 
 def merge_dict(destination: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +92,7 @@ def _validate_field_values(raw: dict[str, Any], changed: list[str]) -> None:
 
 
 class SystemConfigManager:
-    """Manage exactly one config file and its project-local backup directory."""
+    """Manage an active config, its fixed ``*_bk`` template, and restore snapshots."""
 
     _BACKUP_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
     _RESERVED_BACKUP_IDS: ClassVar[frozenset[str]] = frozenset({"index"})
@@ -101,14 +102,21 @@ class SystemConfigManager:
         config_path: str | Path = DEFAULT_CONFIG_PATH,
         template_path: str | Path = DEFAULT_CONFIG_TEMPLATE_PATH,
         backup_dir: str | Path = DEFAULT_CONFIG_BACKUP_DIR,
+        *,
+        repair_on_read: bool = True,
     ) -> None:
         self.config_path = Path(config_path).resolve()
         self.template_path = Path(template_path).resolve()
         self.backup_dir = Path(backup_dir).resolve()
+        self.repair_on_read = repair_on_read
         self._lock = asyncio.Lock()
 
     def read(self) -> dict[str, Any]:
-        raw = read_config(self.config_path)
+        raw = read_config(
+            self.config_path,
+            self.template_path,
+            repair=self.repair_on_read,
+        )
         _validate(raw)
         return raw
 

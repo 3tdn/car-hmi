@@ -18,16 +18,15 @@
 │                                                        │ asyncio.Queue        │
 │  ┌─────────────────┐                    ┌──────────────▼────────────────────┐ │
 │  │  Vehicle ECU    │────────────────────│        Signal Processor           │ │
-│  │  (hardware)     │   CAN Bus          │  Smooth → Rate → Computed → Alarm  │ │
+│  │  (hardware)     │   CAN Bus          │  RateLimiter → ComputedSignals     │ │
 │  └─────────────────┘   500 kbps         └──────┬───────────────┬────────────┘ │
-│                                                │               │              │
-│                                  ┌─────────────▼──┐   ┌────────▼────────────┐ │
-│                                  │  Signal Store  │   │   SQLite Storage    │ │
-│                                  │  (in-memory)   │   │  signal_log         │ │
-│                                  │  Observer/PubSub│   │  alarm_log          │ │
-│                                  └────────┬───────┘   │  signal_config      │ │
-│                                           │           └────────┬────────────┘ │
-│                                  ┌────────▼──────────────────▼──────────────┐│
+│                                                │                              │
+│                                  ┌─────────────▼──┐   ┌─────────────────────┐ │
+│                                  │  Signal Store  │   │ DBC Metadata        │ │
+│                                  │  (in-memory)   │   │ (in-memory catalog) │ │
+│                                  │ Observer/PubSub│   └────────┬────────────┘ │
+│                                  └────────┬───────┘            │              │
+│                                  ┌────────▼────────────────────▼────────────┐│
 │                                  │            FastAPI Server :8000           ││
 │                                  │  REST + WebSocket + Static frontend serve ││
 │                                  └──────────────────┬────────────────────────┘│
@@ -72,11 +71,11 @@ msg   = db_loader.encode_signal("VehicleSpeed", 60.0)  # → can.Message
 
 The runner installs two asynchronous processing stages, `RateLimiter` and `ComputedSignals`.
 Frames from the shared queue are drained in bounded batches, coalesced to the latest values,
-then published to SignalStore and buffered for SQLite inserts. Smoothing and alarm stages
-are not installed.
+then published to SignalStore. Smoothing, alarm, and historical persistence stages are not
+installed.
 
 ```text
-CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore + SQLite
+CAN readers -> bounded queue -> RateLimiter -> ComputedSignals -> SignalStore
 ```
 
 Stages implement `async def process(self, signals: dict[str, float]) -> dict[str, float]`.
@@ -96,30 +95,19 @@ snap = store.get_snapshot()        # → full current cache
 
 ---
 
-### 2.4 `src/storage/` — Storage Layer
+### 2.4 `src/core/signal_metadata.py` — Signal Metadata Catalog
 
-**Repository Pattern** with interface `ISignalRepository` allows swapping backends:
+`SignalMetadataCatalog` is built from the same per-channel `DatabaseLoader` instances used by
+CAN readers and writers. It keeps unit, range, enum states, tags, source DBC, and DBC-derived TX
+ownership in memory. Rebuilding replaces the complete snapshot, and API callers receive copies.
 
-```
-ISignalRepository (ABC)
-        │
-        └── SQLiteRepository  (aiosqlite, async)
-```
-
-New databases contain two active tables:
-
-| Table | Purpose |
-|---|---|
-| `signal_log` | Time series (timestamp, signal_name, value, unit) — indexed |
-| `signal_config` | Per-signal display config (unit, min, max, widget_type, writable) |
-
-`DataExporter` is an internal CSV/JSON utility; no REST export route is registered.
+Signal metadata is read-only and is not persisted.
 
 ---
 
 ### 2.5 `src/api/` — FastAPI Backend
 
-`create_app()` injects dependencies through `app.state`. The current API has 54 HTTP
+`create_app()` injects dependencies through `app.state`. The current API has 52 HTTP
 operations (including 6 system aliases) and 3 WebSocket endpoints. Signal, config, profiles,
 and Dev Mode routers use configured API key authentication; system GET, camera, adaptive
 restraint, and restraints/video routes are public. System retry/reboot require a real key
@@ -150,7 +138,7 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 1. Setup logging (rotating file + console)
 2. Load configured DBC databases once per channel and share each loader with its channel components
 3. Seed SignalStore with initial values from every channel DB
-4. Initialize SQLite storage
+4. Build the in-memory signal metadata catalog
 5. Create a CAN Bus instance for each channel
 6. Initialize the Signal Pipeline + stages (shared queue)
 7. Create CANReader + CANWriter
@@ -167,7 +155,7 @@ The simulator uses a dedicated **virtual bus**, isolated from the reader bus (py
 |---|---|
 | **Pipeline** | `SignalPipeline` — chain processing stages |
 | **Observer / Pub-Sub** | `SignalStore.subscribe()` — push to WS clients |
-| **Repository** | `ISignalRepository` / `SQLiteRepository` — separate storage logic |
+| **Snapshot catalog** | `SignalMetadataCatalog` — replace metadata atomically from active DBC loaders |
 | **Factory** | `create_app()` — FastAPI application factory; `create_bus()` — CAN bus factory |
 | **Strategy** | `DatabaseLoader` — loads can.json, built-in bit-level decode/encode |
 
@@ -225,10 +213,6 @@ api:
   port: 8000
   api_key: ""                 # empty = auth disabled
 
-storage:
-  sqlite_path: data/signals.db
-  batch_size: 100
-  retention_days: 30
 ```
 
 The example above is YAML notation for readability; the runtime file is JSON.

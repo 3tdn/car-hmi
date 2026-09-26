@@ -10,8 +10,9 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
+from src.can_io.parser import DatabaseLoader
 from src.core.config import AppConfig
-from src.core.config_manager import SystemConfigManager, write_config
+from src.core.config_manager import SystemConfigManager, read_config, write_config
 from src.core.config_policy import (
     ConfigFieldPolicyError,
     diff_paths,
@@ -20,27 +21,8 @@ from src.core.config_policy import (
     validate_policy_values,
 )
 from src.core.paths import DEFAULT_CONFIG_FIELDS_PATH, DEFAULT_CONFIG_PATH
+from src.core.signal_metadata import SignalMetadataCatalog
 from src.core.signal_store import SignalStore
-
-
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, _record):
-        pass
-
-    async def insert_signals_bulk(self, _records):
-        pass
-
-    async def delete_old_signals(self, _older_than):
-        return 0
-
-    async def get_signal_config(self, _signal_name):
-        return None
-
-    async def upsert_signal_config(self, _record):
-        pass
 
 
 class _FakeRunner:
@@ -55,7 +37,7 @@ class _FakeRunner:
             "applied": [
                 path
                 for path in changed_paths
-                if path.startswith(("reader.", "processor.", "writer.", "storage."))
+                if path.startswith(("reader.", "processor.", "writer."))
             ],
             "unavailable": [],
         }
@@ -79,7 +61,7 @@ async def config_client(tmp_path, monkeypatch):
     """Every config mutation is isolated under pytest's ``tmp_path``."""
     import src.api.routes.profiles as profile_routes
 
-    source = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+    source = read_config()
     source["can"][0].update(interface="virtual", channel="vcan0", channel_tracking_signals=[])
     source["future_extension"] = {"must_survive": 42}
     config_path = tmp_path / "config" / "system.json"
@@ -111,9 +93,13 @@ async def config_client(tmp_path, monkeypatch):
 
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
+    loader = DatabaseLoader()
+    loader.load_dbc("db/can_db/m_dummy.dbc")
+    metadata = SignalMetadataCatalog()
+    metadata.replace_from_loaders([loader])
     app = create_app(
         store,
-        _FakeRepo(),
+        signal_metadata=metadata,
         api_key="test-key",
         system_config_manager=manager,
     )
@@ -125,6 +111,36 @@ async def config_client(tmp_path, monkeypatch):
 
 def _headers(profile: str = "admin") -> dict[str, str]:
     return {"X-API-Key": "test-key", "X-Profile-Name": profile}
+
+
+def test_system_config_manager_uses_template_for_missing_file_and_fields(tmp_path):
+    config_path = tmp_path / "system.json"
+    template_path = tmp_path / "system_bk.json"
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    (backup_dir / "newest.json").write_text(
+        json.dumps({"api": {"host": "10.0.0.99", "port": 9999}}),
+        encoding="utf-8",
+    )
+    template_path.write_text(
+        json.dumps(
+            {
+                "api": {"host": "127.0.0.1", "port": 8123},
+                "reader": {"only_send_signal_update": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    manager = SystemConfigManager(config_path, template_path, backup_dir)
+
+    from_backup = manager.read()
+    assert from_backup["api"] == {"host": "127.0.0.1", "port": 8123}
+    assert json.loads(config_path.read_text(encoding="utf-8")) == from_backup
+
+    config_path.write_text(json.dumps({"api": {"port": 9000}}), encoding="utf-8")
+    merged = manager.read()
+    assert merged["api"] == {"host": "127.0.0.1", "port": 9000}
+    assert merged["reader"]["only_send_signal_update"] is True
 
 
 @pytest.mark.asyncio
@@ -213,7 +229,7 @@ def test_system_field_policy_file_is_valid_and_has_unique_paths():
     assert len(paths) == len(set(paths))
     assert "can.*.can_db_file" in paths
 
-    raw = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+    raw = read_config()
     leaf_paths = diff_paths({}, raw)
     assert [path for path in leaf_paths if match_policy(path) is None] == []
     assert validate_policy_values(raw, leaf_paths) == []
@@ -602,22 +618,6 @@ async def test_patch_supports_reboot_level_list_values(config_client):
 
 
 @pytest.mark.asyncio
-async def test_patch_rejects_immutable_field_without_writing(config_client):
-    client, manager, _ = config_client
-    before = manager.config_path.read_bytes()
-    response = await client.patch(
-        "/config/system",
-        headers=_headers(),
-        json={"storage": {"sqlite_path": "data/other.db"}},
-    )
-
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "system_config_field_immutable"
-    assert manager.config_path.read_bytes() == before
-    assert manager.list_backups() == []
-
-
-@pytest.mark.asyncio
 async def test_patch_requires_same_full_permission_as_profile_mutation(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()
@@ -634,7 +634,8 @@ async def test_patch_requires_same_full_permission_as_profile_mutation(config_cl
 @pytest.mark.asyncio
 async def test_backup_reset_and_restore_stay_inside_tmp_path(config_client):
     client, manager, _ = config_client
-    real_config_before = DEFAULT_CONFIG_PATH.read_bytes()
+    real_config_existed = DEFAULT_CONFIG_PATH.exists()
+    real_config_before = DEFAULT_CONFIG_PATH.read_bytes() if real_config_existed else None
     initial = manager.read()
     backup_response = await client.post("/config/system/backups", headers=_headers())
     backup_id = backup_response.json()["backup"]["id"]
@@ -654,7 +655,9 @@ async def test_backup_reset_and_restore_stay_inside_tmp_path(config_client):
     assert restore_response.status_code == 200
     assert manager.read() == initial
     assert all(path.parent == manager.backup_dir for path in manager.backup_dir.glob("*.json"))
-    assert DEFAULT_CONFIG_PATH.read_bytes() == real_config_before
+    assert DEFAULT_CONFIG_PATH.exists() is real_config_existed
+    if real_config_existed:
+        assert DEFAULT_CONFIG_PATH.read_bytes() == real_config_before
 
 
 @pytest.mark.asyncio
@@ -862,3 +865,27 @@ async def test_get_signal_config_not_found_returns_structured_error(config_clien
     detail = response.json()["detail"]
     assert detail["code"] == "signal_config_not_found"
     assert detail["signal_name"] == "Unknown"
+
+
+@pytest.mark.asyncio
+async def test_get_signal_config_returns_read_only_dbc_metadata(config_client):
+    client, _, _ = config_client
+
+    response = await client.get("/config/signal/VehicleSpeed", headers=_headers())
+    patch_response = await client.patch(
+        "/config/signal/VehicleSpeed",
+        headers=_headers(),
+        json={"unit": "mph"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "signal_name": "VehicleSpeed",
+        "unit": "km/h",
+        "min_value": 0.0,
+        "max_value": 655.35,
+        "group_name": None,
+        "widget_type": None,
+        "writable": False,
+    }
+    assert patch_response.status_code == 405

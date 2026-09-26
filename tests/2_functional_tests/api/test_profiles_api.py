@@ -14,26 +14,6 @@ from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_regis
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-    async def insert_signal(self, r):
-        pass
-
-    async def insert_signals_bulk(self, records):
-        pass
-
-    async def delete_old_signals(self, o):
-        return 0
-
-    async def get_signal_config(self, signal_name):
-        return None
-
-    async def upsert_signal_config(self, record):
-        pass
-
-
 class _FakeReader:
     def __init__(self, *, thread_alive: bool, last_frame_timestamp: float, fatal_error: str | None = None):
         self._state = {
@@ -74,7 +54,7 @@ def _write_profiles(path, *, active, profiles, client_sessions=None, sessions_pa
 async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -89,7 +69,7 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         create_resp = await c.post(
             "/api/profile",
@@ -121,6 +101,114 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     assert saved_map["VehicleSpeed"] == ["read", "write"]
     assert saved_map["FuelLevel"] == ["read", "write"]
 
+
+def test_profiles_use_backup_when_primary_is_missing(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "*", "permission": ["full"]}],
+                "exinfo": {},
+                "description": "Default admin",
+                "created_at": 1.0,
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["active"] == "admin"
+    assert data["profiles"]["admin"]["description"] == "Default admin"
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
+
+def test_profiles_fill_fields_without_restoring_deleted_profiles(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    profiles_path.write_text(
+        json.dumps(
+            {
+                "profiles": {
+                    "admin": {
+                        "signals": [
+                            {"name": "VehicleSpeed", "permission": ["read"]},
+                            {"name": "FuelLevel"},
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [
+                    {"name": "VehicleSpeed", "permission": ["full"]},
+                    {"name": "FuelLevel", "permission": ["write"]},
+                ],
+                "exinfo": {"source": "backup"},
+                "description": "Default admin",
+                "created_at": 1.0,
+            },
+            "deleted": {
+                "signals": [],
+                "exinfo": {},
+                "description": "Must stay deleted",
+                "created_at": 2.0,
+            },
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["active"] == "admin"
+    assert data["profiles"]["admin"]["signals"] == [
+        {"name": "VehicleSpeed", "permission": ["read"]},
+        {"name": "FuelLevel", "permission": ["write"]},
+    ]
+    assert data["profiles"]["admin"]["description"] == "Default admin"
+    assert data["profiles"]["admin"]["exinfo"] == {"source": "backup"}
+    assert "deleted" not in data["profiles"]
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
+
+def test_profiles_repair_invalid_primary_from_backup(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    profiles_path.write_text('{"profiles":', encoding="utf-8")
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "*", "permission": ["full"]}],
+                "exinfo": {},
+                "description": "Recovered admin",
+                "created_at": 1.0,
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["profiles"]["admin"]["description"] == "Recovered admin"
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
 async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_path):
     """Creating a new profile after bootstrap requires full permission."""
     import src.api.routes.profiles as profile_routes
@@ -139,7 +227,7 @@ async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_p
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/api/profile",
@@ -175,7 +263,7 @@ async def test_set_active_profile_success(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
             "/api/profile/active",
@@ -213,7 +301,7 @@ async def test_set_active_profile_requires_full_permission(monkeypatch, tmp_path
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
             "/api/profile/active",
@@ -248,7 +336,7 @@ async def test_set_active_profile_allows_dev_mode_override(monkeypatch, tmp_path
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
             "/api/profile/active",
@@ -289,7 +377,7 @@ async def test_set_active_profile_tracks_per_client_session(monkeypatch, tmp_pat
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
             "/api/profile/active",
@@ -349,7 +437,7 @@ async def test_list_profile_sessions_returns_client_mapping(monkeypatch, tmp_pat
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get(
             "/api/profile/sessions",
@@ -396,7 +484,7 @@ async def test_profile_heartbeat_updates_last_seen(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/api/profile/heartbeat",
@@ -427,7 +515,7 @@ async def test_profile_heartbeat_requires_client_id(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post("/api/profile/heartbeat", headers={"X-API-Key": "test-key"})
 
@@ -462,7 +550,7 @@ async def test_profile_offline_marks_session_offline(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/api/profile/offline",
@@ -510,7 +598,7 @@ async def test_profile_offline_releases_devmode_locks_immediately(monkeypatch, t
 
     store = SignalStore()
     await store.update("COM_Status_PumaFLCan", 1.0, timestamp=now)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
 
     owner_headers = {"X-API-Key": "test-key", "X-Client-Id": "client-a", "X-Dev-Mode": "true"}
@@ -713,7 +801,7 @@ async def test_profile_sessions_offline_trimmed_only_when_over_top_50(monkeypatc
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get(
             "/api/profile/sessions",
@@ -758,7 +846,7 @@ async def test_profile_sessions_offline_kept_when_within_top_50(monkeypatch, tmp
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get(
             "/api/profile/sessions",
@@ -804,7 +892,7 @@ async def test_get_profile_without_name_uses_client_session(monkeypatch, tmp_pat
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get(
             "/api/profile",
@@ -832,7 +920,7 @@ async def test_set_active_profile_not_found(monkeypatch, tmp_path):
     monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.put(
             "/api/profile/active",
@@ -874,7 +962,7 @@ async def test_delete_profile_removes_profile_and_matching_sessions(monkeypatch,
     monkeypatch.setattr(profile_routes, "PROFILE_SESSIONS_PATH", sessions_path)
 
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.delete(
             "/api/profile/viewer",

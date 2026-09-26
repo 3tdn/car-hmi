@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import logging
 import math
 import os
+import tempfile
 from collections.abc import Mapping
+from copy import deepcopy
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 class CANConfig(BaseModel):
@@ -27,6 +33,15 @@ class CANConfig(BaseModel):
     channel_tracking_signals: list[str] = Field(default_factory=list)
     # For channel='auto', probe only messages containing these signals.
     # An empty list preserves discovery using all messages with signals in the DBC.
+
+    @field_validator("interface", mode="before")
+    @classmethod
+    def normalize_interface(cls, interface: object) -> object:
+        """Normalize the legacy ``cansocket`` typo used by older deployments."""
+        if not isinstance(interface, str):
+            return interface
+        normalized = interface.strip().lower()
+        return "socketcan" if normalized == "cansocket" else normalized
 
     @field_validator("channel_tracking_signals")
     @classmethod
@@ -161,21 +176,6 @@ class DevModeConfig(BaseModel):
     # Allow Dev Mode to write signals without requiring COM_Status_*Can to be online.
 
 
-class StorageConfig(BaseModel):
-    """Configuration for SQLite historical signal data storage."""
-
-    sqlite_path: str = "data/signals.db"
-    # Path to the SQLite file
-    batch_size: int = Field(default=100, ge=1)
-    # Number of records accumulated before flushing to DB; increase it to reduce write I/O frequency
-    batch_interval_sec: float = Field(default=2.0, gt=0)
-    # Maximum time between flushes even if the buffer is not full (seconds)
-    retention_days: int = Field(default=30, ge=0)
-    # Number of days to retain data; older records will be deleted by the retention task
-    max_disk_mb: int = Field(default=2048, ge=0)
-    # DB size limit (MB); when exceeded, the retention task trims oldest rows and runs VACUUM
-
-
 class ProcessorConfig(BaseModel):
     """Configuration for the signal processing pipeline."""
 
@@ -298,8 +298,6 @@ class AppConfig(BaseModel):
     # Optional frontend-facing OMS classification derived from CAN occupant weight
     devmode: DevModeConfig = Field(default_factory=DevModeConfig)
     # Seat selection and signal writing configuration for Dev Mode
-    storage: StorageConfig = Field(default_factory=StorageConfig)
-    # Historical data storage configuration
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)
     # Signal processing pipeline configuration
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
@@ -334,11 +332,139 @@ class AppConfig(BaseModel):
         return v
 
 
+def _matching_list_default(
+    defaults: list[Any],
+    override: dict[str, Any],
+    index: int,
+) -> dict[str, Any] | None:
+    for identity_key in ("channel", "name", "id", "path"):
+        if identity_key not in override:
+            continue
+        identity_value = override[identity_key]
+        return next(
+            (
+                item
+                for item in defaults
+                if isinstance(item, dict) and item.get(identity_key) == identity_value
+            ),
+            None,
+        )
+    if index < len(defaults) and isinstance(defaults[index], dict):
+        return defaults[index]
+    return None
+
+
+def _merge_list_defaults(defaults: list[Any], overrides: list[Any]) -> list[Any]:
+    merged: list[Any] = []
+    for index, value in enumerate(overrides):
+        if isinstance(value, dict):
+            item_defaults = _matching_list_default(defaults, value, index)
+            if item_defaults is not None:
+                merged.append(merge_json_defaults(item_defaults, value))
+                continue
+        merged.append(deepcopy(value))
+    return merged
+
+
+def merge_json_defaults(defaults: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """Deep-merge JSON objects, with explicit override values taking precedence."""
+    merged = deepcopy(defaults)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_json_defaults(merged[key], value)
+        elif isinstance(value, list) and isinstance(merged.get(key), list):
+            merged[key] = _merge_list_defaults(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def write_json_atomically(data: dict[str, Any], path: str | Path) -> None:
+    """Persist a JSON object through a sibling temporary file and atomic replace."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8") + b"\n"
+    fd, temporary = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            fd = -1
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    except Exception:
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+        with contextlib.suppress(OSError):
+            os.unlink(temporary)
+        raise
+
+
+def sync_json_file(path: str | Path, data: dict[str, Any]) -> bool:
+    """Atomically create or repair a JSON file when its effective content differs."""
+    target = Path(path)
+    current: Any = None
+    if target.is_file():
+        try:
+            current = json.loads(target.read_text(encoding="utf-8")) or {}
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            current = None
+    if isinstance(current, dict) and current == data:
+        return False
+    write_json_atomically(data, target)
+    logger.warning("Created or repaired JSON config '%s'", target)
+    return True
+
+
+def load_json_with_defaults(
+    path: str | Path,
+    defaults_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Load a JSON object and fill missing fields from an optional defaults file."""
+    target = Path(path)
+    defaults_target = Path(defaults_path) if defaults_path is not None else None
+
+    if not target.is_file() and (defaults_target is None or not defaults_target.is_file()):
+        raise FileNotFoundError(target)
+
+    defaults: dict[str, Any] = {}
+    if defaults_target is not None and defaults_target.is_file():
+        with defaults_target.open(encoding="utf-8") as stream:
+            raw_defaults = json.load(stream) or {}
+        if not isinstance(raw_defaults, dict):
+            raise ValueError(f"Configuration root must be a JSON object: {defaults_target}")
+        defaults = raw_defaults
+
+    overrides: dict[str, Any] = {}
+    if target.is_file():
+        try:
+            with target.open(encoding="utf-8") as stream:
+                raw_overrides = json.load(stream) or {}
+            if not isinstance(raw_overrides, dict):
+                raise ValueError(f"Configuration root must be a JSON object: {target}")
+            overrides = raw_overrides
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            if defaults_target is None or not defaults_target.is_file():
+                raise
+            logger.warning(
+                "Invalid JSON config '%s'; using defaults from '%s': %s",
+                target,
+                defaults_target,
+                exc,
+            )
+
+    return merge_json_defaults(defaults, overrides)
+
+
 def load_config(path: str | Path) -> AppConfig:
-    """Load and validate AppConfig from a JSON file."""
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    return AppConfig.model_validate(data or {})
+    """Load AppConfig, filling absent files or fields from the sibling ``*_bk`` file."""
+    target = Path(path)
+    defaults_path = target.with_name(f"{target.stem}_bk{target.suffix}")
+    data = load_json_with_defaults(target, defaults_path)
+    config = AppConfig.model_validate(data)
+    sync_json_file(target, data)
+    return config
 
 
 _PLACEHOLDER_API_KEYS = {"change-me-in-production", "changeme", "default"}

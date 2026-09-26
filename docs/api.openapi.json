@@ -159,108 +159,6 @@
         }
       }
     },
-    "/signals/{signal_name}/history": {
-      "get": {
-        "tags": [
-          "Signals"
-        ],
-        "summary": "Query signal history from DB",
-        "operationId": "get_signal_history_signals__signal_name__history_get",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "signal_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Signal Name"
-            }
-          },
-          {
-            "name": "start",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Start"
-            }
-          },
-          {
-            "name": "end",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "End"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 10000,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignalListResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/signals/batch_update": {
       "post": {
         "tags": [
@@ -359,61 +257,6 @@
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignalConfigResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "Config"
-        ],
-        "summary": "Update signal config",
-        "operationId": "update_signal_config_config_signal__signal_name__patch",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "signal_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Signal Name"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSignalConfigRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2319,19 +2162,13 @@
             "type": "boolean",
             "title": "Bus Connected",
             "description": "True if the CAN bus connection is active"
-          },
-          "db_connected": {
-            "type": "boolean",
-            "title": "Db Connected",
-            "description": "True if the database connection is active"
           }
         },
         "type": "object",
         "required": [
           "status",
           "uptime_seconds",
-          "bus_connected",
-          "db_connected"
+          "bus_connected"
         ],
         "title": "HealthResponse",
         "description": "Overall system health status."
@@ -3136,11 +2973,6 @@
             "title": "Bus Connected",
             "description": "Whether the CAN bus is connected"
           },
-          "db_connected": {
-            "type": "boolean",
-            "title": "Db Connected",
-            "description": "Whether the database is connected"
-          },
           "signal_count": {
             "type": "integer",
             "title": "Signal Count",
@@ -3154,7 +2986,6 @@
           "description",
           "uptime_seconds",
           "bus_connected",
-          "db_connected",
           "signal_count"
         ],
         "title": "SystemInfoResponse",
@@ -3434,73 +3265,6 @@
         "type": "object",
         "title": "UpdateProcessorConfigRequest",
         "description": "Request to update the processor configuration (PATCH)."
-      },
-      "UpdateSignalConfigRequest": {
-        "properties": {
-          "unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit",
-            "description": "New measurement unit"
-          },
-          "min_value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Min Value",
-            "description": "New minimum value"
-          },
-          "max_value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Value",
-            "description": "New maximum value"
-          },
-          "widget_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Widget Type",
-            "description": "New widget type"
-          },
-          "writable": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Writable",
-            "description": "Allow writes or not"
-          }
-        },
-        "type": "object",
-        "title": "UpdateSignalConfigRequest",
-        "description": "Request to update a partial signal configuration (PATCH)."
       },
       "ValidationError": {
         "properties": {

@@ -9,7 +9,6 @@ participant "FastAPI\n(app.py)" as api
 participant "Signal Pipeline\n(pipeline.py)" as pipe
 participant "CAN Reader\n(reader.py)" as reader
 participant "CAN Simulator\n(simulator.py)" as sim
-participant "Storage\n(database.py)" as db
 
 cli -> runner : SIGTERM / SIGINT received
 activate runner #salmon
@@ -21,9 +20,6 @@ api -> api : await pending responses
 api --> runner : API stopped
 
 runner -> pipe : stop pipeline
-pipe -> pipe : flush() — drain remaining buffer
-pipe -> db : batch INSERT remaining records
-db --> pipe : flushed
 pipe --> runner : Pipeline stopped
 
 loop for each CAN channel
@@ -37,13 +33,10 @@ opt simulator running
     sim --> runner : Simulator stopped
 end
 
-runner -> db : close connection
-db --> runner : DB closed
-
 runner --> cli : Shutdown complete
 deactivate runner
 
-note over cli, db
+note over cli, sim
   VERIFIED AGAINST CURRENT SOURCE CODE — Graceful shutdown sequence complete and accurate.
 end note
 

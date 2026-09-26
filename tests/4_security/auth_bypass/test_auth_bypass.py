@@ -9,16 +9,11 @@ from src.api.app import create_app
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-
 @pytest.mark.asyncio
 async def test_signals_endpoint_rejects_missing_api_key():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/signals")
@@ -30,7 +25,7 @@ async def test_signals_endpoint_rejects_missing_api_key():
 async def test_signals_endpoint_rejects_invalid_api_key():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/signals", headers={"X-API-Key": "wrong-key"})

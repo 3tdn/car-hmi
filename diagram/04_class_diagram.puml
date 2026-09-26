@@ -187,13 +187,6 @@ class SignalValue <<dataclass>> {
     +unit: str
 }
 
-class SignalRecord <<dataclass>> {
-    +timestamp: float
-    +signal_name: str
-    +value: float
-    +unit: str
-}
-
 class AlarmRecord <<dataclass>> {
     +id: int
     +signal_name: str
@@ -206,22 +199,10 @@ class AlarmRecord <<dataclass>> {
     +resolved_at: str | None
 }
 
-class SignalConfigRecord <<dataclass>> {
-    +signal_name: str
-    +unit: str
-    +min_value: float | None
-    +max_value: float | None
-    +group_name: str
-    +widget_type: str
-    +writable: bool
-    +updated_at: str
-}
-
 class AppConfig <<BaseModel>> {
     +can: list[CANConfig]
     +simulator: SimulatorConfig
     +api: APIConfig
-    +storage: StorageConfig
     +processor: ProcessorConfig
     +writer: WriterConfig
     +shutdown: ShutdownConfig
@@ -251,64 +232,16 @@ class SignalPipeline {
     -_stages: list[ProcessingStage]
     -_input_queue: asyncio.Queue
     -_signal_store: SignalStore
-    -_storage: ISignalRepository | None
-    -_buffer: list[SignalRecord]
-    -_batch_size: int
+    -_batch_drain_size: int
     -_running: bool
     +start(): void
     +stop(): void
-    +flush(): void
     +add_stage(stage: ProcessingStage): void
     +set_input_queue(q: asyncio.Queue): void
 }
 
 SignalPipeline "1" o-- "many" ProcessingStage
-SignalPipeline --> ISignalRepository : batch insert
 SignalPipeline --> SignalStore : update latest
-
-' ─── Storage (Repository Pattern) ───
-package "storage" as pkg_storage #Wheat {
-abstract class ISignalRepository <<ABC>> {
-    +{abstract} insert_batch(records: list[SignalRecord]): void
-    +{abstract} get_history(name: str, start: float, end: float, limit: int): list[SignalRecord]
-    +{abstract} insert_alarm(alarm: Alarm): int
-    +{abstract} get_alarms(limit: int, offset: int, active_only: bool): list[AlarmRecord]
-    +{abstract} get_alarm_by_id(alarm_id: int): AlarmRecord | None
-    +{abstract} acknowledge_alarm(alarm_id: int): bool
-    +{abstract} resolve_alarm(alarm_id: int): bool
-    +{abstract} get_signal_config(name: str): SignalConfigRecord | None
-    +{abstract} upsert_signal_config(cfg: SignalConfigRecord): void
-    +{abstract} list_signal_configs(): list[SignalConfigRecord]
-    +{abstract} purge_old(days: int): int
-    +{abstract} close(): void
-}
-
-class SQLiteRepository implements ISignalRepository {
-    -_db_path: str
-    -_conn: aiosqlite.Connection | None
-    +open(): void
-    +close(): void
-    +insert_batch(records): void
-    +get_history(name, start, end, limit): list[SignalRecord]
-    +insert_alarm(alarm): int
-    +get_alarms(limit, offset, active_only): list[AlarmRecord]
-    +get_alarm_by_id(alarm_id): AlarmRecord | None
-    +acknowledge_alarm(alarm_id): bool
-    +resolve_alarm(alarm_id): bool
-    +get_signal_config(name): SignalConfigRecord | None
-    +upsert_signal_config(cfg): void
-    +list_signal_configs(): list[SignalConfigRecord]
-    +purge_old(days): int
-}
-
-class DataExporter {
-    -_repo: ISignalRepository
-    +export_signals_csv(path: str, start: float, end: float): int
-    +export_alarms_json(path: str, start: float, end: float): int
-}
-
-DataExporter --> ISignalRepository
-}
 
 ' ─── Core (Observer Pattern) ───
 package "core" as pkg_core #LightGray {
@@ -323,6 +256,13 @@ class SignalStore {
     +subscribe(callback: Callable): void
     +unsubscribe(callback: Callable): void
     -_notify(name: str, sv: SignalValue): void
+}
+
+class SignalMetadataCatalog {
+    -_items: dict[str, dict]
+    +replace_from_loaders(loaders: Iterable[DatabaseLoader]): void
+    +get(name: str): dict | None
+    +snapshot(): dict[str, dict]
 }
 
 class ConfigManager {
@@ -389,7 +329,7 @@ class AppRunner {
     -_writer_router: CANWriterRouter
     -_pipeline: SignalPipeline
     -_store: SignalStore
-    -_repo: SQLiteRepository
+    -_signal_metadata: SignalMetadataCatalog
     -_db_loaders: list[DatabaseLoader]
     -_buses: list[can.BusABC]
     -_api: FastAPI | None
@@ -427,8 +367,8 @@ AppRunner --> CANWriter
 AppRunner --> CANWriterRouter
 AppRunner --> SignalPipeline
 AppRunner --> SignalStore
+AppRunner --> SignalMetadataCatalog
 AppRunner --> ConnectionManager
-AppRunner --> SQLiteRepository
 AppRunner --> ConfigManager
 
 @enduml

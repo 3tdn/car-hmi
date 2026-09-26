@@ -11,7 +11,7 @@ CONNECTING --> CONNECTED : connection accepted
 CONNECTING --> WAIT_RETRY : connection refused\nor timeout
 CONNECTING : entry / ws = new WebSocket(url + "?token=...")
 
-CONNECTED --> RECEIVING_CONFIG : server sends signal_config
+CONNECTED --> RECEIVING_CONFIG : client fetches GET /signals/available
 CONNECTED : entry / show "Connected" badge
 
 RECEIVING_CONFIG --> STREAMING : all configs received\n+ snapshot received

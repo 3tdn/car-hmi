@@ -12,11 +12,6 @@ from src.core.devmode_locks import reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
-class _FakeRepo:
-    async def query_signals(self, **_):
-        return []
-
-
 class _FakeWriter:
     def __init__(self):
         self.writes: list[tuple[str, float]] = []
@@ -42,7 +37,7 @@ async def _build_app():
     now = time.time()
     for seat in ("FL", "FR", "RL1", "RL2", "RR1"):
         await store.update(f"COM_Status_Puma{seat}Can", 1.0, timestamp=now)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.writer = _FakeWriter()
     return app
 
@@ -217,7 +212,7 @@ async def test_apply_signal_rejects_unknown_family_but_allows_unlisted_value():
 async def test_seat_not_connected_is_rejected():
     store = SignalStore()
     await store.update("COM_Status_PumaFLCan", 0.0, timestamp=time.time())
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.devmode_bypass_can_status = False
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -235,7 +230,7 @@ async def test_seat_not_connected_is_rejected():
 async def test_missing_or_stale_connectivity_is_rejected():
     store = SignalStore()
     await store.update("COM_Status_PumaFRCan", 1.0, timestamp=time.time() - 31)
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.devmode_bypass_can_status = False
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -257,7 +252,7 @@ async def test_missing_or_stale_connectivity_is_rejected():
 @pytest.mark.asyncio
 async def test_bypass_can_status_allows_devmode_signal_write():
     store = SignalStore()
-    app = create_app(store, _FakeRepo(), api_key="test-key")
+    app = create_app(store, api_key="test-key")
     app.state.devmode_bypass_can_status = True
     app.state.writer = _FakeWriter()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

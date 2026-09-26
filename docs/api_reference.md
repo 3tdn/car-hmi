@@ -1,6 +1,6 @@
 # CAN-HMI — API Reference
 
-Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-23. There are **54 HTTP operations (48 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
+Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-26. There are **52 HTTP operations (46 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
 
 ## Common Usage
 
@@ -32,11 +32,9 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 | GET | `/signals/available` | List all available signals with metadata |
 | GET | `/signals/{signal_name}` | Get latest value for one signal |
 | PUT | `/signals/{signal_name}` | Write value to signal (CAN write) |
-| GET | `/signals/{signal_name}/history` | Query signal history from DB |
 | POST | `/signals/batch_update` | Write multiple writable signals simultaneously (batch) |
 | GET | `/config` | List all signal configurations |
 | GET | `/config/signal/{signal_name}` | Get config for one signal |
-| PATCH | `/config/signal/{signal_name}` | Update signal config |
 | GET | `/config/processor` | Get processor config |
 | POST | `/config/processor` | Update processor config |
 | GET | `/config/system` | Get system config and field update policy |
@@ -253,52 +251,6 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-### `GET /signals/{signal_name}/history`
-
-Query signal history from DB
-
-Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
-
-| Parameter | Location | Type | Required | Default/Constraints |
-|---|---|---|---|---|
-| `signal_name` | path | string | Yes |  |
-| `start` | query | number / null | No |  |
-| `end` | query | number / null | No |  |
-| `limit` | query | integer | No | default=100; minimum=1; maximum=10000 |
-| `offset` | query | integer | No | default=0; minimum=0 |
-
-Body: none.
-
-Example:
-
-```bash
-curl -sS \
-  "$BASE/signals/COM_Status_ElkCan/history?start=1789600000&end=1789603600&limit=100&offset=0" \
-  -H "X-API-Key: $API_KEY" \
-  -H "X-Profile-Name: $PROFILE" \
-  -H "X-Client-Id: $CLIENT_ID"
-```
-
-Successful response: HTTP 200.
-
-Response schema: `SignalListResponse`.
-
-```json
-{
-  "items": [
-    {
-      "signal_name": "COM_Status_ElkCan",
-      "std_name": "COM_Status_ElkCan",
-      "value": 1.0,
-      "unit": null,
-      "timestamp": 1789600000.0
-    }
-  ],
-  "total": 1,
-  "warnings": []
-}
-```
-
 ### `POST /signals/batch_update`
 
 Write multiple writable signals simultaneously (batch)
@@ -402,7 +354,8 @@ Response schema: `array<SignalConfigResponse>`.
 ]
 ```
 
-Note: The implementation returns a SignalStore snapshot, not a list of saved SQLite configuration records.
+The response merges the current `SignalStore` names with read-only metadata loaded from the active
+DBC files at process startup.
 
 ### `GET /config/signal/{signal_name}`
 
@@ -442,60 +395,8 @@ Response schema: `SignalConfigResponse`.
 }
 ```
 
-Note: PATCH saves display metadata to the repository. GET currently reads only name/unit from SignalStore and returns defaults for the other fields; it does not read the complete saved PATCH record. writable here is display metadata; the DBC still determines actual TX permission.
-
-### `PATCH /config/signal/{signal_name}`
-
-Update signal config
-
-Auth: API key when authentication is enabled. A profile needs full permission, or X-Dev-Mode.
-
-| Parameter | Location | Type | Required | Default/Constraints |
-|---|---|---|---|---|
-| `signal_name` | path | string | Yes |  |
-
-Body schema: `UpdateSignalConfigRequest` (complete field tables are provided at the end of this document).
-
-```json
-{
-  "unit": "",
-  "min_value": 0,
-  "max_value": 12,
-  "widget_type": "slider",
-  "writable": true
-}
-```
-
-Example:
-
-```bash
-curl -sS \
-  -X PATCH \
-  "$BASE/config/signal/ABL_FL_RetractRequest" \
-  -H "X-API-Key: $API_KEY" \
-  -H "X-Profile-Name: $PROFILE" \
-  -H "X-Client-Id: $CLIENT_ID" \
-  -H 'Content-Type: application/json' \
-  --data '{"unit":"","min_value":0,"max_value":12,"widget_type":"slider","writable":true}'
-```
-
-Successful response: HTTP 200.
-
-Response schema: `SignalConfigResponse`.
-
-```json
-{
-  "signal_name": "COM_Status_ElkCan",
-  "unit": null,
-  "min_value": 0.0,
-  "max_value": 0.0,
-  "group_name": "example",
-  "widget_type": "example",
-  "writable": false
-}
-```
-
-Note: PATCH saves display metadata to the repository. GET currently reads only name/unit from SignalStore and returns defaults for the other fields; it does not read the complete saved PATCH record. writable here is display metadata; the DBC still determines actual TX permission.
+Signal configuration is read-only. Unit, limits, enum states, and CAN TX permission come from the
+active DBC definition. Change the DBC and restart the process to replace the in-memory catalog.
 
 ### `GET /config/processor`
 
@@ -1285,7 +1186,6 @@ Response schema: `SystemInfoResponse`.
   "description": "Real-time CAN bus signal monitoring and control API",
   "uptime_seconds": 0.0,
   "bus_connected": true,
-  "db_connected": true,
   "signal_count": 0
 }
 ```
@@ -1315,8 +1215,7 @@ Response schema: `HealthResponse`.
 {
   "status": "degraded",
   "uptime_seconds": 0.0,
-  "bus_connected": false,
-  "db_connected": true
+  "bus_connected": false
 }
 ```
 
@@ -1886,7 +1785,6 @@ Response schema: `SystemInfoResponse`.
   "description": "Real-time CAN bus signal monitoring and control API",
   "uptime_seconds": 0.0,
   "bus_connected": true,
-  "db_connected": true,
   "signal_count": 0
 }
 ```
@@ -1916,8 +1814,7 @@ Response schema: `HealthResponse`.
 {
   "status": "degraded",
   "uptime_seconds": 0.0,
-  "bus_connected": false,
-  "db_connected": true
+  "bus_connected": false
 }
 ```
 
@@ -2698,7 +2595,6 @@ Overall system health status.
 | `status` | string | Yes |  | Overall status: 'ok', 'degraded', or 'error' |
 | `uptime_seconds` | number | Yes |  | Number of seconds the system has been running continuously |
 | `bus_connected` | boolean | Yes |  | True if the CAN bus connection is active |
-| `db_connected` | boolean | Yes |  | True if the database connection is active |
 
 ### ProcessorConfigResponse
 
@@ -2895,7 +2791,6 @@ Project overview and system status — GET /api/info.
 | `description` | string | Yes |  | Description |
 | `uptime_seconds` | number | Yes |  | Uptime (seconds) |
 | `bus_connected` | boolean | Yes |  | Whether the CAN bus is connected |
-| `db_connected` | boolean | Yes |  | Whether the database is connected |
 | `signal_count` | integer | Yes |  | Number of signals currently in the store |
 
 ### SystemMetricsResponse
@@ -2951,18 +2846,6 @@ Request to update the processor configuration (PATCH).
 |---|---|---|---|---|
 | `max_queue_size` | integer / null | No |  | New queue size |
 | `queue_policy` | enum ["drop_oldest", "reject"] / null | No | enum=["drop_oldest", "reject"] | Handling policy when the queue is full |
-
-### UpdateSignalConfigRequest
-
-Request to update a partial signal configuration (PATCH).
-
-| Field | Type | Required | Default/Constraints | Description |
-|---|---|---|---|---|
-| `unit` | string / null | No |  | New measurement unit |
-| `min_value` | number / null | No |  | New minimum value |
-| `max_value` | number / null | No |  | New maximum value |
-| `widget_type` | string / null | No |  | New widget type |
-| `writable` | boolean / null | No |  | Allow writes or not |
 
 ### ValidationError
 

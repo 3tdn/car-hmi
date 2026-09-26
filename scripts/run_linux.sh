@@ -126,7 +126,9 @@ stop_process_on_port "$PORT"
 # The API port is set in config/system.json, not via a CLI argument
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
 while true; do
-    if "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"; then
+    # Export the requested launcher port so apply_environment_overrides() and
+    # the port preflight use the same value that was inspected above.
+    if PORT="$PORT" "$VENV_PY" -m src.core.runner --config "$CONFIG" --log-level "$LOG_LEVEL"; then
         exit_code=0
     else
         # Capture the runner status inside the else branch. The exit status of

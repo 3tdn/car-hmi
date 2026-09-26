@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import csv
-import json
 import logging
 import os
 import sqlite3
@@ -13,6 +12,8 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
+
+from src.core.config import load_json_with_defaults
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -28,8 +29,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 def _resolve_paths() -> tuple[Path, Path]:
     """Read db_path and csv_path from config/system.json adaptive_restraint section."""
     _cfg = PROJECT_ROOT / "config" / "system.json"
+    _defaults = PROJECT_ROOT / "config" / "system_bk.json"
     try:
-        cfg = json.loads(_cfg.read_text(encoding="utf-8"))
+        cfg = load_json_with_defaults(_cfg, _defaults)
         ar = cfg.get("adaptive_restraint", {})
         db_rel  = ar.get("db_path",  "db/adaptive_restraint_db/synthetic_data_out_gui.db")
         csv_rel = ar.get("csv_path", "db/adaptive_restraint_db/synthetic_data_out_gui.csv")

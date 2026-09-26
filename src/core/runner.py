@@ -8,6 +8,7 @@ import contextlib
 import logging
 import logging.handlers
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -96,16 +97,29 @@ def _setup_logging(cfg: AppConfig) -> None:
     logging.basicConfig(level=level, format=fmt, handlers=handlers)
 
 
-def _db_total_size(db_path: Path) -> int:
-    """Total size of the .db + .db-wal + .db-shm files (bytes)."""
-    total = 0
-    for suffix in ("", "-wal", "-shm"):
-        p = Path(str(db_path) + suffix)
+def _reserve_api_socket(host: str, port: int) -> socket.socket:
+    """Bind the API socket before opening CAN and API resources."""
+    last_error: OSError | None = None
+    for family, socktype, proto, _, address in socket.getaddrinfo(
+        host,
+        port,
+        family=socket.AF_UNSPEC,
+        type=socket.SOCK_STREAM,
+        flags=socket.AI_PASSIVE,
+    ):
+        api_socket = socket.socket(family, socktype, proto)
         try:
-            total += p.stat().st_size
-        except FileNotFoundError:
-            pass
-    return total
+            api_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            api_socket.bind(address)
+            api_socket.listen(socket.SOMAXCONN)
+            api_socket.setblocking(False)
+            return api_socket
+        except OSError as exc:
+            last_error = exc
+            api_socket.close()
+    if last_error is None:
+        raise OSError(f"No bind address resolved for {host}:{port}")
+    raise last_error
 
 
 class AppRunner:
@@ -115,11 +129,11 @@ class AppRunner:
     -------------
     1. Logging
     2. Load CAN database (scan DBC / CANdb)
-    3. Storage (initialize SQLite schema)
+    3. Build the in-memory signal metadata catalog
     4. CAN bus (open interface)
     5. CAN Reader (decode → queue)
     6. CAN Writer (encode → bus)
-    7. Signal Pipeline (filter → store → DB)
+    7. Signal Pipeline (filter → in-memory store)
     8. CAN Simulator (optional, dev mode)
     9. FastAPI server (REST + WebSocket)
     10. Watchdog (system health monitoring)
@@ -140,17 +154,17 @@ class AppRunner:
         self._writer_router = None
         self._simulator = None
         self._simulator_bus = None
-        self._db_conn = None
-        self._repo = None
         self._buses: list = []
         self._bus_factories: list = []
         self._db_loaders: list = []
+        self._signal_metadata = None
         self._fastapi_server = None
         self._api_app = None
         self._shutdown_noise_filter = _ShutdownNoiseFilter()
         self._ws_manager = None
         self._start_time: float = 0.0
         self._uvicorn_server = None
+        self._api_socket: socket.socket | None = None
         self._ping_unavailable_logged = False
         self._reboot_requested = False
         self._reboot_task: asyncio.Task[None] | None = None
@@ -163,6 +177,20 @@ class AppRunner:
             logging.getLogger(logger_name).addFilter(self._shutdown_noise_filter)
         logger.info("CAN-HMI starting up (config validated ✓)")
         self._start_time = time.time()
+
+        # Reserve the public endpoint before opening the database or CAN bus.
+        # This makes a duplicate instance fail before it can contend for those
+        # shared resources and avoids Uvicorn's opaque startup exit code 3.
+        try:
+            self._api_socket = _reserve_api_socket(
+                self.config.api.host,
+                self.config.api.port,
+            )
+        except OSError as exc:
+            raise RuntimeError(
+                f"API endpoint {self.config.api.host}:{self.config.api.port} is unavailable: "
+                f"{exc}. Another CAN-HMI instance or service may already be using this port."
+            ) from exc
 
         loop = asyncio.get_running_loop()
         # Register signal handlers. On some platforms (especially Windows), the event loop
@@ -189,16 +217,10 @@ class AppRunner:
             # Take a stable snapshot because the watchdog may prune finished tasks
             # from self._tasks while we are waiting here.
             tasks = tuple(self._tasks)
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            await self._wait_for_runtime_tasks(tasks)
             if self._reboot_requested:
                 logger.info("Car-HMI reboot request completed; exiting for supervisor restart")
                 return
-            # Detect critical task failures and trigger shutdown
-            for task, result in zip(tasks, results, strict=True):
-                if isinstance(result, Exception):
-                    logger.error("Task '%s' failed: %s", task.get_name(), result)
-            if any(isinstance(r, Exception) for r in results):
-                await self.shutdown()
         except asyncio.CancelledError:
             if not self._shutting_down:
                 try:
@@ -207,24 +229,61 @@ class AppRunner:
                     pass
             return
         except Exception as exc:
-            logger.critical("Fatal startup error: %s", exc, exc_info=True)
+            logger.critical("Fatal application error: %s", exc, exc_info=True)
             await self.shutdown()
             raise
+
+    async def _wait_for_runtime_tasks(
+        self,
+        tasks: tuple[asyncio.Task, ...],
+    ) -> None:
+        """Fail fast when any long-running runtime task raises or exits."""
+        if not tasks:
+            raise RuntimeError("No runtime tasks were started")
+
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+        # An intentional shutdown cancels or stops these tasks. Wait for that
+        # cleanup to finish without turning the first completed task into a
+        # second failure.
+        if self._shutting_down or self._reboot_requested:
+            await asyncio.gather(*tasks, return_exceptions=True)
+            return
+
+        failures: list[str] = []
+        primary_exception: BaseException | None = None
+        for task in done:
+            task_name = task.get_name()
+            if task.cancelled():
+                detail = f"Task '{task_name}' was cancelled unexpectedly"
+            else:
+                task_exception = task.exception()
+                if task_exception is None:
+                    detail = f"Task '{task_name}' exited unexpectedly"
+                else:
+                    detail = f"Task '{task_name}' failed: {task_exception}"
+                    primary_exception = primary_exception or task_exception
+            failures.append(detail)
+            logger.error(detail)
+
+        failure_summary = "; ".join(failures)
+        await self.shutdown()
+        if primary_exception is not None:
+            raise RuntimeError(failure_summary) from primary_exception
+        raise RuntimeError(failure_summary)
 
     async def _init_components(self, loop: asyncio.AbstractEventLoop) -> None:
         from src.can_io.bus_factory import create_bus, resolve_auto_match_ids
         from src.can_io.parser import DatabaseLoader
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
+        from src.core.signal_metadata import SignalMetadataCatalog
         from src.processor.computed import ComputedSignals, OMSClassificationProcessor
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
-        from src.storage.database import init_db
-        from src.storage.repository import SQLiteRepository
 
         can_channels = self.config.can
         proc_cfg = self.config.processor
-        store_cfg = self.config.storage
         sim_cfg = self.config.simulator
 
         # 1. CAN DB — load each channel directly from its own DBC file ─────────
@@ -267,13 +326,12 @@ class AppRunner:
                 len(initial_values), len(can_channels),
             )
         except Exception:
-            logger.exception("Failed to seed SignalStore with DB signals")
+            logger.exception("Failed to seed SignalStore with DBC signals")
 
-        # 2. Storage ────────────────────────────────────────────────────────────
-        db_path = Path(store_cfg.sqlite_path)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._db_conn = await init_db(str(db_path))
-        self._repo = SQLiteRepository(self._db_conn)
+        # 2. In-memory DBC metadata
+        self._signal_metadata = SignalMetadataCatalog()
+        self._signal_metadata.replace_from_loaders(self._db_loaders)
+        logger.info("Loaded metadata for %d signals into memory", len(self._signal_metadata))
 
         # 3. Signal Pipeline (share one queue across all channels) ───────────────
         rx_queue: asyncio.Queue = asyncio.Queue(maxsize=proc_cfg.max_queue_size)
@@ -282,10 +340,7 @@ class AppRunner:
         self._pipeline = SignalPipeline(
             input_queue=rx_queue,
             signal_store=self.store,
-            repository=self._repo,
             queue_policy=proc_cfg.queue_policy,
-            batch_size=store_cfg.batch_size,
-            batch_interval_sec=store_cfg.batch_interval_sec,
             batch_drain_size=proc_cfg.batch_drain_size,
         )
         self._rate_limiter = RateLimiter(max_hz=proc_cfg.max_update_rate_hz)
@@ -402,7 +457,6 @@ class AppRunner:
         if self.config.supervisor.watchdog_interval_sec > 0:
             self._tasks.append(asyncio.create_task(self._watchdog(), name="watchdog"))
         self._tasks.append(asyncio.create_task(self._metrics_broadcaster(), name="metrics-push"))
-        self._tasks.append(asyncio.create_task(self._retention_cleanup(), name="retention"))
 
         monitor_cfg = self.config.status_monitor
         if monitor_cfg.enabled:
@@ -456,17 +510,20 @@ class AppRunner:
             import uvicorn
 
             from src.api.app import create_app
-        except ImportError:
-            logger.warning("fastapi/uvicorn not installed — API server disabled")
-            return None
+            from src.core.config_manager import SystemConfigManager
+        except ImportError as exc:
+            raise RuntimeError(
+                "API server dependencies could not be imported; refusing to run without the API"
+            ) from exc
 
         api_cfg = self.config.api
         app = create_app(
             signal_store=self.store,
-            repository=self._repo,
+            signal_metadata=self._signal_metadata,
             can_readers=self._readers,
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
+            system_config_manager=SystemConfigManager(),
         )
         self._api_app = app
         # Expose runtime objects so config endpoints can attempt to apply changes
@@ -523,7 +580,8 @@ class AppRunner:
         async def _serve_safe() -> None:
             """Wrap server.serve in try/except to convert SystemExit into a normal exception."""
             try:
-                await server.serve()
+                sockets = [self._api_socket] if self._api_socket is not None else None
+                await server.serve(sockets=sockets)
             except asyncio.CancelledError:
                 # Expected when shutdown() cancels the api task — suppress noisy traceback.
                 pass
@@ -755,48 +813,6 @@ class AppRunner:
 
             await asyncio.sleep(interval_sec)
 
-    async def _retention_cleanup(self) -> None:
-        """Delete signal_log records using two criteria:
-        1. Time-based: delete records older than retention_days every 1 hour.
-        2. Size-based: delete oldest rows and then VACUUM if the DB file exceeds max_disk_mb.
-        """
-        import time as _time_mod
-
-        while not self._shutting_down:
-            await asyncio.sleep(3600)
-            if self._shutting_down:
-                break
-            try:
-                retention_sec = self.config.storage.retention_days * 86400
-                max_bytes = int(self.config.storage.max_disk_mb) * 1024 * 1024
-                db_path = Path(self.config.storage.sqlite_path)
-                cutoff = _time_mod.time() - retention_sec
-                deleted = await self._repo.delete_old_signals(cutoff)
-                if deleted:
-                    logger.info("Retention cleanup: deleted %d old signal records", deleted)
-
-                # Size-based enforcement: trim oldest rows if the DB exceeds max_disk_mb
-                if max_bytes > 0 and self._repo is not None:
-                    db_size = _db_total_size(db_path)
-                    if db_size > max_bytes:
-                        logger.warning(
-                            "DB size %.1f MB > limit %.1f MB (over by %.1f MB) — trimming oldest records",
-                            db_size / 1_048_576,
-                            max_bytes / 1_048_576,
-                            (db_size - max_bytes) / 1_048_576,
-                        )
-                        trimmed = await self._repo.trim_to_size(db_size, max_bytes)
-                        await self._repo.vacuum()
-                        new_size = _db_total_size(db_path)
-                        logger.info(
-                            "DB trim complete: removed %d rows, %.1f MB → %.1f MB",
-                            trimmed,
-                            db_size / 1_048_576,
-                            new_size / 1_048_576,
-                        )
-            except Exception:
-                logger.exception("Retention cleanup failed")
-
     async def _watchdog(self) -> None:
         """Perform periodic health checks — log status and potentially restart components."""
         interval = self.config.supervisor.watchdog_interval_sec
@@ -955,8 +971,6 @@ class AppRunner:
         if self._pipeline is not None:
             self._pipeline.apply_runtime_config(
                 queue_policy=new_config.processor.queue_policy,
-                batch_size=new_config.storage.batch_size,
-                batch_interval_sec=new_config.storage.batch_interval_sec,
                 batch_drain_size=new_config.processor.batch_drain_size,
             )
         if self._rate_limiter is not None:
@@ -1011,7 +1025,7 @@ class AppRunner:
         return True
 
     async def shutdown(self) -> None:
-        """Shut down cleanly: flush the pipeline, stop readers, and close the DB."""
+        """Shut down cleanly: stop runtime components and close the config DB."""
         if self._shutting_down:
             return
         self._shutting_down = True
@@ -1036,10 +1050,6 @@ class AppRunner:
                     logger.debug("WebSocket close-all failed during shutdown", exc_info=True)
         if self._pipeline:
             self._pipeline.stop()
-            try:
-                await asyncio.wait_for(self._pipeline.flush(), timeout=5.0)
-            except TimeoutError:
-                logger.warning("Pipeline flush timed out")
 
         # Signal uvicorn to stop gracefully *before* cancelling its task so
         # the lifespan context manager has a chance to exit cleanly.
@@ -1090,8 +1100,10 @@ class AppRunner:
             except Exception:
                 pass
 
-        if self._db_conn:
-            await self._db_conn.close()
+        if self._api_socket is not None:
+            with contextlib.suppress(OSError):
+                self._api_socket.close()
+            self._api_socket = None
 
         logger.info("Shutdown complete.")
 

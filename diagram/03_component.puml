@@ -22,15 +22,8 @@ package "src/can_io" as pkg_io #PaleGreen {
 
 package "src/processor" as pkg_proc #PaleGreen {
     [pipeline.py\nSignal Processing Pipeline] as proc_pipe
-    [filters.py\nSmoothing / Rate-limit] as proc_filter
-    [alarms.py\nAlarm Detection] as proc_alarm
-    [computed.py\nVirtual Signals] as proc_comp
-}
-
-package "src/storage" as pkg_store #Wheat {
-    [database.py\nDB Connection + Schema Init] as store_db
-    [repository.py\nCRUD Operations] as store_repo
-    [exporter.py\nCSV / JSON Export] as store_export
+    [filters.py\nRate Limiter] as proc_filter
+    [computed.py\nOMS + Computed Signals] as proc_comp
 }
 
 package "src/api" as pkg_api #LightBlue {
@@ -40,7 +33,6 @@ package "src/api" as pkg_api #LightBlue {
     [auth.py\nAPI Key Auth (X-API-Key)] as api_auth
     package "routes/" {
         [signals.py] as r_signals
-        [alarms.py] as r_alarms
         [config.py] as r_config
         [system.py] as r_system
     }
@@ -50,6 +42,7 @@ package "src/core" as pkg_core #LightGray {
     [config.py\nPydantic Config Models] as core_config
     [config_manager.py\nRuntime Config CRUD] as core_cfgmgr
     [signal_store.py\nIn-memory State] as core_store
+    [signal_metadata.py\nRead-only DBC Metadata] as core_metadata
     [runner.py\nOrchestrator] as core_runner
     [system_metrics.py\npsutil Metrics Collector] as core_metrics
 }
@@ -66,12 +59,9 @@ io_reader --> io_parser : "decode"
 io_reader --> io_factory : "create bus"
 io_writer --> io_factory : "create bus"
 io_reader --> proc_pipe : "asyncio.Queue"
-proc_pipe *-- proc_filter : "stage 1-2"
-proc_pipe *-- proc_alarm : "stage 4"
-proc_pipe *-- proc_comp : "stage 3"
+proc_pipe *-- proc_filter : "stage 1"
+proc_pipe *-- proc_comp : "stages 2-3"
 proc_pipe --> core_store : "update latest"
-proc_alarm ..> core_store : "alarm events"
-proc_pipe --> store_repo : "batch insert"
 
 io_writer ..> bus_if : "send CAN frame"
 
@@ -79,23 +69,20 @@ api_app --> api_ws
 api_app --> api_auth
 api_app --> api_models : "validation"
 api_app --> r_signals
-api_app --> r_alarms
 api_app --> r_config
 api_app --> r_system
 r_signals --> api_models : "Pydantic validate"
 r_signals --> core_store : "read snapshot"
-r_signals --> store_repo : "read history"
 r_signals --> io_writer : "write-back"
 api_ws --> core_store : "broadcast"
-r_alarms --> core_store : "read active alarms"
-r_alarms --> store_repo : "alarm history + ACK"
-r_config --> store_repo : "read/update config"
+r_config --> core_metadata : "read signal metadata"
 r_config --> core_store : "read live values"
 
 core_runner --> sim_engine : "start"
 core_runner --> io_reader : "start"
 core_runner --> io_writer : "init"
 core_runner --> core_store : "init store"
+core_runner --> core_metadata : "replace from loaded DBCs"
 core_runner --> proc_pipe : "start"
 r_system --> core_store : "bus status, queue"
 r_system --> core_metrics : "CPU/RAM/disk/queue"
@@ -104,9 +91,5 @@ r_system --> proc_pipe : "error counters"
 core_runner --> api_app : "start"
 core_runner --> core_config : "load"
 core_runner --> core_cfgmgr : "runtime CRUD"
-
-store_repo --> store_db
-store_export --> store_repo
-r_signals ..> store_export : "CSV/JSON export"
 
 @enduml

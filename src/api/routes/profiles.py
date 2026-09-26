@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,14 +24,15 @@ from src.api.models import (
     ClientProfileSession,
     ProfileCreate,
     ProfileHeartbeatResponse,
-    ProfileSignal,
-    ProfileSessionProfileStat,
     ProfileResponse,
+    ProfileSessionProfileStat,
     ProfileSessionsResponse,
     ProfileSetActiveRequest,
+    ProfileSignal,
     ProfilesResponse,
     ProfileUpdate,
 )
+from src.core.config import merge_json_defaults
 from src.core.devmode_locks import get_seat_lock_registry
 
 router = APIRouter()
@@ -94,13 +96,55 @@ PERMISSION_ORDER: tuple[PermissionScope, ...] = ("read", "write", "full")
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _load_profiles() -> dict[str, Any]:
-    if not PROFILES_PATH.exists():
-        return {"active": None, "profiles": {}}
+def _profile_defaults_path(path: Path) -> Path:
+    stem = "profile" if path.stem == "profiles" else path.stem
+    return path.with_name(f"{stem}_bk{path.suffix}")
+
+
+def _read_profile_json(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
     try:
-        data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8")) or {}
     except (OSError, json.JSONDecodeError):
-        return {"active": None, "profiles": {}}
+        return None
+    return data if isinstance(data, dict) else {}
+
+
+def _merge_profile_defaults(
+    defaults: dict[str, Any],
+    overrides: dict[str, Any],
+) -> dict[str, Any]:
+    """Fill profile fields without restoring profile records intentionally deleted by users."""
+    merged = deepcopy(overrides)
+    for key, value in defaults.items():
+        if key not in merged:
+            merged[key] = deepcopy(value)
+
+    default_profiles = defaults.get("profiles")
+    current_profiles = merged.get("profiles")
+    if not isinstance(default_profiles, dict) or not isinstance(current_profiles, dict):
+        return merged
+
+    for name, profile in list(current_profiles.items()):
+        profile_defaults = default_profiles.get(name)
+        if isinstance(profile_defaults, dict) and isinstance(profile, dict):
+            current_profiles[name] = merge_json_defaults(profile_defaults, profile)
+    return merged
+
+
+def _load_profiles() -> dict[str, Any]:
+    defaults_source = _read_profile_json(_profile_defaults_path(PROFILES_PATH))
+    defaults = defaults_source or {}
+    current = _read_profile_json(PROFILES_PATH)
+    data = (
+        deepcopy(defaults)
+        if current is None
+        else _merge_profile_defaults(defaults, current)
+    )
+    repair_needed = defaults_source is not None and (
+        current is None or data != current
+    )
     if not isinstance(data, dict):
         data = {}
     if not isinstance(data.get("profiles"), dict):
@@ -117,7 +161,7 @@ def _load_profiles() -> dict[str, Any]:
         if normalized != raw_profile:
             changed = True
 
-    if changed:
+    if changed or repair_needed:
         data["profiles"] = normalized_profiles
         _save_profiles(data)
     return data

@@ -124,6 +124,7 @@ class CANReader:
         self._drop_warn_last_log = 0.0
         # Dedicated recv thread (set in start())
         self._recv_thread: threading.Thread | None = None
+        self._recv_stop_event = threading.Event()
         self._event_loop: asyncio.AbstractEventLoop | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
         self._reconnecting = False
@@ -189,6 +190,7 @@ class CANReader:
                     )
         finally:
             self._running = False
+            self._recv_stop_event.set()
             if self._reconnect_task and not self._reconnect_task.done():
                 self._reconnect_task.cancel()
             if self._recv_thread and self._recv_thread.is_alive():
@@ -200,9 +202,10 @@ class CANReader:
 
     def _spawn_recv_thread(self, event_loop: asyncio.AbstractEventLoop) -> threading.Thread:
         """Create and start a new receive thread."""
+        self._recv_stop_event = threading.Event()
         t = threading.Thread(
             target=self._recv_loop,
-            args=(event_loop,),
+            args=(event_loop, self._recv_stop_event),
             daemon=True,
             name="can-reader-rx",
         )
@@ -226,9 +229,11 @@ class CANReader:
 
     async def _close_recv_thread(self) -> None:
         """Close the current bus and wait briefly for its blocked recv() to return."""
-        if self._bus is not None:
+        self._recv_stop_event.set()
+        closing_bus = self._bus
+        if closing_bus is not None:
             try:
-                self._bus.shutdown()
+                closing_bus.shutdown()
             except Exception:
                 logger.debug("CAN bus shutdown during reconnect failed", exc_info=True)
 
@@ -240,6 +245,9 @@ class CANReader:
             self._fatal_error = "recv_thread_stuck"
             logger.critical("CAN recv thread did not exit after bus shutdown")
             self.stop()
+            return
+        if self._bus is closing_bus:
+            self._bus = None
 
     async def request_reconnect(self, reason: str = "manual CAN reconnect requested") -> bool:
         """Start one reconnect loop; return False when recovery is already in progress."""
@@ -285,7 +293,11 @@ class CANReader:
         self._reconnect_wakeup.set()
         return True
 
-    def _recv_loop(self, event_loop: asyncio.AbstractEventLoop) -> None:
+    def _recv_loop(
+        self,
+        event_loop: asyncio.AbstractEventLoop,
+        stop_event: threading.Event | None = None,
+    ) -> None:
         """Run in a dedicated OS thread: a tight recv() loop that posts frames via call_soon_threadsafe.
 
         There is no asyncio overhead for each recv() call — this completely removes
@@ -293,11 +305,12 @@ class CANReader:
         """
         logger.debug("CAN recv thread started (tid=%d)", threading.get_ident())
         bus = self._bus  # local snapshot — avoids race with _reconnect() reassigning self._bus
+        local_stop = stop_event or self._recv_stop_event
         prefetched_msg = getattr(bus, "_car_hmi_prefetched_message", None)
         if prefetched_msg is not None:
             with contextlib.suppress(AttributeError):
                 delattr(bus, "_car_hmi_prefetched_message")
-        while self._running:
+        while self._running and not local_stop.is_set():
             try:
                 if prefetched_msg is not None:
                     msg: can.Message | None = prefetched_msg
@@ -329,10 +342,29 @@ class CANReader:
                 if frame is not None:
                     self._submit_frame(event_loop, frame)
             except can.CanError as exc:
+                if local_stop.is_set() or not self._running:
+                    logger.debug("CAN recv stopped after bus close: %s", exc)
+                    break
                 self._error_count += 1
                 self._last_error = str(exc)
                 logger.error("CAN bus error #%d: %s — recv thread exiting", self._error_count, exc)
                 break  # watchdog detects thread death and initiates reconnect
+            except (OSError, ValueError) as exc:
+                # SocketCAN may surface a closed descriptor as ValueError(-1)
+                # instead of can.CanError. It is expected when this reader asked
+                # the bus to close; otherwise treat it as a recoverable transport
+                # failure and let the watchdog reconnect.
+                if local_stop.is_set() or not self._running:
+                    logger.debug("CAN recv stopped after bus close: %s", exc)
+                    break
+                self._error_count += 1
+                self._last_error = str(exc)
+                logger.error(
+                    "CAN receive transport error #%d: %s — recv thread exiting",
+                    self._error_count,
+                    exc,
+                )
+                break
             except Exception as exc:
                 self._last_error = str(exc)
                 logger.exception("Unexpected error in CAN recv thread: %s", exc)
@@ -500,6 +532,7 @@ class CANReader:
     def stop(self) -> None:
         """Signal the read loop to stop cleanly."""
         self._running = False
+        self._recv_stop_event.set()
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
         with self._pending_lock:
