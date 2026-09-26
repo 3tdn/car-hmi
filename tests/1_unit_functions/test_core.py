@@ -6,23 +6,30 @@ import json
 
 import pytest
 
-from src.core.config import AppConfig, CANConfig, apply_environment_overrides, load_config
+from src.core.config import (
+    AppConfig,
+    CANConfig,
+    apply_environment_overrides,
+    load_config,
+    load_json_with_defaults,
+)
 from src.core.signal_store import SignalStore
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
 
 def test_load_config_from_file():
-    """Load the project's system.json and validate it produces AppConfig."""
+    """Load the project's system config, including its backup fallback."""
     from pathlib import Path
 
-    if not Path("config/system.json").exists():
-        pytest.skip("config/system.json not found")
-    cfg = load_config("config/system.json")
+    raw = load_json_with_defaults(
+        Path("config/system.json"),
+        Path("config/system_bk.json"),
+    )
+    cfg = AppConfig.model_validate(raw)
     assert isinstance(cfg, AppConfig)
     assert isinstance(cfg.can, list)
     assert len(cfg.can) >= 1
-    raw = json.loads(Path("config/system.json").read_text())
     assert cfg.can[0].interface == raw["can"][0]["interface"]
     assert cfg.can[0].channel_tracking_signals == raw["can"][0].get("channel_tracking_signals", [])
     assert cfg.api.port == 8000
@@ -192,6 +199,96 @@ def test_app_config_empty_can_rejected():
 def test_load_config_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_config(str(tmp_path / "nope.json"))
+
+
+def test_load_config_uses_backup_when_primary_is_missing(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    backup.write_text(
+        json.dumps({"api": {"host": "127.0.0.1", "port": 8123}}),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.host == "127.0.0.1"
+    assert cfg.api.port == 8123
+    assert json.loads(primary.read_text(encoding="utf-8"))["api"] == {
+        "host": "127.0.0.1",
+        "port": 8123,
+    }
+
+
+def test_load_config_fills_missing_nested_fields_from_backup(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text(json.dumps({"api": {"port": 9000}}), encoding="utf-8")
+    backup.write_text(
+        json.dumps(
+            {
+                "api": {"host": "127.0.0.1", "port": 8123},
+                "reader": {"only_send_signal_update": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.host == "127.0.0.1"
+    assert cfg.api.port == 9000
+    assert cfg.reader.only_send_signal_update is True
+    repaired = json.loads(primary.read_text(encoding="utf-8"))
+    assert repaired["api"] == {"host": "127.0.0.1", "port": 9000}
+    assert repaired["reader"]["only_send_signal_update"] is True
+
+
+def test_load_config_fills_fields_inside_matching_list_items(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text(
+        json.dumps({"can": [{"channel": "can0", "bitrate": 250000}]}),
+        encoding="utf-8",
+    )
+    backup.write_text(
+        json.dumps(
+            {
+                "can": [
+                    {
+                        "interface": "socketcan",
+                        "channel": "can0",
+                        "bitrate": 500000,
+                        "can_db_file": "backup.dbc",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.can[0].interface == "socketcan"
+    assert cfg.can[0].bitrate == 250000
+    assert cfg.can[0].can_db_file == "backup.dbc"
+    repaired = json.loads(primary.read_text(encoding="utf-8"))
+    assert repaired["can"][0]["interface"] == "socketcan"
+    assert repaired["can"][0]["can_db_file"] == "backup.dbc"
+
+
+def test_load_config_repairs_invalid_primary_from_backup(tmp_path):
+    primary = tmp_path / "system.json"
+    backup = tmp_path / "system_bk.json"
+    primary.write_text('{"api":', encoding="utf-8")
+    backup.write_text(
+        json.dumps({"api": {"host": "127.0.0.1", "port": 8123}}),
+        encoding="utf-8",
+    )
+
+    cfg = load_config(primary)
+
+    assert cfg.api.port == 8123
+    assert json.loads(primary.read_text(encoding="utf-8"))["api"]["port"] == 8123
 
 
 def test_load_config_custom(tmp_path):

@@ -510,6 +510,7 @@ class AppRunner:
             import uvicorn
 
             from src.api.app import create_app
+            from src.core.config_manager import SystemConfigManager
         except ImportError as exc:
             raise RuntimeError(
                 "API server dependencies could not be imported; refusing to run without the API"
@@ -522,6 +523,7 @@ class AppRunner:
             can_readers=self._readers,
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
+            system_config_manager=SystemConfigManager(),
         )
         self._api_app = app
         # Expose runtime objects so config endpoints can attempt to apply changes

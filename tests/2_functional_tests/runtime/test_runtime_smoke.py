@@ -20,6 +20,8 @@ import httpx
 import pytest
 import websockets
 
+from src.core.config import load_json_with_defaults
+
 RUNTIME_API_KEY = "runtime-smoke-key"
 
 
@@ -36,7 +38,8 @@ def _project_root() -> Path:
 def _make_runtime_config(tmp_path: Path, port: int) -> Path:
     root = _project_root()
     source = root / "config" / "system.json"
-    cfg = json.loads(source.read_text(encoding="utf-8"))
+    defaults = root / "config" / "system_bk.json"
+    cfg = load_json_with_defaults(source, defaults)
 
     cfg.setdefault("api", {})
     cfg["api"]["host"] = "127.0.0.1"

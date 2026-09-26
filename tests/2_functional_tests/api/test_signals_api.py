@@ -12,7 +12,7 @@ from httpx import ASGITransport, AsyncClient
 from src.api.app import create_app
 from src.can_io.parser import DatabaseLoader
 from src.can_io.writer import CANWriteRejectedError
-from src.core.config import load_config
+from src.core.config import AppConfig, load_json_with_defaults
 from src.core.signal_metadata import SignalMetadataCatalog
 from src.core.signal_store import SignalStore
 
@@ -79,7 +79,10 @@ async def client():
     store = SignalStore()
     await store.update("VehicleSpeed", 60.0)
     loaders = []
-    for channel in load_config("config/system.json").can:
+    config = AppConfig.model_validate(
+        load_json_with_defaults("config/system.json", "config/system_bk.json")
+    )
+    for channel in config.can:
         loader = DatabaseLoader()
         loader.load_dbc(channel.can_db_file)
         loaders.append(loader)

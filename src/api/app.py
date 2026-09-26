@@ -169,7 +169,7 @@ def create_app(
     app.state.start_time = time.time()
     app.state.runner = None
 
-    config_manager = system_config_manager or SystemConfigManager()
+    config_manager = system_config_manager or SystemConfigManager(repair_on_read=False)
     app.state.system_config_manager = config_manager
     _cfg = config_manager.read()
     _reader_cfg = _cfg.get("reader", {})

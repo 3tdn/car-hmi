@@ -101,6 +101,114 @@ async def test_profile_create_and_get_with_permission(monkeypatch, tmp_path):
     assert saved_map["VehicleSpeed"] == ["read", "write"]
     assert saved_map["FuelLevel"] == ["read", "write"]
 
+
+def test_profiles_use_backup_when_primary_is_missing(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "*", "permission": ["full"]}],
+                "exinfo": {},
+                "description": "Default admin",
+                "created_at": 1.0,
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["active"] == "admin"
+    assert data["profiles"]["admin"]["description"] == "Default admin"
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
+
+def test_profiles_fill_fields_without_restoring_deleted_profiles(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    profiles_path.write_text(
+        json.dumps(
+            {
+                "profiles": {
+                    "admin": {
+                        "signals": [
+                            {"name": "VehicleSpeed", "permission": ["read"]},
+                            {"name": "FuelLevel"},
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [
+                    {"name": "VehicleSpeed", "permission": ["full"]},
+                    {"name": "FuelLevel", "permission": ["write"]},
+                ],
+                "exinfo": {"source": "backup"},
+                "description": "Default admin",
+                "created_at": 1.0,
+            },
+            "deleted": {
+                "signals": [],
+                "exinfo": {},
+                "description": "Must stay deleted",
+                "created_at": 2.0,
+            },
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["active"] == "admin"
+    assert data["profiles"]["admin"]["signals"] == [
+        {"name": "VehicleSpeed", "permission": ["read"]},
+        {"name": "FuelLevel", "permission": ["write"]},
+    ]
+    assert data["profiles"]["admin"]["description"] == "Default admin"
+    assert data["profiles"]["admin"]["exinfo"] == {"source": "backup"}
+    assert "deleted" not in data["profiles"]
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
+
+def test_profiles_repair_invalid_primary_from_backup(monkeypatch, tmp_path):
+    import src.api.routes.profiles as profile_routes
+
+    profiles_path = tmp_path / "profiles.json"
+    backup_path = tmp_path / "profile_bk.json"
+    profiles_path.write_text('{"profiles":', encoding="utf-8")
+    _write_profiles(
+        backup_path,
+        active="admin",
+        profiles={
+            "admin": {
+                "signals": [{"name": "*", "permission": ["full"]}],
+                "exinfo": {},
+                "description": "Recovered admin",
+                "created_at": 1.0,
+            }
+        },
+    )
+    monkeypatch.setattr(profile_routes, "PROFILES_PATH", profiles_path)
+
+    data = profile_routes._load_profiles()
+
+    assert data["profiles"]["admin"]["description"] == "Recovered admin"
+    assert json.loads(profiles_path.read_text(encoding="utf-8")) == data
+
 async def test_create_second_profile_requires_full_permission(monkeypatch, tmp_path):
     """Creating a new profile after bootstrap requires full permission."""
     import src.api.routes.profiles as profile_routes
