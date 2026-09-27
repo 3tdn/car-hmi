@@ -14,11 +14,19 @@ from src.core.signal_store import SignalStore
 
 
 class _FakeReader:
-    def __init__(self, *, thread_alive: bool, last_frame_timestamp: float, fatal_error: str | None = None):
+    def __init__(
+        self,
+        *,
+        thread_alive: bool,
+        last_frame_timestamp: float,
+        fatal_error: str | None = None,
+        last_error: str | None = None,
+    ):
         self._state = {
             "thread_alive": thread_alive,
             "last_frame_timestamp": last_frame_timestamp,
             "fatal_error": fatal_error,
+            "last_error": last_error,
         }
 
     def get_runtime_state(self):
@@ -134,6 +142,33 @@ async def test_health_endpoint_error_on_reader_fatal():
         resp = await c.get("/system/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "error"
+
+
+async def test_health_and_ready_expose_can_startup_error():
+    store = SignalStore()
+    error = "CAN channel[0] interface='socketcan' channel='can0' unavailable: Protocol not supported"
+    app = create_app(
+        store,
+        can_readers=[
+            _FakeReader(
+                thread_alive=False,
+                last_frame_timestamp=0.0,
+                last_error=error,
+            )
+        ],
+        api_key="",
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        health = await client.get("/system/health")
+        ready = await client.get("/system/ready")
+
+    assert health.status_code == 200
+    assert health.json()["status"] == "degraded"
+    assert health.json()["can_errors"] == [f"channel[0]: {error}"]
+    assert ready.status_code == 200
+    assert ready.json()["ready"] is False
+    assert ready.json()["can_errors"] == [f"channel[0]: {error}"]
 
 async def test_ready_false_when_reader_frames_stale():
     store = SignalStore()

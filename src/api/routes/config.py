@@ -183,7 +183,15 @@ async def restore_system_config_backup(backup_id: str, request: Request):
         _raise_config_error(exc)
 
 
-@router.patch("/system", summary="Patch system config without dropping unrelated fields")
+@router.patch(
+    "/system",
+    summary="Patch system config without dropping unrelated fields",
+    description=(
+        "Merges the request into the active configuration, validates the complete candidate "
+        "configuration, and only then creates a backup and writes the file. Invalid requests "
+        "return HTTP 422 without changing disk or runtime state."
+    ),
+)
 async def patch_system_config(body: dict, request: Request):
     require_profile_permission(request, "full")
     try:

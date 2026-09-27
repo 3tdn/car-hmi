@@ -379,6 +379,7 @@
           "Config"
         ],
         "summary": "Patch system config without dropping unrelated fields",
+        "description": "Merges the request into the active configuration, validates the complete candidate configuration, and only then creates a backup and writes the file. Invalid requests return HTTP 422 without changing disk or runtime state.",
         "operationId": "patch_system_config_config_system_patch",
         "requestBody": {
           "content": {
@@ -2162,6 +2163,14 @@
             "type": "boolean",
             "title": "Bus Connected",
             "description": "True if the CAN bus connection is active"
+          },
+          "can_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Can Errors",
+            "description": "Current CAN connection errors; empty when no reader has reported an error"
           }
         },
         "type": "object",
@@ -2592,6 +2601,14 @@
             "type": "object",
             "title": "Details",
             "description": "Status of each component (key: component name, value: ready or not)"
+          },
+          "can_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Can Errors",
+            "description": "Current CAN connection errors; empty when no reader has reported an error"
           }
         },
         "type": "object",

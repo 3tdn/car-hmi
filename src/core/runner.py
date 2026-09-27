@@ -40,7 +40,10 @@ def _extract_host(raw_target: str | None) -> str | None:
         return None
 
     if "://" in target:
-        host = urlparse(target).hostname
+        try:
+            host = urlparse(target).hostname
+        except ValueError:
+            return None
         return host.strip() if host else None
 
     if target.count(":") == 1:
@@ -370,19 +373,35 @@ class AppRunner:
             db_loader = self._db_loaders[idx]
 
             def _make_bus_factory(cfg=ch_cfg, loader=db_loader):
-                match_ids = resolve_auto_match_ids(cfg, loader) if cfg.channel == "auto" else set()
-                return lambda: create_bus(cfg, auto_match_ids=match_ids)
+                def _open_bus():
+                    if cfg.channel != "auto":
+                        return create_bus(cfg)
+
+                    match_ids = resolve_auto_match_ids(cfg, loader)
+                    dbc_ids = {
+                        msg_id for msg_id, message in loader.messages.items() if message.signals
+                    }
+                    return create_bus(
+                        cfg,
+                        auto_match_ids=match_ids,
+                        auto_dbc_ids=dbc_ids,
+                    )
+
+                return _open_bus
 
             bus_factory = _make_bus_factory()
+            startup_error: str | None = None
             try:
                 bus = bus_factory()
-            except can.CanError as exc:
-                if ch_cfg.channel != "auto":
-                    raise
+            except (can.CanError, OSError, ValueError) as exc:
                 bus = None
+                startup_error = (
+                    f"CAN channel[{idx}] interface='{ch_cfg.interface}' "
+                    f"channel='{ch_cfg.channel}' unavailable: {exc}"
+                )
                 logger.warning(
-                    "Automatic CAN discovery unavailable at startup: %s — continuing in degraded mode",
-                    exc,
+                    "%s — API will remain available while CAN reconnects in the background",
+                    startup_error,
                 )
             self._bus_factories.append(bus_factory)
             self._buses.append(bus)
@@ -420,6 +439,7 @@ class AppRunner:
                 priority_sec=self.config.reader.frequency_piority,
                 stale_threshold_sec=self.config.reader.stale_threshold_sec,
                 frontend_retry_enabled=ch_cfg.channel == "auto",
+                initial_error=startup_error,
                 on_bus_disconnecting=_mark_channel_bus_unavailable,
                 on_bus_reconnected=_replace_channel_bus,
             )
@@ -428,8 +448,8 @@ class AppRunner:
             writer_router.register(db_loader, writer)
 
             logger.info(
-                "CAN channel[%d] '%s' ready (interface=%s, bitrate=%d)",
-                idx, ch_cfg.channel, ch_cfg.interface, ch_cfg.bitrate,
+                "CAN channel[%d] '%s' initialized (interface=%s, bitrate=%d, connected=%s)",
+                idx, ch_cfg.channel, ch_cfg.interface, ch_cfg.bitrate, bus is not None,
             )
 
         self._writer_router = writer_router

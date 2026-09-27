@@ -26,18 +26,25 @@ def _natural_channel_key(channel: str) -> list[int | str]:
 
 
 def resolve_auto_match_ids(cfg: CANConfig, db: DatabaseLoader) -> set[int]:
-    """Resolve discovery signals to message IDs without widening an explicit selection."""
+    """Resolve known discovery signals; unknown names use DBC-wide fallback."""
     if not cfg.channel_tracking_signals:
         return {msg_id for msg_id, message in db.messages.items() if message.signals}
 
     match_ids: set[int] = set()
+    unknown: list[str] = []
     for signal in cfg.channel_tracking_signals:
         message = db.get_message_for_signal(signal)
         if message is None:
-            raise ValueError(
-                f"Unknown channel_tracking_signals signal '{signal}' in {cfg.can_db_file}"
-            )
+            unknown.append(signal)
+            continue
         match_ids.add(message.msg_id)
+    if unknown:
+        logger.warning(
+            "Ignoring unknown channel_tracking_signals in %s: %s; "
+            "auto discovery will fall back to any DBC message",
+            cfg.can_db_file,
+            ", ".join(unknown),
+        )
     return match_ids
 
 
@@ -111,14 +118,16 @@ def _create_auto_socketcan_bus(
     *,
     bitrate: int,
     match_ids: set[int],
+    dbc_ids: set[int],
     probe_timeout_sec: float,
     sys_class_net: Path,
 ) -> can.BusABC:
-    """Select an UP SocketCAN interface that receives a CAN ID from the channel DBC."""
-    if not match_ids:
+    """Prefer tracking IDs, then fall back to any DBC ID within one probe window."""
+    if not dbc_ids:
         raise can.CanInitializationError(
             "channel='auto' requires at least one DBC message containing a signal"
         )
+    match_ids = match_ids & dbc_ids
 
     channels = list_up_socketcan_channels(sys_class_net)
     if not channels:
@@ -126,8 +135,31 @@ def _create_auto_socketcan_bus(
 
     opened: list[tuple[str, can.BusABC]] = []
     open_errors: list[str] = []
-    filters = _exact_can_filters(match_ids)
+    filters = _exact_can_filters(dbc_ids)
     selected_bus: can.BusABC | None = None
+    fallbacks: dict[can.BusABC, can.Message] = {}
+
+    def select_bus(
+        channel: str,
+        bus: can.BusABC,
+        msg: can.Message,
+        *,
+        used_fallback: bool,
+    ) -> can.BusABC:
+        nonlocal selected_bus
+        bus.set_filters(None)
+        selected_bus = bus
+        # Preserve the frame used for validation so the reader still decodes it.
+        # This matters when the matching DBC message is a one-shot event.
+        bus._car_hmi_prefetched_message = msg
+        logger.info(
+            "Auto-selected SocketCAN channel '%s' after receiving %sDBC message %#x",
+            channel,
+            "fallback " if used_fallback else "tracking ",
+            msg.arbitration_id,
+        )
+        return bus
+
     try:
         for channel in channels:
             try:
@@ -162,33 +194,33 @@ def _create_auto_socketcan_bus(
                     msg = bus.recv(timeout=min(_AUTO_PROBE_SLICE_SEC, remaining))
                 except can.CanError as exc:
                     logger.warning("SocketCAN probe failed on '%s': %s", channel, exc)
+                    fallbacks.pop(bus, None)
                     # Do not keep polling a broken socket. Some SocketCAN
                     # failures return immediately, which otherwise creates a
                     # tight CPU/logging loop for the rest of the probe window.
                     continue
                 next_active.append((channel, bus))
-                if msg is None or msg.arbitration_id not in match_ids:
+                if msg is None or msg.arbitration_id not in dbc_ids:
                     continue
-
-                # Discovery filters must not limit normal reader traffic.
-                bus.set_filters(None)
-                selected_bus = bus
-                # Preserve the frame used for validation so the reader still
-                # decodes it. This matters when the matching DBC message is a
-                # one-shot event rather than periodic traffic.
-                bus._car_hmi_prefetched_message = msg
-                logger.info(
-                    "Auto-selected SocketCAN channel '%s' after receiving DBC message %#x",
-                    channel,
-                    msg.arbitration_id,
-                )
-                return bus
+                if not match_ids or msg.arbitration_id in match_ids:
+                    return select_bus(
+                        channel,
+                        bus,
+                        msg,
+                        used_fallback=not match_ids,
+                    )
+                fallbacks.setdefault(bus, msg)
             active = next_active
 
         if not active:
             raise can.CanInitializationError(
                 "All UP SocketCAN interfaces failed while probing for DBC traffic"
             )
+
+        for channel, bus in active:
+            msg = fallbacks.get(bus)
+            if msg is not None:
+                return select_bus(channel, bus, msg, used_fallback=True)
 
         raise can.CanInitializationError(
             "No UP SocketCAN interface received a message from the configured DBC "
@@ -208,6 +240,7 @@ def create_bus(
     cfg: CANConfig,
     *,
     auto_match_ids: set[int] | None = None,
+    auto_dbc_ids: set[int] | None = None,
     auto_probe_timeout_sec: float = _AUTO_PROBE_TIMEOUT_SEC,
     socketcan_sysfs: Path = Path("/sys/class/net"),
     **kwargs: Any,
@@ -241,12 +274,15 @@ def create_bus(
                 "channel='auto' is supported only with interface='socketcan'"
             )
         logger.info(
-            "Discovering an UP SocketCAN interface with traffic matching %d DBC message(s)",
+            "Discovering an UP SocketCAN interface with %d preferred and %d fallback "
+            "DBC message(s)",
             len(auto_match_ids or set()),
+            len(auto_dbc_ids if auto_dbc_ids is not None else auto_match_ids or set()),
         )
         return _create_auto_socketcan_bus(
             bitrate=int(params["bitrate"]),
             match_ids=auto_match_ids or set(),
+            dbc_ids=auto_dbc_ids if auto_dbc_ids is not None else auto_match_ids or set(),
             probe_timeout_sec=auto_probe_timeout_sec,
             sys_class_net=socketcan_sysfs,
         )
@@ -261,7 +297,13 @@ def create_bus(
         params["channel"],
         params.get("bitrate", "n/a"),
     )
-    bus = can.Bus(**params)
+    try:
+        bus = can.Bus(**params)
+    except OSError as exc:
+        raise can.CanInitializationError(
+            f"Cannot open CAN interface='{params['interface']}' "
+            f"channel='{params['channel']}': {exc}"
+        ) from exc
     logger.info("CAN bus opened: %s", bus)
     return bus
 

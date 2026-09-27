@@ -147,6 +147,10 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Overall status: 'ok', 'degraded', or 'error'")
     uptime_seconds: float = Field(..., description="Number of seconds the system has been running continuously")
     bus_connected: bool = Field(..., description="True if the CAN bus connection is active")
+    can_errors: list[str] = Field(
+        default_factory=list,
+        description="Current CAN connection errors; empty when no reader has reported an error",
+    )
 
 
 class ReadinessResponse(BaseModel):
@@ -154,6 +158,10 @@ class ReadinessResponse(BaseModel):
 
     ready: bool = Field(..., description="True if the application is ready to accept requests")
     details: dict[str, bool] = Field(..., description="Status of each component (key: component name, value: ready or not)")
+    can_errors: list[str] = Field(
+        default_factory=list,
+        description="Current CAN connection errors; empty when no reader has reported an error",
+    )
 
 
 # ── CarPC resource information model ──────────────────────────────────────

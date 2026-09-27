@@ -571,6 +571,50 @@ async def test_patch_channel_tracking_signals_requires_reboot(config_client):
 
 
 @pytest.mark.asyncio
+async def test_patch_accepts_unknown_channel_tracking_signal_for_dbc_fallback(config_client):
+    client, manager, _ = config_client
+    channel = {
+        **manager.read()["can"][0],
+        "interface": "socketcan",
+        "channel": "auto",
+        "channel_tracking_signals": ["DOES_NOT_EXIST"],
+    }
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [channel]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reload"]["reboot"] == [
+        "can.0.channel",
+        "can.0.channel_tracking_signals.0",
+        "can.0.interface",
+    ]
+    assert manager.read()["can"][0]["channel_tracking_signals"] == ["DOES_NOT_EXIST"]
+
+
+@pytest.mark.asyncio
+async def test_patch_accepts_unknown_tracking_signal_for_fixed_channel(config_client):
+    client, manager, _ = config_client
+    channel = {
+        **manager.read()["can"][0],
+        "channel_tracking_signals": ["DOES_NOT_EXIST"],
+    }
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [channel]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reload"]["reboot"] == ["can.0.channel_tracking_signals.0"]
+    assert manager.read()["can"][0]["channel_tracking_signals"] == ["DOES_NOT_EXIST"]
+
+
+@pytest.mark.asyncio
 async def test_patch_rejects_missing_dbc_from_field_validation(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()
@@ -583,6 +627,27 @@ async def test_patch_rejects_missing_dbc_from_field_validation(config_client):
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
+async def test_patch_validates_entire_candidate_before_write(config_client):
+    client, manager, _ = config_client
+    invalid = manager.read()
+    invalid["simulator"]["can_db_file"] = "missing.dbc"
+    write_config(invalid, manager.config_path)
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"reader": {"stale_threshold_sec": 7.0}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert "simulator.can_db_file" in response.json()["detail"]["message"]
     assert manager.config_path.read_bytes() == before
     assert manager.list_backups() == []
 
@@ -605,6 +670,58 @@ async def test_patch_rejects_value_outside_policy_enum(config_client):
 
 
 @pytest.mark.asyncio
+async def test_patch_rejects_empty_default_profile_permissions(config_client):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"profiles": {"default_profile_permission": []}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_validation_failed"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "update",
+    [
+        {
+            "oms_config": {
+                "bypass_simi_input": True,
+                "target_signal": {"DerivedOMS": "DOES_NOT_EXIST"},
+            }
+        },
+        {
+            "status_monitor": {
+                "enabled": True,
+                "targets": {"COM_Status_CustomCan": "DOES_NOT_EXIST"}
+            }
+        },
+    ],
+)
+async def test_patch_rejects_unknown_dbc_signal_references(config_client, update):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json=update,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert "DOES_NOT_EXIST" in response.json()["detail"]["message"]
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
 async def test_patch_rejects_coerced_scalar_type_from_field_validation(config_client):
     client, manager, _ = config_client
 
@@ -617,6 +734,60 @@ async def test_patch_rejects_coerced_scalar_type_from_field_validation(config_cl
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
     assert manager.read()["reader"]["stale_threshold_sec"] != "7.5"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", ["1e999", "NaN"])
+async def test_patch_rejects_non_finite_live_number_before_write(config_client, value):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers={**_headers(), "Content-Type": "application/json"},
+        content=f'{{"api":{{"ws_metrics_interval_sec":{value}}}}}',
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_validation_failed"
+    assert manager.config_path.read_bytes() == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("update", "message"),
+    [
+        ({"camera": {"stream_url": "not a url"}}, "camera.stream_url"),
+        ({"api": {"host": "http://127.0.0.1:8000"}}, "api.host"),
+        ({"api": {"cors_origins": ["not an origin"]}}, "cors_origins"),
+        ({"api": {"cors_origins": ["http://192.168.*.*:bad"]}}, "cors_origins"),
+        ({"api": {"cors_origins": ["http://192.168.999.41:5173"]}}, "cors_origins"),
+        (
+            {
+                "status_monitor": {
+                    "targets": {"COM_Status_CustomEthernet": "192.168.999.41:bad"}
+                }
+            },
+            "Ethernet target",
+        ),
+    ],
+)
+async def test_patch_rejects_invalid_network_setting_before_write(
+    config_client, update, message
+):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json=update,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_validation_failed"
+    assert message in response.json()["detail"]["message"]
+    assert manager.config_path.read_bytes() == before
 
 
 @pytest.mark.asyncio

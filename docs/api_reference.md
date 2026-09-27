@@ -634,6 +634,8 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 
 Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. When changing `oms_config.class_config`, send both ordered thresholds because arrays are replaced as a whole; OMS config fields apply live. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
+Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active OMS/status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
+
 ### `GET /config/system/backups`
 
 List fixed-path system config backups
@@ -1225,7 +1227,10 @@ Response schema: `HealthResponse`.
 {
   "status": "degraded",
   "uptime_seconds": 0.0,
-  "bus_connected": false
+  "bus_connected": false,
+  "can_errors": [
+    "channel[0]: Cannot open CAN interface='socketcan' channel='can0': Protocol not supported"
+  ]
 }
 ```
 
@@ -1259,7 +1264,10 @@ Response schema: `ReadinessResponse`.
     "readers_thread_alive": false,
     "readers_recent_frames": false,
     "readers_no_fatal_error": true
-  }
+  },
+  "can_errors": [
+    "channel[0]: Cannot open CAN interface='socketcan' channel='can0': Protocol not supported"
+  ]
 }
 ```
 
@@ -2605,6 +2613,7 @@ Overall system health status.
 | `status` | string | Yes |  | Overall status: 'ok', 'degraded', or 'error' |
 | `uptime_seconds` | number | Yes |  | Number of seconds the system has been running continuously |
 | `bus_connected` | boolean | Yes |  | True if the CAN bus connection is active |
+| `can_errors` | array<string> | No | default=[] | Current CAN connection errors; empty when no reader has reported an error |
 
 ### ProcessorConfigResponse
 
@@ -2724,6 +2733,7 @@ Readiness status for processing incoming requests.
 |---|---|---|---|---|
 | `ready` | boolean | Yes |  | True if the application is ready to accept requests |
 | `details` | map<string, boolean> | Yes |  | Status of each component (key: component name, value: ready or not) |
+| `can_errors` | array<string> | No | default=[] | Current CAN connection errors; empty when no reader has reported an error |
 
 ### SignalConfigResponse
 

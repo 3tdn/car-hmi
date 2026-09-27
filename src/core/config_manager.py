@@ -21,6 +21,7 @@ from src.core.config import (
 )
 from src.core.config_policy import (
     ReloadLevel,
+    all_leaf_paths,
     classify_paths,
     diff_paths,
     match_policy,
@@ -88,8 +89,8 @@ def _validate(raw: dict[str, Any]) -> AppConfig:
         raise ConfigUpdateError("system_config_validation_failed", str(exc)) from exc
 
 
-def _validate_field_values(raw: dict[str, Any], changed: list[str]) -> None:
-    errors = validate_policy_values(raw, changed)
+def _validate_field_values(raw: dict[str, Any]) -> None:
+    errors = validate_policy_values(raw, all_leaf_paths(raw))
     if errors:
         raise ConfigUpdateError("system_config_field_validation_failed", "; ".join(errors))
 
@@ -238,7 +239,7 @@ class SystemConfigManager:
                     "system_config_field_immutable",
                     f"Immutable config field(s): {', '.join(immutable)}",
                 )
-            _validate_field_values(merged, changed)
+            _validate_field_values(merged)
             if not changed:
                 return await self._result(merged, changed, runner, validated, apply=False)
             backup = self.create_backup("auto-before-update", current)
@@ -257,7 +258,7 @@ class SystemConfigManager:
             template = read_config(self.template_path)
             validated = _validate(template)
             changed = diff_paths(current, template)
-            _validate_field_values(template, changed)
+            _validate_field_values(template)
             backup = self.create_backup("auto-before-reset", current)
             return await self._commit_with_runtime_rollback(
                 current=current,
@@ -274,7 +275,7 @@ class SystemConfigManager:
             restored = read_config(self._resolve_backup(backup_id))
             validated = _validate(restored)
             changed = diff_paths(current, restored)
-            _validate_field_values(restored, changed)
+            _validate_field_values(restored)
             safety_backup = self.create_backup("auto-before-restore", current)
             return await self._commit_with_runtime_rollback(
                 current=current,
@@ -343,7 +344,7 @@ class SystemConfigManager:
         old_raw = runner.config.model_dump(mode="json")
         new_runtime = validated.model_dump(mode="json")
         changed = diff_paths(old_raw, new_runtime)
-        _validate_field_values(raw, changed)
+        _validate_field_values(raw)
         return await self._result(raw, changed, runner, validated)
 
     async def _result(

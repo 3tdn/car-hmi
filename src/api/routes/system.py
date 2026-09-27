@@ -36,7 +36,7 @@ def _require_control_auth(request: Request) -> None:
         )
 
 
-def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
+def _summarize_readers(readers, stale_threshold_sec: float) -> dict:
     """Quickly assess reader health based on thread status, last frame, and the fatal flag."""
     if not readers:
         return {
@@ -45,6 +45,7 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
             "readers_recent_frames": False,
             "readers_no_fatal_error": False,
             "bus": False,
+            "can_errors": [],
         }
 
     states: list[dict] = []
@@ -69,6 +70,11 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
     readers_recent_frames = all(bool(s.get("frame_recent")) for s in states)
     readers_no_fatal_error = all(not s.get("fatal_error") for s in states)
     bus_connected = readers_thread_alive and readers_recent_frames and readers_no_fatal_error
+    can_errors = []
+    for index, state in enumerate(states):
+        error = state.get("last_error") or state.get("fatal_error")
+        if error:
+            can_errors.append(f"channel[{index}]: {error}")
 
     return {
         "readers_present": True,
@@ -76,6 +82,7 @@ def _summarize_readers(readers, stale_threshold_sec: float) -> dict[str, bool]:
         "readers_recent_frames": readers_recent_frames,
         "readers_no_fatal_error": readers_no_fatal_error,
         "bus": bus_connected,
+        "can_errors": can_errors,
     }
 
 
@@ -124,6 +131,7 @@ async def health(request: Request) -> HealthResponse:
         status=overall,
         uptime_seconds=round(uptime, 1),
         bus_connected=bus_ok,
+        can_errors=reader_summary["can_errors"],
     )
 
 
@@ -141,7 +149,11 @@ async def ready(request: Request) -> ReadinessResponse:
         "readers_recent_frames": reader_summary["readers_recent_frames"],
         "readers_no_fatal_error": reader_summary["readers_no_fatal_error"],
     }
-    return ReadinessResponse(ready=all(details.values()), details=details)
+    return ReadinessResponse(
+        ready=all(details.values()),
+        details=details,
+        can_errors=reader_summary["can_errors"],
+    )
 
 
 @router.get(
