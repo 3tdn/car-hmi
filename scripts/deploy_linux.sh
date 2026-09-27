@@ -11,7 +11,7 @@
 #   bash scripts/deploy_linux.sh --status     # View service status
 #
 # Requirements:
-#   - Python >= 3.10 and .venv must already exist (run setup_linux.sh first)
+#   - Python >= 3.11 and .venv must already exist (run setup_linux.sh first)
 #   - sudo permission to copy files into /etc/systemd/system/
 
 set -euo pipefail

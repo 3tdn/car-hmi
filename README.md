@@ -16,7 +16,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 
 ## Requirements
 
-- Python ≥ 3.10
+- Python ≥ 3.11
 - (Optional) SocketCAN interface or compatible CAN adapter for real hardware
 - Key dependencies: `python-can`, `cantools`, `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`, `psutil`, `pyyaml`
 
@@ -43,30 +43,22 @@ can-hmi
 can-hmi --config config/system.json --log-level DEBUG
 ```
 
-## Helper scripts (run & test)
+## Linux helper scripts
 
-The project includes convenience scripts under the `scripts/` directory to prepare the virtual environment, install dependencies, run the app, and run tests.
+- `scripts/setup_linux.sh` prepares the Python environment used by the launcher.
+- `scripts/run_linux.sh` starts CAN-HMI and handles restart exit code `75`.
+- `scripts/deploy_linux.sh` installs and manages the systemd service.
+- `scripts/test_linux.sh` runs unit, functional, API, WebSocket, security, or runtime tests.
+- `scripts/test_it_linux.sh` runs the integration-test workflow.
+- `scripts/runtime_smoke_linux.sh` runs the real-process runtime smoke test.
+- `scripts/perf_linux.sh` runs the k6 performance scenario.
 
-- Linux / macOS (Bash):
-	- `scripts/run_linux.sh` — prepare `.venv`, install deps and run the application.
-	- `scripts/test_linux.sh` — prepare `.venv`, install deps and run tests with coverage.
-  - `scripts/perf_linux.sh` — run k6 performance script and save JSON report.
-  - `scripts/runtime_smoke_linux.sh` — start app runtime smoke suite (API + WebSocket + Dev Mode lock flow).
-
-Usage examples:
-
-Bash (make scripts executable once and run):
 ```bash
-chmod +x scripts/*.sh
-./scripts/run_linux.sh config/system.json INFO
-./scripts/test_linux.sh all
-./scripts/test_linux.sh security
-./scripts/test_linux.sh runtime
-./scripts/perf_linux.sh http://localhost:8000
+bash scripts/run_linux.sh config/system.json INFO 8000
+bash scripts/test_linux.sh all
+bash scripts/runtime_smoke_linux.sh
+bash scripts/deploy_linux.sh
 ```
-
-The scripts create and use a local `.venv` in the project root and install the project in
-editable mode with dev dependencies.
 
 ## Deploy on Render
 
@@ -99,7 +91,7 @@ car-hmi/
 │   ├── 3_performance/      # Performance scripts and reports
 │   └── 4_security/         # Security hardening and bypass tests
 ├── frontend/               # Static HTML/CSS/JS dashboard
-├── scripts/                # Helper scripts (run, test, config tools, DBC utilities)
+├── scripts/                # Linux setup, run, deploy, test, and performance helpers
 ├── diagram/                # PlantUML architecture diagrams
 ├── docs/                   # Requirements documentation
 ├── introduce/              # Architecture and API reference guides
@@ -235,11 +227,7 @@ with REST. `/ws/all` does not handle subscription/ping commands. No alarm channe
 
 ## Runtime configuration & CLI
 
-Edit `config/system.json` directly, or use the included helper script to update processor settings:
-
-```bash
-python scripts/set_processor_config.py --max-queue-size 1000000 --queue-policy drop_oldest
-```
+Edit `config/system.json` directly, or use the System Settings UI/API.
 
 To apply changes to a running server use `POST /config/processor` (see the [API reference](docs/api_reference.md)).
 
@@ -276,10 +264,11 @@ Usage: select mode from the header `Mode` dropdown. In `User` mode the signal ta
 
 ## Deployment (Linux)
 
-A systemd service template is provided at `deploy/can-hmi.service`. The template uses `@@PROJECT_DIR@@` and `@@SERVICE_USER@@` placeholders — filled in automatically by the deploy script.
+A systemd service template is provided at `deploy/can-hmi.service`. The deployment
+script renders its `@@PROJECT_DIR@@` and `@@SERVICE_USER@@` placeholders.
 
 ```bash
-# Install, enable, and start the service (run from any directory)
+# Install, enable, and start the service
 bash scripts/deploy_linux.sh
 
 # Check service status
@@ -294,13 +283,6 @@ sudo systemctl stop can-hmi
 # Remove the service
 bash scripts/deploy_linux.sh --uninstall
 ```
-
-The script:
-1. Resolves `PROJECT_DIR` from its own location (no hardcoded paths)
-2. Validates that `.venv/bin/can-hmi` and `config/system.json` exist
-3. Renders the service template and installs it to `/etc/systemd/system/`
-4. Enables and starts (or restarts) the service
-5. Prints status and useful commands on success
 
 ## Testing
 

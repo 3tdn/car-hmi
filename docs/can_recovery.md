@@ -115,8 +115,7 @@ curl -X POST http://<car-pc>:8000/system/reboot \
 For a systemd deployment, the reboot endpoint stops the process and relies on
 `Restart=on-failure` in `can-hmi.service` to start it again after five seconds.
 When started with `scripts/run_linux.sh`, the runner exits with code `75` and
-the script restarts it after one second. Other nonzero exit codes still stop
-the script so unexpected failures remain visible.
+the script restarts it after one second. Other nonzero exit codes stop the script.
 
 ## Verification
 

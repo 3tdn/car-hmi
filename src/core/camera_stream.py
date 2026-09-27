@@ -125,6 +125,9 @@ class CameraStreamProxy:
             await asyncio.wait_for(self._content_type_ready.wait(), timeout=self._startup_wait_sec)
         except TimeoutError:
             logger.debug("Camera upstream content-type not confirmed within timeout; using default")
+        except asyncio.CancelledError:
+            await self._remove_subscriber(queue)
+            raise
         return queue
 
     async def stream_queue(self, queue: asyncio.Queue[bytes | None]) -> AsyncIterator[bytes]:
@@ -140,6 +143,18 @@ class CameraStreamProxy:
 
     async def aclose(self) -> None:
         """Stop the upstream task completely — called on application shutdown."""
+        async with self._lock:
+            await self._stop_upstream()
+
+    # ── Internal helpers ─────────────────────────────────────────────────────
+    async def _remove_subscriber(self, queue: asyncio.Queue[bytes | None]) -> None:
+        async with self._lock:
+            self._subscribers.discard(queue)
+            if not self._subscribers and self._upstream_task is not None:
+                await self._stop_upstream()
+
+    async def _stop_upstream(self) -> None:
+        """Called under the lock so a replacement waits for upstream cleanup."""
         self._stopping = True
         task = self._upstream_task
         if task is not None:
@@ -147,15 +162,7 @@ class CameraStreamProxy:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
             self._upstream_task = None
-
-    # ── Internal helpers ─────────────────────────────────────────────────────
-    async def _remove_subscriber(self, queue: asyncio.Queue[bytes | None]) -> None:
-        async with self._lock:
-            self._subscribers.discard(queue)
-            if not self._subscribers and self._upstream_task is not None:
-                self._stopping = True
-                self._upstream_task.cancel()
-                self._upstream_task = None
+        self._broadcast_end()
 
     def _broadcast(self, chunk: bytes) -> None:
         for q in list(self._subscribers):
@@ -170,6 +177,8 @@ class CameraStreamProxy:
 
     def _broadcast_end(self) -> None:
         for q in list(self._subscribers):
+            if q.full():
+                q.get_nowait()
             with contextlib.suppress(asyncio.QueueFull):
                 q.put_nowait(None)
 

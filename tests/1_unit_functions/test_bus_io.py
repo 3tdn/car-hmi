@@ -393,6 +393,22 @@ async def test_hb_frame_uses_states_for_unwritten_requests(
     assert bus_rx.recv(timeout=0.05) is None
 
 
+async def test_hb_unrepresentable_state_warns_and_keeps_legacy_encoding(v9_db, caplog):
+    from unittest.mock import Mock
+
+    store = SignalStore()
+    await store.update("HB_State_RR1", 5.0)
+    bus = Mock()
+    writer = CANWriter(bus, v9_db, signal_store=store)
+    await writer.send_signal("HB_Request_FR", 1.0)
+    msg = bus.send.call_args.args[0]
+    decoded = v9_db.decode_frame(msg.arbitration_id, bytes(msg.data))
+    assert decoded["HB_Request_RR1"] == 1.0
+    assert decoded["HB_Request_FR"] == 1.0
+    assert "HB_Request_RR1" in caplog.text
+    assert "truncating" in caplog.text
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("preserve_unwritten", [False, True])
 async def test_sensor_fusion_batch_uses_standard_unwritten_signal_policy(

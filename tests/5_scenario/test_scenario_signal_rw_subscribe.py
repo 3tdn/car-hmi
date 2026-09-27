@@ -57,7 +57,7 @@ async def test_read_write_round_trip_respects_profile_scope(app_builder, monkeyp
 
 @pytest.mark.asyncio
 async def test_batch_write_reports_partial_success_for_missing_can_signal(app_builder, monkeypatch, tmp_path):
-    """batch_update writes valid signals and reports a separate error for a signal missing from the DBC."""
+    """A partial batch succeeds and reports missing signals as warnings."""
     app, writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -89,7 +89,10 @@ async def test_batch_write_reports_partial_success_for_missing_can_signal(app_bu
     assert resp.status_code == 202
     body = resp.json()
     assert body["queued"] == [{"signal_name": "VehicleSpeed", "value": 90.0}]
-    assert body["errors"] == [{"signal_name": "GhostSignal", "error": "signal_not_available"}]
+    assert body["errors"] == []
+    assert body["warnings"][0]["code"] == "can_write_partial"
+    assert body["warnings"][0]["signal_name"] == "GhostSignal"
+    assert body["warnings"][0]["message"] == "signal_not_available"
     assert writer.writes == [("VehicleSpeed", 90.0)]
 
 

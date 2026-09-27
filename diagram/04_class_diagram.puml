@@ -269,7 +269,6 @@ class ConfigManager {
     -_base_path: Path
     +read_config(): dict
     +write_config(data: dict): void
-    +update_processor_config(patch: dict): dict
     +validate_config(data: dict): bool
     +update_config_partial(patch: dict): dict
     +read_alarms(): dict

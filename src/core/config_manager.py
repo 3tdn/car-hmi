@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -31,6 +32,8 @@ from src.core.paths import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_CONFIG_TEMPLATE_PATH,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigUpdateError(ValueError):
@@ -296,7 +299,8 @@ class SystemConfigManager:
         write_config(updated, self.config_path)
         try:
             return await self._result(updated, changed, runner, validated, backup=backup)
-        except Exception as apply_exc:
+        except (Exception, asyncio.CancelledError) as apply_exc:
+            cancellation = apply_exc if isinstance(apply_exc, asyncio.CancelledError) else None
             rollback_errors: list[str] = []
             try:
                 write_config(current, self.config_path)
@@ -306,13 +310,27 @@ class SystemConfigManager:
             if runner is not None and changed:
                 try:
                     previous_config = _validate(current)
-                    await runner.apply_system_config(previous_config, changed)
+                    rollback = asyncio.create_task(
+                        runner.apply_system_config(previous_config, changed)
+                    )
+                    # Keep the manager lock until rollback finishes, even if
+                    # the request is cancelled again during cleanup.
+                    while not rollback.done():
+                        try:
+                            await asyncio.shield(rollback)
+                        except asyncio.CancelledError as exc:
+                            cancellation = exc
+                    rollback.result()
                 except Exception as exc:
                     rollback_errors.append(f"runtime rollback failed: {exc}")
 
             detail = f"Runtime config apply failed: {apply_exc}"
             if rollback_errors:
                 detail = f"{detail}; {'; '.join(rollback_errors)}"
+            if cancellation is not None:
+                if rollback_errors:
+                    logger.error("Cancelled config update: %s", detail)
+                raise cancellation from None
             raise ConfigUpdateError("system_config_runtime_apply_failed", detail) from apply_exc
 
     async def reload_runtime(self, runner: Any) -> dict[str, Any]:
@@ -364,22 +382,3 @@ class SystemConfigManager:
         if backup is not None:
             response["backup"] = backup
         return response
-
-
-# Compatibility helper used by scripts/set_processor_config.py.
-def update_processor_config(
-    max_queue_size: int | None = None,
-    queue_policy: str | None = None,
-    path: str | Path | None = None,
-) -> dict[str, Any]:
-    update: dict[str, Any] = {"processor": {}}
-    if max_queue_size is not None:
-        update["processor"]["max_queue_size"] = int(max_queue_size)
-    if queue_policy is not None:
-        update["processor"]["queue_policy"] = queue_policy
-    target = Path(path) if path is not None else DEFAULT_CONFIG_PATH
-    current = read_config(target)
-    merged = merge_dict(current, update)
-    _validate(merged)
-    write_config(merged, target)
-    return merged

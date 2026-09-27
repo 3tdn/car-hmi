@@ -3,7 +3,7 @@
 # CAN-HMI Run Script — Linux/macOS
 ################################################################################
 # Purpose: Start the CAN-HMI application (FastAPI server + signal pipeline)
-# Requirement: Python >= 3.10 must be installed (via pyenv or system Python)
+# Requirement: Python >= 3.11 must be installed (via pyenv or system Python)
 #
 # Usage:
 #   bash scripts/run_linux.sh                     # Use the default configuration (config/system.json, port 8000)
@@ -18,7 +18,7 @@
 # Execution flow:
 #   1. Validate and assign argument values
 #   2. Initialize pyenv (if available)
-#   3. Stop any process already using the port (avoid port conflicts)
+#   3. Let the runner reject a busy port before opening CAN resources
 #   4. Check the venv — run setup_linux.sh if it is missing
 #   5. Run the application via python -m src.core.runner
 
@@ -47,35 +47,6 @@ if [ -x "$PYENV_ROOT/bin/pyenv" ]; then
     export PATH="$PYENV_ROOT/bin:$PATH"  # Add pyenv to PATH
     eval "$(pyenv init -)"  # Initialize pyenv in this shell
 fi
-
-# ── Step 2: Helper to stop any process using the port ─────────────────────────
-# Avoid "port already in use" errors by force-stopping any old process on the same port.
-# Useful when restarting the application repeatedly or while debugging.
-stop_process_on_port() {
-    local port="$1"  # Port to inspect
-    local pids
-    
-    # Get the list of PIDs listening on the TCP port (lsof -ti)
-    # 2>/dev/null suppresses error messages; || true prevents exit if nothing is found
-    pids=$(lsof -ti tcp:"$port" 2>/dev/null || true)
-    
-    if [ -n "$pids" ]; then
-        # If a process is using the port, stop each one
-        for pid in $pids; do
-            # Get the process name (ps -p $pid -o comm=) for logging
-            local name
-            name=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
-            log "Stopping '$name' (PID $pid) on port $port"
-            
-            # Send SIGKILL (-9) to force-stop the process
-            kill -9 "$pid" 2>/dev/null || true
-        done
-        
-        # Wait for the OS to release the port socket (avoid TIME_WAIT issues)
-        sleep 0.8
-        log "Port $port cleared."
-    fi
-}
 
 # ── Step 3: Check and prepare the Python interpreter ─────────────────────────
 # Priority: .venv/bin/python (local venv) → setup if needed → python3/python (system)
@@ -110,20 +81,20 @@ if [ ! -f "$VENV_PY" ]; then
         VENV_PY="python"    # Fallback python (may be Python 2 or 3)
     else
         # No Python interpreter found → error
-        echo "No Python interpreter found. Install Python >= 3.10 and retry." >&2
+        echo "No Python interpreter found. Install Python >= 3.11 and retry." >&2
         exit 1
     fi
 fi
 
-# ── Step 4: Stop old processes on the port (avoid port conflicts) ───────────
-stop_process_on_port "$PORT"
+# The runner reserves the port before opening CAN. A conflict exits with a clear
+# error and leaves the existing listener running; stop that service explicitly.
 
 # ── Step 5: Run the application ──────────────────────────────────────────────
 # Start the CAN-HMI runner module with the selected configuration.
 # Parameters:
 #   --config   : JSON configuration file path
 #   --log-level: Logging level (DEBUG/INFO/WARNING/ERROR)
-# The API port is set in config/system.json, not via a CLI argument
+# PORT overrides the API port from the configuration for this process.
 log "Starting CAN-HMI on port $PORT (press Ctrl+C to stop)"
 while true; do
     # Export the requested launcher port so apply_environment_overrides() and

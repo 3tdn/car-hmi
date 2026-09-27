@@ -7,7 +7,7 @@ name = "car-hmi"
 version = "0.1.0"
 description = "CAN-HMI — Real-time CAN bus signal reader, processor, and web dashboard for CarPC"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "HMI Team" }]
 
