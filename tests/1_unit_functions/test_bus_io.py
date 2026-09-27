@@ -639,8 +639,8 @@ def test_auto_tracking_resolves_only_configured_messages():
     assert resolve_auto_match_ids(cfg, db) == {expected}
     assert len(resolve_auto_match_ids(CANConfig(), db)) > 1
     cfg.channel_tracking_signals.append("missing_signal")
-    with pytest.raises(ValueError, match="missing_signal"):
-        resolve_auto_match_ids(cfg, db)
+    assert resolve_auto_match_ids(cfg, db) == {expected}
+    assert resolve_auto_match_ids(CANConfig(channel_tracking_signals=["missing_signal"]), db) == set()
 
 
 @patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0", "can2"])
@@ -665,14 +665,22 @@ def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_cha
     mock_bus.side_effect = [silent_bus, matching_bus]
     cfg = CANConfig(interface="socketcan", channel="auto", bitrate=500000)
 
-    selected = create_bus(cfg, auto_match_ids={0x123}, auto_probe_timeout_sec=0.1)
+    selected = create_bus(
+        cfg,
+        auto_match_ids={0x123},
+        auto_dbc_ids={0x123, 0x456},
+        auto_probe_timeout_sec=0.1,
+    )
 
     assert selected is matching_bus
     assert selected._car_hmi_prefetched_message.arbitration_id == 0x123
     assert silent_bus.shutdown_called is True
     assert matching_bus.shutdown_called is False
     assert matching_bus.filters is None
-    expected_filters = [{"can_id": 0x123, "can_mask": 0x1FFFFFFF, "extended": False}]
+    expected_filters = [
+        {"can_id": 0x123, "can_mask": 0x1FFFFFFF, "extended": False},
+        {"can_id": 0x456, "can_mask": 0x1FFFFFFF, "extended": False},
+    ]
     assert mock_bus.call_args_list == [
         call(
             interface="socketcan",
@@ -687,6 +695,77 @@ def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_cha
             can_filters=expected_filters,
         ),
     ]
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_falls_back_to_any_dbc_traffic(mock_bus, _mock_channels):
+    class ProbeBus:
+        def __init__(self):
+            self.messages = iter([can.Message(arbitration_id=0x456, data=[0])])
+            self.shutdown_called = False
+            self.filters = None
+
+        def recv(self, timeout):
+            return next(self.messages, None)
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+        def set_filters(self, filters):
+            self.filters = filters
+
+    fallback_bus = ProbeBus()
+    mock_bus.return_value = fallback_bus
+    cfg = CANConfig(interface="socketcan", channel="auto", bitrate=500000)
+
+    selected = create_bus(
+        cfg,
+        auto_match_ids={0x123},
+        auto_dbc_ids={0x123, 0x456},
+        auto_probe_timeout_sec=0.01,
+    )
+
+    assert selected is fallback_bus
+    assert selected._car_hmi_prefetched_message.arbitration_id == 0x456
+    assert selected.filters is None
+    assert selected.shutdown_called is False
+
+
+@patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0"])
+@patch("src.can_io.bus_factory.can.Bus")
+def test_create_bus_auto_uses_dbc_traffic_when_no_tracking_signal_resolves(
+    mock_bus, _mock_channels
+):
+    class ProbeBus:
+        def __init__(self):
+            self.message = can.Message(arbitration_id=0x456, data=[0])
+            self.filters = None
+
+        def recv(self, timeout):
+            message, self.message = self.message, None
+            return message
+
+        def shutdown(self):
+            pass
+
+        def set_filters(self, filters):
+            self.filters = filters
+
+    fallback_bus = ProbeBus()
+    mock_bus.return_value = fallback_bus
+    cfg = CANConfig(interface="socketcan", channel="auto")
+
+    selected = create_bus(
+        cfg,
+        auto_match_ids=set(),
+        auto_dbc_ids={0x456},
+        auto_probe_timeout_sec=3.0,
+    )
+
+    assert selected is fallback_bus
+    assert selected._car_hmi_prefetched_message.arbitration_id == 0x456
+    assert selected.filters is None
 
 
 @patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=[])

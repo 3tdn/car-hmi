@@ -33,8 +33,8 @@ class CANConfig(BaseModel):
     # DBC file describing messages/signals for this channel — read directly (via cantools)
     # by CANReader/CANWriter, no can.json export step needed.
     channel_tracking_signals: list[str] = Field(default_factory=list)
-    # For channel='auto', probe only messages containing these signals.
-    # An empty list preserves discovery using all messages with signals in the DBC.
+    # For channel='auto', prefer messages containing these signals during discovery.
+    # Unknown/unseen signals fall back to any message with signals in the DBC.
 
     @field_validator("interface", mode="before")
     @classmethod

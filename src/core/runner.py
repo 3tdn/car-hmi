@@ -374,12 +374,18 @@ class AppRunner:
 
             def _make_bus_factory(cfg=ch_cfg, loader=db_loader):
                 def _open_bus():
-                    match_ids = (
-                        resolve_auto_match_ids(cfg, loader)
-                        if cfg.channel == "auto"
-                        else set()
+                    if cfg.channel != "auto":
+                        return create_bus(cfg)
+
+                    match_ids = resolve_auto_match_ids(cfg, loader)
+                    dbc_ids = {
+                        msg_id for msg_id, message in loader.messages.items() if message.signals
+                    }
+                    return create_bus(
+                        cfg,
+                        auto_match_ids=match_ids,
+                        auto_dbc_ids=dbc_ids,
                     )
-                    return create_bus(cfg, auto_match_ids=match_ids)
 
                 return _open_bus
 

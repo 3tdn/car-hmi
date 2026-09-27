@@ -442,57 +442,8 @@ def validate_policy_values(raw: dict[str, Any], paths: list[str]) -> list[str]:
         if value is _MISSING or policy is None:
             continue
         errors.extend(_validate_value(path, value, policy))
-    errors.extend(_validate_can_tracking_signals(raw, paths))
     errors.extend(_validate_dbc_signal_references(raw, paths))
     return list(dict.fromkeys(errors))
-
-
-def _validate_can_tracking_signals(raw: dict[str, Any], paths: list[str]) -> list[str]:
-    """Ensure configured discovery signals exist in their channel DBC."""
-    affected_indices: set[int] = set()
-    for path in paths:
-        parts = path.split(".")
-        if (
-            len(parts) >= 3
-            and parts[0] == "can"
-            and parts[1].isdigit()
-            and parts[2] in {"can_db_file", "channel_tracking_signals"}
-        ):
-            affected_indices.add(int(parts[1]))
-
-    channels = raw.get("can")
-    if not isinstance(channels, list):
-        return []
-
-    errors: list[str] = []
-    for index in sorted(affected_indices):
-        if index >= len(channels) or not isinstance(channels[index], dict):
-            continue
-        channel = channels[index]
-        tracking = channel.get("channel_tracking_signals")
-        dbc_file = channel.get("can_db_file")
-        if not isinstance(tracking, list) or not tracking or not isinstance(dbc_file, str):
-            continue
-
-        resolved = Path(dbc_file)
-        if not resolved.is_absolute():
-            resolved = PROJECT_ROOT / resolved
-        try:
-            from src.can_io.parser import DatabaseLoader
-
-            loader = DatabaseLoader()
-            loader.load_dbc(resolved)
-        except Exception as exc:
-            errors.append(f"can.{index}.can_db_file is not a valid DBC file: {exc}")
-            continue
-
-        unknown = [signal for signal in tracking if loader.get_message_for_signal(signal) is None]
-        if unknown:
-            errors.append(
-                f"can.{index}.channel_tracking_signals contains signal(s) not found "
-                f"in {dbc_file}: {', '.join(str(signal) for signal in unknown)}"
-            )
-    return errors
 
 
 def _validate_dbc_signal_references(raw: dict[str, Any], paths: list[str]) -> list[str]:

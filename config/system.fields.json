@@ -106,7 +106,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "reboot",
-      "description": "For channel='auto', select an interface receiving any message containing a listed DBC signal. Empty means all DBC messages with signals. Normal reading still includes all signals.",
+      "description": "For channel='auto', prefer an interface receiving a listed DBC signal. Unknown or unseen tracking signals fall back within 3 seconds to any received message present in the DBC. Empty means all DBC messages with signals. Normal reading still includes all signals.",
       "validation": {
         "items": {
           "type": "string"
@@ -123,7 +123,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "reboot",
-      "description": "DBC signal whose message can identify the automatic CAN channel.",
+      "description": "Preferred DBC signal for automatic CAN discovery; unknown or unseen signals fall back to any DBC message within 3 seconds.",
       "validation": {
         "minLength": 1
       },

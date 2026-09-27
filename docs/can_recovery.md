@@ -55,12 +55,15 @@ whose `IFF_UP` flag is set, opens them for probing, and selects the first one
 that receives a CAN ID belonging to a message containing one of the configured
 `channel_tracking_signals`. These names are resolved to message IDs from the already-loaded
 channel DBC: the probe checks CAN message IDs, not signal values. Any configured tracking
-message can confirm a candidate. With an empty list, all DBC messages with signals are
-eligible. An unknown tracking signal is rejected when the runner resolves auto-selection message IDs at startup; verify names against live DBC metadata before saving.
+message can confirm a candidate immediately. During the same three-second probe window,
+the runner also records traffic matching any message in the DBC. If none of the preferred
+tracking messages arrives, it selects a channel with that fallback DBC traffic. Unknown
+tracking signal names are ignored for discovery and use the same fallback. With an empty
+list, any DBC message with signals can confirm a candidate immediately.
 The probe listens to all UP candidates in natural name order (`can0`, `can1`,
 `can2`, ...), so a silent old interface cannot hide a working adapter whose
-kernel name changed after USB reconnect. Non-matching traffic does not confirm
-reader health; if matching DBC traffic stops for `reader.stale_threshold_sec`,
+kernel name changed after USB reconnect. Traffic whose CAN ID is absent from the DBC does
+not confirm reader health; if DBC traffic stops for `reader.stale_threshold_sec`,
 the existing reconnect loop closes the bus and runs auto-selection again. The
 frame that validates a candidate is preserved and delivered to the reader, so
 auto-selection does not discard a one-shot matching message. Probe filters are cleared after

@@ -571,9 +571,33 @@ async def test_patch_channel_tracking_signals_requires_reboot(config_client):
 
 
 @pytest.mark.asyncio
-async def test_patch_rejects_unknown_channel_tracking_signal(config_client):
+async def test_patch_accepts_unknown_channel_tracking_signal_for_dbc_fallback(config_client):
     client, manager, _ = config_client
-    before = manager.config_path.read_bytes()
+    channel = {
+        **manager.read()["can"][0],
+        "interface": "socketcan",
+        "channel": "auto",
+        "channel_tracking_signals": ["DOES_NOT_EXIST"],
+    }
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"can": [channel]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reload"]["reboot"] == [
+        "can.0.channel",
+        "can.0.channel_tracking_signals.0",
+        "can.0.interface",
+    ]
+    assert manager.read()["can"][0]["channel_tracking_signals"] == ["DOES_NOT_EXIST"]
+
+
+@pytest.mark.asyncio
+async def test_patch_accepts_unknown_tracking_signal_for_fixed_channel(config_client):
+    client, manager, _ = config_client
     channel = {
         **manager.read()["can"][0],
         "channel_tracking_signals": ["DOES_NOT_EXIST"],
@@ -585,10 +609,9 @@ async def test_patch_rejects_unknown_channel_tracking_signal(config_client):
         json={"can": [channel]},
     )
 
-    assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
-    assert "DOES_NOT_EXIST" in response.json()["detail"]["message"]
-    assert manager.config_path.read_bytes() == before
+    assert response.status_code == 200
+    assert response.json()["reload"]["reboot"] == ["can.0.channel_tracking_signals.0"]
+    assert manager.read()["can"][0]["channel_tracking_signals"] == ["DOES_NOT_EXIST"]
 
 
 @pytest.mark.asyncio

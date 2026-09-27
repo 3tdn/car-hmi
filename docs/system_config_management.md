@@ -119,7 +119,9 @@ is `false`; the writer no longer copies omitted fields from `OMS_State_*` signal
 
 With `channel: "auto"`, `channel_tracking_signals: ["COM_Status_ElkCan"]` resolves to the
 CAN message containing that signal. Discovery checks that message ID rather than decoding
-or checking every signal. An empty list permits all DBC messages with signals. See the
+or checking every signal. Tracking messages are preferred during the three-second probe;
+if they are unknown or do not arrive, any received message present in the channel DBC can
+select the interface. An empty list permits all DBC messages with signals immediately. See the
 [CAN recovery runbook](can_recovery.md) for configuration constraints and recovery behavior.
 
 ## Immutable fields
