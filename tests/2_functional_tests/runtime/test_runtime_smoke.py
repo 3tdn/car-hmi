@@ -46,6 +46,19 @@ def _make_runtime_config(tmp_path: Path, port: int) -> Path:
     cfg["api"]["port"] = port
     cfg["api"]["api_key"] = RUNTIME_API_KEY
 
+    # Exercise the real process without depending on (or transmitting onto)
+    # whichever physical CAN interfaces the local config currently selects.
+    for index, channel in enumerate(cfg["can"]):
+        channel.update(
+            interface="virtual", channel=f"runtime-smoke-{port}-{index}",
+            channel_tracking_signals=[],
+        )
+    cfg.setdefault("simulator", {}).update(
+        enabled=True, can_db_file=cfg["can"][0]["can_db_file"],
+    )
+    cfg.setdefault("status_monitor", {})["enabled"] = False
+    cfg.setdefault("camera", {})["enabled"] = False
+
     cfg.setdefault("devmode", {})
     cfg["devmode"]["require_seat_connected"] = False
 

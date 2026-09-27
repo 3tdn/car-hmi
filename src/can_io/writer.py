@@ -351,6 +351,8 @@ class CANWriter:
                     await self._store.bulk_update(sig_values, timestamp=ts)
         except asyncio.CancelledError:
             logger.debug("Periodic sender cancelled for msg_id=%#x", msg_id)
+        except Exception:
+            logger.exception("Periodic sender failed for msg_id=%#x; stopping", msg_id)
         finally:
             # A cancelled sender can finish after a replacement sender has
             # already been registered for the same message. Remove only this
@@ -477,7 +479,7 @@ class CANWriterRouter:
             - errors: list[{"signal_name": ..., "error": ...}] for failed signals
         """
         # ── Classify signal → writer ───────────────────────────────────────────
-        writer_groups: dict[int, tuple[CANWriter, dict[str, float]]] = {}
+        writer_groups: dict[tuple[int, int], tuple[CANWriter, dict[str, float]]] = {}
         errors: list[dict] = []
 
         for sig_name, value in signals.items():
@@ -491,13 +493,15 @@ class CANWriterRouter:
                 )
                 continue
             try:
-                writer.validate_signal_tx(sig_name)
+                msg_def = writer.validate_signal_tx(sig_name)
             except CANWriteRejectedError as exc:
                 errors.append(
                     {"signal_name": sig_name, "error": str(exc), "kind": "not_tx"}
                 )
                 continue
-            wid = id(writer)
+            # A frame can succeed before another frame on the same bus fails.
+            # Keep the result and store update scoped to each physical message.
+            wid = (id(writer), msg_def.msg_id)
             if wid not in writer_groups:
                 writer_groups[wid] = (writer, {})
             writer_groups[wid][1][sig_name] = value

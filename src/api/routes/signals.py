@@ -297,6 +297,16 @@ async def batch_update_signals(body: BatchSignalWrite, request: Request):
         )
     if errors and not queued:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=errors)
+    if queued and errors:
+        warnings.extend(
+            build_access_warning(
+                "can_write_partial",
+                error["error"],
+                signal_name=error["signal_name"],
+            )
+            for error in errors
+        )
+        errors = []
     return {"queued": queued, "count": len(queued), "queued_at": time.time(), "errors": errors, "warnings": warnings}
 
 

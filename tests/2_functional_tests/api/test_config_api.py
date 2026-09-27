@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from copy import deepcopy
 
@@ -50,6 +51,43 @@ class _FailOnceRunner(_FakeRunner):
         if len(self.applied) == 1:
             raise RuntimeError("simulated runtime apply failure")
         return {"applied": changed_paths, "unavailable": []}
+
+
+async def test_cancelled_config_apply_restores_disk_and_runtime_before_unlock(tmp_path):
+    original = AppConfig().model_dump(mode="json")
+    config_path = tmp_path / "system.json"
+    write_config(original, config_path)
+    manager = SystemConfigManager(config_path, tmp_path / "missing.json", tmp_path / "backups")
+    applying, rolling_back, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    class CancelledRunner(_FakeRunner):
+        async def apply_system_config(self, new_config, changed_paths):
+            self.config = new_config
+            if new_config.reader.stale_threshold_sec == 12:
+                applying.set()
+                await asyncio.Event().wait()
+            rolling_back.set()
+            await release.wait()
+            return {}
+
+    runner = CancelledRunner(original)
+    task = asyncio.create_task(manager.patch({"reader": {"stale_threshold_sec": 12}}, runner))
+    await applying.wait()
+    task.cancel()
+    try:
+        await asyncio.wait_for(rolling_back.wait(), 0.2)
+        task.cancel()  # A second cancellation must not abandon rollback or release its lock.
+        await asyncio.sleep(0)
+        assert manager._lock.locked()
+        assert json.loads(config_path.read_text()) == original
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert runner.config.model_dump(mode="json") == original
+        assert not manager._lock.locked()
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
 
 
 def _write_profiles(path, *, active, profiles):

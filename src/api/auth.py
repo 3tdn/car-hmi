@@ -20,7 +20,7 @@ class APIKeyAuth:
         """Check the API key — return True if auth succeeds or auth is disabled."""
         if not self._key:
             return True
-        return bool(key) and secrets.compare_digest(key, self._key)
+        return bool(key) and secrets.compare_digest(key.encode("utf-8"), self._key.encode("utf-8"))
 
     @property
     def is_enabled(self) -> bool:
@@ -30,7 +30,7 @@ class APIKeyAuth:
     async def __call__(self, key: str | None = Security(_API_KEY_HEADER)) -> None:
         if not self._key:
             return  # auth disabled (configured with an empty key)
-        if not key or not secrets.compare_digest(key, self._key):
+        if not self.verify(key):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or missing API key",

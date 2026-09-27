@@ -13,6 +13,76 @@ from src.api.routes import camera as camera_route
 from src.core.camera_stream import CameraStreamProxy
 
 
+async def test_cancel_during_camera_startup_releases_subscription():
+    proxy = CameraStreamProxy("http://fake/stream", startup_wait_sec=10)
+    started = asyncio.Event()
+
+    async def upstream():
+        started.set()
+        await asyncio.Event().wait()
+
+    proxy._run_upstream = upstream
+    opening = asyncio.create_task(proxy.open_subscription())
+    await started.wait()
+    opening.cancel()
+    await asyncio.gather(opening, return_exceptions=True)
+    try:
+        assert proxy.viewer_count == 0
+        assert proxy._upstream_task is None
+    finally:
+        await proxy.aclose()
+
+
+async def test_camera_shutdown_ends_full_subscriber_queue():
+    proxy = CameraStreamProxy("http://fake/stream", subscriber_queue_size=1)
+    queue = asyncio.Queue(maxsize=1)
+    queue.put_nowait(b"old frame")
+    proxy._subscribers.add(queue)
+    proxy._broadcast_end()
+    chunks = []
+
+    async def consume():
+        async for chunk in proxy.stream_queue(queue):
+            chunks.append(chunk)
+
+    await asyncio.wait_for(consume(), 0.1)
+    assert proxy.viewer_count == 0
+
+
+async def test_camera_new_subscriber_waits_for_old_upstream_close():
+    proxy = CameraStreamProxy("http://fake/stream", startup_wait_sec=0.2)
+    closing, release = asyncio.Event(), asyncio.Event()
+    starts = []
+
+    async def upstream():
+        starts.append(1)
+        proxy._content_type_ready.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            closing.set()
+            await release.wait()
+            proxy._broadcast_end()
+
+    proxy._run_upstream = upstream
+    old_queue = await proxy.open_subscription()
+    removing = asyncio.create_task(proxy._remove_subscriber(old_queue))
+    await closing.wait()
+    opening = asyncio.create_task(proxy.open_subscription())
+    await asyncio.sleep(0.01)
+    try:
+        assert len(starts) == 1
+        release.set()
+        await removing
+        new_queue = await opening
+        assert new_queue.empty()
+        assert len(starts) == 2
+    finally:
+        release.set()
+        await asyncio.gather(removing, opening, return_exceptions=True)
+        await proxy.aclose()
+
+
 class _FakeResponse:
     """Mimics an httpx streaming response over a fixed set of byte chunks."""
 

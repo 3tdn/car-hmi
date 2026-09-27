@@ -54,14 +54,14 @@ class SignalListResponse(BaseModel):
 class WriteSignalRequest(BaseModel):
     """Request to write a value onto the CAN bus."""
 
-    value: float = Field(..., description="Value to write to the CAN bus")
+    value: float = Field(..., allow_inf_nan=False, description="Value to write to the CAN bus")
 
 
 class BatchSignalWriteItem(BaseModel):
     """One signal in a batch write request."""
 
     signal_name: str = Field(..., description="Signal name")
-    value: float = Field(..., description="Value to write")
+    value: float = Field(..., allow_inf_nan=False, description="Value to write")
 
 
 class BatchSignalWrite(BaseModel):
@@ -481,7 +481,9 @@ class DevModeSignalRequest(BaseModel):
             "ISB_Color | HB_Request"
         ),
     )
-    value: float = Field(..., description="Value applied to every selected seat")
+    value: float = Field(
+        ..., allow_inf_nan=False, description="Value applied to every selected seat"
+    )
     seats: dict[str, bool] = Field(..., description="Map seat_id → whether the value is applied")
     block_timeout_sec: float | None = Field(
         None,

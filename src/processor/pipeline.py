@@ -54,6 +54,9 @@ class SignalPipeline:
                         await get_task
                     continue
             except asyncio.CancelledError:
+                get_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await get_task
                 logger.debug("Signal pipeline task cancelled, shutting down")
                 return
 

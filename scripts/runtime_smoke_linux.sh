@@ -5,7 +5,7 @@ set -euo pipefail
 
 PY=python3
 if ! command -v "$PY" >/dev/null 2>&1; then
-  echo "python3 not found. Install Python >= 3.10 and try again." >&2
+  echo "python3 not found. Install Python >= 3.11 and try again." >&2
   exit 1
 fi
 

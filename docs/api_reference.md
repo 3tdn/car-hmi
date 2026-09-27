@@ -212,6 +212,10 @@ Response schema: `SignalValueResponse`.
 
 Write value to signal (CAN write)
 
+Request values must be finite (otherwise HTTP 422). Encoder overflow/conversion
+problems are logged as warnings and retain legacy encoding: oversized raw values
+are masked to the bit width; signals that cannot be converted leave their bits zero.
+
 Auth: API key when authentication is enabled. Signal reads and RX subscriptions are independent of profiles. TX writes require write or full permission for the signal in the selected profile; X-Dev-Mode can bypass profile checks.
 
 | Parameter | Location | Type | Required | Default/Constraints |
@@ -314,7 +318,13 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: HTTP 202 may represent a partially successful write; check both errors and warnings. When nothing is queued: transport errors produce 503, not_tx errors produce 403, and other write errors produce 404. Permission filtering or seat-lock warnings can also produce 202 with count=0 and no transport attempt.
+Note: When at least one signal is sent, the response is HTTP 202 with `errors: []`;
+failed signals are reported in `warnings` with code `can_write_partial`.
+Results are tracked per CAN frame, including when a later frame on the same channel fails.
+Already transmitted frames cannot be rolled back. When nothing is queued: transport errors
+produce 503, not_tx errors produce 403, and other write errors produce 404.
+Permission filtering or seat-lock warnings can also produce 202 with
+count=0 and no transport attempt.
 
 ### `GET /config`
 
@@ -2434,7 +2444,7 @@ socket.onmessage = event => console.log(JSON.parse(event.data));
 | `type` | subscribe / unsubscribe / ping |
 | `signals` | An array of signal names, `"*"`, or `"metrics"`; the implementation also accepts the string `"*"`. |
 | `mode` | continuous (default) / once; once waits for the next eligible broadcast and then stops that signal/channel. It does not send an immediate snapshot. |
-| `rate_ms` | Milliseconds >= 0; the minimum send interval for the connection. Handled by the implementation although absent from the SubscribeRequest model. |
+| `rate_ms` | Finite milliseconds >= 0; the minimum send interval for the connection. Handled by the implementation although absent from the SubscribeRequest model. |
 | Legacy | `{ "action": "subscribe", "channels": ["COM_Status_ElkCan"], "mode": "continuous" }` |
 
 Actual ACK (not type=subscribed as stated in an older docstring):

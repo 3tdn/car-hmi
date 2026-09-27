@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import math
 from enum import Enum
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -53,6 +54,8 @@ class _ClientSubscription:
 class ConnectionManager:
     """Manage active WebSocket connections and fan-out broadcast delivery."""
 
+    SEND_TIMEOUT_SEC = 5.0
+
     def __init__(self) -> None:
         # Legacy topic-based connections
         self._connections: dict[WebSocket, set[SubscriptionTopic]] = {}
@@ -65,6 +68,16 @@ class ConnectionManager:
         self._latest_signals: dict[str, dict] = {}
         self._only_send_signal_update: bool = False
         self._lock = asyncio.Lock()
+
+    async def _send_text(self, ws: WebSocket, text: str) -> None:
+        """Bound backpressure from a client that has stopped reading."""
+        try:
+            await asyncio.wait_for(ws.send_text(text), timeout=self.SEND_TIMEOUT_SEC)
+        except TimeoutError:
+            # Release the ASGI receive loop as well as manager bookkeeping.
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(ws.close(code=1013), timeout=1.0)
+            raise
 
     def set_only_send_signal_update(self, enabled: bool) -> None:
         """Control WS signal payload mode for subscribe connections.
@@ -119,7 +132,7 @@ class ConnectionManager:
             sockets = list(self._connections) + list(self._subscriptions)
         for ws in sockets:
             try:
-                await asyncio.shield(ws.close(code=1001))
+                await asyncio.wait_for(ws.close(code=1001), timeout=self.SEND_TIMEOUT_SEC)
             except asyncio.CancelledError:
                 if current_task is not None:
                     current_task.uncancel()
@@ -155,6 +168,11 @@ class ConnectionManager:
         - Legacy format: {"action": "subscribe", "channels": ["name"], "mode": "continuous"}
         """
         # Normalize: demo format (type/signals) or legacy (action/channels)
+        if not isinstance(data, dict):
+            await self._send_text(ws, json.dumps({
+                "type": "error", "message": "Command must be a JSON object",
+            }))
+            return
         msg_type = data.get("type", "")
         if msg_type in ("subscribe", "unsubscribe"):
             action = msg_type
@@ -163,10 +181,25 @@ class ConnectionManager:
             action = data.get("action", "subscribe")
             raw_ch = data.get("channels", data.get("signals", []))
         # signals may be a string "*" or a list
-        channels = [raw_ch] if isinstance(raw_ch, str) else list(raw_ch)
+        channels = [raw_ch] if isinstance(raw_ch, str) else raw_ch
         mode = data.get("mode", "continuous")
         # Optional per-connection rate limiting requested by client (ms)
         rate_ms = data.get("rate_ms")
+        try:
+            if action not in ("subscribe", "unsubscribe"):
+                raise ValueError("Unknown subscription action")
+            if not isinstance(channels, list) or any(
+                not isinstance(ch, str) or not ch for ch in channels
+            ):
+                raise ValueError("Channels must be a string or a list of non-empty strings")
+            if mode not in ("continuous", "once"):
+                raise ValueError("Mode must be continuous or once")
+            interval = None if rate_ms is None else float(rate_ms) / 1000.0
+            if interval is not None and (not math.isfinite(interval) or interval < 0):
+                raise ValueError("rate_ms must be finite and non-negative")
+        except (TypeError, ValueError, OverflowError) as exc:
+            await self._send_text(ws, json.dumps({"type": "error", "message": str(exc)}))
+            return
 
         accepted_channels: list[str] = []
         warnings: list[dict] = []
@@ -203,12 +236,8 @@ class ConnectionManager:
                     )
 
             # Apply rate limit if provided
-            try:
-                if rate_ms is not None:
-                    # coerce to float seconds, clamp to >= 0
-                    sub.min_interval_s = max(0.0, float(rate_ms) / 1000.0)
-            except Exception:
-                pass
+            if interval is not None:
+                sub.min_interval_s = interval
 
             for ch in channels:
                 ch_lower = ch.lower()
@@ -251,7 +280,7 @@ class ConnectionManager:
             "warnings": warnings,
         })
         try:
-            await ws.send_text(ack_payload)
+            await self._send_text(ws, ack_payload)
         except Exception:
             pass
 
@@ -284,13 +313,13 @@ class ConnectionManager:
 
         entries = list(merged.values())
 
-        # Legacy/topic WS clients always receive full batch.
-        await self._broadcast(
-            json.dumps({"timestamp": iso_ts, "signals": entries}),
-            SubscriptionTopic.SIGNALS,
+        # Broadcast to legacy and subscribe clients concurrently so a stalled
+        # legacy connection cannot delay healthy per-signal subscribers.
+        legacy_payload = json.dumps({"timestamp": iso_ts, "signals": entries})
+        await asyncio.gather(
+            self._broadcast(legacy_payload, SubscriptionTopic.SIGNALS),
+            self._broadcast_signal_batch_to_subscribers(entries, iso_ts),
         )
-        # Subscribe WS clients receive filtered batch according to subscription.
-        await self._broadcast_signal_batch_to_subscribers(entries, iso_ts)
 
     async def broadcast_metrics(self, metrics: dict) -> None:
         """Push a metrics snapshot to subscribers that registered the 'metrics' channel."""
@@ -307,7 +336,7 @@ class ConnectionManager:
 
         async def _send(ws: WebSocket) -> WebSocket | None:
             try:
-                await ws.send_text(text)
+                await self._send_text(ws, text)
                 return None
             except Exception:
                 return ws
@@ -340,7 +369,7 @@ class ConnectionManager:
 
         async def _send(ws: WebSocket, rate_key: str | None = None) -> WebSocket | None:
             try:
-                await ws.send_text(text)
+                await self._send_text(ws, text)
                 if rate_key is not None:
                     self._last_sent[(ws, rate_key)] = asyncio.get_event_loop().time()
                 return None
@@ -413,7 +442,7 @@ class ConnectionManager:
 
         async def _send(ws: WebSocket, text: str) -> WebSocket | None:
             try:
-                await ws.send_text(text)
+                await self._send_text(ws, text)
                 self._last_sent[(ws, "sig:batch")] = asyncio.get_event_loop().time()
                 return None
             except Exception:
@@ -521,10 +550,12 @@ class ConnectionManager:
                 try:
                     data = json.loads(raw)
                 except (json.JSONDecodeError, ValueError):
-                    await ws.send_text(json.dumps({"type": "error", "message": "Invalid JSON"}))
+                    await self._send_text(ws, json.dumps({
+                        "type": "error", "message": "Invalid JSON",
+                    }))
                     continue
-                if data.get("type") == "ping":
-                    await ws.send_text(json.dumps({"type": "pong"}))
+                if isinstance(data, dict) and data.get("type") == "ping":
+                    await self._send_text(ws, json.dumps({"type": "pong"}))
                 else:
                     await self.process_subscribe_command(ws, data)
         except WebSocketDisconnect:

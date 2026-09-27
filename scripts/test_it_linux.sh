@@ -5,7 +5,7 @@
 # This script will:
 #  - ensure .venv exists (creates if missing)
 #  - optionally install dependencies if --install passed
-#  - run ONLY tests/test_integration.py with coverage
+#  - run ONLY tests/2_functional_tests/integration/test_integration.py with coverage
 #  - generate HTML test report  → reports/it_report.html
 #  - generate HTML coverage      → reports/it_coverage_html/
 set -euo pipefail
@@ -22,7 +22,7 @@ done
 
 PY=python3
 if ! command -v "$PY" >/dev/null 2>&1; then
-  echo "python3 not found. Install Python >= 3.10 and try again." >&2
+  echo "python3 not found. Install Python >= 3.11 and try again." >&2
   exit 1
 fi
 
@@ -60,8 +60,9 @@ if [ "$VERBOSE" -eq 1 ]; then
   VERB_FLAG="-v"
 fi
 
-echo "[it-test] Running integration tests (tests/test_integration.py)"
-pytest tests/test_integration.py "$VERB_FLAG" --tb=short \
+IT_TARGET="tests/2_functional_tests/integration/test_integration.py"
+echo "[it-test] Running integration tests ($IT_TARGET)"
+python -m pytest "$IT_TARGET" "$VERB_FLAG" --tb=short \
   --cov=src \
   --cov-fail-under=0 \
   --cov-report=html:reports/it_coverage_html \
