@@ -61,6 +61,7 @@ class CANReader:
         priority_sec: float = 0.0,
         stale_threshold_sec: float = 30.0,
         frontend_retry_enabled: bool = False,
+        initial_error: str | None = None,
         on_bus_disconnecting: Callable[[str], Awaitable[None]] | None = None,
         on_bus_reconnected: Callable[[can.BusABC], Awaitable[None]] | None = None,
     ) -> None:
@@ -84,6 +85,8 @@ class CANReader:
                             duration. Set to 0 to disable stale-bus recovery.
             frontend_retry_enabled: Wake reconnect backoff when frontend activity
                             is observed. Intended only for auto-selected channels.
+            initial_error:  Startup error to expose through health endpoints while
+                            the reader reconnects in the background.
             on_bus_disconnecting: Awaited before the shared bus is closed, so
                             paired CAN writers can stop using that bus safely.
             on_bus_reconnected: Awaited after a replacement bus opens, so paired
@@ -104,7 +107,7 @@ class CANReader:
         self._last_recv_monotonic: float = 0.0
         self._bus_opened_monotonic: float = 0.0
         self._fatal_error: str | None = None
-        self._last_error: str | None = None
+        self._last_error: str | None = initial_error
         # Per-ID rate gate: min interval in seconds (0 = disabled)
         self._min_interval = (1.0 / max_rate_hz) if max_rate_hz > 0 else 0.0
         self._last_enqueue: dict[int, float] = {}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import logging
 import math
@@ -12,6 +13,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -42,6 +44,14 @@ class CANConfig(BaseModel):
             return interface
         normalized = interface.strip().lower()
         return "socketcan" if normalized == "cansocket" else normalized
+
+    @field_validator("channel")
+    @classmethod
+    def validate_channel(cls, channel: str) -> str:
+        normalized = channel.strip()
+        if not normalized:
+            raise ValueError("CAN channel must be a non-empty string")
+        return normalized
 
     @field_validator("channel_tracking_signals")
     @classmethod
@@ -74,10 +84,71 @@ class APIConfig(BaseModel):
     # HTTP port; change it if there is a conflict or if running behind a reverse proxy
     api_key: str = "change-me-in-production"
     # Bearer token used for API authentication; MUST be changed before deploying to production
-    ws_metrics_interval_sec: float = Field(default=3.0, gt=0)
+    ws_metrics_interval_sec: float = Field(default=3.0, gt=0, allow_inf_nan=False)
     # Interval for sending system metrics snapshots over WebSocket (seconds)
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8000"])
     # Exact origins or IPv4 patterns where "x"/"*" matches one numeric segment
+
+    @field_validator("host")
+    @classmethod
+    def validate_host(cls, host: str) -> str:
+        normalized = host.strip()
+        if (
+            not normalized
+            or any(character.isspace() for character in normalized)
+            or "://" in normalized
+            or "/" in normalized
+        ):
+            raise ValueError("api.host must be a hostname or IP address without a port")
+        if ":" in normalized:
+            try:
+                ipaddress.IPv6Address(normalized)
+            except ValueError as exc:
+                raise ValueError("api.host must be a valid IPv6 address") from exc
+        return normalized
+
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, origins: list[str]) -> list[str]:
+        for origin in origins:
+            if origin == "*":
+                continue
+            try:
+                parsed = urlsplit(origin)
+                port = parsed.port
+            except ValueError as exc:
+                raise ValueError(f"Invalid CORS origin '{origin}': {exc}") from exc
+            if (
+                parsed.scheme not in {"http", "https"}
+                or parsed.hostname is None
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}'; expected http(s)://host[:port] or '*'"
+                )
+            labels = parsed.hostname.split(".")
+            is_ipv4_pattern = any(label == "*" for label in labels) or (
+                len(labels) == 4
+                and (
+                    any(label.lower() == "x" for label in labels)
+                    or all(label.isdigit() for label in labels)
+                )
+            )
+            if is_ipv4_pattern and (
+                len(labels) != 4
+                or any(
+                    label.lower() not in {"x", "*"}
+                    and (not label.isdigit() or not 0 <= int(label) <= 255)
+                    for label in labels
+                )
+            ):
+                raise ValueError(f"Invalid IPv4 wildcard CORS origin '{origin}'")
+            _ = port
+        return origins
 
 
 class CameraConfig(BaseModel):
@@ -90,22 +161,34 @@ class CameraConfig(BaseModel):
     # NOTE: the camera-side MJPG server allows only ONE simultaneous connection
     # (source-side mutex) — CarPC must open exactly one upstream connection and fan it out
     # to many clients (multiple end devices) viewing simultaneously.
-    reconnect_interval_sec: float = Field(default=3.0, gt=0)
+    reconnect_interval_sec: float = Field(default=3.0, gt=0, allow_inf_nan=False)
     # Wait time before retrying the upstream connection after a disconnect/error
-    connect_timeout_sec: float = Field(default=5.0, gt=0)
+    connect_timeout_sec: float = Field(default=5.0, gt=0, allow_inf_nan=False)
     # Timeout for establishing the TCP connection to the camera (seconds)
-    read_timeout_sec: float = Field(default=10.0, gt=0)
+    read_timeout_sec: float = Field(default=10.0, gt=0, allow_inf_nan=False)
     # Timeout for reading data between two consecutive chunks from the camera (seconds)
     chunk_size: int = Field(default=4096, gt=0)
     # Size of each chunk read from upstream and fanned out to clients (bytes)
     subscriber_queue_size: int = Field(default=64, gt=0)
     # Maximum number of buffered chunks for each slow client before old frames are dropped
-    startup_wait_sec: float = Field(default=5.0, gt=0)
+    startup_wait_sec: float = Field(default=5.0, gt=0, allow_inf_nan=False)
     # Maximum time to wait for detecting the real Content-Type/boundary from upstream
     # before returning the response to the client (ensures the correct MJPEG boundary header)
-    fps_log_interval_sec: float = Field(default=5.0, gt=0)
+    fps_log_interval_sec: float = Field(default=5.0, gt=0, allow_inf_nan=False)
     # Interval (seconds) for logging the actual upstream camera FPS (estimated from the
     # JPEG EOI 0xFFD9 marker) — used for monitoring/diagnostics and does not affect relaying.
+
+    @field_validator("stream_url")
+    @classmethod
+    def validate_stream_url(cls, stream_url: str) -> str:
+        try:
+            parsed = urlsplit(stream_url)
+            _ = parsed.port
+        except ValueError as exc:
+            raise ValueError(f"Invalid camera stream URL: {exc}") from exc
+        if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
+            raise ValueError("camera.stream_url must be an absolute HTTP or HTTPS URL")
+        return stream_url
 
 
 class StatusMonitorConfig(BaseModel):
@@ -113,14 +196,49 @@ class StatusMonitorConfig(BaseModel):
 
     enabled: bool = False
     # Enable/disable the status monitor.
-    interval_sec: float = Field(default=10.0, gt=0)
+    interval_sec: float = Field(default=10.0, gt=0, allow_inf_nan=False)
     # Periodic ping interval (seconds).
-    ping_timeout_sec: float = Field(default=1.5, gt=0)
+    ping_timeout_sec: float = Field(default=1.5, gt=0, allow_inf_nan=False)
     # Maximum timeout for each ping command (seconds).
     targets: dict[str, str] = Field(default_factory=dict)
     # Map signal_name -> target.
     # - Ethernet signal: target is the host/IP/URL to ping.
     # - CAN signal: target is the reference signal name used to check freshness.
+
+    @field_validator("targets")
+    @classmethod
+    def validate_targets(cls, targets: dict[str, str]) -> dict[str, str]:
+        normalized = {name.strip(): target.strip() for name, target in targets.items()}
+        if any(not name or not target for name, target in normalized.items()):
+            raise ValueError("status_monitor.targets names and values must be non-empty")
+        for name, target in normalized.items():
+            if not name.endswith("Ethernet"):
+                continue
+            has_scheme = "://" in target
+            try:
+                parsed = urlsplit(target if has_scheme else f"//{target}")
+                _ = parsed.port
+            except ValueError as exc:
+                raise ValueError(f"Invalid Ethernet target '{target}': {exc}") from exc
+            if (
+                parsed.hostname is None
+                or parsed.username is not None
+                or parsed.password is not None
+                or any(character.isspace() for character in parsed.hostname)
+                or (has_scheme and parsed.scheme not in {"http", "https"})
+                or (not has_scheme and (parsed.path or parsed.query or parsed.fragment))
+            ):
+                raise ValueError(
+                    f"Invalid Ethernet target '{target}'; expected host, host:port, "
+                    "or an HTTP(S) URL"
+                )
+            labels = parsed.hostname.split(".")
+            if len(labels) == 4 and all(label.isdigit() for label in labels):
+                try:
+                    ipaddress.IPv4Address(parsed.hostname)
+                except ValueError as exc:
+                    raise ValueError(f"Invalid Ethernet IPv4 target '{target}'") from exc
+        return normalized
 
 
 class OMSConfig(BaseModel):
@@ -170,7 +288,7 @@ class OMSConfig(BaseModel):
 class DevModeConfig(BaseModel):
     """Dev Mode configuration."""
 
-    block_timeout_sec: float = Field(default=60.0, gt=0)
+    block_timeout_sec: float = Field(default=60.0, gt=0, allow_inf_nan=False)
     require_seat_connected: bool = True
     bypass_check_CAN_status: bool = False
     # Allow Dev Mode to write signals without requiring COM_Status_*Can to be online.
@@ -179,7 +297,7 @@ class DevModeConfig(BaseModel):
 class ProcessorConfig(BaseModel):
     """Configuration for the signal processing pipeline."""
 
-    max_update_rate_hz: float = Field(default=10.0, ge=0)
+    max_update_rate_hz: float = Field(default=10.0, ge=0, allow_inf_nan=False)
     # Maximum update rate for each signal into SignalStore (Hz); frames beyond this are dropped
     max_queue_size: int = Field(default=10_000, ge=1)
     # Maximum size of the RX queue (number of DecodedFrame objects); increase for high-load bursts
@@ -217,7 +335,7 @@ class WriterConfig(BaseModel):
 class ReaderConfig(BaseModel):
     """Configuration for the CAN reader (CANReader)."""
 
-    frequency_piority: float = Field(default=0.0, ge=0)
+    frequency_piority: float = Field(default=0.0, ge=0, allow_inf_nan=False)
     # Time threshold (seconds) for prioritizing low-frequency-changing signals.
     # If > 0, signals that have not been enqueued within this interval will be
     # forced into the queue even if their value is unchanged (heartbeat), bypassing the
@@ -228,7 +346,7 @@ class ReaderConfig(BaseModel):
     # Controls the WS signal payload:
     #   False = send the full set of subscribed signals (latest snapshot)
     #   True  = send only signals that changed in the current batch
-    stale_threshold_sec: float = Field(default=30.0, ge=0)
+    stale_threshold_sec: float = Field(default=30.0, ge=0, allow_inf_nan=False)
     # Maximum age threshold (seconds) for the most recent CAN frame.
     # If this threshold is exceeded, health/readiness treats the reader as stale
     # and CANReader closes/reconnects the silent bus.
@@ -269,10 +387,12 @@ class AdaptiveRestraintConfig(BaseModel):
 class ProfilesConfig(BaseModel):
     profiles_path: str = "config/profiles.json"
     sessions_path: str = "data/profile_sessions.json"
-    default_profile_permission: list[str] = Field(default_factory=lambda: ["read"])
+    default_profile_permission: list[str] = Field(
+        default_factory=lambda: ["read"], min_length=1
+    )
     session_online_ttl_seconds: int = Field(default=600, ge=1)
     session_history_limit: int = Field(default=50, ge=1)
-    session_cleanup_interval_sec: float = Field(default=5.0, gt=0)
+    session_cleanup_interval_sec: float = Field(default=5.0, gt=0, allow_inf_nan=False)
 
 
 class ConfigManagementConfig(BaseModel):

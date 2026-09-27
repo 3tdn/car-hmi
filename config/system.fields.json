@@ -124,6 +124,9 @@
       "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "DBC signal whose message can identify the automatic CAN channel.",
+      "validation": {
+        "minLength": 1
+      },
       "ui": {
         "control": "text"
       }
@@ -298,6 +301,9 @@
       "setting_mode": "base",
       "reload_level": "reboot",
       "description": "An exact origin or IPv4 pattern such as http://192.168.*.*:5173.",
+      "validation": {
+        "minLength": 1
+      },
       "ui": {
         "control": "text"
       }
@@ -335,6 +341,7 @@
       "reload_level": "reboot",
       "description": "Default profile permissions.",
       "validation": {
+        "minItems": 1,
         "items": {
           "type": "string"
         }
@@ -598,6 +605,9 @@
       "setting_mode": "expand",
       "reload_level": "reboot",
       "description": "A status monitor target.",
+      "validation": {
+        "minLength": 1
+      },
       "ui": {
         "control": "text"
       }

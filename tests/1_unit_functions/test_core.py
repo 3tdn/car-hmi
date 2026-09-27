@@ -50,6 +50,12 @@ def test_can_config_normalizes_legacy_cansocket_alias():
     assert cfg.interface == "socketcan"
 
 
+@pytest.mark.parametrize("channel", ["", "   "])
+def test_can_config_rejects_empty_channel(channel):
+    with pytest.raises(ValueError, match="CAN channel must be a non-empty string"):
+        CANConfig(channel=channel)
+
+
 @pytest.mark.parametrize("signals", [[""], ["  "], [123], "COM_Status_ElkCan"])
 def test_can_config_rejects_invalid_tracking_signals(signals):
     with pytest.raises(ValueError):
@@ -186,6 +192,89 @@ async def test_runner_continues_startup_when_auto_can_is_unavailable(tmp_path, t
         with pytest.raises(can.CanInitializationError):
             runner._bus_factories[0]()
         assert create_bus.call_args.kwargs["auto_match_ids"] == expected
+
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_runner_continues_startup_when_fixed_can_channel_is_unavailable():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from src.core.runner import AppRunner
+
+    cfg = AppConfig(
+        can=[
+            CANConfig(
+                interface="socketcan",
+                channel="can0",
+                can_db_file="db/can_db/Interface_Panther_To_CarPC_v8.dbc",
+            )
+        ],
+        simulator={"enabled": False},
+        camera={"enabled": False},
+        status_monitor={"enabled": False},
+        supervisor={"watchdog_interval_sec": 0},
+    )
+    runner = AppRunner(cfg)
+
+    with (
+        patch(
+            "src.can_io.bus_factory.create_bus",
+            side_effect=OSError(43, "Protocol not supported"),
+        ),
+        patch.object(runner, "_build_api_server", new=AsyncMock(return_value=None)) as build_api,
+    ):
+        await runner._init_components(asyncio.get_running_loop())
+        await asyncio.sleep(0)
+
+        state = runner._readers[0].get_runtime_state()
+        assert runner._buses == [None]
+        assert runner._writers[0]._bus is None
+        assert state["reconnecting"] is True
+        assert "interface='socketcan' channel='can0' unavailable" in state["last_error"]
+        assert "Protocol not supported" in state["last_error"]
+        build_api.assert_awaited_once_with()
+
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_runner_continues_startup_when_auto_tracking_signal_is_unknown():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from src.core.runner import AppRunner
+
+    cfg = AppConfig(
+        can=[
+            CANConfig(
+                interface="socketcan",
+                channel="auto",
+                can_db_file="db/can_db/Interface_Panther_To_CarPC_v8.dbc",
+                channel_tracking_signals=["DOES_NOT_EXIST"],
+            )
+        ],
+        simulator={"enabled": False},
+        camera={"enabled": False},
+        status_monitor={"enabled": False},
+        supervisor={"watchdog_interval_sec": 0},
+    )
+    runner = AppRunner(cfg)
+
+    with patch.object(
+        runner,
+        "_build_api_server",
+        new=AsyncMock(return_value=None),
+    ) as build_api:
+        await runner._init_components(asyncio.get_running_loop())
+        await asyncio.sleep(0)
+
+        state = runner._readers[0].get_runtime_state()
+        assert runner._buses == [None]
+        assert state["reconnecting"] is True
+        assert "Unknown channel_tracking_signals signal 'DOES_NOT_EXIST'" in state["last_error"]
+        build_api.assert_awaited_once_with()
 
         await runner.shutdown()
 

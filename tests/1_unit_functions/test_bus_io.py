@@ -569,6 +569,17 @@ def test_create_bus_invalid_interface():
         create_bus(cfg)
 
 
+@patch("can.Bus", side_effect=OSError(43, "Protocol not supported"))
+def test_create_bus_wraps_os_error_with_interface_context(_mock_bus):
+    cfg = CANConfig(interface="socketcan", channel="can0")
+
+    with pytest.raises(
+        can.CanInitializationError,
+        match=r"interface='socketcan' channel='can0'.*Protocol not supported",
+    ):
+        create_bus(cfg)
+
+
 @patch("can.Bus")
 def test_create_bus_socketcan_parameters(mock_bus):
     """Ensure interface='socketcan' passes bitrate, mocking can.Bus to avoid hardware errors."""

@@ -261,7 +261,13 @@ def create_bus(
         params["channel"],
         params.get("bitrate", "n/a"),
     )
-    bus = can.Bus(**params)
+    try:
+        bus = can.Bus(**params)
+    except OSError as exc:
+        raise can.CanInitializationError(
+            f"Cannot open CAN interface='{params['interface']}' "
+            f"channel='{params['channel']}': {exc}"
+        ) from exc
     logger.info("CAN bus opened: %s", bus)
     return bus
 
