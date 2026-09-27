@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import FiniteFloat
 
 from src.core.config import load_json_with_defaults
 
@@ -374,10 +375,10 @@ async def get_chart_info(
     System: list[str] = Query(None),
     Age: list[str] = Query(None),
     Seatbelt: list[str] = Query(None),
-    Velocity: list[float] = Query(None),
-    Weight: list[float] = Query(None),
-    Height: list[float] = Query(None),
-    Distance: list[float] = Query(None),
+    Velocity: list[FiniteFloat] = Query(None),
+    Weight: list[FiniteFloat] = Query(None),
+    Height: list[FiniteFloat] = Query(None),
+    Distance: list[FiniteFloat] = Query(None),
     RawData: bool = Query(True, description="Include raw_rows in response (up to 100 rows). Set false to reduce payload size."),
 ) -> dict[str, Any]:
     """

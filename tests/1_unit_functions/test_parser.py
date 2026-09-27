@@ -332,7 +332,7 @@ class TestDatabaseLoaderDbc:
         assert temp.unit == "degC"
 
     def test_load_dbc_strips_lowercase_suffix_from_signal_name(self, tmp_path):
-        """Trailing lowercase suffixes (_bool, _status, _flag, ...) are stripped, matching gen_can_json.py."""
+        """Trailing lowercase suffixes (_bool, _status, _flag, ...) are stripped."""
         loader = DatabaseLoader()
         loader.load_dbc(str(self._sample_dbc(tmp_path)))
         assert "IgnitionStatus" in loader.signals

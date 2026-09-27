@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 import time
 from contextlib import suppress
@@ -11,7 +12,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -144,6 +148,15 @@ def create_app(
         description="Real-time CAN bus signal monitoring and control API",
     )
     app.state.shutting_down = False
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_response(request, exc):
+        # JSON numbers such as 1e999 parse to infinity. Keep rejected inputs
+        # JSON-safe so producing a 422 response cannot itself raise ValueError.
+        errors = jsonable_encoder(exc.errors(), custom_encoder={
+            float: lambda value: value if math.isfinite(value) else str(value),
+        })
+        return JSONResponse(status_code=422, content={"detail": errors})
 
     # CORS
     exact_origins, origin_regex = _split_cors_origins(

@@ -24,6 +24,10 @@ class FakeWebSocket:
     async def accept(self):
         self.accepted = True
 
+    async def close(self, code=1000):
+        self.closed = True
+        self.force_disconnect()
+
     async def send_text(self, data: str):
         if self._should_disconnect:
             raise RuntimeError("connection closed")
@@ -404,3 +408,57 @@ async def test_has_signal_interest_true_for_matching_subscribe_signal(mgr):
     mgr._subscriptions[ws].signal_names.add("COM_Status_PumaFLEthernet")
     assert await mgr.has_signal_interest({"COM_Status_PumaFLEthernet"}) is True
     assert await mgr.has_signal_interest({"COM_Status_PumaFREthernet"}) is False
+
+
+@pytest.mark.parametrize("command", [
+    [], None, 42,
+    {"signals": None}, {"signals": 42}, {"signals": ["Speed", {}]},
+    {"signals": ["Speed"], "mode": "invalid"},
+    {"signals": ["Speed"], "rate_ms": "inf"},
+    {"signals": ["Speed"], "rate_ms": {}},
+    {"action": "invalid", "signals": ["Speed"]},
+])
+async def test_invalid_command_keeps_handler_alive_without_partial_subscription(mgr, command):
+    ws = FakeWebSocket()
+    task = asyncio.create_task(mgr.handle_subscribe(ws))
+    try:
+        await ws._recv_queue.put(json.dumps(command))
+        await ws._recv_queue.put('{"type":"ping"}')
+        for _ in range(20):
+            if len(ws.sent) >= 2 or task.done():
+                break
+            await asyncio.sleep(0.005)
+        assert [json.loads(item)["type"] for item in ws.sent] == ["error", "pong"]
+        assert not mgr._subscriptions[ws].signal_names
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_slow_legacy_client_cannot_block_subscribed_client(mgr, monkeypatch):
+    monkeypatch.setattr(mgr, "SEND_TIMEOUT_SEC", 0.1, raising=False)
+    slow, healthy = FakeWebSocket(), FakeWebSocket()
+
+    async def never_send(_):
+        await asyncio.Event().wait()
+
+    slow.send_text = never_send
+    await mgr.connect(slow)
+    await mgr.connect_subscribe(healthy)
+    await mgr.process_subscribe_command(healthy, {"signals": ["Speed"]})
+    healthy.sent.clear()
+    healthy_sent = asyncio.Event()
+    healthy_send_text = healthy.send_text
+
+    async def track_healthy_send(data):
+        await healthy_send_text(data)
+        healthy_sent.set()
+
+    healthy.send_text = track_healthy_send
+    broadcasting = asyncio.create_task(mgr.broadcast_signal("Speed", 1, 1234))
+    await asyncio.wait_for(healthy_sent.wait(), 0.05)
+    assert not broadcasting.done()
+    await asyncio.wait_for(broadcasting, 0.3)
+    assert len(healthy.sent) == 1
+    assert slow not in mgr._connections
+    assert slow.closed

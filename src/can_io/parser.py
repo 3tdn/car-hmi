@@ -72,7 +72,7 @@ def normalize_signal_name(name: str) -> str:
 def split_comment_states(comment: str) -> tuple[str, list[dict]]:
     """Split a DBC signal comment into ``(clean_description, states)``.
 
-    Recognizes the project convention (see ``scripts/dbc_utils.py``), e.g.:
+    Recognizes the project DBC comment convention, e.g.:
     ``"Main comment | Signalvalues: 0: Off, 1: On"`` or ``"... | Signalvalues: level 1-10 x"``.
     """
     if not comment or "Signalvalues:" not in comment or "bit encoding" in comment.lower():
@@ -231,6 +231,13 @@ def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> byte
             continue
         try:
             raw = int((value - sig.offset) / sig.factor) if sig.factor != 0 else 0
+            raw_min = -(1 << (sig.length - 1)) if sig.is_signed else 0
+            raw_max = (1 << (sig.length - int(sig.is_signed))) - 1
+            if not raw_min <= raw <= raw_max:
+                logger.warning(
+                    "Encode signal=%s value=%s exceeds %d-bit range; truncating raw value",
+                    sig_name, value, sig.length,
+                )
             _insert_bits(
                 data,
                 raw,
@@ -240,7 +247,7 @@ def encode_frame_from_msg(msg: ParsedMessage, signals: dict[str, float]) -> byte
                 sig.byte_order == "big_endian",
             )
         except Exception as exc:
-            logger.debug("Encode error signal=%s: %s", sig_name, exc)
+            logger.warning("Encode error signal=%s: %s", sig_name, exc)
     return bytes(data)
 
 

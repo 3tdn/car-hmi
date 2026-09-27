@@ -889,7 +889,6 @@ class AppRunner:
                     "Detected unrecoverable CAN reader failure(s): %s — fail-fast shutdown to let supervisor restart process",
                     reader_fatal,
                 )
-                await self.shutdown()
                 raise RuntimeError(f"Unrecoverable CAN reader failure: {reader_fatal}")
 
     @staticmethod
@@ -1079,12 +1078,14 @@ class AppRunner:
                 except Exception:
                     pass
 
-        for task in self._tasks:
-            if task.get_name() != "api":
-                task.cancel()
-
-        if self._tasks:
-            await asyncio.gather(*(task for task in self._tasks if task.get_name() != "api"), return_exceptions=True)
+        owned_tasks = [
+            task for task in self._tasks
+            if task.get_name() != "api" and task is not asyncio.current_task()
+        ]
+        for task in owned_tasks:
+            task.cancel()
+        if owned_tasks:
+            await asyncio.gather(*owned_tasks, return_exceptions=True)
 
         for bus in self._buses:
             if bus is None:
