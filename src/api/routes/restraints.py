@@ -75,11 +75,15 @@ _FILENAME_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 # Weight → dummy percentile (per project definition)
 # ---------------------------------------------------------------------------
-def _weight_to_percentile(weight_kg: float) -> int:
-    """Return 5, 50, or 95 based on occupant weight."""
-    if weight_kg < 65.0:
+def _weight_to_percentile(
+    weight_kg: float,
+    class_config: tuple[float, float] = (65.0, 90.0),
+) -> int:
+    """Return 5, 50, or 95 based on occupant weight and configured thresholds."""
+    low_threshold, high_threshold = class_config
+    if weight_kg < low_threshold:
         return 5
-    if weight_kg <= 90.0:
+    if weight_kg <= high_threshold:
         return 50
     return 95
 
@@ -224,6 +228,30 @@ async def _read_can_signal(store, signal_name: str) -> float | None:
         return None
 
 
+def _read_oms_config(request: Request) -> tuple[bool, tuple[float, float], dict[str, str]]:
+    """Read the live OMS classification settings used by the restraint matcher."""
+    manager = getattr(request.app.state, "system_config_manager", None)
+    if manager is None:
+        return False, (65.0, 90.0), {}
+
+    try:
+        config = manager.read().get("oms_config", {})
+        thresholds = config.get("class_config", [65.0, 90.0])
+        if len(thresholds) != 2:
+            raise ValueError("class_config must contain two thresholds")
+        class_config = (float(thresholds[0]), float(thresholds[1]))
+        if class_config[0] > class_config[1]:
+            raise ValueError("class_config thresholds must be ordered")
+        target_signals = config.get("target_signal", {})
+        if not isinstance(target_signals, dict):
+            target_signals = {}
+        return config.get("bypass_simi_input") is True, class_config, {
+            str(target): str(source) for target, source in target_signals.items()
+        }
+    except (AttributeError, TypeError, ValueError, KeyError):
+        return False, (65.0, 90.0), {}
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -231,7 +259,7 @@ async def _read_can_signal(store, signal_name: str) -> float | None:
 @router.get("/match", summary="Find best-matching restraint video for crash conditions")
 async def match_restraint(
     request: Request,
-    weight: float = Query(..., description="Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)"),
+    weight: float = Query(..., description="Occupant weight in kg (fallback percentile input; OMS bypass uses configured class_config thresholds)"),
     height: float = Query(..., description="Occupant height in cm (recorded for reference)"),
     crash_severity: int = Query(..., description="Crash velocity in km/h (35, 40, 50, or 56)"),
     seatbelt_system: str = Query(..., description="Seatbelt system: SLL | CLL | MSLL"),
@@ -253,10 +281,12 @@ async def match_restraint(
     2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore
     3. Fallback default from seat identifier (fl / fr → mid)
 
-    Resolution order for occupant percentile:
-    1. Latest OMS_FL/FR_OccupantClassification value in SignalStore
-       (class 0/1/2 maps to video bucket 5p/50p/95p)
-    2. Weight-derived percentile from `weight` parameter
+     Resolution order for occupant percentile:
+     1. When `oms_config.bypass_simi_input` is true, the mapped
+         `OMS_*_OccupantWeightMean` signal is classified with `oms_config.class_config`.
+     2. Otherwise, the latest OMS_FL/FR_OccupantClassification value in SignalStore
+         (class 0/1/2 maps to video bucket 5p/50p/95p).
+     3. Weight-derived percentile from `weight` parameter.
 
     SignalStore values are accepted without a receive-freshness or provenance check, so
     an initial DBC-seeded value or stale value can take priority over request parameters.
@@ -264,10 +294,13 @@ async def match_restraint(
     if not MEDIA_DIR.exists():
         raise HTTPException(status_code=500, detail="Media directory not found")
 
-    # ── 1. Derive percentile from weight ────────────────────────────────────
+    # ── 1. Load OMS classification settings ─────────────────────────────────
+    bypass_simi_input, class_config, target_signals = _read_oms_config(request)
+
+    # ── 2. Derive percentile from request weight ─────────────────────────────
     derived_percentile = _weight_to_percentile(weight)
 
-    # ── 2. Validate target velocity ───────────────────────────────────────────
+    # ── 3. Validate target velocity ───────────────────────────────────────────
     # Accept direct velocity values (35, 40, 50, 56 km/h)
     target_velocity = int(crash_severity)
     if target_velocity not in _VALID_VELOCITIES:
@@ -277,7 +310,7 @@ async def match_restraint(
                    f"Use one of: {sorted(_VALID_VELOCITIES)} km/h.",
         )
 
-    # ── 3. Validate seatbelt_system ──────────────────────────────────────────
+    # ── 4. Validate seatbelt_system ──────────────────────────────────────────
     seatbelt_upper = seatbelt_system.strip().upper()
     if seatbelt_upper not in {"SLL", "CLL", "MSLL"}:
         raise HTTPException(
@@ -285,7 +318,7 @@ async def match_restraint(
             detail=f"seatbelt_system '{seatbelt_system}' invalid. Use SLL, CLL, or MSLL.",
         )
 
-    # ── 4. Read latest SignalStore values ─────────────────────────────────────
+    # ── 5. Read latest SignalStore values ─────────────────────────────────────
     store = getattr(request.app.state, "store", None)
     seat_lower = seat.strip().lower()
     if seat_lower not in ("fl", "fr"):
@@ -304,15 +337,23 @@ async def match_restraint(
         oop_signal    = _CAN_FR_OOP
         seat_x_signal = _CAN_FR_SEAT_X
 
+    weight_signal = target_signals.get(class_signal)
+    if bypass_simi_input and not weight_signal:
+        weight_signal = class_signal.replace("OccupantClassification", "OccupantWeightMean")
+
     can_classification:   float | None = None
+    can_weight:           float | None = None
     can_out_of_position:  float | None = None
     can_seat_x:           float | None = None
     if store is not None:
-        can_classification  = await _read_can_signal(store, class_signal)
+        if not bypass_simi_input:
+            can_classification = await _read_can_signal(store, class_signal)
+        if bypass_simi_input and weight_signal:
+            can_weight = await _read_can_signal(store, weight_signal)
         can_out_of_position = await _read_can_signal(store, oop_signal)
         can_seat_x          = await _read_can_signal(store, seat_x_signal)
 
-    # ── 5. Resolve seat-position zone ────────────────────────────────────────
+    # ── 6. Resolve seat-position zone ────────────────────────────────────────
     # Priority: explicit param > CAN signal > default from seat identifier
     resolved_seat_x: float | None = seat_x_mm if seat_x_mm is not None else can_seat_x
     seat_x_source: str
@@ -327,17 +368,23 @@ async def match_restraint(
         preferred_position = _SEAT_DEFAULT_ZONE.get(seat_lower, "mid")
         seat_x_source = "default"
 
-    # ── 6. Resolve occupant percentile (CAN wins over weight-derived) ────────
+    # ── 7. Resolve occupant percentile ───────────────────────────────────────
     effective_percentile = derived_percentile
     can_percentile: int | None = None
-    if can_classification is not None:
+    if bypass_simi_input and can_weight is not None:
+        try:
+            effective_percentile = _weight_to_percentile(can_weight, class_config)
+            can_percentile = effective_percentile
+        except (TypeError, ValueError):
+            can_weight = None
+    elif not bypass_simi_input and can_classification is not None:
         can_percentile = _OMS_CLASS_TO_PERCENTILE.get(int(can_classification))
         if can_percentile is not None:
             effective_percentile = can_percentile
 
     out_of_position = bool(can_out_of_position and int(can_out_of_position) != 0)
 
-    # ── 7. Scan media directory and score candidates ─────────────────────────
+    # ── 8. Scan media directory and score candidates ─────────────────────────
     videos: list[dict] = []
     for f in MEDIA_DIR.iterdir():
         if f.is_file() and f.suffix.lower() in {".mp4", ".avi", ".mkv", ".webm"}:
@@ -351,6 +398,10 @@ async def match_restraint(
         "derived_percentile":   derived_percentile,
         "effective_percentile": effective_percentile,
         "can_percentile":       can_percentile,
+        "oms_bypass_simi_input": bypass_simi_input,
+        "oms_class_config":     list(class_config),
+        "oms_weight_signal":    weight_signal,
+        "can_weight_kg":        can_weight,
         "target_velocity_kmh":  target_velocity,
         "seatbelt_system":      seatbelt_upper,
         "seat":                 seat,
