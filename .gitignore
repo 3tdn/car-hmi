@@ -63,5 +63,4 @@ site/
 .local/*
 tmp/*
 config/backups/*
-config/system.json
 config/profiles.json
