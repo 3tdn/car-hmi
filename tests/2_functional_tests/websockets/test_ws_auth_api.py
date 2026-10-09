@@ -87,6 +87,21 @@ def test_ws_subscribe_allows_signal_outside_profile(monkeypatch, tmp_path):
     assert ack["channels"] == ["FuelLevel"]
     assert ack["warnings"] == []
 
+
+def test_ws_subscribe_accepts_utf8_json_binary_frame():
+    """Binary JSON frames do not fail Starlette's text-only receive helper."""
+    from starlette.testclient import TestClient
+
+    app = create_app(SignalStore(), api_key="")
+    with TestClient(app) as sc, sc.websocket_connect("/ws/subscribe") as ws:
+        command = json.dumps({"type": "subscribe", "signals": ["VehicleSpeed"]})
+        ws.send_bytes(command.encode("utf-8"))
+        ack = json.loads(ws.receive_text())
+
+    assert ack["type"] == "subscribe_ack"
+    assert ack["channels"] == ["VehicleSpeed"]
+
+
 def test_ws_auth_rejected_without_key():
     """WebSocket connection is rejected when auth is enabled and no key is provided."""
     from starlette.testclient import TestClient
