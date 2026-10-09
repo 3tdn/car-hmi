@@ -79,6 +79,52 @@ async def test_computed_signals_exception_safety():
 
 
 @pytest.mark.asyncio
+async def test_hb_state_normalizer_removes_protocol_offset():
+    from src.processor.computed import HBStateNormalizer
+
+    processor = HBStateNormalizer()
+    result = await processor.process(
+        {
+            "HB_State_RR1": 5.0,
+            "HB_State_RL2": 4.0,
+            "HB_State_FR": 3.0,
+            "HB_State_Unknown": 5.0,
+            "HB_TargetTemp_RR1": 5.0,
+        }
+    )
+
+    assert result == {
+        "HB_State_RR1": 1.0,
+        "HB_State_RL2": 0.0,
+        "HB_State_FR": 0.0,
+        "HB_State_Unknown": 5.0,
+        "HB_TargetTemp_RR1": 5.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_hb_state_normalizer_publishes_normalized_value_to_store():
+    import asyncio
+
+    from src.core.signal_store import SignalStore
+    from src.processor.computed import HBStateNormalizer
+    from src.processor.pipeline import SignalPipeline
+
+    store = SignalStore()
+    published = []
+    store.subscribe(lambda name, value: published.append((name, value.value)))
+    pipeline = SignalPipeline(input_queue=asyncio.Queue(), signal_store=store)
+    pipeline.add_stage(HBStateNormalizer())
+
+    await pipeline._process_signals({"HB_State_RR1": 5.0})
+
+    value = await store.get("HB_State_RR1")
+    assert value is not None
+    assert value.value == pytest.approx(1.0)
+    assert published == [("HB_State_RR1", 1.0)]
+
+
+@pytest.mark.asyncio
 async def test_oms_classification_keeps_can_value_when_bypass_is_disabled():
     from src.processor.computed import OMSClassificationProcessor
 

@@ -69,7 +69,7 @@ class OMSClassificationProcessor(ProcessingStage):
         if not self._bypass_simi_input:
             return signals
 
-        result = dict(signals)
+        result = signals
         low, high = self._class_config
         for target_signal, weight_signal in self._target_signals.items():
             if weight_signal not in signals:
@@ -90,12 +90,44 @@ class OMSClassificationProcessor(ProcessingStage):
                     signals[weight_signal],
                 )
                 continue
-
+            if result is signals:
+                result = dict(signals)
             if weight < low:
-                occupant_class = 0.0
+                result[target_signal] = 0.0
             elif weight <= high:
-                occupant_class = 1.0
+                result[target_signal] = 1.0
             else:
-                occupant_class = 2.0
-            result[target_signal] = occupant_class
+                result[target_signal] = 2.0
+
+        return result
+
+
+class HBStateNormalizer(ProcessingStage):
+    """Remove the protocol offset from received ``HB_State_*`` values.
+
+    HB response states use values 4-7 for the frontend-facing states 0-3.
+    Values that are already below the offset are set to 0.
+    """
+
+    _SIGNAL_NAMES = (
+        "HB_State_FL",
+        "HB_State_FR",
+        "HB_State_RR1",
+        "HB_State_RL1",
+        "HB_State_RL2",
+    )
+    _STATE_OFFSET = 4.0
+
+    async def process(self, signals: dict[str, float]) -> dict[str, float]:
+        result = signals
+
+        for name in self._SIGNAL_NAMES:
+            value = signals.get(name)
+            if value is None:
+                continue
+            if result is signals:
+                result = dict(signals)
+
+            result[name] = value - self._STATE_OFFSET if value >= self._STATE_OFFSET else 0
+
         return result

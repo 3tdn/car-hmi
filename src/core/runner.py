@@ -281,7 +281,11 @@ class AppRunner:
         from src.can_io.reader import CANReader
         from src.can_io.writer import CANWriter, CANWriterRouter
         from src.core.signal_metadata import SignalMetadataCatalog
-        from src.processor.computed import ComputedSignals, OMSClassificationProcessor
+        from src.processor.computed import (
+            ComputedSignals,
+            HBStateNormalizer,
+            OMSClassificationProcessor,
+        )
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
 
@@ -348,6 +352,7 @@ class AppRunner:
         )
         self._rate_limiter = RateLimiter(max_hz=proc_cfg.max_update_rate_hz)
         self._pipeline.add_stage(self._rate_limiter)
+        self._pipeline.add_stage(HBStateNormalizer())
         oms_cfg = self.config.oms_config
         self._oms_classifier = OMSClassificationProcessor(
             bypass_simi_input=oms_cfg.bypass_simi_input,
