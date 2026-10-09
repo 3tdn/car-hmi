@@ -546,7 +546,25 @@ class ConnectionManager:
         await self.connect_subscribe(ws, profile_name=profile_name)
         try:
             while True:
-                raw = await ws.receive_text()
+                message = await ws.receive()
+                if message["type"] == "websocket.disconnect":
+                    raise WebSocketDisconnect(code=message.get("code", 1000))
+
+                raw = message.get("text")
+                if raw is None:
+                    binary = message.get("bytes")
+                    if binary is None:
+                        await self._send_text(ws, json.dumps({
+                            "type": "error", "message": "Expected a text or UTF-8 binary frame",
+                        }))
+                        continue
+                    try:
+                        raw = binary.decode("utf-8")
+                    except UnicodeDecodeError:
+                        await self._send_text(ws, json.dumps({
+                            "type": "error", "message": "Binary frame must contain UTF-8 JSON",
+                        }))
+                        continue
                 try:
                     data = json.loads(raw)
                 except (json.JSONDecodeError, ValueError):

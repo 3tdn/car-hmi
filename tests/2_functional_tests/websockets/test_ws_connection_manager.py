@@ -18,7 +18,7 @@ class FakeWebSocket:
         self.accepted = False
         self.sent: list[str] = []
         self.closed = False
-        self._recv_queue: asyncio.Queue[str] = asyncio.Queue()
+        self._recv_queue: asyncio.Queue[str | bytes] = asyncio.Queue()
         self._should_disconnect = False
 
     async def accept(self):
@@ -33,16 +33,25 @@ class FakeWebSocket:
             raise RuntimeError("connection closed")
         self.sent.append(data)
 
+    async def receive(self) -> dict:
+        while True:
+            if self._should_disconnect:
+                return {"type": "websocket.disconnect", "code": 1000}
+            try:
+                data = self._recv_queue.get_nowait()
+                if isinstance(data, bytes):
+                    return {"type": "websocket.receive", "bytes": data}
+                return {"type": "websocket.receive", "text": data}
+            except asyncio.QueueEmpty:
+                await asyncio.sleep(0.01)
+
     async def receive_text(self) -> str:
         from fastapi import WebSocketDisconnect
 
-        while True:
-            if self._should_disconnect:
-                raise WebSocketDisconnect(code=1000)
-            try:
-                return self._recv_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                await asyncio.sleep(0.01)
+        message = await self.receive()
+        if message["type"] == "websocket.disconnect":
+            raise WebSocketDisconnect(code=message.get("code", 1000))
+        return message["text"]
 
     def force_disconnect(self):
         self._should_disconnect = True
@@ -430,6 +439,25 @@ async def test_invalid_command_keeps_handler_alive_without_partial_subscription(
             await asyncio.sleep(0.005)
         assert [json.loads(item)["type"] for item in ws.sent] == ["error", "pong"]
         assert not mgr._subscriptions[ws].signal_names
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_subscribe_accepts_utf8_json_binary_frame(mgr):
+    ws = FakeWebSocket()
+    task = asyncio.create_task(mgr.handle_subscribe(ws))
+    try:
+        command = json.dumps({"type": "subscribe", "signals": ["Speed"]}).encode()
+        await ws._recv_queue.put(command)
+        for _ in range(20):
+            if ws.sent or task.done():
+                break
+            await asyncio.sleep(0.005)
+
+        assert not task.done()
+        assert json.loads(ws.sent[0])["type"] == "subscribe_ack"
+        assert mgr._subscriptions[ws].signal_names == {"Speed"}
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
