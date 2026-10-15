@@ -1587,7 +1587,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The example abbreviates families/signals/states. Current families are ACR_RetractRequest, ABL_RetractRequest, ISB_Color, and HB_Request; use the catalog to display available states.
+Note: The example abbreviates families/signals/states. Current families are ACR_RetractRequest, ABL_RetractRequest, ELK_LockingRequest, ISB_Color, and HB_Request; use the catalog to display available states.
 
 ### `GET /api/devmode/status`
 
@@ -1773,7 +1773,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses an RGB number from 0x000000 to 0xFFFFFF (send a decimal number in JSON). The route explicitly validates the color range; the catalog's state lists are not all enforced as value ranges by the route.
+Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses a packed `0xIIRRGGBB` number from `0x00000000` to `0x64FFFFFF`; `II` is intensity from 0 to 100 (send the value as a decimal number in JSON). The route explicitly validates this range; the catalog's state lists are not all enforced as value ranges by the route.
 
 ### `GET /api/info`
 
@@ -2591,8 +2591,8 @@ Apply one signal family to several seats at once — POST /api/devmode/signals.
 
 | Field | Type | Required | Default/Constraints | Description |
 |---|---|---|---|---|
-| `signal_name` | string | Yes |  | Signal family: ACR_RetractRequest \| ABL_RetractRequest \| ISB_Color \| HB_Request |
-| `value` | number | Yes |  | Value applied to every selected seat |
+| `signal_name` | string | Yes |  | Signal family: ACR_RetractRequest \| ABL_RetractRequest \| ELK_LockingRequest \| ISB_Color \| HB_Request |
+| `value` | number | Yes |  | Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB |
 | `seats` | map<string, boolean> | Yes |  | Map seat_id → whether the value is applied |
 | `block_timeout_sec` | number / null | No | minimum=1.0; maximum=3600.0 | Seat lock renewal duration (seconds); defaults to 60 |
 

@@ -485,12 +485,16 @@ class DevModeSignalRequest(BaseModel):
     signal_name: str = Field(
         ...,
         description=(
-            "Signal family: ACR_RetractRequest | ABL_RetractRequest | "
+            "Signal family: ACR_RetractRequest | ABL_RetractRequest | ELK_LockingRequest | "
             "ISB_Color | HB_Request"
         ),
     )
     value: float = Field(
-        ..., allow_inf_nan=False, description="Value applied to every selected seat"
+        ...,
+        allow_inf_nan=False,
+        description=(
+            "Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB"
+        ),
     )
     seats: dict[str, bool] = Field(..., description="Map seat_id → whether the value is applied")
     block_timeout_sec: float | None = Field(

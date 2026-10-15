@@ -224,6 +224,7 @@ Only seats that were actually updated are returned. The signal name is the share
 
 - `ACR_RetractRequest`
 - `ABL_RetractRequest`
+- `ELK_LockingRequest`
 - `ISB_Color`
 - `HB_Request`
 
@@ -231,7 +232,8 @@ Only seats that were actually updated are returned. The signal name is the share
 
 - `ACR_RetractRequest`: refer to the corresponding signal `ACR_FL_RetractRequest`, (`5` or `10->25`)
 - `ABL_RetractRequest`: refer to the corresponding signal `ABL_FL_RetractRequest`, (`0->5`, `11`, `12`)
-- `ISB_Color`: color code as integer or hex-to-dec, for example `rgb(0, 255, 0) => 65280`
+- `ELK_LockingRequest`: `0` (no lock) or `1` (request for lock)
+- `ISB_Color`: packed `0xIIRRGGBB` integer; for example, 100% intensity and red is `0x64FF0000` (send its decimal value in JSON)
 - `HB_Request`: `0`, `1`, `2`
 
 ### Mapping to actual CAN signals
@@ -240,8 +242,9 @@ Only seats that were actually updated are returned. The signal name is the share
 | --- | --- |
 | `ACR_RetractRequest` | `ACR_{SEAT}_RetractRequest` |
 | `ABL_RetractRequest` | `ABL_{SEAT}_RetractRequest` |
+| `ELK_LockingRequest` | `ELK_{SEAT}_LockingRequest` |
 | `HB_Request` | `HB_Request_{SEAT}` |
-| `ISB_Color` | `ISB_{SEAT}_ColorRed` + `ISB_{SEAT}_ColorGreen` + `ISB_{SEAT}_ColorBlue` (split RGB) |
+| `ISB_Color` | Split `0xIIRRGGBB` into `ISB_{SEAT}_Intensity`, `ISB_{SEAT}_ColorRed`, `ISB_{SEAT}_ColorGreen`, and `ISB_{SEAT}_ColorBlue` |
 
 If a seat does not have a corresponding signal in the DBC (for example `HB_Request_FL`), that seat returns
 `error = signal_not_available`, while the remaining seats are still applied.
@@ -416,7 +419,7 @@ Dev-mode view: (distinguished from the user view)
 Devmode has 2 views.
 view a:
 The view has 5 switches representing the 5 seats, each of which can be selected or not.
-There are 4 tabs (ACR, ABL, ISB, HB corresponding to the signals `ACR_RetractRequest`, `ABL_RetractRequest`, `ISB_Color`, `HB_Request`); each tab has n buttons corresponding to the n states of each signal.
+There are 5 tabs (ACR, ABL, ELK, ISB, HB corresponding to the signals `ACR_RetractRequest`, `ABL_RetractRequest`, `ELK_LockingRequest`, `ISB_Color`, `HB_Request`); each tab has n buttons corresponding to the n states of each signal.
 The function of this view is to change the signal state for multiple seats at once.
 note: when turning on a seat switch, remember to notify the backend so it can create a 1-minute timeout to block other modes from operating on that seat
 View b:

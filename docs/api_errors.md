@@ -53,9 +53,9 @@ those generic HTTP 500 responses are not a stable application JSON error contrac
 | POST /system/reboot; POST /api/reboot | 409 | — | `Reboot already in progress` |
 | GET /api/devmode/status; POST seats/select, signals, exit under /api/devmode | 400 | — | `Header 'X-Client-Id' is required for Dev Mode lock operations` |
 | POST /api/devmode/seats/select and /api/devmode/signals | 422 | — | `Unknown seat '{raw_seat}'. Valid seats: ['fl', 'fr', 'rl1', 'rl2', 'rr1']` |
-| POST /api/devmode/signals | 422 | — | `ISB_Color must be an integer RGB value between 0 and 16777215` |
+| POST /api/devmode/signals | 422 | — | `ISB_Color must be an integer 0xIIRRGGBB value between 0x00000000 and 0x64FFFFFF` |
 | POST /api/devmode/seats/select | 409 | — | `{'applied': applied, 'expires_at': None}` |
-| POST /api/devmode/signals | 422 | — | `Unsupported signal '{body.signal_name}'. Supported: ['ABL_RetractRequest', 'ACR_RetractRequest', 'HB_Request', 'ISB_Color']` |
+| POST /api/devmode/signals | 422 | — | `Unsupported signal '{body.signal_name}'. Supported: ['ABL_RetractRequest', 'ACR_RetractRequest', 'ELK_LockingRequest', 'HB_Request', 'ISB_Color']` |
 | POST /api/devmode/signals | 422 | — | `No seat selected` |
 | POST /api/devmode/signals | 503 | — | `CAN writer not available` |
 | POST /api/devmode/signals | 409 | — | `{'applied': applied, 'expires_at': None}` |

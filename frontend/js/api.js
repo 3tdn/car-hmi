@@ -397,7 +397,8 @@ async function selectDevmodeSeats(seats, blockTimeoutSec) {
 }
 
 /**
- * Apply one signal family (ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request)
+ * Apply one signal family (ACR_RetractRequest | ABL_RetractRequest |
+ * ELK_LockingRequest | ISB_Color | HB_Request)
  * to several seats at once.
  */
 async function applyDevmodeSignal(signalName, value, seats, blockTimeoutSec) {

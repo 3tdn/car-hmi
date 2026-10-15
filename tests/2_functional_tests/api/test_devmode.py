@@ -47,7 +47,7 @@ def _headers(client_id: str) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_catalog_lists_four_signal_families():
+async def test_catalog_lists_five_signal_families():
     app = await _build_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get("/api/devmode/catalog", headers=_headers("c1"))
@@ -56,7 +56,13 @@ async def test_catalog_lists_four_signal_families():
     body = resp.json()
     assert body["seats"] == ["fl", "fr", "rl1", "rl2", "rr1"]
     names = {family["signal_name"] for family in body["families"]}
-    assert names == {"ACR_RetractRequest", "ABL_RetractRequest", "ISB_Color", "HB_Request"}
+    assert names == {
+        "ACR_RetractRequest",
+        "ABL_RetractRequest",
+        "ELK_LockingRequest",
+        "ISB_Color",
+        "HB_Request",
+    }
 
 
 @pytest.mark.asyncio
@@ -177,14 +183,58 @@ async def test_isb_color_is_split_into_rgb_signals():
         resp = await c.post(
             "/api/devmode/signals",
             headers=_headers("owner"),
-            json={"signal_name": "ISB_Color", "value": 65280, "seats": {"fl": True}},
+            json={
+                "signal_name": "ISB_Color",
+                "value": 0x64FF0000,
+                "seats": {"fl": True},
+            },
         )
 
     assert resp.status_code == 200
     assert app.state.writer.writes == [
-        ("ISB_FL_ColorRed", 0.0),
-        ("ISB_FL_ColorGreen", 255.0),
+        ("ISB_FL_Intensity", 100.0),
+        ("ISB_FL_ColorRed", 255.0),
+        ("ISB_FL_ColorGreen", 0.0),
         ("ISB_FL_ColorBlue", 0.0),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_isb_color_rejects_intensity_above_100():
+    app = await _build_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/devmode/signals",
+            headers=_headers("owner"),
+            json={
+                "signal_name": "ISB_Color",
+                "value": 0x65FF0000,
+                "seats": {"fl": True},
+            },
+        )
+
+    assert resp.status_code == 422
+    assert app.state.writer.writes == []
+
+
+@pytest.mark.asyncio
+async def test_elk_locking_request_expands_to_selected_seats():
+    app = await _build_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/devmode/signals",
+            headers=_headers("owner"),
+            json={
+                "signal_name": "ELK_LockingRequest",
+                "value": 1,
+                "seats": {"fl": True, "rr1": True},
+            },
+        )
+
+    assert resp.status_code == 200
+    assert app.state.writer.writes == [
+        ("ELK_FL_LockingRequest", 1.0),
+        ("ELK_RR1_LockingRequest", 1.0),
     ]
 
 
