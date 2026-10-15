@@ -85,20 +85,20 @@ async def test_hb_state_normalizer_removes_protocol_offset():
     processor = HBStateNormalizer()
     result = await processor.process(
         {
-            "HB_State_RR1": 5.0,
-            "HB_State_RL2": 4.0,
-            "HB_State_FR": 3.0,
-            "HB_State_Unknown": 5.0,
-            "HB_TargetTemp_RR1": 5.0,
+            "HB_RR1_State": 5.0,
+            "HB_RL2_State": 4.0,
+            "HB_FR_State": 3.0,
+            "HB_Unknown_State": 5.0,
+            "HB_RR1_TargetTemp": 5.0,
         }
     )
 
     assert result == {
-        "HB_State_RR1": 1.0,
-        "HB_State_RL2": 0.0,
-        "HB_State_FR": 0.0,
-        "HB_State_Unknown": 5.0,
-        "HB_TargetTemp_RR1": 5.0,
+        "HB_RR1_State": 1.0,
+        "HB_RL2_State": 0.0,
+        "HB_FR_State": 0.0,
+        "HB_Unknown_State": 5.0,
+        "HB_RR1_TargetTemp": 5.0,
     }
 
 
@@ -116,12 +116,12 @@ async def test_hb_state_normalizer_publishes_normalized_value_to_store():
     pipeline = SignalPipeline(input_queue=asyncio.Queue(), signal_store=store)
     pipeline.add_stage(HBStateNormalizer())
 
-    await pipeline._process_signals({"HB_State_RR1": 5.0})
+    await pipeline._process_signals({"HB_RR1_State": 5.0})
 
-    value = await store.get("HB_State_RR1")
+    value = await store.get("HB_RR1_State")
     assert value is not None
     assert value.value == pytest.approx(1.0)
-    assert published == [("HB_State_RR1", 1.0)]
+    assert published == [("HB_RR1_State", 1.0)]
 
 
 @pytest.mark.asyncio

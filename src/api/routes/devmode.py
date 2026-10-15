@@ -68,7 +68,7 @@ SIGNAL_FAMILIES: dict[str, dict] = {
     },
     "HB_Request": {
         "kind": "state",
-        "templates": ["HB_Request_{seat}"],
+        "templates": ["HB_{seat}_Request"],
         "allowed_values": [0, 1, 2],
         "fallback_states": [
             {"value": 0, "description": "Off"},
