@@ -103,18 +103,18 @@ class OMSClassificationProcessor(ProcessingStage):
 
 
 class HBStateNormalizer(ProcessingStage):
-    """Remove the protocol offset from received ``HB_State_*`` values.
+    """Remove the protocol offset from received HB seat-state values.
 
     HB response states use values 4-7 for the frontend-facing states 0-3.
     Values that are already below the offset are set to 0.
     """
 
     _SIGNAL_NAMES = (
-        "HB_State_FL",
-        "HB_State_FR",
-        "HB_State_RR1",
-        "HB_State_RL1",
-        "HB_State_RL2",
+        "HB_FL_State",
+        "HB_FR_State",
+        "HB_RR1_State",
+        "HB_RL1_State",
+        "HB_RL2_State",
     )
     _STATE_OFFSET = 4.0
 

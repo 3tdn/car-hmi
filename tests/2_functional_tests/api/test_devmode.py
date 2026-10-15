@@ -255,7 +255,7 @@ async def test_apply_signal_rejects_unknown_family_but_allows_unlisted_value():
 
     assert unknown.status_code == 422
     assert unlisted_value.status_code == 200
-    assert app.state.writer.writes == [("HB_Request_FL", 9.0)]
+    assert app.state.writer.writes == [("HB_FL_Request", 9.0)]
 
 
 @pytest.mark.asyncio

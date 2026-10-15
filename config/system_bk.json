@@ -4,7 +4,7 @@
       "interface": "socketcan",
       "channel": "can0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc",
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc",
       "channel_tracking_signals": [
         "COM_Status_ElkCan"
       ]
@@ -14,7 +14,7 @@
     "enabled": false,
     "random_mode": true,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v9.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",

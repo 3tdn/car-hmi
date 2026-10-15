@@ -87,8 +87,8 @@ async def test_apply_signal_skips_disconnected_seat_but_applies_others(app_build
     applied = resp.json()["applied"]
     assert applied["fl"]["signal_name"] == "HB_Request"
     assert applied["rl1"]["error"] == "seat_not_connected"
-    assert ("HB_Request_FL", 1.0) in writer.writes
-    assert ("HB_Request_RL1", 1.0) not in writer.writes
+    assert ("HB_FL_Request", 1.0) in writer.writes
+    assert ("HB_RL1_Request", 1.0) not in writer.writes
 
 
 @pytest.mark.asyncio
@@ -100,7 +100,7 @@ async def test_apply_signal_reports_signal_not_available_for_missing_can_signal(
         active="admin",
         profiles={"admin": {"signals": [], "description": "Admin"}},
         initial_signals=_connected_seats("fl", "rr1"),
-        unavailable_signals={"HB_Request_RR1"},
+        unavailable_signals={"HB_RR1_Request"},
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
@@ -118,7 +118,7 @@ async def test_apply_signal_reports_signal_not_available_for_missing_can_signal(
     applied = resp.json()["applied"]
     assert applied["fl"]["signal_name"] == "HB_Request"
     assert applied["rr1"]["error"] == "signal_not_available"
-    assert ("HB_Request_FL", 2.0) in writer.writes
+    assert ("HB_FL_Request", 2.0) in writer.writes
 
 
 @pytest.mark.asyncio
@@ -140,7 +140,7 @@ async def test_apply_signal_allows_value_outside_allowed_values(app_builder, mon
         )
 
     assert resp.status_code == 200
-    assert writer.writes == [("HB_Request_FL", 99.0)]
+    assert writer.writes == [("HB_FL_Request", 99.0)]
 
 
 @pytest.mark.asyncio
