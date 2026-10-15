@@ -2095,12 +2095,12 @@
           "signal_name": {
             "type": "string",
             "title": "Signal Name",
-            "description": "Signal family: ACR_RetractRequest | ABL_RetractRequest | ISB_Color | HB_Request"
+            "description": "Signal family: ACR_RetractRequest | ABL_RetractRequest | ELK_LockingRequest | ISB_Color | HB_Request"
           },
           "value": {
             "type": "number",
             "title": "Value",
-            "description": "Value applied to every selected seat"
+            "description": "Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB"
           },
           "seats": {
             "additionalProperties": {

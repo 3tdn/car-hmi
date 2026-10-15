@@ -239,7 +239,7 @@ async def test_batch_update_skips_locked_seat_with_warning_but_allows_owner(app_
 
 @pytest.mark.asyncio
 async def test_devmode_catalog_and_status_reflect_selection(app_builder, monkeypatch, tmp_path):
-    """`GET /api/devmode/catalog` lists 4 signal families; `GET /api/devmode/status` reflects the selected seats."""
+    """The Dev Mode catalog and status reflect supported families and seat selection."""
     app, _writer = await app_builder(
         monkeypatch,
         tmp_path,
@@ -252,7 +252,13 @@ async def test_devmode_catalog_and_status_reflect_selection(app_builder, monkeyp
         catalog = await c.get("/api/devmode/catalog", headers=_headers("owner"))
         assert catalog.status_code == 200
         family_names = {f["signal_name"] for f in catalog.json()["families"]}
-        assert family_names == {"ACR_RetractRequest", "ABL_RetractRequest", "ISB_Color", "HB_Request"}
+        assert family_names == {
+            "ACR_RetractRequest",
+            "ABL_RetractRequest",
+            "ELK_LockingRequest",
+            "ISB_Color",
+            "HB_Request",
+        }
 
         await c.post(
             "/api/devmode/seats/select",

@@ -1,9 +1,9 @@
 /**
  * devmode.js — developer-only view (shown only when FRONTEND_MODE === 'dev').
  *
- * View A: pick several seats with switches, then drive the state of the four
- *         signal families (ACR_RetractRequest, ABL_RetractRequest, ISB_Color,
- *         HB_Request). Turning a switch on makes the backend lock that seat
+ * View A: pick several seats with switches, then drive the configured signal
+ *         families (ACR_RetractRequest, ABL_RetractRequest, ELK_LockingRequest,
+ *         ISB_Color, HB_Request). Turning a switch on makes the backend lock that seat
  *         (block_timeout_sec) so other sections cannot write to it.
  * View B: CAN / Ethernet / ELK status of every PUMA, PANTHER and NVIDIA JETSON.
  */
@@ -379,7 +379,8 @@ function renderFamilyStates() {
     const btn = document.createElement("button");
     btn.className = "state-btn";
     if (family.kind === "color") {
-      const hex = `#${Number(state.value).toString(16).padStart(6, "0")}`;
+      const rgb = Number(state.value) & 0xFFFFFF;
+      const hex = `#${rgb.toString(16).padStart(6, "0")}`;
       btn.classList.add("state-btn--color");
       btn.innerHTML = `<span class="state-swatch" style="background:${hex};"></span>
                        <span>${state.description}</span>`;

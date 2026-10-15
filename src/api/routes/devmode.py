@@ -37,19 +37,33 @@ SIGNAL_FAMILIES: dict[str, dict] = {
         "allowed_values": [0, 1, 2, 3, 4, 5, 11, 12],
         "fallback_states": [],
     },
+    "ELK_LockingRequest": {
+        "kind": "state",
+        "templates": ["ELK_{seat}_LockingRequest"],
+        "allowed_values": [0, 1],
+        "fallback_states": [
+            {"value": 0, "description": "No lock"},
+            {"value": 1, "description": "Request for lock"},
+        ],
+    },
     "ISB_Color": {
         "kind": "color",
-        "templates": ["ISB_{seat}_ColorRed", "ISB_{seat}_ColorGreen", "ISB_{seat}_ColorBlue"],
-        "allowed_values": None,  # 0x000000..0xFFFFFF
+        "templates": [
+            "ISB_{seat}_Intensity",
+            "ISB_{seat}_ColorRed",
+            "ISB_{seat}_ColorGreen",
+            "ISB_{seat}_ColorBlue",
+        ],
+        "allowed_values": None,  # 0x00000000..0x64FFFFFF
         "fallback_states": [
             {"value": 0, "description": "Off"},
-            {"value": 0xFF0000, "description": "Red"},
-            {"value": 0x00FF00, "description": "Green"},
-            {"value": 0x0000FF, "description": "Blue"},
-            {"value": 0xFFFF00, "description": "Yellow"},
-            {"value": 0x00FFFF, "description": "Cyan"},
-            {"value": 0xFF00FF, "description": "Magenta"},
-            {"value": 0xFFFFFF, "description": "White"},
+            {"value": 0x64FF0000, "description": "Red"},
+            {"value": 0x6400FF00, "description": "Green"},
+            {"value": 0x640000FF, "description": "Blue"},
+            {"value": 0x64FFFF00, "description": "Yellow"},
+            {"value": 0x6400FFFF, "description": "Cyan"},
+            {"value": 0x64FF00FF, "description": "Magenta"},
+            {"value": 0x64FFFFFF, "description": "White"},
         ],
     },
     "HB_Request": {
@@ -179,7 +193,7 @@ def _normalize_seats(seats: dict[str, bool]) -> dict[str, bool]:
 
 
 def _family_states(request: Request, family: str, spec: dict) -> list[dict]:
-    reference = spec["templates"][0].format(seat="FL")
+    reference = _family_signal_names(spec, "FL")[0]
     metadata = request.app.state.signal_metadata.get(reference) or {}
     dbc_states = metadata.get("states") or []
     allowed = spec.get("allowed_values")
@@ -193,27 +207,36 @@ def _family_states(request: Request, family: str, spec: dict) -> list[dict]:
     return spec.get("fallback_states") or []
 
 
+def _family_signal_names(spec: dict, seat_token: str) -> list[str]:
+    return [template.format(seat=seat_token) for template in spec["templates"]]
+
+
 def _expand_signals(family: str, seat: str, value: float) -> dict[str, float]:
     """Map (signal family, seat, value) to the real CAN signals that must be written."""
     spec = SIGNAL_FAMILIES[family]
     seat_token = seat.upper()
     if spec["kind"] == "color":
-        rgb = int(value) & 0xFFFFFF
-        components = ((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF)
-        return {
-            template.format(seat=seat_token): float(component)
-            for template, component in zip(spec["templates"], components, strict=True)
-        }
-    return {template.format(seat=seat_token): float(value) for template in spec["templates"]}
+        packed_color = int(value)
+        components = (
+            (packed_color >> 24) & 0xFF,
+            (packed_color >> 16) & 0xFF,
+            (packed_color >> 8) & 0xFF,
+            packed_color & 0xFF,
+        )
+        return dict(zip(_family_signal_names(spec, seat_token), map(float, components), strict=True))
+    return dict.fromkeys(_family_signal_names(spec, seat_token), float(value))
 
 
 def _validate_value(family: str, value: float) -> None:
     spec = SIGNAL_FAMILIES[family]
     if spec["kind"] == "color":
-        if not 0 <= int(value) <= 0xFFFFFF:
+        if not value.is_integer() or not 0 <= int(value) <= 0x64FFFFFF:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="ISB_Color must be an integer RGB value between 0 and 16777215",
+                detail=(
+                    "ISB_Color must be an integer 0xIIRRGGBB value between "
+                    "0x00000000 and 0x64FFFFFF"
+                ),
             )
     return
 
@@ -276,9 +299,9 @@ async def devmode_catalog(request: Request):
                 "kind": spec["kind"],
                 "states": _family_states(request, family, spec),
                 "signals": [
-                    template.format(seat=seat.upper())
+                    signal_name
                     for seat in SEAT_IDS
-                    for template in spec["templates"]
+                    for signal_name in _family_signal_names(spec, seat.upper())
                 ],
             }
         )
