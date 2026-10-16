@@ -194,6 +194,18 @@ class CANWriter:
         await self.send_signals_batch({name: value})
 
     async def send_signals_batch(self, signals: dict[str, float]) -> dict[str, float]:
+        return await self._send_signals_batch(signals, schedule_periodic=self._periodic_mode)
+
+    async def send_signals_batch_once(self, signals: dict[str, float]) -> dict[str, float]:
+        """Send one frame per message even when global periodic mode is enabled."""
+        return await self._send_signals_batch(signals, schedule_periodic=False)
+
+    async def _send_signals_batch(
+        self,
+        signals: dict[str, float],
+        *,
+        schedule_periodic: bool,
+    ) -> dict[str, float]:
         """Group multiple signals by message ID and send exactly one frame per message.
 
         For each CAN message referenced in ``signals``, use the configured
@@ -229,7 +241,7 @@ class CANWriter:
             msg_def = msg_defs[msg_id]
             await self._send_frame(msg_id, msg_def, sig_values, ts)
 
-            if self._periodic_mode:
+            if schedule_periodic:
                 # Cancel the previous periodic task (if any) for this msg_id
                 old_task = self._periodic_tasks.pop(msg_id, None)
                 if old_task is not None and not old_task.done():
@@ -465,6 +477,20 @@ class CANWriterRouter:
     async def send_signals_batch(
         self, signals: dict[str, float]
     ) -> tuple[dict[str, float], list[dict]]:
+        return await self._send_signals_batch(signals, force_once=False)
+
+    async def send_signals_batch_once(
+        self, signals: dict[str, float]
+    ) -> tuple[dict[str, float], list[dict]]:
+        """Route a one-shot batch without enabling each writer's periodic mode."""
+        return await self._send_signals_batch(signals, force_once=True)
+
+    async def _send_signals_batch(
+        self,
+        signals: dict[str, float],
+        *,
+        force_once: bool,
+    ) -> tuple[dict[str, float], list[dict]]:
         """Group a signal batch by channel and send it, with one frame per CAN message.
 
         Signals not found on any channel are collected into an error list
@@ -510,7 +536,10 @@ class CANWriterRouter:
         sent: dict[str, float] = {}
         for writer, sig_map in writer_groups.values():
             try:
-                result = await writer.send_signals_batch(sig_map)
+                if force_once:
+                    result = await writer.send_signals_batch_once(sig_map)
+                else:
+                    result = await writer.send_signals_batch(sig_map)
                 sent.update(result)
             except CANWriteRejectedError as exc:
                 for sig_name in sig_map:

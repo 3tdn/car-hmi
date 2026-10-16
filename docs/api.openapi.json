@@ -995,7 +995,7 @@
           "Restraints"
         ],
         "summary": "Find best-matching restraint video for crash conditions",
-        "description": "Return the best-matching restraint video for the given crash parameters.\n\nResolution order for seat-position zone:\n1. `seat_x_mm` query parameter (explicit value from HMI)\n2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore\n3. Fallback default from seat identifier (fl / fr → mid)\n\nResolution order for occupant percentile:\n1. Latest OMS_FL/FR_OccupantClassification value in SignalStore\n   (class 0/1/2 maps to video bucket 5p/50p/95p)\n2. Weight-derived percentile from `weight` parameter\n\nSignalStore values are accepted without a receive-freshness or provenance check, so\nan initial DBC-seeded value or stale value can take priority over request parameters.",
+        "description": "Return the best-matching restraint video for the given crash parameters.\n\nResolution order for seat-position zone:\n1. `seat_x_mm` query parameter (explicit value from HMI)\n2. Latest SPS_FL/FR_SeatDirectionX value in SignalStore\n3. Fallback default from seat identifier (fl / fr → mid)\n\n Resolution order for occupant percentile:\n 1. When `oms_config.bypass_simi_input` is true, the mapped\n     `OMS_*_OccupantWeightMean` signal is classified with `oms_config.class_config`.\n 2. Otherwise, the latest OMS_FL/FR_OccupantClassification value in SignalStore\n     (class 0/1/2 maps to video bucket 5p/50p/95p).\n 3. Weight-derived percentile from `weight` parameter.\n\nSignalStore values are accepted without a receive-freshness or provenance check, so\nan initial DBC-seeded value or stale value can take priority over request parameters.",
         "operationId": "match_restraint_api_restraints_match_get",
         "parameters": [
           {
@@ -1004,10 +1004,10 @@
             "required": true,
             "schema": {
               "type": "number",
-              "description": "Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)",
+              "description": "Occupant weight in kg (fallback percentile input; OMS bypass uses configured class_config thresholds)",
               "title": "Weight"
             },
-            "description": "Occupant weight in kg (derives percentile: <65→5%, 65-90→50%, >90→95%)"
+            "description": "Occupant weight in kg (fallback percentile input; OMS bypass uses configured class_config thresholds)"
           },
           {
             "name": "height",

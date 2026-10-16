@@ -51,6 +51,7 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | Processor | `processor.max_update_rate_hz`, `processor.max_queue_size`, `processor.queue_policy`, `processor.batch_drain_size` |
 | Reader | `reader.frequency_piority`, `reader.only_send_signal_update`, `reader.stale_threshold_sec` |
 | Writer | `writer.periodic_mode`, `writer.periodic_time_step`, `writer.periodic_duration`, `writer.use_prevalue_for_unwritten_signal` |
+| Audio | `audio.files`, `audio.track_queue_enable`, `audio.position_update_interval_ms` (minimum 50 ms; interval changes apply to the next playback) |
 | OMS classification | `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, `oms_config.target_signal.*` |
 | Runtime | `shutdown.timeout_sec`, `logging.level` |
 | Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.bypass_check_CAN_status` |

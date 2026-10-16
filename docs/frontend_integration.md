@@ -1,6 +1,6 @@
 # Frontend Integration Guide
 
-Verified against the backend and bundled frontend on 2026-09-26. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
+Verified against the backend and bundled frontend on 2026-10-13. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
 ## Backend URL and authentication
 
@@ -30,6 +30,12 @@ For a separately hosted frontend, configure `api.cors_origins` with its page ori
 Send `X-API-Key` on protected HTTP routes, `X-Profile-Name` for explicit profile scope, and a stable `X-Client-Id` for each browser tab/session. The bundled frontend stores its client ID in session storage under `can_hmi_client_id`. Independent tabs should use different IDs. `X-Dev-Mode: true` bypasses supported profile checks, but does not bypass API key authentication.
 
 System GET, adaptive restraint, camera, and restraints/video routes are public. Authentication on protected routers is disabled for an empty key or the placeholder values `change-me-in-production`, `changeme`, and `default`. System retry/reboot controls always require a real configured key and `X-Dev-Mode: true`.
+
+Audio is not controlled from the frontend. Playback is triggered only by CAN signals
+(`INC_HMI_Audio_Request.HMI_Soundfile`), and there is no audio REST endpoint or audio tab. To show
+playback state in the UI, subscribe to `INC_HMI_Audio_Response` signals `HMI_AudioTimesamp` and
+`HMI_ActiveSoundfile` through the existing signal WebSocket. A timestamp of `-1` means no track is
+playing.
 
 ## HTTP errors and partial success
 

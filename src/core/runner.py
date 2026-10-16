@@ -156,6 +156,7 @@ class AppRunner:
         self._writers: list = []
         self._writer_router = None
         self._simulator = None
+        self._audio_manager = None
         self._simulator_bus = None
         self._buses: list = []
         self._bus_factories: list = []
@@ -458,6 +459,17 @@ class AppRunner:
             )
 
         self._writer_router = writer_router
+
+        # CAN requests drive one audio state machine. Start it before the API
+        # so the initial IDLE status is published immediately.
+        from src.core.audio import AudioManager
+
+        self._audio_manager = AudioManager(
+            self.config.audio,
+            self.store,
+            can_writer=self._writer_router,
+        )
+        await self._audio_manager.start()
 
         # 6. CAN Simulator (optional) ────────────────────────────────────────────
         if sim_cfg.enabled:
@@ -1021,6 +1033,28 @@ class AppRunner:
             self._ws_manager.set_only_send_signal_update(
                 new_config.reader.only_send_signal_update
             )
+        audio_files_changed = any(
+            path == "audio.files" or path.startswith("audio.files.")
+            for path in live_set
+        )
+        if self._audio_manager is not None and (
+            audio_files_changed
+            or "audio.track_queue_enable" in live_set
+            or "audio.position_update_interval_ms" in live_set
+        ):
+            await self._audio_manager.apply_runtime_config(
+                position_update_interval_ms=(
+                    new_config.audio.position_update_interval_ms
+                    if "audio.position_update_interval_ms" in live_set else None
+                ),
+                track_queue_enable=(
+                    new_config.audio.track_queue_enable
+                    if "audio.track_queue_enable" in live_set else None
+                ),
+                tracks=(
+                    new_config.audio.configured_tracks() if audio_files_changed else None
+                ),
+            )
         if self._api_app is not None:
             self._api_app.state.reader_stale_threshold_sec = (
                 new_config.reader.stale_threshold_sec
@@ -1055,6 +1089,11 @@ class AppRunner:
         self._shutting_down = True
         logger.info("Shutting down (timeout=%ds)...", self.config.shutdown.timeout_sec)
 
+        if self._audio_manager is not None:
+            try:
+                await self._audio_manager.close()
+            except Exception:
+                logger.debug("Audio manager close failed during shutdown", exc_info=True)
         for reader in self._readers:
             reader.stop()
         if self._simulator:

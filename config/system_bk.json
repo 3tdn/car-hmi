@@ -53,6 +53,27 @@
     "startup_wait_sec": 5.0,
     "fps_log_interval_sec": 5.0
   },
+  "audio": {
+    "enabled": true,
+    "media_dir": "media/audio",
+    "track_queue_enable": false,
+    "files": [
+      {
+        "name": "CarCrashSound.wav",
+        "audio_number": 1
+      },
+      {
+        "name": "x.wav",
+        "audio_number": 2
+      }
+    ],
+    "position_update_interval_ms": 100,
+    "allowed_extensions": [
+      ".mp3",
+      ".wav",
+      ".ogg"
+    ]
+  },
   "status_monitor": {
     "enabled": true,
     "interval_sec": 10.0,

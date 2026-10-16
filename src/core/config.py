@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +189,83 @@ class CameraConfig(BaseModel):
         if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
             raise ValueError("camera.stream_url must be an absolute HTTP or HTTPS URL")
         return stream_url
+
+
+class AudioFileConfig(BaseModel):
+    """One playable file, addressed on CAN by its audio_number."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    audio_number: int = Field(ge=1, le=255)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip()
+        path = Path(normalized)
+        if not normalized:
+            raise ValueError("audio.files[].name must not be empty")
+        if "\x00" in normalized:
+            raise ValueError("audio.files[].name must not contain NUL bytes")
+        if path.is_absolute() or len(path.parts) != 1 or normalized in {".", ".."}:
+            raise ValueError("audio.files[].name must be a file name without directories")
+        return normalized
+
+
+class AudioConfig(BaseModel):
+    """Configuration for local CarPC demo audio playback."""
+
+    enabled: bool = True
+    media_dir: str = "media/audio"
+    files: list[AudioFileConfig] = Field(default_factory=list, max_length=255)
+    position_update_interval_ms: int = Field(default=250, ge=50, le=60_000)
+    track_queue_enable: bool = False
+    allowed_extensions: tuple[str, ...] = Field(
+        default=(".mp3", ".wav", ".ogg"), min_length=1
+    )
+
+    @field_validator("media_dir")
+    @classmethod
+    def validate_media_dir(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("audio.media_dir must be non-empty")
+        if "\x00" in normalized:
+            raise ValueError("audio.media_dir must not contain NUL bytes")
+        return normalized
+
+    @field_validator("files")
+    @classmethod
+    def validate_audio_files(cls, files: list[AudioFileConfig]) -> list[AudioFileConfig]:
+        seen_numbers: set[int] = set()
+        seen_names: set[str] = set()
+        for entry in files:
+            if entry.audio_number in seen_numbers:
+                raise ValueError(
+                    f"audio.files contains duplicate audio_number: {entry.audio_number}"
+                )
+            if entry.name in seen_names:
+                raise ValueError(f"audio.files contains duplicate file name: {entry.name}")
+            seen_numbers.add(entry.audio_number)
+            seen_names.add(entry.name)
+        return files
+
+    @field_validator("allowed_extensions")
+    @classmethod
+    def validate_allowed_extensions(cls, extensions: tuple[str, ...]) -> tuple[str, ...]:
+        normalized: list[str] = []
+        for extension in extensions:
+            value = extension.strip().lower()
+            if not value.startswith(".") or len(value) < 2 or not value[1:].isalnum():
+                raise ValueError("audio.allowed_extensions must contain values such as '.mp3'")
+            if value not in normalized:
+                normalized.append(value)
+        return tuple(normalized)
+
+    def configured_tracks(self) -> dict[int, str]:
+        """Return the audio_number -> file name mapping used by CAN requests."""
+        return {entry.audio_number: entry.name for entry in self.files}
 
 
 class StatusMonitorConfig(BaseModel):
@@ -423,6 +500,8 @@ class AppConfig(BaseModel):
     profiles: ProfilesConfig = Field(default_factory=ProfilesConfig)
     camera: CameraConfig = Field(default_factory=CameraConfig)
     # Camera stream proxy (MJPEG) configuration
+    audio: AudioConfig = Field(default_factory=AudioConfig)
+    # Local audio playback triggered only by HMI_Soundfile (INC_HMI_Audio_Request)
     status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
     # COM status monitor configuration (Ethernet + CAN reference)
     oms_config: OMSConfig = Field(default_factory=OMSConfig)

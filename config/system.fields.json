@@ -82,7 +82,7 @@
       "reload_level": "reboot",
       "description": "DBC file for this CAN channel.",
       "examples": [
-        "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+        "db/can_db/Interface_Panther_To_CarPC_v11.dbc"
       ],
       "validation": {
         "allowed_extensions": [
@@ -179,7 +179,7 @@
       "reload_level": "reboot",
       "description": "DBC file used by the simulator.",
       "examples": [
-        "db/can_db/Interface_Panther_To_CarPC_v8.dbc"
+        "db/can_db/Interface_Panther_To_CarPC_v11.dbc"
       ],
       "validation": {
         "allowed_extensions": [
@@ -556,6 +556,167 @@
       },
       "ui": {
         "control": "number"
+      }
+    },
+    {
+      "path": "audio.enabled",
+      "title": "Audio Enabled",
+      "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "reboot",
+      "description": "Create the local CarPC audio player at startup.",
+      "ui": {
+        "control": "checkbox"
+      }
+    },
+    {
+      "path": "audio.media_dir",
+      "title": "Audio Media Directory",
+      "type": "string",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "reboot",
+      "description": "Project-relative directory containing allowed demo audio files.",
+      "validation": {
+        "minLength": 1
+      },
+      "ui": {
+        "control": "text"
+      }
+    },
+    {
+      "path": "audio.files",
+      "title": "Audio Playlist",
+      "type": "array",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "Audio files mapped to audio_number values. CAN HMI_Soundfile uses audio_number; audio_number must be unique between 1 and 255.",
+      "validation": {
+        "maxItems": 255,
+        "items": {
+          "type": "object",
+          "required": ["name", "audio_number"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "audio_number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          }
+        }
+      },
+      "ui": {
+        "control": "json-textarea"
+      }
+    },
+    {
+      "path": "audio.files.*",
+      "title": "Audio File",
+      "type": "object",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "Audio file entry with name (file name inside audio.media_dir; directories are not accepted) and audio_number (1-255).",
+      "ui": {
+        "control": "json-textarea"
+      }
+    },
+    {
+      "path": "audio.files.*.name",
+      "title": "Audio File Name",
+      "type": "string",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "File name inside audio.media_dir with an allowed extension. Directories are not accepted.",
+      "validation": {
+        "minLength": 1
+      },
+      "ui": {
+        "control": "text"
+      }
+    },
+    {
+      "path": "audio.files.*.audio_number",
+      "title": "Audio Number",
+      "type": "integer",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "audio_number used by CAN HMI_Soundfile. Must be unique between 1 and 255.",
+      "validation": {
+        "minimum": 1,
+        "maximum": 255
+      },
+      "ui": {
+        "control": "number"
+      }
+    },
+    {
+      "path": "audio.track_queue_enable",
+      "title": "Audio Track Queue Enable",
+      "type": "boolean",
+      "editable": true,
+      "setting_mode": "base",
+      "reload_level": "live",
+      "description": "When false, a new non-zero HMI_Soundfile stops the current track and plays the new one. When true, it is queued behind the current track.",
+      "ui": {
+        "control": "checkbox"
+      }
+    },
+    {
+      "path": "audio.position_update_interval_ms",
+      "title": "Audio Position Update Interval Ms",
+      "type": "integer",
+      "editable": true,
+      "setting_mode": "expand",
+      "reload_level": "live",
+      "description": "Interval for publishing HMI_AudioTimesamp while playing.",
+      "validation": {
+        "minimum": 50,
+        "maximum": 60000
+      },
+      "ui": {
+        "control": "number"
+      }
+    },
+    {
+      "path": "audio.allowed_extensions",
+      "title": "Allowed Audio Extensions",
+      "type": "array",
+      "editable": false,
+      "setting_mode": "expand",
+      "reload_level": "immutable",
+      "description": "Allowlist of audio file extensions accepted by the audio player. Fixed at application startup.",
+      "validation": {
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      },
+      "ui": {
+        "control": "json-textarea"
+      }
+    },
+    {
+      "path": "audio.allowed_extensions.*",
+      "title": "Allowed Audio Extension",
+      "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
+      "reload_level": "immutable",
+      "description": "Lowercase extension including the leading dot, for example .mp3.",
+      "validation": {
+        "pattern": "^\\.[A-Za-z0-9]+$"
+      },
+      "ui": {
+        "control": "text"
       }
     },
     {
