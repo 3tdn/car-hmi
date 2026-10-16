@@ -128,7 +128,7 @@ select the interface. An empty list permits all DBC messages with signals immedi
 
 | Field | Reason |
 |---|---|
-| `adaptive_restraint.db_path`, `adaptive_restraint.csv_path` | Data resources are already opened/cached. |
+| `adaptive_restraint.db_path`, `adaptive_restraint.csv_path`, `adaptive_restraint.media_dir` | Data and resource paths cannot be changed through the config API. `db_path` and `csv_path` are opened at startup; `media_dir` is read from the current config per request. |
 | `api.api_key` | Authentication secret; GET redacts it as `********`. |
 | `profiles.profiles_path`, `profiles.sessions_path` | Data/access paths remain fixed for the process lifetime. |
 | `writer.rate_limit_per_sec`, `writer.burst` | Writer token-bucket limiting is not implemented. |

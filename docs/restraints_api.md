@@ -58,7 +58,7 @@ HMI Request
     │       SignalStore OMS_OccupantClassification (if mappable) overrides weight-derived
     │       class 0 → 5th %, class 1 → 50th %, class 2 → 95th %
     │
-    ├─ 7. Scan the media/ directory
+    ├─ 7. Scan the restraint video directory (adaptive_restraint.media_dir in system.json, default media/video/)
     │       Parse filenames using the schema: {percentile}p_{seat_position}_{velocity}_{seatbelt}.ext
     │       Example: 50p_mid_40_SLL.mp4
     │
@@ -161,7 +161,8 @@ GET /api/restraints/video/50p_mid_40_SLL.mp4
 ```
 
 - Prevent path traversal: reject filenames containing `..`, `/`, `\`
-- Return 404 if the file does not exist in the `media/` directory
+- Return 404 if the file does not exist in the restraint video directory
+- The directory is read from `adaptive_restraint.media_dir` in `config/system.json` (default `media/video`; relative paths resolve against the project root)
 
 ---
 

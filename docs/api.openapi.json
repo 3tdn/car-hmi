@@ -1100,8 +1100,8 @@
         "tags": [
           "Restraints"
         ],
-        "summary": "Stream a video file from the media directory",
-        "description": "Serve a video file from the media directory.",
+        "summary": "Stream a video file from the restraint video directory",
+        "description": "Serve a video file from the restraint video directory configured by adaptive_restraint.media_dir in system.json (default media/video).",
         "operationId": "get_video_api_restraints_video__filename__get",
         "parameters": [
           {

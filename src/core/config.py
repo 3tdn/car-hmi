@@ -382,6 +382,17 @@ class LoggingConfig(BaseModel):
 class AdaptiveRestraintConfig(BaseModel):
     db_path: str = "db/adaptive_restraint_db/synthetic_data_out_gui.db"
     csv_path: str = "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
+    media_dir: str = "media/video"
+
+    @field_validator("media_dir")
+    @classmethod
+    def validate_media_dir(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("adaptive_restraint.media_dir must be non-empty")
+        if "\x00" in normalized:
+            raise ValueError("adaptive_restraint.media_dir must not contain NUL bytes")
+        return normalized
 
 
 class ProfilesConfig(BaseModel):

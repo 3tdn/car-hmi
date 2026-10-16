@@ -791,6 +791,23 @@ async def test_patch_rejects_invalid_network_setting_before_write(
 
 
 @pytest.mark.asyncio
+async def test_patch_rejects_immutable_restraint_media_dir(config_client):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"adaptive_restraint": {"media_dir": "media/other"}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_immutable"
+    assert "adaptive_restraint.media_dir" in response.json()["detail"]["message"]
+    assert manager.config_path.read_bytes() == before
+
+
+@pytest.mark.asyncio
 async def test_adding_can_channel_rejects_unsupported_child_fields(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()

@@ -57,7 +57,7 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 | POST | `/system/can/retry` | Retry CAN connections |
 | POST | `/system/reboot` | Reboot Car-HMI service |
 | GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
-| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the restraint video directory (`adaptive_restraint.media_dir`) |
 | GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
 | GET | `/api/camera/status` | Camera stream proxy status |
 | GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
@@ -1455,7 +1455,7 @@ Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat 
 
 ### `GET /api/restraints/video/{filename}`
 
-Stream a video file from the media directory
+Stream a video file from the restraint video directory (`adaptive_restraint.media_dir`, default `media/video`)
 
 Auth: This route has no API key dependency.
 

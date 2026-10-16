@@ -18,7 +18,8 @@
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
-    "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv"
+    "csv_path": "db/adaptive_restraint_db/synthetic_data_out_gui.csv",
+    "media_dir": "media/video"
   },
   "api": {
     "host": "0.0.0.0",

@@ -221,6 +221,21 @@
       }
     },
     {
+      "path": "adaptive_restraint.media_dir",
+      "title": "Restraint Video Directory",
+      "type": "string",
+      "editable": false,
+      "setting_mode": "expand",
+      "reload_level": "immutable",
+      "description": "Video directory is fixed at application startup. Project-relative or absolute directory containing restraint videos named {percentile}p_{seat}_{velocity}_{seatbelt}.ext.",
+      "validation": {
+        "minLength": 1
+      },
+      "ui": {
+        "control": "text"
+      }
+    },
+    {
       "path": "api.host",
       "title": "Host",
       "type": "string",
