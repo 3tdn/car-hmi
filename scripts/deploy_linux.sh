@@ -66,6 +66,26 @@ if [[ ! -x "${VENV_BIN}" ]]; then
     exit 1
 fi
 
+if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+    if ! command -v apt-get >/dev/null 2>&1; then
+        err "ffplay/ffprobe not found and automatic installation requires apt-get."
+        err "Install the ffmpeg package with your Linux distribution's package manager."
+        exit 1
+    fi
+    log "ffplay/ffprobe not found; installing the ffmpeg package..."
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends ffmpeg
+fi
+if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+    err "ffmpeg installation completed but ffplay/ffprobe are still unavailable in PATH."
+    exit 1
+fi
+log "Audio runtime: ffplay=$(command -v ffplay), ffprobe=$(command -v ffprobe)"
+if getent group audio >/dev/null 2>&1 && ! id -nG "${SERVICE_USER}" | tr ' ' '\n' | grep -qx audio; then
+    log "Adding ${SERVICE_USER} to the audio group for local speaker access..."
+    sudo usermod -aG audio "${SERVICE_USER}"
+fi
+
 CONFIG_FILE="${PROJECT_DIR}/config/system.json"
 CONFIG_BACKUP_FILE="${PROJECT_DIR}/config/system_bk.json"
 if [[ ! -f "${CONFIG_FILE}" && ! -f "${CONFIG_BACKUP_FILE}" ]]; then

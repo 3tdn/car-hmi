@@ -120,7 +120,18 @@ fi
 # ── Full path to the Python executable ───────────────────────────────────────
 PYTHON="$PYENV_ROOT/versions/$PYTHON_VERSION/bin/python3"
 
-# ── Step 4: Create the local virtual environment (.venv) ─────────────────────
+# ── Step 4: Install the audio demo runtime ───────────────────────────────────
+if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+        log "Installing ffmpeg tools required by the audio demo"
+        sudo apt-get update || true
+        sudo apt-get install -y --no-install-recommends ffmpeg
+    else
+        log "WARNING: ffplay/ffprobe not found; install ffmpeg before using the audio demo"
+    fi
+fi
+
+# ── Step 5: Create the local virtual environment (.venv) ─────────────────────
 # A venv is an isolated environment for installing project dependencies without affecting
 # the system Python. Each project should have its own venv.
 
@@ -140,7 +151,7 @@ if [ ! -f "$VENV_PY" ]; then
     "$PYTHON" -m venv .venv
 fi
 
-# ── Step 5: Ensure pip is available in the venv ──────────────────────────────
+# ── Step 6: Ensure pip is available in the venv ──────────────────────────────
 # pip is the Python package manager. Some Python builds do not include pip.
 # Recovery steps:
 #   1. Try ensurepip (built-in Python module) — fastest option
@@ -183,7 +194,7 @@ if ! "$VENV_PY" -m pip --version &>/dev/null; then
     fi
 fi
 
-# ── Step 6: Upgrade pip and install project dependencies ─────────────────────
+# ── Step 7: Upgrade pip and install project dependencies ─────────────────────
 # pip install -e ".[dev]":
 #   -e : editable mode (symlink project → easy to code and test changes immediately)
 #   .[dev] : install the current package + [dev] extras (test tools, linters, etc.)
@@ -196,7 +207,7 @@ log "Installing project dependencies (editable + dev packages)..."
 log "This may take a minute or two depending on network and disk speed..."
 "$VENV_PY" -m pip install -e ".[dev]"
 
-# ── Step 7: Completion ───────────────────────────────────────────────────────
+# ── Step 8: Completion ───────────────────────────────────────────────────────
 log ""
 log "════════════════════════════════════════════════════════════════"
 log "✓ Setup complete!"

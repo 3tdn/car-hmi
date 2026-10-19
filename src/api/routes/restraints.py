@@ -58,9 +58,26 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
+from src.core.config import AdaptiveRestraintConfig
+from src.core.paths import PROJECT_ROOT
+
 router = APIRouter()
 
-MEDIA_DIR = Path(__file__).resolve().parents[3] / "media"
+
+def _resolve_media_dir(request: Request) -> Path:
+    """Return the restraint video directory from ``adaptive_restraint.media_dir``.
+
+    Relative paths are resolved against the project root.
+    """
+    media_dir = AdaptiveRestraintConfig().media_dir
+    manager = getattr(request.app.state, "system_config_manager", None)
+    if manager is not None:
+        media_dir = manager.read()["adaptive_restraint"]["media_dir"]
+
+    path = Path(media_dir)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path.resolve()
 
 # ---------------------------------------------------------------------------
 # Video filename schema: {percentile}p_{seat_position}_{velocity}{kmh?}_{seatbelt}.ext
@@ -291,7 +308,8 @@ async def match_restraint(
     SignalStore values are accepted without a receive-freshness or provenance check, so
     an initial DBC-seeded value or stale value can take priority over request parameters.
     """
-    if not MEDIA_DIR.exists():
+    media_dir = _resolve_media_dir(request)
+    if not media_dir.exists():
         raise HTTPException(status_code=500, detail="Media directory not found")
 
     # ── 1. Load OMS classification settings ─────────────────────────────────
@@ -386,7 +404,7 @@ async def match_restraint(
 
     # ── 8. Scan media directory and score candidates ─────────────────────────
     videos: list[dict] = []
-    for f in MEDIA_DIR.iterdir():
+    for f in media_dir.iterdir():
         if f.is_file() and f.suffix.lower() in {".mp4", ".avi", ".mkv", ".webm"}:
             meta = _parse_video_filename(f.name)
             if meta:
@@ -442,13 +460,13 @@ async def match_restraint(
 
 
 @router.get("/video/{filename}", summary="Stream a video file from the media directory")
-async def get_video(filename: str):
-    """Serve a video file from the media directory."""
+async def get_video(request: Request, filename: str):
+    """Serve a video file from the configured restraint media directory."""
     # Prevent path traversal
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    file_path = MEDIA_DIR / filename
+    file_path = _resolve_media_dir(request) / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Video not found")
 

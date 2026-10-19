@@ -58,7 +58,7 @@ These probes return HTTP 200 even when their JSON body reports degraded health o
 | POST | `/system/can/retry` | Retry CAN connections |
 | POST | `/system/reboot` | Reboot Car-HMI service |
 | GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
-| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the restraint video directory (`adaptive_restraint.media_dir`) |
 | GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
 | GET | `/api/camera/status` | Camera stream proxy status |
 | GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |

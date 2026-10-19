@@ -1,6 +1,6 @@
 # CAN-HMI — API Reference
 
-Verified against the registered routes, generated OpenAPI, and implementation on 2026-09-26. There are **52 HTTP operations (46 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
+Verified against the registered routes, generated OpenAPI, and implementation on 2026-10-13. There are **52 HTTP operations (46 operations + 6 system aliases) and 3 WebSocket endpoints**. Examples were validated without sending CAN writes, changing configuration/profiles, or rebooting the service.
 
 ## Common Usage
 
@@ -57,7 +57,7 @@ Mutation examples demonstrate the format. Choose values using DBC writable/state
 | POST | `/system/can/retry` | Retry CAN connections |
 | POST | `/system/reboot` | Reboot Car-HMI service |
 | GET | `/api/restraints/match` | Find best-matching restraint video for crash conditions |
-| GET | `/api/restraints/video/{filename}` | Stream a video file from the media directory |
+| GET | `/api/restraints/video/{filename}` | Stream a video file from the restraint video directory (`adaptive_restraint.media_dir`) |
 | GET | `/api/camera/stream` | Proxy live MJPEG stream from the vehicle camera |
 | GET | `/api/camera/status` | Camera stream proxy status |
 | GET | `/api/devmode/catalog` | Dev Mode signal families and selectable states |
@@ -1455,7 +1455,7 @@ Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat 
 
 ### `GET /api/restraints/video/{filename}`
 
-Stream a video file from the media directory
+Stream a video file from the restraint video directory (`adaptive_restraint.media_dir`, default `media/video`)
 
 Auth: This route has no API key dependency.
 
@@ -1533,6 +1533,33 @@ Response schema: `CameraStatusResponse`.
   "last_error": "example"
 }
 ```
+
+### Audio playback (CAN-only, no REST endpoints)
+
+Audio has no REST or WebSocket control API. Playback is triggered only by CAN signals, using
+`audio.files` to map each `audio_number` to a file in `audio.media_dir`. Linux uses
+`ffplay`/`ffprobe`; macOS falls back to the built-in `afplay`/`afinfo` tools when FFmpeg is
+unavailable. `scripts/deploy_linux.sh` installs the `ffmpeg` package with `apt-get` when the
+Linux runtime tools are missing.
+
+- `INC_HMI_Audio_Request.HMI_Soundfile` (read from Panther) requests the `audio_number` to play.
+  `0` plays nothing and re-arms the request. A non-zero value that differs from the last request
+  starts the track, or queues it when `audio.track_queue_enable` is `true`. Repeating the same
+  non-zero value is ignored until it changes or returns to `0`. Unconfigured numbers are ignored.
+- `INC_HMI_Audio_Response` (written by CAR_PC in one batched frame, sent at least twice while idle):
+  - `HMI_AudioTimesamp` reports elapsed milliseconds while a track is playing, and `-1` otherwise.
+    It is sent at least twice while idle or after a track finishes.
+  - `HMI_ActiveSoundfile` reports the `audio_number` of the active track while playing, and `0`
+    otherwise.
+
+With `audio.track_queue_enable` set to `false` (default), a new request stops the current track
+and plays the new one. With `true`, new requests are queued behind the current track, up to 64
+entries. Feedback is also exposed through SignalStore/WebSocket as `HMI_AudioTimesamp` and
+`HMI_ActiveSoundfile`.
+
+Changes to `audio.files` and `audio.track_queue_enable` apply to new requests without restarting
+the service. The current track continues playing; queued requests use the updated playlist when
+they start, and entries removed from the playlist are dropped from the queue.
 
 ### `GET /api/devmode/catalog`
 

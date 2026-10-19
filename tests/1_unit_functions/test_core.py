@@ -792,6 +792,13 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         def apply_runtime_config(self, **kwargs):
             self.config = kwargs
 
+    class AudioSink:
+        def __init__(self):
+            self.config = None
+
+        async def apply_runtime_config(self, **kwargs):
+            self.config = kwargs
+
     runner = AppRunner(AppConfig())
     pipeline = ConfigSink()
     reader = ConfigSink()
@@ -799,12 +806,14 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     rate = RateSink()
     websocket = WsSink()
     oms_classifier = OmsSink()
+    audio_manager = AudioSink()
     runner._pipeline = pipeline
     runner._readers = [reader]
     runner._writers = [writer]
     runner._rate_limiter = rate
     runner._ws_manager = websocket
     runner._oms_classifier = oms_classifier
+    runner._audio_manager = audio_manager
     runner._api_app = SimpleNamespace(state=SimpleNamespace())
 
     updated = AppConfig(
@@ -832,6 +841,11 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
                 "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
             },
         },
+        audio={
+            "track_queue_enable": True,
+            "position_update_interval_ms": 50,
+            "files": [{"name": "x.wav", "audio_number": 1}],
+        },
     )
     changed = [
         "processor.max_update_rate_hz",
@@ -844,6 +858,10 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         "oms_config.bypass_simi_input",
         "oms_config.class_config.0",
         "oms_config.class_config.1",
+        "audio.track_queue_enable",
+        "audio.position_update_interval_ms",
+        "audio.files.0.name",
+        "audio.files.0.audio_number",
     ]
 
     result = await runner.apply_system_config(updated, changed)
@@ -863,6 +881,11 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         "target_signals": {
             "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
         },
+    }
+    assert audio_manager.config == {
+        "position_update_interval_ms": 50,
+        "track_queue_enable": True,
+        "tracks": {1: "x.wav"},
     }
     assert runner._api_app.state.reader_stale_threshold_sec == 8.0
     assert runner._api_app.state.devmode_bypass_can_status is True

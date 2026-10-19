@@ -1,8 +1,9 @@
 """Functional tests for `GET /api/restraints/match` and `GET /api/restraints/video/{name}`.
 
 This route had no existing tests (0% coverage) before this file was added.
-`MEDIA_DIR`/store is monkeypatched so the tests do not depend on real files in
-`media/` or a real CAN bus.
+The video directory comes from `adaptive_restraint.media_dir` in the live system
+config, which is replaced with a temp directory so the tests do not depend on real
+files in `media/video/` or a real CAN bus.
 """
 
 from __future__ import annotations
@@ -24,22 +25,18 @@ async def _build_client(
     video_names=(),
     oms_config=None,
 ):
-    import src.api.routes.restraints as restraints_route
-
-    monkeypatch.setattr(restraints_route, "MEDIA_DIR", tmp_path)
-    for name in video_names:
-        (tmp_path / name).write_bytes(b"fake-video-bytes")
-
     store = SignalStore()
     for name, value in (initial_signals or {}).items():
         await store.update(name, value)
 
     # api_key="" — the route has no auth dependency (see app.py), so leave it empty for brevity.
     app = create_app(store, api_key="")
+    live_config = {"adaptive_restraint": {"media_dir": str(tmp_path)}}
     if oms_config is not None:
-        app.state.system_config_manager = SimpleNamespace(
-            read=lambda: {"oms_config": oms_config}
-        )
+        live_config["oms_config"] = oms_config
+    app.state.system_config_manager = SimpleNamespace(read=lambda: live_config)
+    for name in video_names:
+        (tmp_path / name).write_bytes(b"fake-video-bytes")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
@@ -268,3 +265,31 @@ async def test_get_video_serves_existing_file_with_correct_media_type(monkeypatc
         resp = await c.get("/api/restraints/video/50p_mid_40_SLL.mp4")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "video/mp4"
+
+
+def test_resolve_media_dir_uses_config_relative_to_project_root():
+    """A relative adaptive_restraint.media_dir is resolved against the project root."""
+    from src.api.routes.restraints import _resolve_media_dir
+    from src.core.paths import PROJECT_ROOT
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                system_config_manager=SimpleNamespace(
+                    read=lambda: {"adaptive_restraint": {"media_dir": "media/video"}}
+                )
+            )
+        )
+    )
+    assert _resolve_media_dir(request) == (PROJECT_ROOT / "media" / "video").resolve()
+
+
+def test_resolve_media_dir_defaults_without_config_manager():
+    """Without a system config manager the default media_dir from the model is used."""
+    from src.api.routes.restraints import _resolve_media_dir
+    from src.core.config import AdaptiveRestraintConfig
+    from src.core.paths import PROJECT_ROOT
+
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
+    expected = (PROJECT_ROOT / AdaptiveRestraintConfig().media_dir).resolve()
+    assert _resolve_media_dir(request) == expected
