@@ -94,21 +94,24 @@ function updateBarWidget(el, value) {
  * @param {HTMLCanvasElement} canvas
  * @param {number[]} values
  */
-function drawSparkline(canvas, values) {
+function drawSparkline(canvas, values, options = {}) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   if (!values || values.length < 2) return;
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+  let min = Number.isFinite(options.min) ? options.min : Math.min(...values);
+  let max = Number.isFinite(options.max) ? options.max : Math.max(...values);
+  if (max === min) { min -= 0.5; max += 0.5; }
+  const range = max - min;
+  const times = options.timestamps;
+  const timeRange = times?.length === values.length ? times.at(-1) - times[0] : 0;
 
   ctx.beginPath();
   values.forEach((v, idx) => {
-    const x = (idx / (values.length - 1)) * (w - 2) + 1;
-    const y = h - ((v - min) / range) * (h - 2) - 1;
+    const x = (timeRange > 0 ? (times[idx] - times[0]) / timeRange : idx / (values.length - 1)) * (w - 2) + 1;
+    const y = h - Math.max(0, Math.min(1, (v - min) / range)) * (h - 2) - 1;
     if (idx === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });

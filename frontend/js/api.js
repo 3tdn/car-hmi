@@ -31,8 +31,8 @@
  *     {"type": "subscribe",   "signals": ["SignalName", "*", "metrics"]}
  *     {"type": "unsubscribe", "signals": ["SignalName"]}
  *     {"type": "ping"}
- *   Server → Client (signal frame):
- *     {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name":"...", "value":0, "std_name":"..."}]}
+ *   Server → Client (signal frame; entry timestamp is the source sample time):
+ *     {"timestamp": "2026-05-20T10:00:00.123Z", "signals": [{"name":"...", "value":0, "std_name":"...", "timestamp":1779278400.123}]}
  *   Server → Client (ack):    {"type": "subscribe_ack", "action": "subscribe", "channels": [...], "count": N}
  *   Server → Client (pong):   {"type": "pong"}
  *
