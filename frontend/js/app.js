@@ -276,7 +276,7 @@ function normalizeWarnings(payload) {
 function ensureProfileSelector() {
   let wrap = document.getElementById('profile-selector-wrap');
   if (wrap) return wrap;
-  const target = document.querySelector('.hmi-header > div');
+  const target = document.querySelector('.workspace-controls');
   if (!target) return null;
   wrap = document.createElement('label');
   wrap.id = 'profile-selector-wrap';
@@ -864,6 +864,60 @@ const UI_UPDATES_PER_FRAME = 120;
 // fast-changing signals feature removed; no container present
 const fastSignalsContainer = null;
 const signalTableBody = document.getElementById("signal-table-body");
+const signalSearch = document.getElementById('signal-search');
+const signalAccessFilter = document.getElementById('signal-access-filter');
+let signalFilterFrame = null;
+let signalCatalogStatus = 'loading';
+
+function applySignalFilters() {
+  signalFilterFrame = null;
+  const query = (signalSearch?.value || '').trim().toLowerCase();
+  const type = signalAccessFilter?.value || 'all';
+  const rows = Array.from(signalTableBody?.children || []);
+  let visible = 0;
+  rows.forEach((row) => {
+    const matchesName = !query || row.dataset.searchText.includes(query);
+    const matchesType = type === 'all' || (row.dataset.writable === 'true') === (type === 'writable');
+    row.hidden = !matchesName || !matchesType;
+    if (!row.hidden) visible += 1;
+  });
+  const count = document.getElementById('signal-count');
+  if (count) {
+    count.textContent = signalCatalogStatus === 'loading'
+      ? 'Loading signal catalog…'
+      : `${visible} of ${rows.length} signals`;
+  }
+  const empty = document.getElementById('signal-empty');
+  if (empty) {
+    empty.hidden = visible > 0 || signalCatalogStatus === 'loading';
+    empty.textContent = signalCatalogStatus === 'error'
+      ? 'Signal catalog unavailable. Check the connection and reload the page.'
+      : rows.length
+        ? 'No signals match your filters. Try another name or clear the filters.'
+        : 'No signals available yet. Waiting for the signal catalog.';
+  }
+}
+
+function scheduleSignalFilter() {
+  if (signalFilterFrame === null) signalFilterFrame = requestAnimationFrame(applySignalFilters);
+}
+
+signalSearch?.addEventListener('input', scheduleSignalFilter);
+signalAccessFilter?.addEventListener('change', scheduleSignalFilter);
+document.getElementById('signal-filter-reset')?.addEventListener('click', () => {
+  signalSearch.value = '';
+  signalAccessFilter.value = 'all';
+  scheduleSignalFilter();
+  signalSearch.focus();
+});
+document.querySelectorAll('.hmi-nav .nav-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.hmi-nav .nav-btn').forEach((item) => {
+      if (item === button) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+  });
+});
 
 function sanitizeId(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -874,10 +928,11 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   row.id = `signal-row-${sanitizeId(signalName)}`;
   row.dataset.signalName = signalName;
   row.dataset.writable = writable ? 'true' : 'false';
+  row.dataset.searchText = `${signalName} ${getSignalMetadata(signalName)?.std_name || ''} ${unit || ''}`.toLowerCase();
 
   let writeCell;
   if (!writable) {
-    writeCell = `<td class="signal-write signal-write--ro">—</td>`;
+    writeCell = `<td class="signal-write signal-write--ro">Read only</td>`;
   } else if (states && states.length > 0) {
     // Enum signal: suggest named states via a datalist, but still allow any raw value to be typed/written
     const listId = `states-${sanitizeId(signalName)}`;
@@ -924,6 +979,7 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   }
   signalTableBody.appendChild(row);
   updateSignalRowAccess(row, signalName, writable);
+  scheduleSignalFilter();
   return row;
 }
 
@@ -1086,6 +1142,7 @@ async function loadSnapshot() {
         updateSignalRowAccess(row, meta.signal_name, !!meta.writable);
       }
     });
+    signalCatalogStatus = 'ready';
     console.info(`Loaded metadata for ${signals_info.length} signals; std_name registry populated`);
   } catch (e) {
     console.warn("Available signals fetch failed, falling back to /signals:", e);
@@ -1099,10 +1156,13 @@ async function loadSnapshot() {
         updateWidget(signal_name, value);
         updateSignalRow(signal_name, value, timestamp, unit || "");
       });
+      signalCatalogStatus = 'ready';
     } catch (e2) {
+      signalCatalogStatus = 'error';
       console.warn("Snapshot fetch also failed:", e2);
     }
   }
+  scheduleSignalFilter();
 }
 
 // ── WebSocket handler (new subscribe protocol + legacy fallback) ───────────
