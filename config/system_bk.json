@@ -1,8 +1,8 @@
 {
   "can": [
     {
-      "interface": "socketcan",
-      "channel": "can0",
+      "interface": "virtual",
+      "channel": "vcan0",
       "bitrate": 500000,
       "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc",
       "channel_tracking_signals": [
@@ -11,7 +11,7 @@
     }
   ],
   "simulator": {
-    "enabled": false,
+    "enabled": true,
     "random_mode": true,
     "default_cycle_ms": 10,
     "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc"
