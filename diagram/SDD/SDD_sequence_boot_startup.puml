@@ -1,75 +1,58 @@
-@startuml Sequence - System Startup
+@startuml SDD_sequence_boot_startup
 !theme plain
-title System Startup Sequence
+title System Startup — Component Initialization and Audio Lifecycle
+hide footbox
 
-participant "CLI / Main" as cli
-participant "Runner\n(runner.py)" as runner
-participant "Config\n(config.py)" as config
-participant "CAN Simulator\n(simulator.py)" as sim
-participant "CAN Reader\n(reader.py)" as reader
-participant "Signal Pipeline\n(pipeline.py)" as pipe
-participant "Signal Metadata\n(signal_metadata.py)" as metadata
-participant "FastAPI\n(app.py)" as api
-participant "Monitoring\n(watchdog)" as mon
+participant "CLI / main()" as cli
+participant "Configuration" as config
+participant "AppRunner" as runner
+participant "DatabaseLoader" as parser
+participant "SignalStore / Metadata" as store
+participant "SignalPipeline" as pipeline
+participant "CAN Layer" as can
+participant "AudioManager" as audio
+participant "FastAPI / WebSocket" as api
 
-cli -> runner : start(config_path="config/system.json")
-activate runner
+cli -> config : load_config(path); apply_environment_overrides()
+config --> cli : Validated AppConfig
+cli -> runner : AppRunner(cfg); start()
+runner -> runner : _setup_logging(); reserve API socket\nregister SIGINT / SIGTERM handlers
 
-runner -> config : load("config/system.json")
-config -> config : validate JSON schema
-alt config invalid
-    config --> runner : ConfigValidationError\n(schema mismatch / missing required)
-    runner --> cli : Exit with error message
-else config valid
-    config --> runner : AppConfig object
+group _init_components(loop)
+    loop Each configured CAN channel
+        runner -> parser : DatabaseLoader(); load_dbc(can_db_file)
+        parser --> runner : Shared per-channel loader
+    end
+    runner -> store : bulk_update(initial values, units)\nreplace_from_loaders(db_loaders)
+    runner -> pipeline : Construct queue and SignalPipeline
+    runner -> pipeline : Add RateLimiter, HBStateNormalizer,\nOMSClassificationProcessor, ComputedSignals
+    runner -> runner : Disable simulator if any channel uses real hardware
+    loop Each configured CAN channel
+        runner -> can : create_bus(channel config)
+        note right of can : Failed connection remains recoverable; API startup continues.
+        runner -> can : Construct CANWriter and CANReader\nregister writer in CANWriterRouter
+    end
+
+    runner -> audio : AudioManager(config.audio, store, can_writer=router)
+    runner -> audio : await start()
+    audio -> store : subscribe(_on_signal_update)\nbulk_update(position=-1, active=0)
+    loop Two idle response attempts
+        audio -> can : send_signals_batch_once({HMI_AudioTimesamp:-1,\nHMI_ActiveSoundfile:0})
+    end
+    opt Simulator enabled after hardware check
+        runner -> can : _build_simulator(sim_cfg)
+    end
+    runner -> api : _build_api_server(): create_app(...)
+    api -> store : Register WebSocket broadcast subscriber
+    api --> runner : Uvicorn server coroutine
+
+    runner -> runner : Schedule pipeline, per-channel readers, optional\nsimulator, API, watchdog, metrics-push, and status monitor
 end
 
-loop for each CAN channel in config.can
-    runner -> parser : DatabaseLoader.load_dbc(can_db_file) [channel_i]
-    parser --> runner : db_loader
-    runner -> reader : CANReader(bus=bus, db=db_loader, queue=rx_queue) [channel_i]
-    reader -> reader : connect to CAN bus (channel_i)
-    reader --> runner : Reader #i ready
-end
-
-runner -> metadata : replace_from_loaders(db_loaders)
-metadata --> runner : read-only catalog ready
-
-opt simulator enabled
-    runner -> sim : CANSimulator(can_db_file, cycle_ms)
-    sim -> sim : load DBC (messages + signals)
-    sim --> runner : Simulator ready
-end
-
-runner -> pipe : SignalPipeline(stages, store)
-pipe -> pipe : add_stage(RateLimiter)\nadd_stage(ComputedSignals)
-pipe --> runner : Pipeline ready
-
-runner -> api : create_app(config)
-api -> api : register routes\nsetup CORS, auth
-api --> runner : App ready
-
-runner -> runner : start all as asyncio tasks
-note right of runner
-  Tasks launched:
-  - pipeline (process signal queue)
-  - can-reader-vcan0, can-reader-vcan1
-  - simulator (dev mode)
-  - api (uvicorn server)
-  - watchdog (health monitor)
-  - metrics-push (psutil metrics -> WS broadcast)
+runner --> cli : System running; await runtime tasks
+note over runner, audio
+  AudioManager is started before API construction and reader tasks.
+  audio.enabled=false rejects playback requests; the manager still publishes idle state.
+  Position/completion tasks are created per playback, not at startup.
 end note
-runner -> mon : start watchdog\n(monitor all processes)
-
-note over api : /health → 200 (liveness)\n/ready → 200 (all components init OK)
-runner --> cli : System running\n(listening on :8000)
-
-note over cli, mon
-  NFR: Cold start → ready ≤ 5 seconds
-  Config validation: fail fast with clear error
-  VERIFIED AGAINST CURRENT SOURCE CODE — Startup sequence complete and accurate.
-end note
-
-deactivate runner
-
 @enduml

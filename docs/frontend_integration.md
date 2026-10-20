@@ -31,11 +31,19 @@ Send `X-API-Key` on protected HTTP routes, `X-Profile-Name` for explicit profile
 
 System GET, adaptive restraint, camera, and restraints/video routes are public. Authentication on protected routers is disabled for an empty key or the placeholder values `change-me-in-production`, `changeme`, and `default`. System retry/reboot controls always require a real configured key and `X-Dev-Mode: true`.
 
-Audio is not controlled from the frontend. Playback is triggered only by CAN signals
-(`INC_HMI_Audio_Request.HMI_Soundfile`), and there is no audio REST endpoint or audio tab. To show
-playback state in the UI, subscribe to `INC_HMI_Audio_Response` signals `HMI_AudioTimesamp` and
-`HMI_ActiveSoundfile` through the existing signal WebSocket. A timestamp of `-1` means no track is
-playing.
+For the SEAL demo, the HMI writes `HMI_SEAL_ActivationRequest` (`1`: Blow in, `2`: Blow out)
+and `SEAL_WithSound` (`1`: with sound, `0`: without sound) together through
+`POST /signals/batch_update`. Panther performs the action and, when sound is requested,
+sends `INC_HMI_Audio_Request.HMI_Soundfile` to select a configured audio number on CAR-PC.
+There is no dedicated audio REST endpoint or audio tab. `HMI_Soundfile` is RX-only and
+cannot be written through the standard signal API, including in Dev Mode.
+
+To show playback state, subscribe to `HMI_Soundfile`, `HMI_AudioTimesamp`, and
+`HMI_ActiveSoundfile` through the existing signal WebSocket. The first is the latest
+request; the active number and elapsed milliseconds describe actual playback. With queueing,
+the request changes immediately while the active track continues. Position `-1` and active
+number `0` mean no track is playing. See the [audio demo guide](audio_demo.md) for the full
+flow, feedback cadence, configuration, and virtual-CAN test.
 
 ## HTTP errors and partial success
 

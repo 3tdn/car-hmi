@@ -11,6 +11,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 - **DBC metadata catalog** — Signal unit/range/state/TX metadata is loaded once with the active DBC files and kept in memory
 - **System Metrics** — Real-time CarPC resource monitoring (CPU, RAM, disk, queue, process) via `/system/metrics`
 - **Simulator** — Built-in CAN simulator for development without hardware; driven directly by the `can_db_file` DBC signal definitions
+- **SEAL audio demo** — Panther selects local audio with `HMI_Soundfile`; CAR-PC supports interruption or FIFO queueing and publishes playback position and active audio number over CAN. See the [audio flow, configuration, and virtual-CAN test](docs/audio_demo.md).
 - **Standardized signal names (`std_name`)** — API responses include `std_name` for compatibility; it is identical to `signal_name`.
 - **API Key Auth** — Optional `X-API-Key` header authentication; disabled automatically when key is set to placeholder values
 
@@ -113,6 +114,7 @@ the same policy from the backend and supports multiple CAN channel cards.
 |---------------|----------------------------------------------------------------------------------|
 | `can` | **Array** of channels: `interface`, `channel`, `bitrate`, `can_db_file`, optional `channel_tracking_signals`. Auto discovery tracks the CAN messages containing the configured signals. |
 | `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
+| `audio` | `files` (array A of file/audio-number mappings), `position_update_interval_ms` (T, minimum 50 ms), and `track_queue_enable` (`false`: interrupt, `true`: queue); `enabled` and `media_dir` require restart. |
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
 | `oms_config`  | Controls frontend-facing `OMS_xx_OccupantClassification` values. With `bypass_simi_input: false`, keep the decoded CAN/SIMI class; with `true`, derive class `0`/`1`/`2` from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. Applies live. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |

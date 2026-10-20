@@ -1,0 +1,83 @@
+@startuml 21_sequence_audio_demo
+!theme plain
+title SEAL Demo — HMI Request, Panther Audio Selection, CAR-PC Playback
+hide footbox
+
+actor "HMI" as hmi
+participant "CAR-PC\nSignal API / CAN Writer" as api
+participant "Panther" as panther
+participant "CAR-PC\nCAN Reader / Pipeline" as rx
+database "SignalStore\n+ WebSocket" as store
+participant "AudioManager" as audio
+participant "Local Audio Player\nffplay / afplay" as player
+participant "CAR-PC\nCAN Writer" as tx
+
+hmi -> api : Batch write HMI_SEAL_ActivationRequest\nand SEAL_WithSound
+api -> panther : INC_HMI_SEALRequest (0x081)\nactivation=1: Blow in / activation=2: Blow out\nSEAL_WithSound=0 or 1
+panther -> panther : Perform requested SEAL action
+alt SEAL_WithSound = 0
+    note over panther, audio
+      No new audio request.
+      Existing CAR-PC playback is not cancelled by this flag.
+    end note
+else SEAL_WithSound = 1
+    panther -> rx : INC_HMI_Audio_Request (0x220)\nHMI_Soundfile=n (example: 1)
+    rx -> store : Update HMI_Soundfile=n immediately
+    store -> audio : Observe changed request
+    audio -> audio : Resolve n via audio.files[].audio_number\nA = audio.files
+    audio -> player : Play mapped file from position 0
+    audio -> store : HMI_AudioTimesamp=0\nHMI_ActiveSoundfile=n
+    audio -> tx : Send both feedback values in one frame
+    tx -> panther : INC_HMI_Audio_Response (0x221)
+
+    note over audio, tx
+      T = audio.position_update_interval_ms (50..60000).
+      A live T change applies to the next playback.
+    end note
+
+    par Periodic feedback task
+        loop While any track plays, every T ms
+            audio -> store : HMI_AudioTimesamp=elapsed_ms\nHMI_ActiveSoundfile=current audio number
+            audio -> tx : One response frame
+            tx -> panther : elapsed_ms, current audio number
+        end
+    else Request and completion events
+    opt New valid request m != n arrives during playback
+        panther -> rx : HMI_Soundfile=m
+        rx -> store : HMI_Soundfile=m immediately
+        store -> audio : Observe changed request
+        alt Type 1: audio.track_queue_enable = false
+            audio -> player : Stop n; start m from position 0
+            audio -> store : HMI_AudioTimesamp=0\nHMI_ActiveSoundfile=m
+            audio -> tx : Feedback: position=0, active=m
+            tx -> panther : INC_HMI_Audio_Response
+        else Type 2: audio.track_queue_enable = true
+            audio -> audio : Append m to FIFO queue (max 64)
+            note over store, player
+              Requested HMI_Soundfile=m; active sound remains n.
+              Track n and its periodic feedback continue.
+            end note
+            player --> audio : Track n ends successfully
+            audio -> player : Pop queue; play m from position 0
+            audio -> store : HMI_AudioTimesamp=0\nHMI_ActiveSoundfile=m
+            audio -> tx : Feedback: position=0, active=m
+            tx -> panther : INC_HMI_Audio_Response
+            note over audio, tx : Direct transition; no idle -1 frame between queued tracks.
+        end
+    end
+
+    player --> audio : Last track ends; queue is empty
+    end
+    audio -> store : HMI_AudioTimesamp=-1\nHMI_ActiveSoundfile=0
+    loop Twice
+        audio -> tx : Idle response frame
+        tx -> panther : HMI_AudioTimesamp=-1\nHMI_ActiveSoundfile=0
+    end
+end
+
+note over rx, audio
+  Repeated non-zero requests are ignored.
+  To replay the same number, CAR-PC must observe 0 then that number.
+  HMI_Soundfile=0 re-arms; it does not stop or clear the queue.
+end note
+@enduml

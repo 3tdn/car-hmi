@@ -1,30 +1,38 @@
-@startuml
-title System Startup — Arch Flow
+@startuml SAD_sequence_boot_startup
+!theme plain
+title System Startup — Software Architecture
+hide footbox
 
-actor "Admin\n(CLI)" as Admin
-participant "Runner\n(AppRunner)" as Runner
-participant "Config" as Config
-participant "Metadata Catalog" as Metadata
-participant "CAN Layer" as CAN
-participant "Pipeline" as Pipeline
-participant "API" as API
+actor "Admin / CLI" as admin
+participant "Configuration" as config
+participant "AppRunner" as runner
+participant "Store / Metadata" as store
+participant "Signal Pipeline" as pipeline
+participant "CAN Layer" as can
+participant "Audio Playback" as audio
+participant "API / WebSocket" as api
 
-== Startup sequence ==
-Admin -> Runner : start(config_path)
-Runner -> Config : load(system.json, alarms.json)
-Runner -> Config : validate schema
-Runner -> CAN : per-channel: load DB, init CANReader
-Runner -> Metadata : replace catalog from loaded DBCs
-Runner -> Pipeline : create + add stages
-Runner -> API : create_app(config)
-Runner -> Runner : asyncio.create_task(all)
-Runner --> Admin : ready on :8000
+admin -> config : Load system.json and validate configuration
+config --> admin : AppConfig
+admin -> runner : Start configured runtime
+runner -> runner : Reserve API endpoint; register signal handlers
+runner -> can : Load each channel's DBC
+runner -> store : Seed signal values and replace metadata catalog
+runner -> pipeline : Construct shared queue and processing stages
+runner -> can : Open buses; construct readers, writers, and writer router
+runner -> audio : Construct AudioManager(config.audio, store, writer router)
+runner -> audio : Start audio manager
+audio -> store : Subscribe to HMI_Soundfile; publish idle state
+audio -> can : Attempt idle feedback: position=-1, active=0 (twice)
+opt Simulator enabled and all channels virtual
+    runner -> can : Construct simulator
+end
+runner -> api : Build API server and connect WebSocket to SignalStore
+runner -> runner : Launch pipeline, readers, optional simulator, API,\nmetrics, and configured monitoring tasks
+runner --> admin : Runtime started
 
-note right of Runner
-  VERIFIED AGAINST CURRENT SOURCE CODE
-  All init steps correct & in order.
-  Cold start target: ≤5s. Config validation: fail-fast.
-  See SDD_sequence_boot_startup & SDD_DETAILED_VERIFICATION.md
+note over audio, api
+  Audio subscribes before API startup and before reader tasks begin.
+  Playback starts only after a changed, valid HMI_Soundfile request.
 end note
-
 @enduml
