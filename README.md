@@ -317,7 +317,15 @@ production Node entry point. Both are enabled for `multi-user.target` and recove
 from process failures. A backend config restart (exit 75) restarts only the
 backend; the frontend remains available and reconnects. The deploy script records
 absolute project and Node paths, so boot does not require an interactive shell or
-activation of nvm/pyenv. Re-run deploy after moving the project, changing
+activation of nvm/pyenv. Deploy grants the dedicated frontend account read access
+to the frontend tree and traversal through private parent directories using POSIX
+ACLs, including access to a Node executable installed by nvm. The `acl` package
+is installed automatically on Debian/Ubuntu if needed; other distributions need
+`setfacl` and `runuser` installed first. Backend `.env` remains inaccessible to the
+frontend service. Re-run deploy after adding private frontend files or replacing
+the npm dependencies, so their permissions are prepared again.
+
+Re-run deploy after moving the project, changing
 `CAR_HMI_FRONTEND_PATH`, or changing the installed Node path.
 
 CAN hardware is owned by the backend and selected in `config/system.json`; the

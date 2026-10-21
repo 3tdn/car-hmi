@@ -40,6 +40,7 @@ case "${1:-}" in
 esac
 
 source "$PROJECT_DIR/scripts/linux_common.sh"
+source "$PROJECT_DIR/scripts/linux_frontend_access.sh"
 VENV_BIN="$PROJECT_DIR/.venv/bin/can-hmi"
 if [[ ! -x "$VENV_BIN" ]]; then
     echo 'Backend environment missing. Run scripts/setup_linux.sh first.' >&2
@@ -117,17 +118,32 @@ deploy_frontend() {
     }
 
     local node_bin frontend_dir frontend_user backend_url config_path
-    node_bin="$(command -v node)" || return $?
+    node_bin="$(readlink -f -- "$(command -v node)")" || return $?
     node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || {
         warn 'Node.js >= 20 is required for the frontend; skipping frontend deployment.'
         return 1
     }
-    frontend_dir="$(cd "$FRONTEND_DIR" && pwd)" || return $?
+    frontend_dir="$(cd "$FRONTEND_DIR" && pwd -P)" || return $?
     frontend_user=car-hmi-frontend
     if ! getent passwd "$frontend_user" >/dev/null; then
         root useradd --system --no-create-home --shell /usr/sbin/nologin "$frontend_user" || return $?
     fi
     npm --prefix "$frontend_dir" ci --omit=dev || return $?
+
+    if ! command -v setfacl >/dev/null; then
+        if ! command -v apt-get >/dev/null; then
+            warn 'Install the acl package (setfacl) to grant frontend service access.'
+            return 1
+        fi
+        root apt-get update || return $?
+        root apt-get install -y --no-install-recommends acl || return $?
+    fi
+    if ! command -v runuser >/dev/null; then
+        warn 'Install util-linux (runuser) to verify frontend service access.'
+        return 1
+    fi
+    grant_frontend_access "$frontend_user" "$frontend_dir" "$node_bin" || return $?
+    root runuser -u "$frontend_user" -- "$node_bin" --check "$frontend_dir/server.mjs" || return $?
 
     config_path="$PROJECT_DIR/config/system.json"
     [[ -f "$config_path" ]] || config_path="$PROJECT_DIR/config/system_bk.json"

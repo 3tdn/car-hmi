@@ -14,7 +14,7 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment="CAR_HMI_PROJECT_DIR=@@PROJECT_DIR@@"
 Environment="CAR_HMI_BACKEND_URL=@@BACKEND_URL@@"
-InaccessiblePaths=@@ENV_FILE@@
+InaccessiblePaths="@@ENV_FILE@@"
 NoNewPrivileges=true
 PrivateTmp=true
 LimitNOFILE=4096
