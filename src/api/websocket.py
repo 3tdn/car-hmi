@@ -291,7 +291,7 @@ class ConnectionManager:
         await self.broadcast_signals([(signal_name, value, timestamp)])
 
     async def broadcast_signals(self, updates: list[tuple[str, float, float]]) -> None:
-        """Push 1 WS frame containing multiple signal entries: {timestamp, signals:[{name,std_name,value}, ...]}."""
+        """Push a batch with source timestamps retained on each signal, including cached entries."""
         if not updates:
             return
 
@@ -302,11 +302,12 @@ class ConnectionManager:
 
         # Last-write-wins by signal_name within the same batch.
         merged: dict[str, dict] = {}
-        for signal_name, value, _ in updates:
+        for signal_name, value, timestamp in updates:
             entry = {
                 "name": signal_name,
                 "std_name": signal_name,
                 "value": value,
+                "timestamp": timestamp,
             }
             merged[signal_name] = entry
             self._latest_signals[signal_name] = entry

@@ -7,18 +7,18 @@
 let ADAPTIVE_INITIALIZED = false;
 let _updateTimer = null;
 
-// ── Colour palette per system (matches Plotly default palette) ───────────────
+// Distinct series colors complement the shared corporate blue UI.
 const SYSTEM_COLORS = {
-  fusion:    "#636efa",
-  camera:    "#ffa15a",
-  non_adapt: "#ef553b",
+  fusion:    "#0070b4",
+  camera:    "#23877d",
+  non_adapt: "#a76527",
 };
 
 function _seriesColor(colName) {
   for (const [key, color] of Object.entries(SYSTEM_COLORS)) {
     if (colName.includes(key)) return color;
   }
-  return "#19d3f3";
+  return "#687b94";
 }
 
 // ── Tab wiring ────────────────────────────────────────────────────────────────
@@ -222,26 +222,26 @@ function _drawPlotlyBox(divId, seriesList) {
   });
 
   const layout = {
-    title: { text: "Injury Risk Distribution", font: { color: "#e6edf3", size: 15 } },
+    title: { text: "Injury Risk Distribution", font: { color: chartTheme.text, size: 15 } },
     yaxis: {
-      title:        { text: "Injury Risk (%)", font: { color: "#8b949e" } },
+      title:        { text: "Injury Risk (%)", font: { color: chartTheme.muted } },
       ticksuffix:   "%",
-      gridcolor:    "#30363d",
-      zerolinecolor:"#30363d",
-      tickfont:     { color: "#8b949e" },
+      gridcolor:    chartTheme.border,
+      zerolinecolor:chartTheme.border,
+      tickfont:     { color: chartTheme.muted },
     },
     xaxis: {
-      tickfont:  { color: "#8b949e" },
-      gridcolor: "#30363d",
+      tickfont:  { color: chartTheme.muted },
+      gridcolor: chartTheme.border,
     },
     boxmode:       "group",
     paper_bgcolor: "rgba(0,0,0,0)",
-    plot_bgcolor:  "#161b22",
-    font:          { color: "#e6edf3", family: "Segoe UI, system-ui, sans-serif" },
+    plot_bgcolor:  chartTheme.surface,
+    font:          { color: chartTheme.text, family: chartTheme.font },
     legend: {
-      font:        { color: "#e6edf3" },
+      font:        { color: chartTheme.text },
       bgcolor:     "rgba(0,0,0,0)",
-      bordercolor: "#30363d",
+      bordercolor: chartTheme.border,
     },
     height: 480,
     margin: { t: 48, r: 24, b: 48, l: 64 },
@@ -385,7 +385,7 @@ async function runRestraintVideoMatch() {
     if (ctxEl && result.context) {
       const c = result.context;
       const canPct  = c.can_percentile != null ? `${c.can_percentile}th %ile (CAN)` : "n/a";
-      const oop     = c.out_of_position ? '<span style="color:#ffbbbb">⚠ OUT OF POSITION</span>' : "ok";
+      const oop     = c.out_of_position ? '<span style="color:var(--crit)">⚠ OUT OF POSITION</span>' : "ok";
       const xVal    = c.seat_x_mm != null ? `${c.seat_x_mm} mm` : "n/a";
       const xSrc    = { hmi_param: "HMI param", can_signal: "CAN signal", default: "default" }[c.seat_x_source] || c.seat_x_source;
       ctxEl.innerHTML =
@@ -425,7 +425,7 @@ async function runRestraintVideoMatch() {
   } catch (err) {
     console.error("Restraint video match failed:", err);
     if (ctxEl) {
-      ctxEl.innerHTML = `<span style="color:#ffbbbb">Error: ${err.message}</span>`;
+      ctxEl.innerHTML = `<span style="color:var(--crit)">Error: ${err.message}</span>`;
       ctxEl.style.display = "block";
     }
   } finally {

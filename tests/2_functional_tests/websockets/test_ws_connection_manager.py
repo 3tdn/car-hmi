@@ -107,7 +107,7 @@ async def test_broadcast_signal_to_subscribers(mgr):
     assert isinstance(payload.get("signals"), list)
     assert len(payload["signals"]) == 1
     sig = payload["signals"][0]
-    assert set(sig.keys()) == {"name", "std_name", "value"}
+    assert set(sig.keys()) == {"name", "std_name", "value", "timestamp"}
     assert sig["name"] == "Speed"
     assert sig["std_name"] == "Speed"
     assert sig["value"] == 80.0
@@ -333,7 +333,10 @@ async def test_broadcast_signals_batch_single_frame(mgr):
     names = {s["name"] for s in payload["signals"]}
     assert names == {"Speed", "RPM"}
     for s in payload["signals"]:
-        assert set(s.keys()) == {"name", "std_name", "value"}
+        assert set(s.keys()) == {"name", "std_name", "value", "timestamp"}
+    assert {s["name"]: s["timestamp"] for s in payload["signals"]} == {
+        "Speed": 1000.0, "RPM": 1000.1,
+    }
 
 
 @pytest.mark.asyncio
@@ -369,6 +372,9 @@ async def test_subscribe_receives_full_subscribed_set_from_cache(mgr):
     rpm = next(s for s in payload["signals"] if s["name"] == "RPM")
     assert speed["value"] == 81.0
     assert rpm["value"] == 3000.0
+    # Re-sending a cached signal must preserve its source age in the UI.
+    assert speed["timestamp"] == 1000.2
+    assert rpm["timestamp"] == 1000.1
 
 
 @pytest.mark.asyncio

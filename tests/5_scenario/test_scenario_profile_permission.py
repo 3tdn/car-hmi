@@ -67,7 +67,7 @@ def test_rx_subscription_delivers_without_read_permission(app_builder_sync, endp
         assert ack["warnings"] == []
         sc.portal.call(app.state.ws_manager.broadcast_signal, "OMS_State_Camera", 1.0, 123.0)
         frame = ws.receive_json()
-        assert frame["signals"] == [{"name": "OMS_State_Camera", "std_name": "OMS_State_Camera", "value": 1.0}]
+        assert frame["signals"] == [{"name": "OMS_State_Camera", "std_name": "OMS_State_Camera", "value": 1.0, "timestamp": 123.0}]
 
 
 @pytest.mark.asyncio
