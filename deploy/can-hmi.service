@@ -1,13 +1,13 @@
 [Unit]
 Description=CAN-HMI Signal Dashboard
 Documentation=https://github.com/3tdn/car-hmi
-After=network.target can.target
+After=network.target
 
 [Service]
 Type=simple
 User=@@SERVICE_USER@@
 WorkingDirectory=@@PROJECT_DIR@@
-ExecStart=@@PROJECT_DIR@@/.venv/bin/can-hmi --config @@PROJECT_DIR@@/config/system.json
+ExecStart="@@PROJECT_DIR@@/.venv/bin/can-hmi" --config "@@PROJECT_DIR@@/config/system.json"
 Restart=on-failure
 RestartSec=5
 # WatchdogSec=30
@@ -20,7 +20,7 @@ EnvironmentFile=-@@PROJECT_DIR@@/.env
 NoNewPrivileges=true
 ProtectSystem=false
 ProtectHome=false
-ReadWritePaths=@@PROJECT_DIR@@/data @@PROJECT_DIR@@/logs
+ReadWritePaths="@@PROJECT_DIR@@/data" "@@PROJECT_DIR@@/logs"
 PrivateTmp=true
 
 # Resource limits

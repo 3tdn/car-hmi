@@ -621,7 +621,7 @@ def test_main_exits_with_restart_code_after_api_reboot(monkeypatch):
             return None
 
     monkeypatch.setattr(runner_module, "load_config", lambda _path: AppConfig())
-    monkeypatch.setattr(runner_module, "AppRunner", lambda _cfg: RebootingRunner())
+    monkeypatch.setattr(runner_module, "AppRunner", lambda _cfg, **_kwargs: RebootingRunner())
     monkeypatch.setattr(sys, "argv", ["can-hmi"])
 
     with pytest.raises(SystemExit) as exc_info:
@@ -638,40 +638,39 @@ def test_run_linux_restarts_only_after_exit_code_75(tmp_path, monkeypatch):
     if os.name == "nt":
         pytest.skip("run_linux.sh is not used on Windows")
 
+    import shutil
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name in ("run_linux.sh", "linux_common.sh"):
+        shutil.copy(root / "scripts" / name, scripts / name)
     fake_python = tmp_path / ".venv" / "bin" / "python"
     fake_python.parent.mkdir(parents=True)
-    fake_python.write_text(
-        """#!/bin/sh
-count=0
-if [ -f "$CAR_HMI_TEST_COUNTER" ]; then
-    count=$(cat "$CAR_HMI_TEST_COUNTER")
-fi
-count=$((count + 1))
-echo "$count" > "$CAR_HMI_TEST_COUNTER"
-if [ "$count" -eq 1 ]; then
-    exit 75
-fi
-exit 0
-""",
-        encoding="utf-8",
+    fake_python.symlink_to(sys.executable)
+    core = tmp_path / "src" / "core"
+    core.mkdir(parents=True)
+    shutil.copy(root / "src" / "core" / "service.py", core / "service.py")
+    (core / "runner.py").write_text(
+        "import os, sys\nfrom pathlib import Path\n"
+        "path = Path(os.environ['CAR_HMI_TEST_COUNTER'])\n"
+        "count = int(path.read_text()) + 1 if path.exists() else 1\n"
+        "path.write_text(str(count))\nsys.exit(75 if count == 1 else 0)\n"
     )
-    fake_python.chmod(0o755)
     counter = tmp_path / "runner-count"
     monkeypatch.setenv("CAR_HMI_TEST_COUNTER", str(counter))
-    script = Path(__file__).resolve().parents[2] / "scripts" / "run_linux.sh"
-
     result = subprocess.run(
-        ["bash", str(script), "unused.json", "INFO", "65432"],
-        cwd=tmp_path,
+        ["bash", str(scripts / "run_linux.sh"), "--backend-only", "unused.json", "INFO", "65432"],
+        cwd=tmp_path.parent,  # Launcher must resolve paths relative to itself.
         capture_output=True,
         text=True,
         timeout=5,
         check=False,
     )
-
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stderr
     assert counter.read_text(encoding="utf-8").strip() == "2"
-    assert "restarting in 1 second" in result.stdout
+    assert "Backend restart requested" in result.stdout
 
 
 def test_reader_connectivity_allows_disabled_stale_threshold():

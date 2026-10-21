@@ -1,147 +1,186 @@
 #!/usr/bin/env bash
-################################################################################
-# CAN-HMI Deploy Script — Linux
-################################################################################
-# Purpose: Install can-hmi.service into systemd and automatically fill in the
-#          actual path based on the project location and current user.
-#
-# Usage:
-#   bash scripts/deploy_linux.sh              # Install, enable, and start the service
-#   bash scripts/deploy_linux.sh --uninstall  # Stop and remove the service
-#   bash scripts/deploy_linux.sh --status     # View service status
-#
-# Requirements:
-#   - Python >= 3.11 and .venv must already exist (run setup_linux.sh first)
-#   - sudo permission to copy files into /etc/systemd/system/
-
+# Install, enable and start the backend and optional npm frontend on Linux/systemd.
+# Usage: bash scripts/deploy_linux.sh [--status|--uninstall]
 set -euo pipefail
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-SERVICE_NAME="can-hmi"
-SERVICE_FILE="${SERVICE_NAME}.service"
-SYSTEMD_DIR="/etc/systemd/system"
-TEMPLATE="${BASH_SOURCE[0]%/*}/../deploy/${SERVICE_FILE}"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SYSTEMD_DIR=/etc/systemd/system
+BACKEND_SERVICE=can-hmi.service
+FRONTEND_SERVICE=can-hmi-frontend.service
+SERVICE_USER="${SUDO_USER:-$(id -un)}"
+log() { echo "[deploy] $*"; }
+warn() { echo "[deploy] WARNING: $*" >&2; }
+root() {
+    if [[ "$EUID" -eq 0 ]]; then "$@"; else sudo "$@"; fi
+}
 
-# ── Determine the project directory (the directory containing scripts/) ───────
-PROJECT_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
-SERVICE_USER="$(whoami)"
-
-# ── Log colors ────────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-log()  { echo -e "${GREEN}[deploy]${NC} $*"; }
-warn() { echo -e "${YELLOW}[deploy]${NC} $*"; }
-err()  { echo -e "${RED}[deploy]${NC} $*" >&2; }
-
-# ── Subcommand: --status ──────────────────────────────────────────────────────
-if [[ "${1:-}" == "--status" ]]; then
-    sudo systemctl status "${SERVICE_NAME}" --no-pager || true
-    exit 0
-fi
-
-# ── Subcommand: --uninstall ───────────────────────────────────────────────────
-if [[ "${1:-}" == "--uninstall" ]]; then
-    log "Stopping and disabling ${SERVICE_NAME}..."
-    sudo systemctl stop    "${SERVICE_NAME}" 2>/dev/null || true
-    sudo systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
-    sudo rm -f "${SYSTEMD_DIR}/${SERVICE_FILE}"
-    sudo systemctl daemon-reload
-    log "Removed ${SERVICE_NAME}."
-    exit 0
-fi
-
-# ── Prerequisite checks ───────────────────────────────────────────────────────
-if [[ ! -f "${TEMPLATE}" ]]; then
-    err "Template not found: ${TEMPLATE}"
+if [[ ! -d /run/systemd/system ]]; then
+    echo 'systemd must be running on the Linux host to install boot services.' >&2
+    echo 'For a container/demo use: bash scripts/run_linux.sh' >&2
     exit 1
 fi
 
-VENV_BIN="${PROJECT_DIR}/.venv/bin/can-hmi"
-if [[ ! -x "${VENV_BIN}" ]]; then
-    err "Executable not found: ${VENV_BIN}"
-    err "Run scripts/setup_linux.sh first to create the virtualenv."
+case "${1:-}" in
+    --status)
+        root systemctl status "$BACKEND_SERVICE" --no-pager || exit $?
+        if [[ -f "$SYSTEMD_DIR/$FRONTEND_SERVICE" ]]; then
+            root systemctl status "$FRONTEND_SERVICE" --no-pager || exit $?
+        else
+            warn 'Frontend service is not installed.'
+        fi
+        exit 0 ;;
+    --uninstall)
+        root systemctl disable --now "$BACKEND_SERVICE" "$FRONTEND_SERVICE" || true
+        root rm -f "$SYSTEMD_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE"
+        root systemctl daemon-reload
+        log 'Removed backend and frontend services.'
+        exit 0 ;;
+    '') ;;
+    *) echo "Usage: $0 [--status|--uninstall]" >&2; exit 2 ;;
+esac
+
+source "$PROJECT_DIR/scripts/linux_common.sh"
+VENV_BIN="$PROJECT_DIR/.venv/bin/can-hmi"
+if [[ ! -x "$VENV_BIN" ]]; then
+    echo 'Backend environment missing. Run scripts/setup_linux.sh first.' >&2
+    exit 1
+fi
+if [[ ! -f "$PROJECT_DIR/config/system.json" && ! -f "$PROJECT_DIR/config/system_bk.json" ]]; then
+    echo 'Missing config/system.json and config/system_bk.json.' >&2
     exit 1
 fi
 
-if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
-    if ! command -v apt-get >/dev/null 2>&1; then
-        err "ffplay/ffprobe not found and automatic installation requires apt-get."
-        err "Install the ffmpeg package with your Linux distribution's package manager."
+if ! command -v ffplay >/dev/null || ! command -v ffprobe >/dev/null; then
+    if ! command -v apt-get >/dev/null; then
+        echo 'Install ffmpeg (ffplay and ffprobe) with your package manager first.' >&2
         exit 1
     fi
-    log "ffplay/ffprobe not found; installing the ffmpeg package..."
-    sudo apt-get update
-    sudo apt-get install -y --no-install-recommends ffmpeg
+    root apt-get update
+    root apt-get install -y --no-install-recommends ffmpeg
 fi
-if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
-    err "ffmpeg installation completed but ffplay/ffprobe are still unavailable in PATH."
-    exit 1
-fi
-log "Audio runtime: ffplay=$(command -v ffplay), ffprobe=$(command -v ffprobe)"
-if getent group audio >/dev/null 2>&1 && ! id -nG "${SERVICE_USER}" | tr ' ' '\n' | grep -qx audio; then
-    log "Adding ${SERVICE_USER} to the audio group for local speaker access..."
-    sudo usermod -aG audio "${SERVICE_USER}"
+if getent group audio >/dev/null && ! id -nG "$SERVICE_USER" | tr ' ' '\n' | grep -qx audio; then
+    root usermod -aG audio "$SERVICE_USER"
 fi
 
-CONFIG_FILE="${PROJECT_DIR}/config/system.json"
-CONFIG_BACKUP_FILE="${PROJECT_DIR}/config/system_bk.json"
-if [[ ! -f "${CONFIG_FILE}" && ! -f "${CONFIG_BACKUP_FILE}" ]]; then
-    err "Config not found: ${CONFIG_FILE} or ${CONFIG_BACKUP_FILE}"
-    exit 1
-fi
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-    warn "Primary config not found; runtime will recreate it from ${CONFIG_BACKUP_FILE}."
-fi
+mkdir -p "$PROJECT_DIR/data" "$PROJECT_DIR/logs"
+GENERATED_DIR="$(mktemp -d)"
+trap 'rm -rf "$GENERATED_DIR"' EXIT
 
-# ── Create data/ and logs/ if they do not exist ───────────────────────────────
-mkdir -p "${PROJECT_DIR}/data" "${PROJECT_DIR}/logs"
+render_unit() {
+    local service_name="$1"
+    shift
+    "$PROJECT_DIR/.venv/bin/python" - "$PROJECT_DIR" "$GENERATED_DIR" "$service_name" "$@" <<'PY'
+import sys
+from pathlib import Path
 
-# ── Generate the service file from the template ───────────────────────────────
-GENERATED_FILE="$(mktemp /tmp/${SERVICE_NAME}.XXXXXX.service)"
-trap 'rm -f "${GENERATED_FILE}"' EXIT
+project, destination, service_name, *pairs = sys.argv[1:]
+if len(pairs) % 2:
+    raise ValueError('Unit template values must be key/value pairs')
+values = {'PROJECT_DIR': project, **dict(zip(pairs[0::2], pairs[1::2]))}
+template = Path(project) / 'deploy' / service_name
+content = template.read_text()
+for key, value in values.items():
+    if '\n' in value or '\r' in value or '$' in value:
+        raise ValueError(f'Unsafe value for {key}')
+    raw = value.replace('%', '%%')
+    quoted = raw.replace('\\', '\\\\').replace('"', '\\"')
+    content = '\n'.join(
+        line.replace(
+            '@@' + key + '@@',
+            raw if line.startswith(('User=', 'WorkingDirectory=', 'EnvironmentFile=')) else quoted,
+        )
+        for line in content.split('\n')
+    )
+(Path(destination) / service_name).write_text(content)
+PY
+}
 
-sed \
-    -e "s|@@PROJECT_DIR@@|${PROJECT_DIR}|g" \
-    -e "s|@@SERVICE_USER@@|${SERVICE_USER}|g" \
-    "${TEMPLATE}" > "${GENERATED_FILE}"
-
-log "Generated service file:"
-log "  User            = ${SERVICE_USER}"
-log "  WorkingDirectory= ${PROJECT_DIR}"
-log "  ExecStart       = ${VENV_BIN}"
-
-# ── Install into systemd ──────────────────────────────────────────────────────
-log "Installing ${SERVICE_FILE} into ${SYSTEMD_DIR}..."
-sudo cp "${GENERATED_FILE}" "${SYSTEMD_DIR}/${SERVICE_FILE}"
-sudo chmod 644 "${SYSTEMD_DIR}/${SERVICE_FILE}"
-sudo systemctl daemon-reload
-
-# ── Enable and (re)start the service ──────────────────────────────────────────
-if sudo systemctl is-enabled --quiet "${SERVICE_NAME}" 2>/dev/null; then
-    warn "Service is already enabled — restarting..."
-    sudo systemctl restart "${SERVICE_NAME}"
-else
-    sudo systemctl enable --now "${SERVICE_NAME}"
-fi
-
+log 'Deploying backend service first...'
+render_unit "$BACKEND_SERVICE" SERVICE_USER "$SERVICE_USER"
+systemd-analyze verify "$GENERATED_DIR/$BACKEND_SERVICE"
+root install -m 644 "$GENERATED_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$BACKEND_SERVICE"
+root systemctl daemon-reload
+root systemctl enable "$BACKEND_SERVICE"
+root systemctl restart "$BACKEND_SERVICE"
 sleep 2
-
-# ── Check result ──────────────────────────────────────────────────────────────
-if sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
-    log "✓ ${SERVICE_NAME} is running."
-    sudo systemctl status "${SERVICE_NAME}" --no-pager -l
-else
-    err "✗ ${SERVICE_NAME} failed to start."
-    sudo journalctl -u "${SERVICE_NAME}" -n 30 --no-pager
+if ! root systemctl is-active --quiet "$BACKEND_SERVICE"; then
+    root journalctl -u "$BACKEND_SERVICE" -n 30 --no-pager
     exit 1
 fi
+log 'Backend is installed, enabled, and running.'
 
-log ""
-log "Useful commands:"
-log "  sudo journalctl -u ${SERVICE_NAME} -f       # Follow logs"
-log "  sudo systemctl stop    ${SERVICE_NAME}       # Stop the service"
-log "  bash scripts/deploy_linux.sh --status        # View status"
-log "  bash scripts/deploy_linux.sh --uninstall     # Remove the service"
+deploy_frontend() {
+    require_frontend_runtime || return $?
+    [[ -f "$PROJECT_DIR/deploy/$FRONTEND_SERVICE" ]] || {
+        warn "Frontend unit template is missing: $PROJECT_DIR/deploy/$FRONTEND_SERVICE"
+        return 1
+    }
+
+    local node_bin frontend_dir frontend_user backend_url config_path
+    node_bin="$(command -v node)" || return $?
+    node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || {
+        warn 'Node.js >= 20 is required for the frontend; skipping frontend deployment.'
+        return 1
+    }
+    frontend_dir="$(cd "$FRONTEND_DIR" && pwd)" || return $?
+    frontend_user=car-hmi-frontend
+    if ! getent passwd "$frontend_user" >/dev/null; then
+        root useradd --system --no-create-home --shell /usr/sbin/nologin "$frontend_user" || return $?
+    fi
+    npm --prefix "$frontend_dir" ci --omit=dev || return $?
+
+    config_path="$PROJECT_DIR/config/system.json"
+    [[ -f "$config_path" ]] || config_path="$PROJECT_DIR/config/system_bk.json"
+    backend_url="$("$PROJECT_DIR/.venv/bin/python" - "$config_path" "${PORT:-}" <<'PY'
+import json
+import sys
+
+config = json.loads(open(sys.argv[1], encoding='utf-8').read())
+api = config.get('api', {})
+host = api.get('host') or '127.0.0.1'
+if host in ('0.0.0.0', '::', '[::]'):
+    host = '127.0.0.1'
+if ':' in host and not host.startswith('['):
+    host = f'[{host}]'
+port = sys.argv[2] or api.get('port') or 8000
+print(f'http://{host}:{port}')
+PY
+    )" || return $?
+
+    render_unit "$FRONTEND_SERVICE" \
+        SERVICE_USER "$frontend_user" \
+        FRONTEND_DIR "$frontend_dir" \
+        NODE_BIN "$node_bin" \
+        ENV_FILE "$PROJECT_DIR/.env" \
+        BACKEND_URL "$backend_url" || return $?
+    systemd-analyze verify "$GENERATED_DIR/$FRONTEND_SERVICE" || return $?
+    root install -m 644 "$GENERATED_DIR/$FRONTEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" || return $?
+    root systemctl daemon-reload || return $?
+    root systemctl enable "$FRONTEND_SERVICE" || return $?
+    root systemctl restart "$FRONTEND_SERVICE" || return $?
+    sleep 2
+    if ! root systemctl is-active --quiet "$FRONTEND_SERVICE"; then
+        root journalctl -u "$FRONTEND_SERVICE" -n 30 --no-pager
+        return 1
+    fi
+    root systemctl status "$FRONTEND_SERVICE" --no-pager -l
+}
+
+if deploy_frontend; then
+    log "Frontend is installed, enabled, and running at http://localhost:${CAR_HMI_FRONTEND_PORT:-5173}"
+else
+    frontend_status=$?
+    warn "Frontend deployment failed (exit $frontend_status); keeping the backend running and continuing."
+fi
+
+if ! root systemctl is-active --quiet "$BACKEND_SERVICE"; then
+    root journalctl -u "$BACKEND_SERVICE" -n 30 --no-pager
+    exit 1
+fi
+root systemctl status "$BACKEND_SERVICE" --no-pager -l
+if root systemctl is-active --quiet "$FRONTEND_SERVICE"; then
+    log 'Frontend service is active.'
+else
+    warn 'Frontend service is not active; backend deployment completed successfully.'
+fi
+log 'Logs: sudo journalctl -u can-hmi -u can-hmi-frontend -f'

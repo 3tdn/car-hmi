@@ -5,7 +5,7 @@ services:
     plan: free
     region: singapore
     buildCommand: pip install .
-    startCommand: python -m src.core.runner --config config/system.json --log-level INFO
+    startCommand: python -m src.core.service --config config/system.json --log-level INFO
     healthCheckPath: /system/health
     autoDeployTrigger: commit
     envVars:

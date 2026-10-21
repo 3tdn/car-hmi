@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,6 +36,7 @@ from src.core.paths import (
 )
 
 logger = logging.getLogger(__name__)
+AUTO_REBOOT_DELAY_SEC = 30.0
 
 
 class ConfigUpdateError(ValueError):
@@ -114,6 +116,73 @@ class SystemConfigManager:
         self.backup_dir = Path(backup_dir).resolve()
         self.repair_on_read = repair_on_read
         self._lock = asyncio.Lock()
+        self._restart_task: asyncio.Task[None] | None = None
+        self._restart_deadline: float | None = None
+        self._restart_at: str | None = None
+
+    def restart_status(self) -> dict[str, Any]:
+        scheduled = self._restart_task is not None and not self._restart_task.done()
+        return {
+            "reboot_scheduled": scheduled,
+            "reboot_at": self._restart_at if scheduled else None,
+        }
+
+    def cancel_scheduled_restart(self) -> None:
+        task = self._restart_task
+        self._restart_task = None
+        self._restart_deadline = None
+        self._restart_at = None
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+
+    @staticmethod
+    def _ensure_not_restarting(runner: Any) -> None:
+        if getattr(runner, "reboot_requested", False) or getattr(runner, "_shutting_down", False):
+            raise ConfigUpdateError(
+                "system_config_restarting", "Backend is restarting; retry after it reconnects"
+            )
+
+    def _schedule_restart(self, runner: Any, changed: list[str], pending: list[str]) -> None:
+        if not pending:
+            self.cancel_scheduled_restart()
+            return
+        reboot_changes = [
+            path for path in changed
+            if (policy := match_policy(path)) is None or policy.reload_level != ReloadLevel.LIVE
+        ]
+        if not reboot_changes or not callable(getattr(runner, "request_reboot", None)):
+            return
+        self.cancel_scheduled_restart()
+        self._restart_deadline = asyncio.get_running_loop().time() + AUTO_REBOOT_DELAY_SEC
+        self._restart_at = datetime.fromtimestamp(
+            time.time() + AUTO_REBOOT_DELAY_SEC, UTC,
+        ).isoformat()
+        self._restart_task = asyncio.create_task(
+            self._restart_after_delay(runner), name="config-auto-restart",
+        )
+        logger.info("Backend restart scheduled in %.0fs for %s", AUTO_REBOOT_DELAY_SEC, pending)
+
+    async def _restart_after_delay(self, runner: Any) -> None:
+        task = asyncio.current_task()
+        try:
+            deadline = self._restart_deadline
+            if deadline is None:
+                return
+            await asyncio.sleep(max(0.0, deadline - asyncio.get_running_loop().time()))
+            # Serialize expiry with writes, runtime apply and rollback. A newer
+            # successful reboot update cancels this task even while it waits here.
+            async with self._lock:
+                if task is self._restart_task and getattr(runner, "pending_reboot_paths", None):
+                    await runner.request_reboot()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Automatic backend restart failed")
+        finally:
+            if task is self._restart_task:
+                self._restart_task = None
+                self._restart_deadline = None
+                self._restart_at = None
 
     def read(self) -> dict[str, Any]:
         raw = read_config(
@@ -128,6 +197,7 @@ class SystemConfigManager:
         raw = self._redact(self.read())
         return {
             "config": raw,
+            **self.restart_status(),
             **policy_payload(),
             "paths": {
                 "config": "config/system.json",
@@ -219,6 +289,7 @@ class SystemConfigManager:
                 "system_config_patch_empty", "Patch body must be a non-empty object"
             )
         async with self._lock:
+            self._ensure_not_restarting(runner)
             current = self.read()
             merged = merge_dict(deepcopy(current), update)
             validated = _validate(merged)
@@ -254,6 +325,7 @@ class SystemConfigManager:
 
     async def reset(self, runner: Any = None) -> dict[str, Any]:
         async with self._lock:
+            self._ensure_not_restarting(runner)
             current = self.read()
             template = read_config(self.template_path)
             validated = _validate(template)
@@ -271,6 +343,7 @@ class SystemConfigManager:
 
     async def restore(self, backup_id: str, runner: Any = None) -> dict[str, Any]:
         async with self._lock:
+            self._ensure_not_restarting(runner)
             current = self.read()
             restored = read_config(self._resolve_backup(backup_id))
             validated = _validate(restored)
@@ -335,6 +408,11 @@ class SystemConfigManager:
             raise ConfigUpdateError("system_config_runtime_apply_failed", detail) from apply_exc
 
     async def reload_runtime(self, runner: Any) -> dict[str, Any]:
+        async with self._lock:
+            self._ensure_not_restarting(runner)
+            return await self._reload_runtime(runner)
+
+    async def _reload_runtime(self, runner: Any) -> dict[str, Any]:
         raw = self.read()
         validated = _validate(raw)
         if runner is None:
@@ -382,4 +460,6 @@ class SystemConfigManager:
         }
         if backup is not None:
             response["backup"] = backup
+        self._schedule_restart(runner, changed, pending_reboot)
+        response.update(self.restart_status())
         return response

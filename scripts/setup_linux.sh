@@ -25,6 +25,7 @@
 #   - apt-get (on Debian/Ubuntu) — to install build dependencies automatically
 
 set -euo pipefail  # Exit on error, undefined variable, pipe failure
+source "$(dirname "${BASH_SOURCE[0]}")/linux_common.sh"
 
 # ── Python & pyenv configuration ─────────────────────────────────────────────
 PYTHON_VERSION="${PYTHON_VERSION:-3.12.3}"   # Python version to install
@@ -59,7 +60,7 @@ else
     SKIP_PYENV=0
 fi
 
-if [ ! -x "$PYENV_ROOT/bin/pyenv" ]; then
+if [ "$SKIP_PYENV" != "1" ] && [ ! -x "$PYENV_ROOT/bin/pyenv" ]; then
     log "pyenv not found — installing pyenv to $PYENV_ROOT"
     log "(This may take a few seconds — downloading and running pyenv installer)"
     
@@ -89,7 +90,7 @@ fi
 # ── Step 3: Install the requested Python version via pyenv (if missing) ─────
 # Check whether Python $PYTHON_VERSION is already installed (pyenv versions --bare)
 # If not, compile it from source (takes a few minutes) and install build dependencies if needed
-if ! pyenv versions --bare | grep -qx "$PYTHON_VERSION"; then
+if [ "$SKIP_PYENV" != "1" ] && ! pyenv versions --bare | grep -qx "$PYTHON_VERSION"; then
     log "Installing Python $PYTHON_VERSION via pyenv (compiling from source — this may take a few minutes)"
     
     # Install build dependencies on Debian/Ubuntu when apt-get and sudo are available
@@ -118,7 +119,9 @@ if ! pyenv versions --bare | grep -qx "$PYTHON_VERSION"; then
 fi
 
 # ── Full path to the Python executable ───────────────────────────────────────
-PYTHON="$PYENV_ROOT/versions/$PYTHON_VERSION/bin/python3"
+if [ "$SKIP_PYENV" != "1" ]; then
+    PYTHON="$PYENV_ROOT/versions/$PYTHON_VERSION/bin/python3"
+fi
 
 # ── Step 4: Install the audio demo runtime ───────────────────────────────────
 if ! command -v ffplay >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
@@ -207,6 +210,21 @@ log "Installing project dependencies (editable + dev packages)..."
 log "This may take a minute or two depending on network and disk speed..."
 "$VENV_PY" -m pip install -e ".[dev]"
 
+# Install the frontend runtime and its locked production dependencies.
+if ! command -v node >/dev/null || ! command -v npm >/dev/null; then
+    if command -v apt-get >/dev/null; then
+        if [[ "$EUID" -eq 0 ]]; then
+            apt-get update
+            apt-get install -y nodejs npm
+        else
+            sudo apt-get update
+            sudo apt-get install -y nodejs npm
+        fi
+    fi
+fi
+require_frontend_runtime
+npm --prefix "$FRONTEND_DIR" ci --omit=dev
+
 # ── Step 8: Completion ───────────────────────────────────────────────────────
 log ""
 log "════════════════════════════════════════════════════════════════"
@@ -215,8 +233,9 @@ log "═════════════════════════
 log ""
 log "Next steps:"
 log "  1. Run the app:  bash scripts/run_linux.sh"
-log "  2. Open browser: http://localhost:8000"
+log "  2. Open browser: http://localhost:${CAR_HMI_FRONTEND_PORT:-5173}"
 log "  3. View API:     http://localhost:8000/docs"
+log "  4. Enable boot startup: bash scripts/deploy_linux.sh"
 log ""
 log "Notes:"
 log "  • Virtual environment: $(pwd)/.venv"

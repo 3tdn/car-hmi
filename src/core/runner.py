@@ -142,8 +142,11 @@ class AppRunner:
     10. Watchdog (system health monitoring)
     """
 
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(self, config: AppConfig, *, config_path: str | Path | None = None) -> None:
+        from src.core.paths import DEFAULT_CONFIG_PATH
+
         self.config = config
+        self.config_path = Path(config_path or DEFAULT_CONFIG_PATH).resolve()
         self._boot_config = config.model_dump(mode="json")
         self.store = SignalStore()
         self._shutting_down = False
@@ -560,7 +563,11 @@ class AppRunner:
             can_readers=self._readers,
             api_key=api_cfg.api_key,
             cors_origins=api_cfg.cors_origins,
-            system_config_manager=SystemConfigManager(),
+            system_config_manager=SystemConfigManager(
+                self.config_path,
+                self.config_path.with_name(f"{self.config_path.stem}_bk{self.config_path.suffix}"),
+                self.config_path.parent / "backups",
+            ),
         )
         self._api_app = app
         # Expose runtime objects so config endpoints can attempt to apply changes
@@ -1087,6 +1094,10 @@ class AppRunner:
         if self._shutting_down:
             return
         self._shutting_down = True
+        if self._api_app is not None:
+            manager = getattr(self._api_app.state, "system_config_manager", None)
+            if manager is not None:
+                manager.cancel_scheduled_restart()
         logger.info("Shutting down (timeout=%ds)...", self.config.shutdown.timeout_sec)
 
         if self._audio_manager is not None:
@@ -1208,7 +1219,7 @@ def main() -> None:
     if args.log_level:
         cfg.logging.level = args.log_level
 
-    runner = AppRunner(cfg)
+    runner = AppRunner(cfg, config_path=args.config)
     try:
         asyncio.run(runner.start())
     except KeyboardInterrupt:

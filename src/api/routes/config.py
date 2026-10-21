@@ -123,6 +123,8 @@ def _raise_config_error(exc: ConfigUpdateError) -> None:
         code = status.HTTP_404_NOT_FOUND
     elif exc.code == "system_config_runtime_apply_failed":
         code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    elif exc.code == "system_config_restarting":
+        code = status.HTTP_409_CONFLICT
     else:
         code = status.HTTP_422_UNPROCESSABLE_CONTENT
     raise HTTPException(status_code=code, detail=_config_error(exc.code, str(exc))) from exc

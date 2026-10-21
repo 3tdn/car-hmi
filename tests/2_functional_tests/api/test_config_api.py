@@ -653,7 +653,7 @@ async def test_patch_validates_entire_candidate_before_write(config_client):
 
 
 @pytest.mark.asyncio
-async def test_patch_rejects_value_outside_policy_enum(config_client):
+async def test_patch_rejects_reserved_permission_before_policy_enum(config_client):
     client, manager, _ = config_client
     before = manager.config_path.read_bytes()
 
@@ -664,7 +664,7 @@ async def test_patch_rejects_value_outside_policy_enum(config_client):
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
+    assert response.json()["detail"]["code"] == "system_config_field_immutable"
     assert manager.config_path.read_bytes() == before
     assert manager.list_backups() == []
 
