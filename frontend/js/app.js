@@ -276,7 +276,7 @@ function normalizeWarnings(payload) {
 function ensureProfileSelector() {
   let wrap = document.getElementById('profile-selector-wrap');
   if (wrap) return wrap;
-  const target = document.querySelector('.hmi-header > div');
+  const target = document.querySelector('.workspace-controls');
   if (!target) return null;
   wrap = document.createElement('label');
   wrap.id = 'profile-selector-wrap';
@@ -826,6 +826,10 @@ function updateSignalRowAccess(row, signalName, writable = false) {
   if (btn) {
     btn.classList.toggle('write-btn--warn', writable && !access.canWrite);
     btn.title = access.reason || btn.dataset.defaultTitle || 'Write signal';
+    const busy = ['sending', 'queued'].includes(signalWriteRequests.get(signalName)?.state);
+    btn.disabled = !access.canWrite || busy;
+    const input = row.querySelector('.write-input');
+    if (input) input.disabled = !access.canWrite || busy;
   }
 }
 
@@ -864,6 +868,80 @@ const UI_UPDATES_PER_FRAME = 120;
 // fast-changing signals feature removed; no container present
 const fastSignalsContainer = null;
 const signalTableBody = document.getElementById("signal-table-body");
+const signalSearch = document.getElementById('signal-search');
+const signalAccessFilter = document.getElementById('signal-access-filter');
+let signalFilterFrame = null;
+let signalCatalogStatus = 'loading';
+let lastValidSignalPattern = null;
+let lastValidSignalQuery = '';
+
+function applySignalFilters() {
+  signalFilterFrame = null;
+  const query = (signalSearch?.value || '').trim();
+  let pattern = null;
+  let invalidPattern = false;
+  try {
+    if (query) pattern = new RegExp(query, 'i');
+    lastValidSignalPattern = pattern;
+    lastValidSignalQuery = query;
+  } catch {
+    invalidPattern = true;
+    pattern = lastValidSignalPattern;
+  }
+  signalSearch?.setAttribute('aria-invalid', String(invalidPattern));
+  const searchError = document.getElementById('signal-search-error');
+  if (searchError) {
+    searchError.hidden = !invalidPattern;
+    searchError.textContent = invalidPattern ? `Invalid regex. Keeping the last valid search${lastValidSignalQuery ? ': ' + lastValidSignalQuery : ' (all signals)'}. Check brackets, parentheses and escapes.` : '';
+  }
+  const type = signalAccessFilter?.value || 'all';
+  const rows = Array.from(signalTableBody?.children || []);
+  let visible = 0;
+  rows.forEach((row) => {
+    // Preserve the last valid expression while the user edits an incomplete regex.
+    const matchesName = !pattern || [row.dataset.signalName, row.dataset.stdName, row.dataset.unit]
+      .some((field) => field && pattern.test(field));
+    const matchesType = type === 'all' || (row.dataset.writable === 'true') === (type === 'writable');
+    row.hidden = !matchesName || !matchesType;
+    if (!row.hidden) visible += 1;
+  });
+  const count = document.getElementById('signal-count');
+  if (count) {
+    count.textContent = signalCatalogStatus === 'loading'
+      ? 'Loading signal catalog…'
+      : `${visible} of ${rows.length} signals`;
+  }
+  const empty = document.getElementById('signal-empty');
+  if (empty) {
+    empty.hidden = visible > 0 || signalCatalogStatus === 'loading';
+    empty.textContent = signalCatalogStatus === 'error'
+      ? 'Signal catalog unavailable. Check the connection and reload the page.'
+      : rows.length
+        ? 'No signals match your filters. Try another name or clear the filters.'
+        : 'No signals available yet. Waiting for the signal catalog.';
+  }
+}
+
+function scheduleSignalFilter() {
+  if (signalFilterFrame === null) signalFilterFrame = requestAnimationFrame(applySignalFilters);
+}
+
+signalSearch?.addEventListener('input', scheduleSignalFilter);
+signalAccessFilter?.addEventListener('change', scheduleSignalFilter);
+document.getElementById('signal-filter-reset')?.addEventListener('click', () => {
+  signalSearch.value = '';
+  signalAccessFilter.value = 'all';
+  scheduleSignalFilter();
+  signalSearch.focus();
+});
+document.querySelectorAll('.hmi-nav .nav-btn').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.hmi-nav .nav-btn').forEach((item) => {
+      if (item === button) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+  });
+});
 
 function sanitizeId(name) {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -874,10 +952,12 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   row.id = `signal-row-${sanitizeId(signalName)}`;
   row.dataset.signalName = signalName;
   row.dataset.writable = writable ? 'true' : 'false';
+  row.dataset.stdName = getSignalMetadata(signalName)?.std_name || '';
+  row.dataset.unit = unit || '';
 
   let writeCell;
   if (!writable) {
-    writeCell = `<td class="signal-write signal-write--ro">—</td>`;
+    writeCell = `<td class="signal-write signal-write--ro">Read only</td>`;
   } else if (states && states.length > 0) {
     // Enum signal: suggest named states via a datalist, but still allow any raw value to be typed/written
     const listId = `states-${sanitizeId(signalName)}`;
@@ -906,17 +986,26 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
     : signalName;
 
   row.innerHTML = `
-    <td class="signal-name">${nameDisplay}<span class="signal-access-indicator" aria-hidden="true"></span></td>
-    <td class="signal-value">— ${unit || ""}</td>
-    <td class="signal-history"><canvas class="sparkline" width="140" height="28"></canvas></td>
+    <td class="signal-name"><button class="signal-name-button" type="button" aria-haspopup="dialog">${nameDisplay}</button><span class="signal-access-indicator" aria-hidden="true"></span></td>
+    <td class="signal-value"><span class="signal-number">—</span><span class="signal-state" hidden></span><span class="signal-sample-age">No sample yet</span></td>
+    <td class="signal-history"><canvas class="sparkline" width="140" height="28"></canvas><span class="trend-caption"></span></td>
     ${writeCell}
   `;
+  row.querySelector('.signal-name-button').addEventListener('click', () => openSignalDetails(signalName));
   if (writable) {
+    const feedback = document.createElement('span');
+    feedback.className = 'signal-write-status';
+    feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
+    row.querySelector('.signal-write').appendChild(feedback);
     const btn = row.querySelector(".write-btn");
     btn.dataset.defaultTitle = 'Write signal';
     btn.addEventListener("click", () => handleWriteSignal(signalName, row));
     const inp = row.querySelector(".write-input");
     if (inp) {
+      const meta = signalMetadata(signalName);
+      if (Number.isFinite(meta.min_value)) inp.min = meta.min_value;
+      if (Number.isFinite(meta.max_value)) inp.max = meta.max_value;
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Enter") handleWriteSignal(signalName, row);
       });
@@ -924,37 +1013,44 @@ function createSignalRow(signalName, unit, writable = false, states = null) {
   }
   signalTableBody.appendChild(row);
   updateSignalRowAccess(row, signalName, writable);
+  scheduleSignalFilter();
   return row;
 }
 
 async function handleWriteSignal(signalName, row) {
   const inp = row.querySelector(".write-input");
-  const btn = row.querySelector(".write-btn");
   const raw = inp ? inp.value.trim() : "";
-  if (raw === "") return;
-  const value = parseFloat(raw);
-  if (isNaN(value)) {
+  if (['sending', 'queued'].includes(signalWriteRequests.get(signalName)?.state)) return;
+  const access = getSignalAccessState(signalName, signalMetadata(signalName).std_name, true);
+  if (!access.canWrite) {
+    setSignalWriteFeedback(signalName, 'error', access.reason || 'Write access restricted');
+    return;
+  }
+  const value = Number(raw);
+  if (raw === '' || !Number.isFinite(value) || !inp.checkValidity()) {
     if (inp) inp.classList.add("write-input--error");
+    setSignalWriteFeedback(signalName, 'error', 'Enter a valid numeric value within the signal range.');
     return;
   }
   if (inp) inp.classList.remove("write-input--error");
-  btn.disabled = true;
-  btn.textContent = "…";
+  clearTimeout(signalWriteRequests.get(signalName)?.timer);
+  const request = { value, startedAt: Date.now() / 1000, state: 'sending', observed: false };
+  signalWriteRequests.set(signalName, request);
+  setSignalWriteFeedback(signalName, 'sending', 'Sending request…');
   try {
     await writeSignal(signalName, value);
-    btn.textContent = "✓";
-    btn.classList.add("write-btn--ok");
+    setSignalWriteFeedback(signalName, 'queued', 'Request accepted. Waiting for a matching signal update…');
+    if (request.observed) {
+      setSignalWriteFeedback(signalName, 'observed', 'Matching value received. Device acknowledgement is unavailable.');
+    } else {
+      request.timer = setTimeout(() => {
+        setSignalWriteFeedback(signalName, 'timeout', 'No matching update after 10s. The request was accepted; device status is unconfirmed.');
+      }, 10000);
+    }
   } catch (e) {
     console.error("writeSignal failed:", e);
-    btn.textContent = "✗";
-    btn.classList.add("write-btn--err");
+    setSignalWriteFeedback(signalName, 'error', signalWriteError(e));
     showPermissionWarnings(normalizeWarnings(e.payload || e), 'write');
-  } finally {
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = "Set";
-      btn.classList.remove("write-btn--ok", "write-btn--err");
-    }, 1500);
   }
 }
 
@@ -971,13 +1067,21 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
 
   const nowTs = timestamp;
   const prevTs = lastUpdateTs.get(signalName);
+  if (prevTs && nowTs < prevTs) return;
   const delta = prevTs ? nowTs - prevTs : Infinity;
   lastUpdateTs.set(signalName, nowTs);
 
   const history = signalHistory.get(signalName) || [];
-  history.push(value);
-  if (history.length > SIGNAL_HISTORY_LEN) history.shift();
+  const times = signalHistoryTimes.get(signalName) || [];
+  if (!prevTs || nowTs > prevTs) {
+    history.push(value);
+    times.push(nowTs);
+    if (history.length > SIGNAL_HISTORY_LEN) { history.shift(); times.shift(); }
+  }
   signalHistory.set(signalName, history);
+  signalHistoryTimes.set(signalName, times);
+  signalLatestValues.set(signalName, value);
+  observeSignalWrite(signalName, value, nowTs);
 
   if (delta < FAST_SIGNAL_THRESHOLD_S) {
     markFastSignal(signalName, unit);
@@ -994,7 +1098,7 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
   if (valueEl) {
     const meta = getSignalMetadata(signalName) || signalMetadataCache.get(signalName) || {};
     const access = getSignalAccessState(signalName, meta.std_name || null, writable);
-    valueEl.textContent = access.canRead ? `${value.toFixed(2)} ${unit || ""}` : `⚠ restricted ${unit || ""}`;
+    renderSignalValue(row, signalName, value, access.canRead);
   }
   const canvas = row.querySelector("canvas.sparkline");
   if (canvas) {
@@ -1002,7 +1106,10 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
     const lastMs = lastSparkRenderMs.get(signalName) || 0;
     // Throttle sparkline redraws; value cell still updates every flush.
     if ((nowMs - lastMs) >= SPARKLINE_MIN_RENDER_INTERVAL_MS) {
-      drawSparkline(canvas, history);
+      const info = signalChartInfo(signalName);
+      drawSparkline(canvas, history, info);
+      canvas.title = info.description;
+      row.querySelector('.trend-caption').textContent = info.caption;
       lastSparkRenderMs.set(signalName, nowMs);
     }
   }
@@ -1086,6 +1193,7 @@ async function loadSnapshot() {
         updateSignalRowAccess(row, meta.signal_name, !!meta.writable);
       }
     });
+    signalCatalogStatus = 'ready';
     console.info(`Loaded metadata for ${signals_info.length} signals; std_name registry populated`);
   } catch (e) {
     console.warn("Available signals fetch failed, falling back to /signals:", e);
@@ -1099,10 +1207,13 @@ async function loadSnapshot() {
         updateWidget(signal_name, value);
         updateSignalRow(signal_name, value, timestamp, unit || "");
       });
+      signalCatalogStatus = 'ready';
     } catch (e2) {
+      signalCatalogStatus = 'error';
       console.warn("Snapshot fetch also failed:", e2);
     }
   }
+  scheduleSignalFilter();
 }
 
 // ── WebSocket handler (new subscribe protocol + legacy fallback) ───────────
@@ -1164,7 +1275,7 @@ function connect() {
         const channels = getProfileSignals().some((item) => item.name === '*')
           ? ["*"]
           : USER_SIGNAL_WHITELIST.slice();
-        subConn.subscribe(channels, 'continuous');
+        subConn.subscribe([...channels, 'metrics'], 'continuous');
       }
         // If metrics polling was started earlier, stop it since subscribe will push metrics.
         try {
@@ -1228,8 +1339,8 @@ function handleMessage(msg) {
   if (Array.isArray(msg.signals) && !msg.type) {
     const parsedTs = msg.timestamp ? (new Date(msg.timestamp).getTime() / 1000) : NaN;
     const ts = Number.isFinite(parsedTs) ? parsedTs : Date.now() / 1000;
-    msg.signals.forEach(({ name, value, std_name }) => {
-      enqueueSignalUpdate(name, value, ts, std_name);
+    msg.signals.forEach(({ name, value, std_name, timestamp }) => {
+      enqueueSignalUpdate(name, value, Number.isFinite(timestamp) ? timestamp : ts, std_name);
     });
     return;
   }
@@ -1265,6 +1376,7 @@ function handleMessage(msg) {
   // Keep REST fallback in case WS doesn't cover metrics yet.
   startMetricsPolling();
   initCameraStream();
+  initSignalTools();
 })();
 
 window.addEventListener('beforeunload', () => {
@@ -1368,11 +1480,32 @@ function setBarFill(barId, percent) {
   else if (percent > 70) el.classList.add("carpc-bar__fill--warn");
 }
 
+function renderMetricSparkline(id, key, value) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const values = pushMetricHistory(key, value);
+  const times = metricHistoryTimes.get(key) || [];
+  times.push(lastMetricsSampleAt);
+  if (times.length > METRICS_HISTORY_LEN) times.shift();
+  metricHistoryTimes.set(key, times);
+  const fixed = ['cpu_percent', 'ram_percent', 'disk_percent', 'queue_usage_percent'].includes(key);
+  const min = fixed ? 0 : Math.min(...values);
+  const max = fixed ? 100 : Math.max(...values);
+  drawSparkline(canvas, values, { min, max, timestamps: times });
+  let caption = canvas.nextElementSibling;
+  if (!caption?.classList.contains('metric-trend-caption')) {
+    caption = document.createElement('span'); caption.className = 'metric-trend-caption'; canvas.after(caption);
+  }
+  caption.textContent = `${fixed ? `${min}–${max}%` : `${formatBytes(min)}–${formatBytes(max)}/s`} · ${Math.max(0, times.at(-1) - times[0]).toFixed(0)}s`;
+  canvas.title = `${fixed ? 'Fixed' : 'Observed'} range. ${values.length} samples; horizontal axis shows elapsed time.`;
+}
+
 function renderMetrics(d) {
+  lastMetricsSampleAt = Number(d.timestamp) || Date.now() / 1000;
   // CPU (system)
   const cpuEl = document.getElementById("carpc-cpu-percent");
   if (cpuEl) cpuEl.textContent = d.cpu_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-cpu-spark'), pushMetricHistory('cpu_percent', d.cpu_percent)); } catch(e){}
+  renderMetricSparkline('carpc-cpu-spark', 'cpu_percent', d.cpu_percent);
   setBarFill("carpc-cpu-bar", d.cpu_percent);
   const cpuDetail = document.getElementById("carpc-cpu-detail");
   if (cpuDetail) cpuDetail.textContent =
@@ -1381,7 +1514,7 @@ function renderMetrics(d) {
   // Process CPU
   const procCpu = document.getElementById("carpc-proc-cpu");
   if (procCpu) procCpu.textContent = d.process_cpu_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-proc-cpu-spark'), pushMetricHistory('process_cpu_percent', d.process_cpu_percent)); } catch(e){}
+  renderMetricSparkline('carpc-proc-cpu-spark', 'process_cpu_percent', d.process_cpu_percent);
   setBarFill("carpc-proc-cpu-bar", Math.min(d.process_cpu_percent, 100));
   const procDetail = document.getElementById("carpc-proc-detail");
   if (procDetail) procDetail.textContent =
@@ -1390,7 +1523,7 @@ function renderMetrics(d) {
   // RAM
   const ramEl = document.getElementById("carpc-ram-percent");
   if (ramEl) ramEl.textContent = d.ram_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-ram-spark'), pushMetricHistory('ram_percent', d.ram_percent)); } catch(e){}
+  renderMetricSparkline('carpc-ram-spark', 'ram_percent', d.ram_percent);
   setBarFill("carpc-ram-bar", d.ram_percent);
   const ramDetail = document.getElementById("carpc-ram-detail");
   if (ramDetail) ramDetail.textContent =
@@ -1399,7 +1532,7 @@ function renderMetrics(d) {
   // Process Memory
   const procMem = document.getElementById("carpc-proc-mem");
   if (procMem) procMem.textContent = d.process_memory_rss_mb.toFixed(1) + " MB";
-  try { drawSparkline(document.getElementById('carpc-proc-mem-spark'), pushMetricHistory('process_memory_rss_mb', d.process_memory_rss_mb)); } catch(e){}
+  renderMetricSparkline('carpc-proc-mem-spark', 'process_memory_rss_mb', d.process_memory_rss_mb);
   setBarFill("carpc-proc-mem-bar", d.process_memory_percent);
   const procMemDetail = document.getElementById("carpc-proc-mem-detail");
   if (procMemDetail) procMemDetail.textContent =
@@ -1408,7 +1541,7 @@ function renderMetrics(d) {
   // Disk
   const diskEl = document.getElementById("carpc-disk-percent");
   if (diskEl) diskEl.textContent = d.disk_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-disk-spark'), pushMetricHistory('disk_percent', d.disk_percent)); } catch(e){}
+  renderMetricSparkline('carpc-disk-spark', 'disk_percent', d.disk_percent);
   setBarFill("carpc-disk-bar", d.disk_percent);
   const diskDetail = document.getElementById("carpc-disk-detail");
   if (diskDetail) diskDetail.textContent =
@@ -1417,7 +1550,7 @@ function renderMetrics(d) {
   // Swap
   const swapEl = document.getElementById("carpc-swap-percent");
   if (swapEl) swapEl.textContent = d.swap_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-swap-spark'), pushMetricHistory('swap_percent', d.swap_percent)); } catch(e){}
+  renderMetricSparkline('carpc-swap-spark', 'swap_percent', d.swap_percent);
   setBarFill("carpc-swap-bar", d.swap_percent);
   const swapDetail = document.getElementById("carpc-swap-detail");
   if (swapDetail) swapDetail.textContent =
@@ -1426,7 +1559,7 @@ function renderMetrics(d) {
   // Queue
   const queueEl = document.getElementById("carpc-queue-percent");
   if (queueEl) queueEl.textContent = d.queue_usage_percent.toFixed(1) + "%";
-  try { drawSparkline(document.getElementById('carpc-queue-spark'), pushMetricHistory('queue_usage_percent', d.queue_usage_percent)); } catch(e){}
+  renderMetricSparkline('carpc-queue-spark', 'queue_usage_percent', d.queue_usage_percent);
   setBarFill("carpc-queue-bar", d.queue_usage_percent);
   const queueDetail = document.getElementById("carpc-queue-detail");
   if (queueDetail) queueDetail.textContent =
@@ -1435,7 +1568,7 @@ function renderMetrics(d) {
   // Heap / GC
   const heapEl = document.getElementById("carpc-heap");
   if (heapEl) heapEl.textContent = d.heap_allocated_mb.toFixed(1) + " MB";
-  try { drawSparkline(document.getElementById('carpc-heap-spark'), pushMetricHistory('heap_allocated_mb', d.heap_allocated_mb)); } catch(e){}
+  renderMetricSparkline('carpc-heap-spark', 'heap_allocated_mb', d.heap_allocated_mb);
   // Use process memory percent for bar approximation
   setBarFill("carpc-heap-bar", d.process_memory_percent);
   const gcDetail = document.getElementById("carpc-gc-detail");
@@ -1443,23 +1576,28 @@ function renderMetrics(d) {
 
   // Network I/O (calculate rate)
   const netEl = document.getElementById("carpc-net");
+  const netRxEl = document.getElementById("carpc-net-rx");
   const netDetail = document.getElementById("carpc-net-detail");
   const now = d.timestamp;
+  let currentTxRate = 0;
   if (_prevNetTs > 0) {
     const dt = now - _prevNetTs;
     if (dt > 0) {
       const txRate = (d.net_bytes_sent - _prevNetSent) / dt;
+      currentTxRate = Math.max(0, txRate);
       const rxRate = (d.net_bytes_recv - _prevNetRecv) / dt;
-      if (netEl) netEl.textContent = `TX ${formatBytes(Math.max(0, txRate))}/s`;
+      if (netEl) netEl.textContent = `${formatBytes(Math.max(0, txRate))}/s`;
+      if (netRxEl) netRxEl.textContent = `${formatBytes(Math.max(0, rxRate))}/s`;
       if (netDetail) netDetail.textContent =
         `RX ${formatBytes(Math.max(0, rxRate))}/s  Total: TX ${formatBytes(d.net_bytes_sent)} / RX ${formatBytes(d.net_bytes_recv)}`;
     }
   } else {
-    if (netEl) netEl.textContent = `TX ${formatBytes(d.net_bytes_sent)}`;
+    if (netEl) netEl.textContent = formatBytes(d.net_bytes_sent);
+    if (netRxEl) netRxEl.textContent = formatBytes(d.net_bytes_recv);
     if (netDetail) netDetail.textContent =
       `RX ${formatBytes(d.net_bytes_recv)}  (cumulative since boot)`;
   }
-  try { drawSparkline(document.getElementById('carpc-net-spark'), pushMetricHistory('net_tx_rate', _prevNetSent>0 ? (d.net_bytes_sent - _prevNetSent) : 0)); } catch(e){}
+  renderMetricSparkline('carpc-net-spark', 'net_tx_rate', currentTxRate);
   _prevNetSent = d.net_bytes_sent;
   _prevNetRecv = d.net_bytes_recv;
   _prevNetTs = now;
@@ -1467,7 +1605,7 @@ function renderMetrics(d) {
   // Async Tasks
   const taskEl = document.getElementById("carpc-tasks");
   if (taskEl) taskEl.textContent = d.asyncio_tasks;
-  try { drawSparkline(document.getElementById('carpc-tasks-spark'), pushMetricHistory('asyncio_tasks', d.asyncio_tasks)); } catch(e){}
+  renderMetricSparkline('carpc-tasks-spark', 'asyncio_tasks', d.asyncio_tasks);
   const taskDetail = document.getElementById("carpc-tasks-detail");
   if (taskDetail) taskDetail.textContent = "running asyncio tasks";
 
@@ -1482,6 +1620,12 @@ function renderMetrics(d) {
   if (platEl) platEl.textContent = d.platform || "—";
   const platDetail = document.getElementById("carpc-platform-detail");
   if (platDetail) platDetail.textContent = `Python ${d.python_version}`;
+
+  document.querySelectorAll('.carpc-stat[data-detail-id]').forEach((stat) => {
+    const detail = document.getElementById(stat.dataset.detailId);
+    const value = stat.querySelector('.carpc-card__value');
+    stat.title = `${value?.textContent || ''}${detail?.textContent ? ' · ' + detail.textContent : ''}`;
+  });
 }
 
 function startMetricsPolling() {

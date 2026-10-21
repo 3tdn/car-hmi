@@ -66,6 +66,30 @@ startup and kept in memory. Changing a `can.*.can_db_file` path or replacing a D
 process restart; startup then replaces the complete metadata catalog, including removing signals
 that no longer exist.
 
+## Audio demo settings
+
+The SEAL demo's array **A** is `audio.files`: entries contain a file `name` beneath
+`audio.media_dir` and a unique `audio_number` (`1..255`). Panther's `HMI_Soundfile` selects
+that number, independently of the entry's array position. Submit the complete intended
+playlist when patching `audio.files`, because arrays replace completely.
+
+The feedback interval **T** is `audio.position_update_interval_ms` (`50..60000` ms).
+CAR-PC publishes `HMI_AudioTimesamp` and `HMI_ActiveSoundfile` together every T ms while
+playing. A saved T change applies to the next playback; the current track keeps its interval.
+
+**Type 1** is `audio.track_queue_enable: false`: a new valid request stops the current
+track and starts the requested track from position `0`. **Type 2** is `true`: requests
+wait in FIFO order until the current track finishes. `HMI_Soundfile` still updates
+immediately; `HMI_ActiveSoundfile` changes when the next sound actually starts.
+Playlist and queue-setting changes apply to new requests without interrupting the current
+track. Existing queued entries use the updated playlist, and removed numbers are dropped.
+
+For the manual demo test, use `can[0].interface: "virtual"`, `simulator.enabled: false`,
+and `reader.stale_threshold_sec: 0`, then inject changed `HMI_Soundfile` requests as
+Panther frames. See the [audio demo guide](audio_demo.md) for the complete configuration
+and a sender that shares the virtual bus process. Changing the interface or simulator
+setting requires a service restart.
+
 ## OMS occupant classification
 
 `oms_config` selects the source of the frontend-facing
@@ -115,6 +139,7 @@ is `false`; the writer no longer copies omitted fields from `OMS_State_*` signal
 | API server | `api.host`, `api.port`, `api.cors_origins` |
 | Profiles | `profiles.default_profile_permission`, `profiles.session_online_ttl_seconds`, `profiles.session_history_limit`, `profiles.session_cleanup_interval_sec` |
 | Camera | All `camera.*` fields, including upstream retry and FPS logging intervals |
+| Audio | `audio.enabled`, `audio.media_dir` |
 | Status monitor | `status_monitor.enabled`, `status_monitor.interval_sec`, `status_monitor.ping_timeout_sec`, `status_monitor.targets.*` |
 | Supervisor/log | `supervisor.watchdog_interval_sec`, `logging.max_size_mb`, `logging.backup_count` |
 

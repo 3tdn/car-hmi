@@ -172,7 +172,8 @@ def test_ws_subscribe_signal_payload_format(monkeypatch, tmp_path):
             assert isinstance(frame.get("signals"), list)
             assert len(frame["signals"]) == 1
             sig = frame["signals"][0]
-            assert set(sig.keys()) == {"name", "std_name", "value"}
+            assert set(sig.keys()) == {"name", "std_name", "value", "timestamp"}
             assert sig["name"] == "VehicleSpeed"
             assert sig["std_name"] == "VehicleSpeed"
             assert sig["value"] == 23.0
+            assert sig["timestamp"] == 1717243200.123

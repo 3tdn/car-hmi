@@ -1,43 +1,59 @@
-@startuml
+@startuml SDD_sequence_boot_shutdown
 !theme plain
-title System Graceful Shutdown Sequence
+title Graceful Shutdown — Audio Cleanup Before CAN Closure
+hide footbox
 
-participant "CLI / Main" as cli
-participant "Runner\n(runner.py)" as runner
-participant "Monitoring\n(watchdog)" as mon
-participant "FastAPI\n(app.py)" as api
-participant "Signal Pipeline\n(pipeline.py)" as pipe
-participant "CAN Reader\n(reader.py)" as reader
-participant "CAN Simulator\n(simulator.py)" as sim
+participant "Signal / CLI" as cli
+participant "AppRunner" as runner
+participant "AudioManager" as audio
+participant "SignalStore" as store
+participant "AudioBackend" as backend
+participant "CAN Readers / Writers" as can
+participant "Optional Simulator" as sim
+participant "FastAPI / WebSocket" as api
+participant "SignalPipeline" as pipeline
 
-cli -> runner : SIGTERM / SIGINT received
-activate runner #salmon
-
-runner -> mon : stop watchdog
-runner -> api : shutdown uvicorn\n(close WS connections)
-api -> api : send Close(1001) to all WS clients
-api -> api : await pending responses
-api --> runner : API stopped
-
-runner -> pipe : stop pipeline
-pipe --> runner : Pipeline stopped
-
-loop for each CAN channel
-    runner -> reader : stop reader #i
-    reader -> reader : close CAN bus #i
-    reader --> runner : Reader #i stopped
+cli -> runner : shutdown() after SIGTERM / SIGINT
+runner -> runner : Return if already shutting down; otherwise set flag
+runner -> audio : await close()
+audio -> store : unsubscribe(_on_signal_update)
+audio -> audio : Acquire lock; increment generation; clear queue\ncancel position/completion tasks
+audio -> backend : await stop()
+opt Status was PLAYING
+    audio -> audio : Set IDLE, position=0 internally
+    audio -> store : _publish_locked(): timestamp=-1, active=0
+    loop Two idle response attempts
+        audio -> can : send_signals_batch_once({HMI_AudioTimesamp:-1,\nHMI_ActiveSoundfile:0})
+    end
 end
+audio -> audio : Cancel and await pending command tasks
+audio --> runner : Audio cleanup finished
 
-opt simulator running
-    runner -> sim : stop simulator
-    sim --> runner : Simulator stopped
+loop Every reader
+    runner -> can : reader.stop()
 end
-
+opt Simulator exists
+    runner -> sim : stop()
+end
+runner -> api : Close camera proxy and all WebSocket clients
+runner -> pipeline : stop()
+runner -> api : Mark app shutting_down; server.handle_exit(SIGTERM)
+runner -> api : Await API task up to shutdown.timeout_sec
+opt Graceful API drain times out
+    runner -> api : Set force_exit; wait up to one additional second
+end
+runner -> runner : Cancel and await remaining owned runtime tasks
+loop Open channel buses
+    runner -> can : bus.shutdown()
+end
+opt Simulator bus exists
+    runner -> sim : simulator_bus.shutdown()
+end
+runner -> runner : Close reserved API socket
 runner --> cli : Shutdown complete
-deactivate runner
 
-note over cli, sim
-  VERIFIED AGAINST CURRENT SOURCE CODE — Graceful shutdown sequence complete and accurate.
+note over audio, can
+  Final idle feedback is attempted before stopping readers and closing shared buses.
+  The backend terminates the player, with a kill fallback if termination times out.
 end note
-
 @enduml

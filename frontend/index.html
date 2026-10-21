@@ -3,29 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CAN-HMI Dashboard</title>
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <meta name="theme-color" content="#0070b4" />
+  <meta name="description" content="CAN-HMI vehicle intelligence workspace. Explore live CAN signals, system performance and adaptive restraint analysis." />
+  <title>CAN-HMI | Vehicle Intelligence</title>
+  <link rel="stylesheet" href="css/style.css?v=5" />
 </head>
 <body>
+  <a class="skip-link" href="#dashboard-heading">Skip to workspace</a>
   <header class="hmi-header">
-    <h1>CAN-HMI Live Dashboard</h1>
-    <div style="display:flex; gap:8px; margin-left:12px;">
-      <button id="btn-profiles" class="btn">Profiles</button>
-      <button id="btn-settings" class="btn">Settings</button>
-      <label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
-        <span style="font-size:0.9rem;color:var(--muted);">Mode</span>
-        <select id="mode-select" aria-label="Frontend mode">
-          <option value="dev">Dev (All signals)</option>
-          <option value="user">User (Restricted)</option>
-        </select>
-      </label>
+    <div class="masthead">
+      <a class="hmi-brand" href="/" aria-label="CAN-HMI home">
+        <span class="brand-symbol" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" stroke="currentColor" stroke-width="2"/><path d="M9 25h9l4-10 5 19 4-9h8" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">CAN<span>HMI</span><small>Vehicle intelligence</small></span>
+      </a>
+      <span class="masthead-description">Connected systems. Clear insights.</span>
+      <div class="header-actions">
+        <button id="btn-profiles" class="btn btn--utility" type="button">Profiles</button>
+        <button id="btn-settings" class="btn btn--utility" type="button">Settings</button>
+        <span id="connection-badge" class="badge badge--disconnected" role="status">Disconnected</span>
+      </div>
     </div>
-    <nav class="hmi-nav">
-      <button id="tab-dashboard" class="nav-btn active">Dashboard</button>
-      <button id="tab-adaptive" class="nav-btn">Adaptive Restraint</button>
-      <button id="tab-devmode" class="nav-btn" style="display:none;">Dev Mode</button>
-    </nav>
-    <span id="connection-badge" class="badge badge--disconnected" style="margin-left:auto;">Disconnected</span>
+    <div class="navigation-bar">
+      <nav class="hmi-nav" aria-label="Workspace views">
+        <button id="tab-dashboard" class="nav-btn active" type="button" aria-controls="view-dashboard" aria-current="page">Dashboard</button>
+        <button id="tab-adaptive" class="nav-btn" type="button" aria-controls="view-adaptive">Adaptive Restraint</button>
+        <button id="tab-devmode" class="nav-btn" type="button" aria-controls="view-devmode" style="display:none;">Dev Mode</button>
+      </nav>
+      <div class="workspace-controls">
+        <label class="mode-selector" for="mode-select">
+          <span>Mode</span>
+          <select id="mode-select">
+            <option value="dev">Dev · All signals</option>
+            <option value="user">User · Restricted</option>
+          </select>
+        </label>
+      </div>
+    </div>
   </header>
 
   <main class="hmi-grid" id="view-dashboard">
@@ -33,137 +48,165 @@
 
     <!-- CarPC System Monitor -->
     <section class="widget-group carpc-monitor" id="group-carpc-monitor">
-      <h2>CarPC System Monitor</h2>
-      <div class="carpc-grid">
-        <!-- CPU -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F4BB;</span>
-          <span class="carpc-card__label">CPU (system)</span>
-          <span class="carpc-card__value" id="carpc-cpu-percent">—</span>
-          <canvas class="carpc-sparkline" id="carpc-cpu-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-cpu-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-cpu-detail"></span>
+      <div class="section-heading">
+        <div><p class="eyebrow">01 / SYSTEM OVERVIEW</p><h2 id="dashboard-heading" tabindex="-1">CarPC performance</h2></div>
+        <span class="section-caption" id="metrics-freshness">Waiting for metrics…</span>
+      </div>
+      <div class="carpc-grid" tabindex="0" aria-label="System overview; scroll horizontally on smaller screens">
+        <div class="carpc-card carpc-card--cpu">
+          <h3 class="carpc-card__label">CPU</h3>
+          <div class="carpc-stat" data-detail-id="carpc-cpu-detail" aria-describedby="carpc-cpu-detail">
+            <span>System</span><span class="carpc-card__value" id="carpc-cpu-percent">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-proc-detail" aria-describedby="carpc-proc-detail">
+            <span>Process</span><span class="carpc-card__value" id="carpc-proc-cpu">—</span>
+          </div>
+          <canvas class="carpc-sparkline" id="carpc-cpu-spark" width="180" height="20" aria-hidden="true"></canvas>
+          <span id="carpc-cpu-detail" hidden></span>
+          <span id="carpc-proc-detail" hidden></span>
         </div>
-        <!-- Process CPU -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x2699;</span>
-          <span class="carpc-card__label">CPU (process)</span>
-          <span class="carpc-card__value" id="carpc-proc-cpu">—</span>
-          <canvas class="carpc-sparkline" id="carpc-proc-cpu-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-proc-cpu-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-proc-detail"></span>
+        <div class="carpc-card carpc-card--memory">
+          <h3 class="carpc-card__label">Memory</h3>
+          <div class="carpc-stat" data-detail-id="carpc-ram-detail" aria-describedby="carpc-ram-detail">
+            <span>RAM</span><span class="carpc-card__value" id="carpc-ram-percent">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-proc-mem-detail" aria-describedby="carpc-proc-mem-detail">
+            <span>Process</span><span class="carpc-card__value" id="carpc-proc-mem">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-gc-detail" aria-describedby="carpc-gc-detail">
+            <span>Heap / GC</span><span class="carpc-card__value" id="carpc-heap">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-swap-detail" aria-describedby="carpc-swap-detail">
+            <span>Swap</span><span class="carpc-card__value" id="carpc-swap-percent">—</span>
+          </div>
+          <canvas class="carpc-sparkline" id="carpc-ram-spark" width="180" height="20" aria-hidden="true"></canvas>
+          <span id="carpc-ram-detail" hidden></span>
+          <span id="carpc-proc-mem-detail" hidden></span>
+          <span id="carpc-gc-detail" hidden></span>
+          <span id="carpc-swap-detail" hidden></span>
         </div>
-        <!-- RAM -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F4BE;</span>
-          <span class="carpc-card__label">RAM (system)</span>
-          <span class="carpc-card__value" id="carpc-ram-percent">—</span>
-          <canvas class="carpc-sparkline" id="carpc-ram-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-ram-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-ram-detail"></span>
-        </div>
-        <!-- Process Memory -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F9E0;</span>
-          <span class="carpc-card__label">Memory (process)</span>
-          <span class="carpc-card__value" id="carpc-proc-mem">—</span>
-          <canvas class="carpc-sparkline" id="carpc-proc-mem-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-proc-mem-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-proc-mem-detail"></span>
-        </div>
-        <!-- Disk -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F4C0;</span>
-          <span class="carpc-card__label">Disk</span>
-          <span class="carpc-card__value" id="carpc-disk-percent">—</span>
-          <canvas class="carpc-sparkline" id="carpc-disk-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-disk-bar"></div></div>
+        <div class="carpc-card carpc-card--storage">
+          <h3 class="carpc-card__label">Storage</h3>
+          <div class="carpc-stat" data-detail-id="carpc-disk-detail" aria-describedby="carpc-disk-detail">
+            <span>Disk usage</span><span class="carpc-card__value" id="carpc-disk-percent">—</span>
+          </div>
+          <canvas class="carpc-sparkline" id="carpc-disk-spark" width="180" height="20" aria-hidden="true"></canvas>
           <span class="carpc-card__sub" id="carpc-disk-detail"></span>
         </div>
-        <!-- Swap -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F504;</span>
-          <span class="carpc-card__label">Swap</span>
-          <span class="carpc-card__value" id="carpc-swap-percent">—</span>
-          <canvas class="carpc-sparkline" id="carpc-swap-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-swap-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-swap-detail"></span>
+        <div class="carpc-card carpc-card--network">
+          <h3 class="carpc-card__label">Network</h3>
+          <div class="carpc-stat" data-detail-id="carpc-net-detail" aria-describedby="carpc-net-detail">
+            <span>Transmit</span><span class="carpc-card__value" id="carpc-net">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-net-detail" aria-describedby="carpc-net-detail">
+            <span>Receive</span><span class="carpc-card__value" id="carpc-net-rx">—</span>
+          </div>
+          <canvas class="carpc-sparkline" id="carpc-net-spark" width="180" height="20" aria-hidden="true"></canvas>
+          <span id="carpc-net-detail" hidden></span>
         </div>
-        <!-- Queue -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F4E5;</span>
-          <span class="carpc-card__label">Signal Queue</span>
-          <span class="carpc-card__value" id="carpc-queue-percent">—</span>
-          <canvas class="carpc-sparkline" id="carpc-queue-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-queue-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-queue-detail"></span>
-        </div>
-        <!-- Heap / GC -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F9F9;</span>
-          <span class="carpc-card__label">Heap / GC</span>
-          <span class="carpc-card__value" id="carpc-heap">—</span>
-          <canvas class="carpc-sparkline" id="carpc-heap-spark" width="120" height="28"></canvas>
-          <div class="carpc-bar"><div class="carpc-bar__fill" id="carpc-heap-bar"></div></div>
-          <span class="carpc-card__sub" id="carpc-gc-detail"></span>
-        </div>
-        <!-- Network -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F310;</span>
-          <span class="carpc-card__label">Network I/O</span>
-          <span class="carpc-card__value" id="carpc-net">—</span>
-          <canvas class="carpc-sparkline" id="carpc-net-spark" width="120" height="28"></canvas>
-          <span class="carpc-card__sub" id="carpc-net-detail"></span>
-        </div>
-        <!-- Async Tasks -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x26A1;</span>
-          <span class="carpc-card__label">Async Tasks</span>
-          <span class="carpc-card__value" id="carpc-tasks">—</span>
-          <canvas class="carpc-sparkline" id="carpc-tasks-spark" width="120" height="28"></canvas>
-          <span class="carpc-card__sub" id="carpc-tasks-detail"></span>
-        </div>
-        <!-- Uptime -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x23F1;</span>
-          <span class="carpc-card__label">Uptime</span>
-          <span class="carpc-card__value" id="carpc-uptime">—</span>
-          <canvas class="carpc-sparkline" id="carpc-uptime-spark" width="120" height="28"></canvas>
-          <span class="carpc-card__sub" id="carpc-uptime-detail"></span>
-        </div>
-        <!-- Platform -->
-        <div class="carpc-card">
-          <span class="carpc-card__icon">&#x1F5A5;</span>
-          <span class="carpc-card__label">Platform</span>
-          <span class="carpc-card__value carpc-card__value--small" id="carpc-platform">—</span>
-          <canvas class="carpc-sparkline" id="carpc-platform-spark" width="120" height="28"></canvas>
-          <span class="carpc-card__sub" id="carpc-platform-detail"></span>
+        <div class="carpc-card carpc-card--runtime">
+          <h3 class="carpc-card__label">Runtime</h3>
+          <div class="carpc-stat" data-detail-id="carpc-queue-detail" aria-describedby="carpc-queue-detail">
+            <span>Signal queue</span><span class="carpc-card__value" id="carpc-queue-percent">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-tasks-detail" aria-describedby="carpc-tasks-detail">
+            <span>Async tasks</span><span class="carpc-card__value" id="carpc-tasks">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-uptime-detail" aria-describedby="carpc-uptime-detail">
+            <span>Uptime</span><span class="carpc-card__value" id="carpc-uptime">—</span>
+          </div>
+          <div class="carpc-stat" data-detail-id="carpc-platform-detail" aria-describedby="carpc-platform-detail">
+            <span>Platform</span><span class="carpc-card__value" id="carpc-platform">—</span>
+          </div>
+          <canvas class="carpc-sparkline" id="carpc-queue-spark" width="180" height="20" aria-hidden="true"></canvas>
+          <span id="carpc-queue-detail" hidden></span>
+          <span id="carpc-tasks-detail" hidden></span>
+          <span id="carpc-uptime-detail" hidden></span>
+          <span id="carpc-platform-detail" hidden></span>
         </div>
       </div>
+      <p class="overview-hint">Process CPU: 100% = one CPU core. <span class="mobile-scroll-hint">Swipe to view all 5 groups →</span></p>
     </section>
 
     <!-- Full signal list (real-time) -->
     <section class="signal-panel" id="signal-panel">
-      <h2>All Signals</h2>
+      <div class="section-heading">
+        <div><p class="eyebrow">02 / SIGNAL EXPLORER</p><h2>All Signals</h2></div>
+        <div class="signal-summary"><span id="signal-count" class="section-caption" role="status" aria-live="polite">Loading signal catalog…</span><span id="signal-freshness" class="freshness-summary">Waiting for data…</span></div>
+      </div>
+      <div class="signal-toolbar">
+        <label class="signal-search" for="signal-search">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.7"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="1.7"/></svg>
+          <input id="signal-search" type="search" placeholder="Regex search, e.g. ^OMS_(FL|FR)_" autocomplete="off" aria-label="Search signals by regular expression, case insensitive" aria-controls="signal-table-body" aria-describedby="signal-search-hint signal-search-error" spellcheck="false" />
+        </label>
+        <label class="signal-access-filter" for="signal-access-filter">
+          <span>Signal type</span>
+          <select id="signal-access-filter" aria-controls="signal-table-body">
+            <option value="all">All signals</option>
+            <option value="writable">Writable</option>
+            <option value="readonly">Read only</option>
+          </select>
+        </label>
+        <button id="signal-filter-reset" class="btn btn--secondary" type="button">Clear filters</button>
+        <label class="trend-toggle"><input id="signal-trend-toggle" type="checkbox" checked /> Show trends</label>
+      </div>
+      <div class="signal-search-feedback">
+        <span id="signal-search-hint">Regex · Case insensitive · Matches signal names, aliases or units</span>
+        <span id="signal-search-error" role="status" hidden></span>
+      </div>
       <div class="signal-table-wrapper">
         <table class="signal-table" id="signal-table">
           <thead>
             <tr>
-              <th>Signal</th>
-              <th>Value</th>
-              <th>History</th>
-              <th>Write</th>
+              <th scope="col">Signal</th>
+              <th scope="col">Live value</th>
+              <th scope="col" class="signal-trend-column">Trend</th>
+              <th scope="col" class="signal-write-column">Write value</th>
             </tr>
           </thead>
           <tbody id="signal-table-body"></tbody>
         </table>
       </div>
+      <p id="signal-empty" class="signal-empty" hidden>No signals available yet. Waiting for the signal catalog.</p>
+    </section>
+
+    <section class="workspace-hero" aria-labelledby="workspace-heading">
+      <div class="workspace-hero__copy">
+        <p class="eyebrow">CAN-HMI / LIVE WORKSPACE</p>
+        <h1 id="workspace-heading" tabindex="-1">Intelligence in motion.</h1>
+        <p>Vehicle signals, system performance and occupant safety.<br class="hero-break" /> Connected in one workspace.</p>
+      </div>
+      <div class="workspace-hero__visual" aria-hidden="true">
+        <svg viewBox="0 0 440 160" fill="none">
+          <circle cx="246" cy="80" r="68" stroke="currentColor" opacity=".18"/>
+          <circle cx="246" cy="80" r="50" stroke="currentColor" opacity=".18"/>
+          <path d="M15 80h66l12-18 16 36 16-55 19 70 14-33h48m85 0h135" stroke="currentColor" stroke-width="2" opacity=".65"/>
+          <path d="M202 83l9-22h60l14 22 13 5v19h-10m-75 0h-12V89l1-6Zm11 24h51m-62-24h82m-64-22 6-13h40l10 13" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="218" cy="106" r="9" stroke="currentColor" stroke-width="2"/>
+          <circle cx="279" cy="106" r="9" stroke="currentColor" stroke-width="2"/>
+          <circle cx="81" cy="80" r="4" fill="currentColor"/><circle cx="375" cy="80" r="4" fill="currentColor"/>
+        </svg>
+        <span>CAN NETWORK <span> / </span> SYSTEMS <span> / </span> SAFETY</span>
+      </div>
     </section>
   </main>
 
+  <dialog id="signal-detail-dialog" class="signal-detail-dialog" aria-labelledby="signal-detail-title">
+    <div class="signal-detail-header"><div><p class="eyebrow">SIGNAL DETAILS</p><h2 id="signal-detail-title"></h2></div><button id="signal-detail-close" class="btn btn--secondary" type="button" aria-label="Close signal details">Close</button></div>
+    <dl id="signal-detail-fields" class="signal-detail-fields"></dl>
+    <canvas id="signal-detail-chart" width="520" height="100" aria-label="Signal history"></canvas>
+    <p id="signal-detail-chart-caption" class="section-caption"></p>
+    <form id="signal-detail-write-form" class="signal-detail-write" hidden>
+      <label for="signal-detail-write-value">Write value</label>
+      <div><input id="signal-detail-write-value" type="number" step="any" required /><button id="signal-detail-set" class="btn" type="submit">Set</button></div>
+    </form>
+    <p id="signal-detail-write-status" class="signal-write-status" role="status" aria-live="polite"></p>
+  </dialog>
+
   <main class="adaptive-grid" id="view-adaptive" style="display: none;">
     <aside class="adaptive-sidebar">
-      <h2>Filters</h2>
+      <p class="eyebrow">ANALYSIS PARAMETERS</p>
+      <h2>Refine your analysis</h2>
       
       <div class="filter-group">
         <label>System</label>
@@ -204,9 +247,9 @@
     </aside>
     
     <section class="adaptive-content">
-      <div style="display: flex; gap: 16px; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h2>Adaptive Restraint Analysis</h2>
-        <span id="rows-count" class="badge" style="background: var(--border); color: var(--text);">Rows matched: —</span>
+      <div class="section-heading">
+        <div><p class="eyebrow">OCCUPANT SAFETY</p><h2>Adaptive Restraint Analysis</h2></div>
+        <span id="rows-count" class="badge">Rows matched: —</span>
       </div>
       
       <!-- Chart section -->
@@ -301,7 +344,7 @@
              background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px 10px;line-height:1.7;"></div>
 
         <!-- Out-of-position warning -->
-        <div id="rv-oop-warning" style="display:none;background:#7c2c2c;color:#ffbbbb;border-radius:4px;
+        <div id="rv-oop-warning" style="display:none;background:var(--crit-soft);color:var(--crit);border-radius:4px;
              padding:6px 10px;font-size:0.82rem;margin-bottom:10px;">
           ⚠ OMS signal: occupant is OUT OF POSITION
         </div>
@@ -328,15 +371,13 @@
           <span id="camera-status-badge" class="badge badge--disconnected" style="font-size:0.7rem;">Connecting…</span>
         </h3>
         <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">
-          Live MJPEG stream proxied from the vehicle camera. Multiple devices can view this
-          stream at the same time — CarPC keeps a single upstream connection to the camera
-          (source allows only 1 concurrent receiver) and fans it out to all connected viewers.
+          Live view from the vehicle camera. The stream becomes available when the camera is connected.
         </p>
         <div style="position:relative;background:#000;border-radius:6px;overflow:hidden;min-height:200px;
              display:flex;align-items:center;justify-content:center;">
           <img id="camera-stream-img" alt="Camera stream"
                style="width:100%;max-height:420px;display:block;" />
-          <div id="camera-stream-offline" style="display:none;color:var(--muted);font-size:0.85rem;padding:24px;">
+          <div id="camera-stream-offline" style="display:none;color:#c3d1da;font-size:0.85rem;padding:24px;">
             Camera stream unavailable.
           </div>
         </div>
@@ -413,11 +454,12 @@
   </main>
 
   <footer class="hmi-footer">
+    <span class="footer-wordmark">CAN-HMI <span>/ Vehicle intelligence</span></span>
     <span id="status-text">Connecting…</span>
   </footer>
 
   <script src="js/api.js"></script>
-  <script src="js/widgets.js"></script>
+  <script src="js/widgets.js?v=3"></script>
   <script>
     // Initialize frontend mode early so app.js can read it at boot.
     (function(){
@@ -437,9 +479,10 @@
       }
     })();
   </script>
-  <script src="js/app.js"></script>
+  <script src="js/signal-tools.js?v=1"></script>
+  <script src="js/app.js?v=3"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
-  <script src="js/adaptive.js"></script>
+  <script src="js/adaptive.js?v=2"></script>
   <script src="js/devmode.js"></script>
   <script src="js/settings.js?v=5"></script>
 </body>

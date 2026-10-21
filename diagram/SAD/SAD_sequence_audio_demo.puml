@@ -1,0 +1,47 @@
+@startuml SAD_sequence_audio_demo
+!theme plain
+title SEAL Audio Demo — Software Architecture
+hide footbox
+
+actor "Web HMI" as hmi
+participant "CAR-PC" as carpc
+participant "PANTHER" as panther
+
+hmi -> carpc : HTTP batch: HMI_SEAL_ActivationRequest\nand SEAL_WithSound
+carpc -> panther : CAN: INC_HMI_SEALRequest (0x081)\nforward both values in one frame
+panther -> panther : Perform Blow in / Blow out
+note over hmi, panther
+  Activation: 1 = Blow in, 2 = Blow out.
+  SEAL_WithSound: 1 = with sound, 0 = without sound.
+end note
+
+alt SEAL_WithSound = 0
+    note over carpc, panther : No new sound request; existing playback continues.
+else SEAL_WithSound = 1
+    panther -> carpc : CAN: INC_HMI_Audio_Request (0x220)\nHMI_Soundfile = n
+    carpc -> carpc : Play the file mapped to audio_number n in A
+    note right of carpc
+      A = audio.files.
+      New valid request during playback:
+      Type 1 (track_queue_enable=false): interrupt.
+      Type 2 (true): queue; current track continues.
+      Requested number updates immediately;
+      active number follows actual playback.
+    end note
+    loop Every T ms while playing
+        carpc -> panther : CAN: INC_HMI_Audio_Response (0x221)\nHMI_AudioTimesamp = elapsed ms\nHMI_ActiveSoundfile = active audio number
+    end
+    note over carpc, panther
+      T = audio.position_update_interval_ms (50..60000).
+      Queued tracks start from 0 without an idle frame between them.
+    end note
+    loop Twice when the last track ends and the queue is empty
+        carpc -> panther : HMI_AudioTimesamp = -1\nHMI_ActiveSoundfile = 0
+    end
+end
+
+note over hmi, carpc
+  CAR-PC exposes requested and active playback state through
+  the existing signal WebSocket, at its own delivery rate.
+end note
+@enduml

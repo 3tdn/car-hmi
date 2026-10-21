@@ -45,7 +45,11 @@ package "src/core" as pkg_core #LightGray {
     [signal_metadata.py\nRead-only DBC Metadata] as core_metadata
     [runner.py\nOrchestrator] as core_runner
     [system_metrics.py\npsutil Metrics Collector] as core_metrics
+    [audio.py\nAudioManager] as core_audio
 }
+
+artifact "audio.files\nFiles under audio.media_dir" as audio_files
+component "Local Audio Player\nffplay / afplay" as audio_player
 
 ' CAN Bus interface (declared before usage)
 () "CAN Bus\n(vcan0)" as bus_if
@@ -62,6 +66,11 @@ io_reader --> proc_pipe : "asyncio.Queue"
 proc_pipe *-- proc_filter : "stage 1"
 proc_pipe *-- proc_comp : "stages 2-3"
 proc_pipe --> core_store : "update latest"
+core_store --> core_audio : "HMI_Soundfile updates"
+core_audio --> audio_files : "resolve audio_number"
+core_audio --> audio_player : "play / interrupt / FIFO queue"
+core_audio --> core_store : "playback position + active number"
+core_audio --> io_writer : "HMI_AudioTimesamp + HMI_ActiveSoundfile\none frame every T ms while playing"
 
 io_writer ..> bus_if : "send CAN frame"
 
@@ -84,6 +93,7 @@ core_runner --> io_writer : "init"
 core_runner --> core_store : "init store"
 core_runner --> core_metadata : "replace from loaded DBCs"
 core_runner --> proc_pipe : "start"
+core_runner --> core_audio : "start / close; apply live audio settings"
 r_system --> core_store : "bus status, queue"
 r_system --> core_metrics : "CPU/RAM/disk/queue"
 r_system --> proc_pipe : "error counters"

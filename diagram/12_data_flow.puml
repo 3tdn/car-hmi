@@ -1,13 +1,14 @@
 @startuml Data Flow Diagram
 !theme plain
+!pragma layout smetana
 title CAN-HMI System — Data Flow Overview
 
 left to right direction
 
-rectangle "External" {
-    agent "Vehicle ECU\n/ Simulator" as ecu
-    agent "User\n(Browser)" as user
-}
+agent "Vehicle ECU / Panther\n/ Simulator" as ecu
+agent "User\n(Browser)" as user
+artifact "Local Audio Files\nA = audio.files" as audio_files
+agent "Speakers\nffplay / afplay" as speakers
 
 rectangle "CAN-HMI System" {
     usecase "CAN Read\n& Decode" as read
@@ -17,9 +18,10 @@ rectangle "CAN-HMI System" {
     usecase "REST API" as rest
     usecase "WebSocket\nBroadcast" as wsbc
     usecase "CAN Write\n& Encode" as write
+    usecase "Audio Playback\nInterrupt / FIFO queue" as audio
 }
 
-ecu --> read : "CAN frames\n(raw bytes)"
+ecu --> read : "CAN frames\nincluding HMI_Soundfile"
 read --> proc : "decoded signals\n(Dict[str, float])"
 note on link
   asyncio.Queue
@@ -33,8 +35,19 @@ memstore --> rest : "snapshot\n(latest values)"
 metadata --> rest : "read-only signal metadata"
 wsbc --> user : "JSON stream\n(WebSocket)"
 rest --> user : "JSON response\n(HTTP)"
-user --> rest : "GET metadata / values\nPUT / POST CAN writes"
+user -left-> rest : "GET metadata / values\nPUT / POST CAN writes"
 rest --> write : "encode command"
-write --> ecu : "CAN frame\n(write-back)"
+write -left-> ecu : "CAN write-back\nSEAL action + with-sound flag\naudio position + active number"
+memstore -down-> audio : "changed HMI_Soundfile\n(request updates immediately)"
+audio_files -up-> audio : "audio_number -> file name"
+audio -down-> speakers : "local playback"
+audio --> memstore : "actual playback feedback"
+audio --> write : "HMI_AudioTimesamp + HMI_ActiveSoundfile\none frame every T ms while playing"
+
+note bottom of audio
+  T = audio.position_update_interval_ms.
+  audio.track_queue_enable=false: interrupt current track.
+  audio.track_queue_enable=true: FIFO; active track keeps playing.
+end note
 
 @enduml

@@ -1536,6 +1536,12 @@ Response schema: `CameraStatusResponse`.
 
 ### Audio playback (CAN-only, no REST endpoints)
 
+The HMI starts a SEAL demo by batch-writing `HMI_SEAL_ActivationRequest` (`1`: Blow in,
+`2`: Blow out) and `SEAL_WithSound` (`1`: with sound, `0`: without sound). Panther performs
+the action and selects an audio number by sending `HMI_Soundfile` when sound is requested.
+See the [audio demo guide](audio_demo.md) for the complete HMI → Panther → CAR-PC flow,
+diagrams, configuration examples, and virtual-CAN test procedure.
+
 Audio has no REST or WebSocket control API. Playback is triggered only by CAN signals, using
 `audio.files` to map each `audio_number` to a file in `audio.media_dir`. Linux uses
 `ffplay`/`ffprobe`; macOS falls back to the built-in `afplay`/`afinfo` tools when FFmpeg is
@@ -1543,12 +1549,13 @@ unavailable. `scripts/deploy_linux.sh` installs the `ffmpeg` package with `apt-g
 Linux runtime tools are missing.
 
 - `INC_HMI_Audio_Request.HMI_Soundfile` (read from Panther) requests the `audio_number` to play.
-  `0` plays nothing and re-arms the request. A non-zero value that differs from the last request
+  `0` requests no new sound and re-arms the request; it does not stop playback or clear the queue.
+  A non-zero value that differs from the last request
   starts the track, or queues it when `audio.track_queue_enable` is `true`. Repeating the same
   non-zero value is ignored until it changes or returns to `0`. Unconfigured numbers are ignored.
-- `INC_HMI_Audio_Response` (written by CAR_PC in one batched frame, sent at least twice while idle):
+- `INC_HMI_Audio_Response` (written by CAR_PC with both signals in one frame):
   - `HMI_AudioTimesamp` reports elapsed milliseconds while a track is playing, and `-1` otherwise.
-    It is sent at least twice while idle or after a track finishes.
+    The raw DBC name is `HMI_AudioTimesamp_ms`; this is playback position, not a Unix timestamp.
   - `HMI_ActiveSoundfile` reports the `audio_number` of the active track while playing, and `0`
     otherwise.
 
@@ -1557,9 +1564,18 @@ and plays the new one. With `true`, new requests are queued behind the current t
 entries. Feedback is also exposed through SignalStore/WebSocket as `HMI_AudioTimesamp` and
 `HMI_ActiveSoundfile`.
 
+While playing, CAR-PC sends feedback every `audio.position_update_interval_ms` (T, minimum
+50 ms). When no track remains, it sends position `-1` and active number `0` twice; idle is
+not a continuous T-ms loop. Queued tracks transition directly to the next track's position
+`0` and active number without an intermediate idle frame. Queueing delays playback only:
+`HMI_Soundfile` updates immediately while `HMI_ActiveSoundfile` stays on the current track.
+
 Changes to `audio.files` and `audio.track_queue_enable` apply to new requests without restarting
 the service. The current track continues playing; queued requests use the updated playlist when
-they start, and entries removed from the playlist are dropped from the queue.
+they start, and entries removed from the playlist are dropped from the queue. A change to T
+applies to the next playback. `HMI_Soundfile` is RX-only for CAR-PC and cannot be written with
+`PUT /signals/HMI_Soundfile`, including in Dev Mode; virtual-CAN testing requires a Panther
+frame sender in the same process as the python-can virtual bus.
 
 ### `GET /api/devmode/catalog`
 

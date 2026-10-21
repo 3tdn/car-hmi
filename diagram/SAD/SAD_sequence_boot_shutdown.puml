@@ -1,26 +1,34 @@
-@startuml
-title System Shutdown — Arch Flow
+@startuml SAD_sequence_boot_shutdown
+!theme plain
+title System Shutdown — Software Architecture
+hide footbox
 
-actor "Admin\n(SIGTERM/SIGINT)" as Admin
-participant "Runner\n(AppRunner)" as Runner
-participant "API" as API
-participant "Pipeline" as Pipeline
-participant "Readers" as Readers
+actor "Admin / Signal" as admin
+participant "AppRunner" as runner
+participant "Audio Playback" as audio
+participant "CAN Layer" as can
+participant "API / WebSocket" as api
+participant "Signal Pipeline" as pipeline
 
-== Graceful shutdown ==
-Admin -> Runner : SIGTERM / SIGINT
-Runner -> Runner : set is_shutting_down=True
-Runner -> API : handle_exit() + close WS
-Runner -> Pipeline : stop()
-Runner -> Readers : stop() per-channel
-Readers -> Readers : close CAN bus
-Runner --> Admin : Shutdown complete
+admin -> runner : SIGTERM / SIGINT
+runner -> runner : Mark shutdown in progress
+runner -> audio : Close audio manager first
+audio -> audio : Unsubscribe requests; clear queue;\ncancel audio tasks; stop local player
+opt A track was playing
+    audio -> can : Attempt final idle feedback\nHMI_AudioTimesamp=-1, HMI_ActiveSoundfile=0 (twice)
+end
+audio --> runner : Audio cleanup finished
+runner -> can : Stop readers and optional simulator
+runner -> api : Close camera proxy and WebSocket clients
+runner -> pipeline : Stop processing
+runner -> api : Request graceful server exit; wait for drain
+runner -> runner : Cancel and await remaining owned tasks
+runner -> can : Close channel buses and optional simulator bus
+runner -> runner : Close reserved API socket
+runner --> admin : Shutdown complete
 
-note right of Runner
-  VERIFIED AGAINST CURRENT SOURCE CODE
-  Graceful sequence complete. Signal handlers registered.
-  API drain, pipeline flush, reader stop all correct.
-  See SDD_sequence_boot_shutdown & SDD_DETAILED_VERIFICATION.md
+note over audio, can
+  Audio stops while the CAN writer and buses are still available.
+  Pending tracks cannot start after audio cleanup.
 end note
-
 @enduml

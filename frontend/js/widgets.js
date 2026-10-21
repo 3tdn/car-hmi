@@ -2,6 +2,23 @@
  * widgets.js — renders and updates gauge and bar widgets.
  */
 
+// Canvas and Plotly share the same palette as the surrounding UI.
+const chartTheme = (() => {
+  const styles = getComputedStyle(document.documentElement);
+  const color = (name) => styles.getPropertyValue(name).trim();
+  return {
+    accent: color('--accent'),
+    warning: color('--warn'),
+    critical: color('--crit'),
+    track: color('--gauge-bg'),
+    border: color('--border'),
+    text: color('--text'),
+    muted: color('--muted'),
+    surface: color('--surface'),
+    font: color('--font'),
+  };
+})();
+
 /**
  * Draw an arc-gauge on a <canvas> element.
  * @param {HTMLCanvasElement} canvas
@@ -23,13 +40,13 @@ function drawGauge(canvas, value, min, max) {
   // Background arc
   ctx.beginPath();
   ctx.arc(cx, cy, r, startAngle, endAngle);
-  ctx.strokeStyle = "#21262d";
+  ctx.strokeStyle = chartTheme.track;
   ctx.lineWidth   = 14;
   ctx.lineCap     = "round";
   ctx.stroke();
 
   // Value arc
-  const color = pct > 0.85 ? "#da3633" : pct > 0.65 ? "#d29922" : "#1f6feb";
+  const color = pct > 0.85 ? chartTheme.critical : pct > 0.65 ? chartTheme.warning : chartTheme.accent;
   ctx.beginPath();
   ctx.arc(cx, cy, r, startAngle, startAngle + pct * (endAngle - startAngle));
   ctx.strokeStyle = color;
@@ -68,7 +85,7 @@ function updateBarWidget(el, value) {
   const pct    = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
 
   fill.style.width = `${pct}%`;
-  fill.style.background = pct > 85 ? "#da3633" : pct > 65 ? "#d29922" : "#1f6feb";
+  fill.style.background = pct > 85 ? chartTheme.critical : pct > 65 ? chartTheme.warning : chartTheme.accent;
   valueEl.textContent = `${value.toFixed(1)} ${unit}`;
 }
 
@@ -77,25 +94,28 @@ function updateBarWidget(el, value) {
  * @param {HTMLCanvasElement} canvas
  * @param {number[]} values
  */
-function drawSparkline(canvas, values) {
+function drawSparkline(canvas, values, options = {}) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   if (!values || values.length < 2) return;
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+  let min = Number.isFinite(options.min) ? options.min : Math.min(...values);
+  let max = Number.isFinite(options.max) ? options.max : Math.max(...values);
+  if (max === min) { min -= 0.5; max += 0.5; }
+  const range = max - min;
+  const times = options.timestamps;
+  const timeRange = times?.length === values.length ? times.at(-1) - times[0] : 0;
 
   ctx.beginPath();
   values.forEach((v, idx) => {
-    const x = (idx / (values.length - 1)) * (w - 2) + 1;
-    const y = h - ((v - min) / range) * (h - 2) - 1;
+    const x = (timeRange > 0 ? (times[idx] - times[0]) / timeRange : idx / (values.length - 1)) * (w - 2) + 1;
+    const y = h - Math.max(0, Math.min(1, (v - min) / range)) * (h - 2) - 1;
     if (idx === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = "#1f6feb";
+  ctx.strokeStyle = chartTheme.accent;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 }

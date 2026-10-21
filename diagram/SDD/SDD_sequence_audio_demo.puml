@@ -1,0 +1,99 @@
+@startuml SDD_sequence_audio_demo
+!theme plain
+title Audio Playback — Request Handling and Feedback Design
+hide footbox
+
+participant "PANTHER" as panther
+participant "CANReader\nreader.py" as reader
+participant "SignalPipeline\npipeline.py" as pipeline
+participant "SignalStore" as store
+participant "AudioManager\naudio.py" as audio
+participant "AudioBackend\nffplay / afplay" as backend
+participant "CANWriterRouter" as writer
+
+== Receive and validate a request ==
+panther -> reader : INC_HMI_Audio_Request (0x220)\nHMI_Soundfile = n
+reader -> reader : Decode, rate-gate, deduplicate\nand coalesce frames in receive thread
+reader -> pipeline : DecodedFrame through shared asyncio.Queue
+pipeline -> store : bulk_update(HMI_Soundfile=n)
+store -> audio : _on_signal_update(name, value)
+audio -> audio : Record last request value
+
+alt n = 0 or unchanged non-zero request
+    note over store, audio : No playback command. 0 re-arms without stopping playback or clearing the queue.
+else Changed non-zero request
+    audio -> audio : Schedule _handle_can_request(n)\nacquire audio lock
+    alt Audio disabled or n absent from configured tracks
+        audio -> audio : Reject request; log warning
+    else Valid request, starting from idle
+        audio -> audio : _play_locked(n): resolve audio_number\nto file under audio.media_dir
+        audio -> backend : stop(); play(file)
+        backend --> audio : duration_ms; player started
+        audio -> audio : Set PLAYING, position=0, active=n\nnew playback generation
+        audio -> store : bulk_update(position=0, active=n)
+        note right of store : Existing subscribers receive actual playback state.
+        audio -> writer : send_signals_batch_once({position:0, active:n})
+        writer -> panther : INC_HMI_Audio_Response (0x221)\nboth feedback signals in one CAN frame
+
+        par Position task for the active playback
+            loop Every T ms while PLAYING
+                audio -> audio : _position_loop(generation)\nrefresh elapsed ms from monotonic clock
+                audio -> store : _publish_locked(): bulk_update(position, active)
+                audio -> writer : send_signals_batch_once({position, active})
+                writer -> panther : Position in ms + actual active number
+            end
+        else Requests and completion events
+            opt Changed configured request m arrives while playing
+                panther -> reader : HMI_Soundfile = m
+                reader -> pipeline : DecodedFrame through shared queue
+                pipeline -> store : bulk_update(HMI_Soundfile=m) immediately
+                store -> audio : Callback schedules _handle_can_request(m)
+                alt Type 1: track_queue_enable = false
+                    audio -> audio : Clear queue; _play_locked(m)\ninvalidate previous tasks
+                    audio -> backend : stop current track; play mapped file m
+                    audio -> store : _publish_locked(): position=0, active=m
+                    audio -> writer : send_signals_batch_once({position:0, active:m})
+                    writer -> panther : New track starts at position 0
+                else Type 2: track_queue_enable = true
+                    audio -> audio : Append m to FIFO if fewer than 64 entries\notherwise drop with warning
+                    note over store, backend
+                      HMI_Soundfile=m is already visible.
+                      Active track and its position remain unchanged.
+                    end note
+                end
+            end
+            backend --> audio : wait() returns for current playback generation
+            audio -> audio : _completion_loop(generation), acquire lock\nignore result if generation is obsolete
+            alt Successful completion and queue not empty
+                audio -> audio : Pop FIFO; _play_locked(next_number)
+                audio -> backend : Play next file from 0
+                audio -> store : _publish_locked(): position=0, active=next_number
+                audio -> writer : send_signals_batch_once({position:0, active:next_number})
+                writer -> panther : Next track feedback; no intermediate -1
+                note over audio, writer : New position/completion tasks continue for the next playback.
+            else Successful completion and queue empty
+                audio -> audio : Set COMPLETED; cancel playback tasks
+                audio -> store : _publish_locked(): position=-1, active=0
+                loop Two idle frames
+                    audio -> writer : send_signals_batch_once({position:-1, active:0})
+                    writer -> panther : HMI_AudioTimesamp=-1, HMI_ActiveSoundfile=0
+                end
+            else Player failure
+                audio -> audio : _set_error_locked(): clear queue\ninvalidate and cancel playback tasks
+                audio -> store : _publish_locked(): position=-1, active=0
+                audio -> writer : Send idle response twice
+                writer -> panther : HMI_AudioTimesamp=-1, HMI_ActiveSoundfile=0
+            end
+        end
+    end
+end
+
+legend bottom
+  position = HMI_AudioTimesamp (raw DBC: HMI_AudioTimesamp_ms).
+  active = HMI_ActiveSoundfile. A = audio.files; lookup uses audio_number.
+  T = audio.position_update_interval_ms (50..60000), captured per playback.
+  File resolution or player startup failure also uses _set_error_locked().
+  Store feedback is published before CAN send; CAN errors are logged.
+  See SAD_sequence_audio_demo for the preceding Web HMI SEAL request.
+endlegend
+@enduml

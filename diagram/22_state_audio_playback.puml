@@ -1,0 +1,45 @@
+@startuml 22_state_audio_playback
+!theme plain
+!pragma layout smetana
+title CAR-PC Audio Playback — Interruption, Queueing, and Feedback
+
+state "Idle" as idle
+state "Playing audio number n" as playing
+state "Completed" as completed
+state "Playback error" as error
+
+[*] --> idle : AudioManager starts
+idle : entry / publish position=-1, active=0 (CAN frame twice)
+idle --> playing : Changed valid request n / play A[n] from 0
+playing : entry / publish position=0, active=n
+playing : Every T ms / publish elapsed_ms and active=n together
+playing : Type 1 request m / stop n, clear queue, start m; publish 0 and m
+playing : Type 2 request m / queue m; keep playing n and keep its position
+playing : Track ends, queue not empty / pop FIFO, start next; publish 0 and next number
+playing --> completed : Track ends successfully and queue empty
+completed : entry / publish position=-1, active=0 (CAN frame twice)
+completed --> playing : Changed valid request n / play A[n] from 0
+
+idle --> error : File resolution or player startup fails
+playing --> error : File/player failure
+completed --> error : File resolution or player startup fails
+error : entry / clear queue, publish position=-1, active=0 (CAN frame twice)
+error --> playing : New valid request / start succeeds
+
+legend bottom
+  A = audio.files, addressed by audio_number (1..255).
+  T = audio.position_update_interval_ms (50..60000).
+  Type 1: audio.track_queue_enable=false. Type 2: true (FIFO max 64).
+
+  Only changed, configured non-zero requests start or queue playback.
+  0 re-arms the request; no stop and no queue clear. Disabled audio ignores requests.
+  Replay the same number with an observed 0 -> number transition.
+
+  Feedback frame: INC_HMI_Audio_Response (0x221)
+  position = HMI_AudioTimesamp (elapsed ms, or -1 when inactive)
+  active = HMI_ActiveSoundfile (audio_number, or 0 when inactive)
+  HMI_Soundfile updates immediately; HMI_ActiveSoundfile follows actual playback.
+  Queued tracks start directly without an idle -1 frame.
+  A changed T takes effect on the next playback.
+endlegend
+@enduml
