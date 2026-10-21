@@ -540,7 +540,9 @@ def policy_payload() -> dict[str, Any]:
         },
         "reload_levels": {
             "live": "Applied immediately to runtime references.",
-            "reboot": "Saved to disk; reboot Car-HMI to apply fully.",
+            "reboot": (
+                "Saved to disk; backend restarts 30 seconds after the last reboot-level change."
+            ),
             "immutable": "Cannot be changed through the API.",
         },
         "fields": [item.to_dict() for item in FIELD_POLICIES],

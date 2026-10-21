@@ -44,6 +44,12 @@ let settingsWorking = null;
 let settingsViewMode = 'base';
 
 const cloneJson = (value) => JSON.parse(JSON.stringify(value));
+const settingsRestartNotice = (result) => {
+  if (result?.reboot_scheduled && result?.reboot_at) {
+    return ` Backend will restart automatically at ${new Date(result.reboot_at).toLocaleTimeString()}.`;
+  }
+  return result?.reboot_required ? ' Restart is pending.' : '';
+};
 const escapeHtml = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
   .replaceAll('<', '&lt;')
@@ -259,7 +265,7 @@ const loadSettings = async () => {
     settingsWorking = cloneJson(settingsSnapshot.config);
     renderSettingsForm();
     await renderBackups();
-    document.getElementById('settings-status').textContent = 'Ready';
+    document.getElementById('settings-status').textContent = `Ready.${settingsRestartNotice(settingsSnapshot)}`;
   } catch (error) {
     document.getElementById('settings-status').textContent = `Failed to load: ${error.message || error}`;
   }
@@ -277,7 +283,7 @@ const diffPatch = (oldValue, newValue) => {
 const runSettingsAction = async (action, successText) => {
   try {
     const result = await action();
-    const reboot = result?.reboot_required ? ' Reboot is required for some changes.' : '';
+    const reboot = settingsRestartNotice(result);
     document.getElementById('settings-status').textContent = `${successText}${reboot}`;
     window.showUiNotice?.(`${successText}${reboot}`, { source: 'settings', code: 'settings_action_ok' });
     return result;

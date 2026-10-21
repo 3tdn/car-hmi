@@ -65,3 +65,5 @@ tmp/*
 config/backups/*
 config/system.json
 config/profiles.json
+# npm dependencies
+node_modules/

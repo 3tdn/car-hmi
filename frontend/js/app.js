@@ -853,11 +853,14 @@ function refreshPermissionDecorations() {
 
 const signalUnits = new Map();
 const signalHistory = new Map();
+const signalHistoryStart = new Map();
 const lastUpdateTs = new Map();
 const lastSparkRenderMs = new Map();
 const FAST_SIGNAL_THRESHOLD_S = 0.25;
 const FAST_SIGNAL_MAX = 4;
-const SIGNAL_HISTORY_LEN = 60;
+const SIGNAL_HISTORY_WINDOW_SEC = 60 * 60;
+const SIGNAL_HISTORY_SAMPLE_INTERVAL_SEC = 0.1;
+const SIGNAL_HISTORY_MAX_SAMPLES = SIGNAL_HISTORY_WINDOW_SEC / SIGNAL_HISTORY_SAMPLE_INTERVAL_SEC;
 const SPARKLINE_MIN_RENDER_INTERVAL_MS = 120;
 
 // WS update queue to keep UI responsive under high-frequency streams.
@@ -1071,16 +1074,10 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
   const delta = prevTs ? nowTs - prevTs : Infinity;
   lastUpdateTs.set(signalName, nowTs);
 
-  const history = signalHistory.get(signalName) || [];
-  const times = signalHistoryTimes.get(signalName) || [];
-  if (!prevTs || nowTs > prevTs) {
-    history.push(value);
-    times.push(nowTs);
-    if (history.length > SIGNAL_HISTORY_LEN) { history.shift(); times.shift(); }
-  }
-  signalHistory.set(signalName, history);
-  signalHistoryTimes.set(signalName, times);
   signalLatestValues.set(signalName, value);
+  // Use arriving live values as the preferred 100 ms samples; the timer below
+  // fills the timeline with held values when this signal has no new frame.
+  recordSignalHistoryPoint(signalName, value, Date.now() / 1000);
   observeSignalWrite(signalName, value, nowTs);
 
   if (delta < FAST_SIGNAL_THRESHOLD_S) {
@@ -1107,12 +1104,42 @@ function updateSignalRow(signalName, value, timestamp = Date.now() / 1000, unit 
     // Throttle sparkline redraws; value cell still updates every flush.
     if ((nowMs - lastMs) >= SPARKLINE_MIN_RENDER_INTERVAL_MS) {
       const info = signalChartInfo(signalName);
-      drawSparkline(canvas, history, info);
+      drawSparkline(canvas, info.values, info);
       canvas.title = info.description;
       row.querySelector('.trend-caption').textContent = info.caption;
       lastSparkRenderMs.set(signalName, nowMs);
     }
   }
+}
+
+function recordSignalHistoryPoint(signalName, value, timestamp) {
+  const history = signalHistory.get(signalName) || [];
+  const times = signalHistoryTimes.get(signalName) || [];
+  let historyStart = signalHistoryStart.get(signalName) || 0;
+  const lastStoredTs = times.at(-1);
+  if (lastStoredTs && (timestamp <= lastStoredTs || timestamp - lastStoredTs < SIGNAL_HISTORY_SAMPLE_INTERVAL_SEC * 0.95)) return;
+
+  history.push(value);
+  times.push(timestamp);
+  const oldestAllowed = timestamp - SIGNAL_HISTORY_WINDOW_SEC;
+  while (historyStart < times.length && times[historyStart] < oldestAllowed) historyStart += 1;
+  if (historyStart > 1024 && historyStart * 2 >= times.length) {
+    history.splice(0, historyStart);
+    times.splice(0, historyStart);
+    historyStart = 0;
+  }
+  if (history.length - historyStart > SIGNAL_HISTORY_MAX_SAMPLES) historyStart = history.length - SIGNAL_HISTORY_MAX_SAMPLES;
+  signalHistory.set(signalName, history);
+  signalHistoryTimes.set(signalName, times);
+  signalHistoryStart.set(signalName, historyStart);
+}
+
+function sampleSignalHistories() {
+  const timestamp = Date.now() / 1000;
+  for (const [signalName, value] of signalLatestValues) {
+    recordSignalHistoryPoint(signalName, value, timestamp);
+  }
+  updateSignalDetails();
 }
 
 function enqueueSignalUpdate(signalName, value, timestamp, std_name) {
