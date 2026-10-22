@@ -7,6 +7,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYSTEMD_DIR=/etc/systemd/system
 BACKEND_SERVICE=can-hmi.service
 FRONTEND_SERVICE=can-hmi-frontend.service
+BACKEND_ENV_NAME=can-hmi.env
 SERVICE_USER="${SUDO_USER:-$(id -un)}"
 log() { echo "[deploy] $*"; }
 warn() { echo "[deploy] WARNING: $*" >&2; }
@@ -31,7 +32,8 @@ case "${1:-}" in
         exit 0 ;;
     --uninstall)
         root systemctl disable --now "$BACKEND_SERVICE" "$FRONTEND_SERVICE" || true
-        root rm -f "$SYSTEMD_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE"
+        root rm -f "$SYSTEMD_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" \
+            "$SYSTEMD_DIR/$BACKEND_ENV_NAME"
         root systemctl daemon-reload
         log 'Removed backend and frontend services.'
         exit 0 ;;
@@ -97,8 +99,13 @@ PY
 }
 
 log 'Deploying backend service first...'
-render_unit "$BACKEND_SERVICE" SERVICE_USER "$SERVICE_USER"
+# Install the same validated values used by this launcher. An invalid/missing
+# .env produces an empty file, so systemd also starts BE with config defaults.
+printf '%s\n' "$HMI_ENV_SYSTEMD_CONTENT" > "$GENERATED_DIR/$BACKEND_ENV_NAME"
+render_unit "$BACKEND_SERVICE" SERVICE_USER "$SERVICE_USER" \
+    BACKEND_ENV_FILE "$SYSTEMD_DIR/$BACKEND_ENV_NAME"
 systemd-analyze verify "$GENERATED_DIR/$BACKEND_SERVICE"
+root install -m 600 "$GENERATED_DIR/$BACKEND_ENV_NAME" "$SYSTEMD_DIR/$BACKEND_ENV_NAME"
 root install -m 644 "$GENERATED_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$BACKEND_SERVICE"
 root systemctl daemon-reload
 root systemctl enable "$BACKEND_SERVICE"

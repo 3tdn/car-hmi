@@ -2,14 +2,23 @@
 # Shared setup for Linux launchers. Relative paths always refer to the repo.
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
-if [[ ! -f .env && -f .env_bk ]]; then
-    cp .env_bk .env
-fi
-if [[ -f .env ]]; then
-    set -a
-    # This local operator-owned file uses shell-compatible KEY=value syntax.
-    source .env
-    set +a
+# Parse the complete file before applying any values. Do not source operator
+# text as shell code, or let a malformed file leave partially applied overrides.
+HMI_ENV_SYSTEMD_CONTENT=""
+if [[ ! -f .env ]]; then
+    echo '[env] ERROR: .env is missing; continuing with defaults.' >&2
+else
+    env_python="${PROJECT_DIR}/.venv/bin/python"
+    if [[ ! -x "$env_python" ]]; then
+        env_python="$(command -v python3 || true)"
+    fi
+    if [[ -z "$env_python" ]]; then
+        echo '[env] ERROR: Cannot validate .env without Python; continuing with defaults.' >&2
+    elif env_exports="$("$env_python" "$PROJECT_DIR/scripts/linux_env.py" "$PROJECT_DIR/.env")"; then
+        # linux_env.py emits only validated identifiers and shlex-quoted literals.
+        eval "$env_exports"
+    fi
+    unset env_exports env_python
 fi
 export CAR_HMI_PROJECT_DIR="$PROJECT_DIR"
 export CAR_HMI_FRONTEND_PATH="${CAR_HMI_FRONTEND_PATH:-../hmi/}"
