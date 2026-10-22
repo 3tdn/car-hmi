@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0070b4" />
   <meta name="description" content="CAN-HMI vehicle intelligence workspace. Explore live CAN signals, system performance and adaptive restraint analysis." />
   <title>CAN-HMI | Vehicle Intelligence</title>
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=7" />
 </head>
 <body>
   <a class="skip-link" href="#dashboard-heading">Skip to workspace</a>
@@ -194,7 +194,11 @@
   <dialog id="signal-detail-dialog" class="signal-detail-dialog" aria-labelledby="signal-detail-title">
     <div class="signal-detail-header"><div><p class="eyebrow">SIGNAL DETAILS</p><h2 id="signal-detail-title"></h2></div><button id="signal-detail-close" class="btn btn--secondary" type="button" aria-label="Close signal details">Close</button></div>
     <dl id="signal-detail-fields" class="signal-detail-fields"></dl>
-    <canvas id="signal-detail-chart" width="520" height="100" aria-label="Signal history"></canvas>
+    <div class="signal-detail-chart-heading">
+      <h3>Value over time</h3>
+      <span>Last hour · one sample every 100 ms</span>
+    </div>
+    <canvas id="signal-detail-chart" width="520" height="100" aria-label="Rolling signal value graph"></canvas>
     <p id="signal-detail-chart-caption" class="section-caption"></p>
     <form id="signal-detail-write-form" class="signal-detail-write" hidden>
       <label for="signal-detail-write-value">Write value</label>
@@ -459,7 +463,7 @@
   </footer>
 
   <script src="js/api.js"></script>
-  <script src="js/widgets.js?v=3"></script>
+  <script src="js/widgets.js?v=4"></script>
   <script>
     // Initialize frontend mode early so app.js can read it at boot.
     (function(){
@@ -479,11 +483,11 @@
       }
     })();
   </script>
-  <script src="js/signal-tools.js?v=1"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/signal-tools.js?v=3"></script>
+  <script src="js/app.js?v=5"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
   <script src="js/adaptive.js?v=2"></script>
   <script src="js/devmode.js"></script>
-  <script src="js/settings.js?v=5"></script>
+  <script src="js/settings.js?v=6"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 ## Requirements
 
 - Python ≥ 3.11
+- Node.js ≥ 20 and npm for the sibling `../hmi/` frontend
 - (Optional) SocketCAN interface or compatible CAN adapter for real hardware
 - Key dependencies: `python-can`, `cantools`, `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`, `psutil`, `pyyaml`
 
@@ -46,9 +47,9 @@ can-hmi --config config/system.json --log-level DEBUG
 
 ## Linux helper scripts
 
-- `scripts/setup_linux.sh` prepares the Python environment used by the launcher.
-- `scripts/run_linux.sh` starts CAN-HMI and handles restart exit code `75`.
-- `scripts/deploy_linux.sh` installs and manages the systemd service.
+- `scripts/setup_linux.sh` prepares Python, the virtualenv, and npm frontend dependencies.
+- `scripts/run_linux.sh` starts backend + frontend; the backend supervisor handles restart exit code `75`.
+- `scripts/deploy_linux.sh` installs and manages both systemd services.
 - `scripts/test_linux.sh` runs unit, functional, API, WebSocket, security, or runtime tests.
 - `scripts/test_it_linux.sh` runs the integration-test workflow.
 - `scripts/runtime_smoke_linux.sh` runs the real-process runtime smoke test.
@@ -96,7 +97,7 @@ car-hmi/
 ├── diagram/                # PlantUML architecture diagrams
 ├── docs/                   # Requirements documentation
 ├── introduce/              # Architecture and API reference guides
-├── deploy/                 # systemd service file
+├── deploy/                 # Backend and frontend systemd service templates
 ├── pyproject.toml
 ├── ruff.toml
 └── README.md
@@ -266,25 +267,71 @@ Usage: select mode from the header `Mode` dropdown. In `User` mode the signal ta
 
 ## Deployment (Linux)
 
-A systemd service template is provided at `deploy/can-hmi.service`. The deployment
-script renders its `@@PROJECT_DIR@@` and `@@SERVICE_USER@@` placeholders.
+Clone the separate frontend next to the backend:
 
 ```bash
-# Install, enable, and start the service
+git clone git@github.com:thithuongdk/car-hmi-fe.git ../hmi
+```
+
+Install Node.js >= 20 and npm on the Linux host. `setup_linux.sh` attempts to
+install distribution `nodejs`/`npm` packages if they are missing, and rejects Node
+versions below 20. It also prepares Python and installs locked npm dependencies.
+
+```bash
+bash scripts/setup_linux.sh
+
+# Run backend + frontend in the terminal (Ctrl+C stops both)
+bash scripts/run_linux.sh
+# Frontend: http://localhost:5173; backend API: http://localhost:8000/docs
+
+# Alternatively, run the npm frontend independently
+cd ../hmi
+npm run dev .
+```
+
+The root `.env` and committed `.env_bk` contain:
+
+```ini
+CAR_HMI_FRONTEND_PATH=../hmi/
+```
+
+Scripts restore `.env` from `.env_bk` if it is missing. `.env` remains ignored by
+Git. The frontend proxy reads the backend host/port from system config, with
+optional overrides documented in [frontend README](https://github.com/thithuongdk/car-hmi-fe#readme).
+
+On a Linux host running systemd, deploy once to enable both services at boot:
+
+```bash
+# From the repository root; sudo is requested for system changes
 bash scripts/deploy_linux.sh
-
-# Check service status
 bash scripts/deploy_linux.sh --status
+sudo journalctl -u can-hmi -u can-hmi-frontend -f
 
-# View live logs
-sudo journalctl -u can-hmi -f
-
-# Stop the service
-sudo systemctl stop can-hmi
-
-# Remove the service
+# Stop or remove both services
+sudo systemctl stop can-hmi-frontend can-hmi
 bash scripts/deploy_linux.sh --uninstall
 ```
+
+`can-hmi.service` runs Python; `can-hmi-frontend.service` runs the npm project's
+production Node entry point. Both are enabled for `multi-user.target` and recover
+from process failures. A backend config restart (exit 75) restarts only the
+backend; the frontend remains available and reconnects. The deploy script records
+absolute project and Node paths, so boot does not require an interactive shell or
+activation of nvm/pyenv. Deploy grants the dedicated frontend account read access
+to the frontend tree and traversal through private parent directories using POSIX
+ACLs, including access to a Node executable installed by nvm. The `acl` package
+is installed automatically on Debian/Ubuntu if needed; other distributions need
+`setfacl` and `runuser` installed first. Backend `.env` remains inaccessible to the
+frontend service. Re-run deploy after adding private frontend files or replacing
+the npm dependencies, so their permissions are prepared again.
+
+Re-run deploy after moving the project, changing
+`CAR_HMI_FRONTEND_PATH`, or changing the installed Node path.
+
+CAN hardware is owned by the backend and selected in `config/system.json`; the
+frontend connects through its HTTP/WebSocket proxy. Systemd starts the web
+services at boot; it does not open a desktop browser. Containers without systemd
+can use `run_linux.sh`; `--backend-only` starts only the supervised backend.
 
 ## Testing
 

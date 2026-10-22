@@ -109,12 +109,14 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
     root = _project_root()
     port = _free_port()
     runtime_cfg = _make_runtime_config(tmp_path, port)
-    base_url = f"http://127.0.0.1:{port}"
+    frontend_port = _free_port()
+    base_url = f"http://127.0.0.1:{frontend_port}"
 
     out_log = (tmp_path / "runtime_stdout.log").open("w", encoding="utf-8")
     proc = subprocess.Popen(
         ["bash", "scripts/run_linux.sh", str(runtime_cfg), "WARNING", str(port)],
         cwd=root,
+        env={**os.environ, "CAR_HMI_FRONTEND_PORT": str(frontend_port)},
         stdout=out_log,
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -136,6 +138,9 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
         }
 
         with httpx.Client(base_url=base_url, timeout=8.0) as client:
+            assert client.get("/").status_code == 200
+            assert client.get("/js/app.js").status_code == 200
+            assert client.get("/server.mjs").status_code == 404
             health = client.get("/system/health")
             assert health.status_code == 200
 
@@ -170,7 +175,7 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
                 )
                 assert after_release.status_code != 423
 
-        asyncio.run(_ws_subscribe_ack(port))
+        asyncio.run(_ws_subscribe_ack(frontend_port))
     finally:
         with contextlib.suppress(Exception):
             os.killpg(proc.pid, signal.SIGTERM)

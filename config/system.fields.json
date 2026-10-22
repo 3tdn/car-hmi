@@ -227,7 +227,7 @@
       "editable": false,
       "setting_mode": "expand",
       "reload_level": "immutable",
-      "description": "Video directory is fixed at application startup. Project-relative or absolute directory containing restraint videos named {percentile}p_{seat}_{velocity}_{seatbelt}.ext.",
+      "description": "Read-only through the config API. Video routes read this directory from config per request; project-relative or absolute path.",
       "validation": {
         "minLength": 1
       },
@@ -242,7 +242,7 @@
       "editable": false,
       "setting_mode": "expand",
       "reload_level": "immutable",
-      "description": "API server bind address.",
+      "description": "Bind address is fixed at startup and read-only through the config API.",
       "ui": {
         "control": "text"
       }
@@ -254,7 +254,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "reboot",
-      "description": "API server bind port.",
+      "description": "API bind port after restart. A deployment PORT environment variable takes precedence.",
       "validation": {
         "minimum": 1,
         "maximum": 65535
@@ -283,7 +283,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "System metrics broadcast interval.",
+      "description": "Live system metrics broadcast interval. An existing sleep finishes first.",
       "validation": {
         "exclusiveMinimum": 0
       },
@@ -351,10 +351,10 @@
       "path": "profiles.default_profile_permission",
       "title": "Default Profile Permission",
       "type": "array",
-      "editable": true,
+      "editable": false,
       "setting_mode": "expand",
-      "reload_level": "reboot",
-      "description": "Default profile permissions.",
+      "reload_level": "immutable",
+      "description": "Reserved setting; profile creation does not use this value. Permissions are supplied per signal in each profile.",
       "validation": {
         "minItems": 1,
         "items": {
@@ -369,10 +369,10 @@
       "path": "profiles.default_profile_permission.*",
       "title": "*",
       "type": "string",
-      "editable": true,
+      "editable": false,
       "setting_mode": "expand",
-      "reload_level": "reboot",
-      "description": "A default profile permission.",
+      "reload_level": "immutable",
+      "description": "Reserved permission value; not applied by profile creation.",
       "validation": {
         "enum": [
           "read",
@@ -592,7 +592,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "live",
-      "description": "Audio files mapped to audio_number values. CAN HMI_Soundfile uses audio_number; audio_number must be unique between 1 and 255.",
+      "description": "Live mapping of audio_number to files. Current playback continues; queued IDs removed from the mapping are dropped.",
       "validation": {
         "maxItems": 255,
         "items": {
@@ -665,7 +665,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "live",
-      "description": "When false, a new non-zero HMI_Soundfile stops the current track and plays the new one. When true, it is queued behind the current track.",
+      "description": "Applied to subsequent sound requests. False replaces current playback; true queues requests. Changing this flag alone does not interrupt the active track.",
       "ui": {
         "control": "checkbox"
       }
@@ -677,7 +677,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Interval for publishing HMI_AudioTimesamp while playing.",
+      "description": "Timestamp publishing interval, applied when the next playback starts; current playback keeps its interval.",
       "validation": {
         "minimum": 50,
         "maximum": 60000
@@ -958,7 +958,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Silent CAN bus detection threshold.",
+      "description": "Live silent CAN bus detection threshold. Zero disables silence-based recovery and freshness checking.",
       "validation": {
         "minimum": 0
       },
@@ -1003,7 +1003,7 @@
       "editable": true,
       "setting_mode": "base",
       "reload_level": "live",
-      "description": "Periodic CAN transmission mode.",
+      "description": "Applied to subsequent writes. Changing any periodic setting cancels active periodic transmissions.",
       "ui": {
         "control": "checkbox"
       }
@@ -1015,7 +1015,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Periodic CAN transmission interval.",
+      "description": "Periodic CAN interval in ms for subsequent writes. Changing it cancels active periodic transmissions.",
       "validation": {
         "minimum": 1
       },
@@ -1030,7 +1030,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Periodic CAN transmission duration.",
+      "description": "Periodic CAN duration in ms for subsequent writes. Changing it cancels active periodic transmissions.",
       "validation": {
         "minimum": 0
       },
@@ -1087,7 +1087,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Dev Mode lock timeout.",
+      "description": "Default timeout for new or renewed Dev Mode locks. Existing expiry times and explicitly requested timeouts are unchanged.",
       "validation": {
         "exclusiveMinimum": 0
       },
@@ -1188,7 +1188,7 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Number of system config backups to retain.",
+      "description": "Backup retention used when the next backup is created; existing files are not pruned immediately.",
       "validation": {
         "minimum": 1,
         "maximum": 200

@@ -99,18 +99,29 @@ function drawSparkline(canvas, values, options = {}) {
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  if (!values || values.length < 2) return;
+  if (!values || values.length === 0) return;
 
   let min = Number.isFinite(options.min) ? options.min : Math.min(...values);
   let max = Number.isFinite(options.max) ? options.max : Math.max(...values);
   if (max === min) { min -= 0.5; max += 0.5; }
   const range = max - min;
   const times = options.timestamps;
-  const timeRange = times?.length === values.length ? times.at(-1) - times[0] : 0;
+  const hasTimeWindow = times?.length === values.length && Number.isFinite(options.windowStart) && Number.isFinite(options.windowEnd) && options.windowEnd > options.windowStart;
+  const timeRange = hasTimeWindow ? options.windowEnd - options.windowStart : times?.length === values.length ? times.at(-1) - times[0] : 0;
+
+  if (values.length === 1) {
+    const x = hasTimeWindow ? (times[0] - options.windowStart) / timeRange * (w - 2) + 1 : w - 2;
+    const y = h - Math.max(0, Math.min(1, (values[0] - min) / range)) * (h - 2) - 1;
+    ctx.beginPath();
+    ctx.arc(Math.max(1, Math.min(w - 1, x)), y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = chartTheme.accent;
+    ctx.fill();
+    return;
+  }
 
   ctx.beginPath();
   values.forEach((v, idx) => {
-    const x = (timeRange > 0 ? (times[idx] - times[0]) / timeRange : idx / (values.length - 1)) * (w - 2) + 1;
+    const x = (hasTimeWindow ? (times[idx] - options.windowStart) / timeRange : timeRange > 0 ? (times[idx] - times[0]) / timeRange : idx / (values.length - 1)) * (w - 2) + 1;
     const y = h - Math.max(0, Math.min(1, (v - min) / range)) * (h - 2) - 1;
     if (idx === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);

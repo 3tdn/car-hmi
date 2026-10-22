@@ -40,7 +40,7 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | Level | Meaning |
 |---|---|
 | `live` | Save and immediately update the runtime objects using the value. |
-| `reboot` | Save; restart the service to apply fully. Saving does not automatically reboot. |
+| `reboot` | Save; backend automatically restarts 30 seconds after the last successful reboot-level change. |
 | `immutable` | Reject changes through the API: secrets, open resource paths, or fields without a runtime implementation. |
 
 ## Live fields
@@ -60,6 +60,12 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 Changing `processor.max_queue_size` switches the reader and pipeline to a new queue and
 drains pending data from the old queue. Reader, writer, pipeline, WebSocket, and app-state
 references are updated during the same configuration operation.
+
+Live settings follow the existing component behavior: audio mappings affect the next
+playback, periodic-writer changes cancel existing periodic jobs and affect subsequent
+writes, and Dev Mode timeout changes affect new/renewed locks rather than existing
+expiry times. Metrics finish an existing sleep before using a new interval. Backup
+retention is enforced when the next backup is created.
 
 Signal metadata is not part of system configuration. It is read from each configured DBC during
 startup and kept in memory. Changing a `can.*.can_db_file` path or replacing a DBC file requires a
@@ -136,8 +142,8 @@ is `false`; the writer no longer copies omitted fields from `OMS_State_*` signal
 |---|---|
 | Multi-CAN | `can` additions/removals; `can.*.interface`, `can.*.channel`, `can.*.bitrate`, `can.*.can_db_file`, `can.*.channel_tracking_signals` |
 | Simulator | `simulator.enabled`, `simulator.random_mode`, `simulator.default_cycle_ms`, `simulator.can_db_file` |
-| API server | `api.host`, `api.port`, `api.cors_origins` |
-| Profiles | `profiles.default_profile_permission`, `profiles.session_online_ttl_seconds`, `profiles.session_history_limit`, `profiles.session_cleanup_interval_sec` |
+| API server | `api.port`, `api.cors_origins` (`PORT` environment override takes precedence over the saved port) |
+| Profiles | `profiles.session_online_ttl_seconds`, `profiles.session_history_limit`, `profiles.session_cleanup_interval_sec` |
 | Camera | All `camera.*` fields, including upstream retry and FPS logging intervals |
 | Audio | `audio.enabled`, `audio.media_dir` |
 | Status monitor | `status_monitor.enabled`, `status_monitor.interval_sec`, `status_monitor.ping_timeout_sec`, `status_monitor.targets.*` |
@@ -156,7 +162,9 @@ select the interface. An empty list permits all DBC messages with signals immedi
 |---|---|
 | `adaptive_restraint.db_path`, `adaptive_restraint.csv_path`, `adaptive_restraint.media_dir` | Data and resource paths cannot be changed through the config API. `db_path` and `csv_path` are opened at startup; `media_dir` is read from the current config per request. |
 | `api.api_key` | Authentication secret; GET redacts it as `********`. |
+| `api.host` | Bind address is intentionally read-only through the configuration API. |
 | `profiles.profiles_path`, `profiles.sessions_path` | Data/access paths remain fixed for the process lifetime. |
+| `profiles.default_profile_permission`, `profiles.default_profile_permission.*` | Reserved/unused by profile creation. Restarting cannot apply this value; permissions come from each profile's signal entries. |
 | `writer.rate_limit_per_sec`, `writer.burst` | Writer token-bucket limiting is not implemented. |
 | `logging.file_path` | The file handler is already open. |
 
@@ -199,9 +207,11 @@ channel. Do not send the redacted API key back as a new value.
 ## Response and frontend behavior
 
 GET includes `config`, `fields_schema_version`, `reload_levels`, `fields`, `paths`,
-`pending_reboot_paths`, and `reboot_required`. Patch/reset/restore/reload responses include
+`pending_reboot_paths`, `reboot_required`, `reboot_scheduled`, and `reboot_at` (UTC ISO timestamp
+or null). Patch/reset/restore/reload responses include
 `ok`, redacted `config`, `changed_paths`, `reload` (`live`, `reboot`, `immutable`), `runtime`
-(`applied`, `unavailable`), `pending_reboot_paths`, and `reboot_required`; operations that
+(`applied`, `unavailable`), `pending_reboot_paths`, `reboot_required`, `reboot_scheduled`,
+and `reboot_at`; operations that
 create a backup also return backup information. Backup entries contain `id`, `created_at`,
 and `size_bytes`. Delete returns `ok` and the deleted entry's metadata without changing the
 active configuration.
@@ -209,8 +219,29 @@ active configuration.
 Render field widgets, Base/Expanded visibility, editability, enums, and locked/restart
 indicators from GET policy. Expanded includes both Base and advanced fields. Show pending
 reboot paths after a mutation and do not report reboot fields as applied merely because they
-were saved. Reset/restore create safety backups. Invoke the reboot endpoint explicitly when
-restart is intended. See the [frontend integration guide](frontend_integration.md).
+were saved. Reset/restore create safety backups. The frontend displays the scheduled
+restart; it does not need to request one. The manual reboot endpoint remains available
+for an immediate restart. See the [frontend integration guide](frontend_integration.md).
+
+## Automatic backend restart
+
+PATCH, reset, restore and explicit reload share a single 30-second debounce timer.
+Only a successful, actual change to reboot-level settings resets that timer. Live-only
+updates, unchanged values, invalid requests and rolled-back updates do not delay it.
+Reverting all pending values to the boot configuration cancels it. Settings overridden
+by deployment environment variables do not schedule a restart if the effective value
+has not changed. Editing a file alone does not schedule anything; call reload afterwards.
+
+Expiry is serialized with configuration writes and rollback. Once shutdown starts,
+configuration mutations return HTTP 409 (`system_config_restarting`) until the backend
+is available again. Shutdown cancels any outstanding timer. This restarts the application,
+not the operating system, and existing HTTP/WebSocket connections may reconnect.
+
+The runner exits with code 75. Systemd (`Restart=on-failure`) or `scripts/run_linux.sh`
+already handles that exit. On Render, use `python -m src.core.service --config
+config/system.json --log-level INFO`: it restarts only the child process, preserving
+its arguments, environment and the saved config inside the current container. API
+updates use the same config file passed to the runner's `--config` option.
 
 For immediate ordinary exceptions during live apply, the backend attempts to restore disk
 and runtime state and returns `system_config_runtime_apply_failed` (HTTP 500). This rollback

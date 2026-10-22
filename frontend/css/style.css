@@ -410,6 +410,9 @@ tr[data-freshness="offline"] .signal-number { color: var(--muted); }
 .signal-detail-fields dt { color: var(--muted); }
 .signal-detail-fields dd { margin: 0; overflow-wrap: anywhere; }
 #signal-detail-chart { width: 100%; height: 100px; background: var(--bg); }
+.signal-detail-chart-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px 0 8px; }
+.signal-detail-chart-heading h3 { margin: 0 auto 0 0; font-size: 15px; }
+.signal-detail-chart-heading > span { color: var(--muted); font-size: 12px; }
 .signal-detail-write { margin-top: 20px; font-size: 13px; }
 .signal-detail-write > div { display: flex; gap: 8px; margin-top: 6px; }
 .signal-detail-write input { min-width: 0; flex: 1; padding: 10px; font: inherit; border: 1px solid var(--border); border-radius: var(--radius); }

@@ -7,6 +7,8 @@ const signalWriteRequests = new Map();
 const metricHistoryTimes = new Map();
 let lastMetricsSampleAt = 0;
 let inspectedSignalName = null;
+const DEFAULT_SIGNAL_CHART_WINDOW_SECONDS = 10;
+const SIGNAL_DETAIL_WINDOW_SECONDS = 60 * 60;
 
 function formatSignalNumber(value) {
   if (!Number.isFinite(value)) return '—';
@@ -35,16 +37,76 @@ function signalMetadata(name) {
   return getSignalMetadata(name) || signalMetadataCache.get(name) || {};
 }
 
-function signalChartInfo(name) {
-  const values = signalHistory.get(name) || [];
-  const timestamps = signalHistoryTimes.get(name) || [];
+function signalChartInfo(name, windowSeconds = DEFAULT_SIGNAL_CHART_WINDOW_SECONDS) {
+  const allValues = signalHistory.get(name) || [];
+  const allTimestamps = signalHistoryTimes.get(name) || [];
+  const firstAvailable = signalHistoryStart?.get(name) || 0;
+  const windowEnd = Date.now() / 1000;
+  const windowStart = windowEnd - windowSeconds;
+  let low = firstAvailable;
+  let high = allTimestamps.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (allTimestamps[mid] < windowStart) low = mid + 1;
+    else high = mid;
+  }
+  // A 100 ms view can fall between source ticks; carry the immediately prior
+  // sample to the left edge so the shortest window does not flicker empty.
+  if (windowSeconds <= 0.1 && low > firstAvailable && windowStart - allTimestamps[low - 1] <= 0.15) low -= 1;
+
+  // Keep graph work bounded by its pixel width, including when viewing an hour.
+  const sampleCount = Math.max(0, allTimestamps.length - low);
+  const bucketCount = Math.min(sampleCount, 520);
+  const values = [];
+  const timestamps = [];
+  if (bucketCount > 0) {
+    let cursor = low;
+    for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+      const bucketEnd = low + Math.ceil(((bucket + 1) * sampleCount) / bucketCount);
+      let minValue = Infinity;
+      let maxValue = -Infinity;
+      let minIndex = cursor;
+      let maxIndex = cursor;
+      while (cursor < bucketEnd) {
+        if (allValues[cursor] < minValue) { minValue = allValues[cursor]; minIndex = cursor; }
+        if (allValues[cursor] > maxValue) { maxValue = allValues[cursor]; maxIndex = cursor; }
+        cursor += 1;
+      }
+      if (minIndex <= maxIndex) {
+        values.push(allValues[minIndex], allValues[maxIndex]);
+        timestamps.push(Math.max(windowStart, allTimestamps[minIndex]), Math.max(windowStart, allTimestamps[maxIndex]));
+      } else {
+        values.push(allValues[maxIndex], allValues[minIndex]);
+        timestamps.push(Math.max(windowStart, allTimestamps[maxIndex]), Math.max(windowStart, allTimestamps[minIndex]));
+      }
+    }
+  }
+  const latestTimestamp = allTimestamps.at(-1);
+  if (values.length && latestTimestamp <= windowEnd && windowEnd - latestTimestamp <= 0.15) {
+    values.push(allValues.at(-1));
+    timestamps.push(windowEnd);
+  }
   const meta = signalMetadata(name);
   const fixed = Number.isFinite(meta.min_value) && Number.isFinite(meta.max_value) && meta.max_value > meta.min_value;
   const min = fixed ? meta.min_value : values.length ? Math.min(...values) : 0;
   const max = fixed ? meta.max_value : values.length ? Math.max(...values) : 1;
-  const seconds = timestamps.length > 1 ? Math.max(0, timestamps.at(-1) - timestamps[0]) : 0;
-  return { values, timestamps, min, max, caption: `${formatSignalNumber(min)}–${formatSignalNumber(max)} · ${seconds.toFixed(1)}s`,
-    description: `${fixed ? 'Fixed signal range' : 'Observed range (auto scale)'}: ${formatSignalNumber(min)} to ${formatSignalNumber(max)}. ${values.length} samples over ${seconds.toFixed(1)}s.` };
+  return {
+    values,
+    timestamps,
+    min,
+    max,
+    windowStart,
+    windowEnd,
+    caption: `${formatSignalNumber(min)}–${formatSignalNumber(max)} · ${formatChartWindow(windowSeconds)}`,
+    description: `${fixed ? 'Fixed signal range' : 'Observed range (auto scale)'}: ${formatSignalNumber(min)} to ${formatSignalNumber(max)}. Rolling ${formatChartWindow(windowSeconds)} window, sampled at 100 ms; ${sampleCount} samples available.`,
+  };
+}
+
+function formatChartWindow(seconds) {
+  if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${seconds / 60} min`;
+  return '1 h';
 }
 
 function renderSignalValue(row, name, value, canRead) {
@@ -168,7 +230,7 @@ function updateSignalDetails(force = false) {
     const description = document.createElement('dd'); description.textContent = text;
     list.append(term, description);
   }
-  const info = signalChartInfo(name);
+  const info = signalChartInfo(name, SIGNAL_DETAIL_WINDOW_SECONDS);
   drawSparkline(document.getElementById('signal-detail-chart'), access.canRead ? info.values : [], info);
   document.getElementById('signal-detail-chart-caption').textContent = access.canRead ? info.description : 'Read access restricted';
   const form = document.getElementById('signal-detail-write-form');
@@ -208,4 +270,5 @@ function initSignalTools() {
   });
   refreshSignalFreshness();
   setInterval(refreshSignalFreshness, 1000);
+  setInterval(sampleSignalHistories, 100);
 }

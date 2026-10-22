@@ -557,7 +557,9 @@ Response format taken from the implementation (OpenAPI does not declare a detail
     "backup_directory": "config/backups"
   },
   "pending_reboot_paths": [],
-  "reboot_required": false
+  "reboot_required": false,
+  "reboot_scheduled": false,
+  "reboot_at": null
 }
 ```
 
@@ -566,6 +568,13 @@ Note: The response contains the full configuration and policy; the example abbre
 ### `PATCH /config/system`
 
 Patch system config without dropping unrelated fields
+
+Successful reboot-level changes schedule an automatic backend restart after 30 seconds.
+Further reboot-level changes reset the countdown. Live-only, failed and no-op updates do
+not extend it; reverting all pending changes cancels it. GET and mutation responses expose
+`reboot_scheduled` and `reboot_at` (UTC ISO timestamp or null). The frontend does not need
+to call the reboot endpoint. Requests during shutdown return HTTP 409 with
+`detail.code: system_config_restarting`. Reset, restore and explicit reload use the same rules.
 
 Auth: API key when authentication is enabled. A profile needs full permission, or X-Dev-Mode.
 

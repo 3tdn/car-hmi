@@ -24,10 +24,17 @@ You can run a smoke test with the same environment variables used on Render:
 ```bash
 PORT=10000 \
 CAR_HMI_REQUIRE_API_KEY=false \
-.venv/bin/python -m src.core.runner --config config/system.json --log-level INFO
+.venv/bin/python -m src.core.service --config config/system.json --log-level INFO
 ```
 
 Open `http://127.0.0.1:10000/system/health` to verify the service. Stop it with `Ctrl+C`.
+
+Render's Start Command must use `python -m src.core.service --config config/system.json
+--log-level INFO`, as specified in `render.yaml`. Existing services configured manually
+must update that command when deploying this version. The launcher restarts the backend
+child after a configuration-triggered exit (75), keeping the current container and its
+saved configuration. It also forwards termination signals and does not restart a failed
+child for other exit codes; normal host supervision handles those failures.
 
 ## 2. Commit and push the deployment branch
 
@@ -112,7 +119,8 @@ location.reload();
   to start the service again.
 - The Free plan uses an ephemeral filesystem. Profile sessions, configuration backups, and
   configuration changes made through the UI are lost
-  when the service restarts, redeploys, or spins down.
+  when Render replaces the container, redeploys, or spins down. An application-only
+  restart through `src.core.service` keeps the saved files in the current container.
 - Signal metadata is rebuilt from the deployed DBC files on every start. Realtime signal values
   are held in memory and are not persisted.
 

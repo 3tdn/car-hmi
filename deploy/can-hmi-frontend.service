@@ -1,0 +1,25 @@
+[Unit]
+Description=CAN-HMI Frontend
+Documentation=https://github.com/3tdn/car-hmi
+Wants=network-online.target can-hmi.service
+After=network-online.target can-hmi.service
+
+[Service]
+Type=simple
+User=car-hmi-frontend
+WorkingDirectory=@@FRONTEND_DIR@@
+ExecStart="@@NODE_BIN@@" "@@FRONTEND_DIR@@/server.mjs"
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment="CAR_HMI_PROJECT_DIR=@@PROJECT_DIR@@"
+Environment="CAR_HMI_BACKEND_URL=@@BACKEND_URL@@"
+InaccessiblePaths="@@ENV_FILE@@"
+NoNewPrivileges=true
+PrivateTmp=true
+LimitNOFILE=4096
+MemoryMax=256M
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
