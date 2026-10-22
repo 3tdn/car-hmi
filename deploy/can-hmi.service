@@ -14,7 +14,7 @@ RestartSec=5
 
 # Environment
 Environment=CAN_HMI_LOG_LEVEL=INFO
-EnvironmentFile=-@@PROJECT_DIR@@/.env
+EnvironmentFile=-@@BACKEND_ENV_FILE@@
 
 # Security hardening
 NoNewPrivileges=true

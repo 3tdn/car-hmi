@@ -295,8 +295,15 @@ The root `.env` and committed `.env_bk` contain:
 CAR_HMI_FRONTEND_PATH=../hmi/
 ```
 
-Scripts restore `.env` from `.env_bk` if it is missing. `.env` remains ignored by
-Git. The frontend proxy reads the backend host/port from system config, with
+Use `.env_bk` as a template when creating `.env`; `.env` remains ignored by Git.
+If `.env` is missing, unreadable, or malformed, the Linux scripts report an error
+and continue with defaults from system config and the default frontend path.
+The complete file is validated before any values are applied. Use `KEY=value`
+assignments, with quotes around values containing spaces. Shell commands and
+variable expansion are not supported. Deploy installs a root-readable normalized
+snapshot at `/etc/systemd/system/can-hmi.env`; an ignored `.env` produces an empty
+snapshot, so systemd also uses backend defaults. Re-run deploy after editing `.env`.
+The frontend proxy reads the backend host/port from system config, with
 optional overrides documented in [frontend README](https://github.com/thithuongdk/car-hmi-fe#readme).
 
 On a Linux host running systemd, deploy once to enable both services at boot:
