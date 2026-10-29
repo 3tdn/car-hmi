@@ -1,6 +1,6 @@
 [Unit]
 Description=CAN-HMI Frontend
-Documentation=https://github.com/3tdn/car-hmi
+Documentation=https://github.com/doandung2701/hmi
 Wants=network-online.target can-hmi.service
 After=network-online.target can-hmi.service
 
@@ -8,7 +8,7 @@ After=network-online.target can-hmi.service
 Type=simple
 User=car-hmi-frontend
 WorkingDirectory=@@FRONTEND_DIR@@
-ExecStart="@@NODE_BIN@@" "@@FRONTEND_DIR@@/server.mjs"
+ExecStart="@@NODE_BIN@@" "@@FRONTEND_DIR@@/node_modules/vite/bin/vite.js" preview --config "@@FRONTEND_CONFIG_FILE@@"
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production

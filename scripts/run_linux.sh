@@ -21,8 +21,8 @@ if [[ "$BACKEND_ONLY" == true ]]; then
     exec "$VENV_PY" -m src.core.service --config "$CONFIG" --log-level "$LOG_LEVEL"
 fi
 require_frontend_runtime
-if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
-    npm --prefix "$FRONTEND_DIR" ci --omit=dev
+if [[ ! -f "$FRONTEND_DIR/node_modules/vite/bin/vite.js" || ! -f "$FRONTEND_DIR/dist/index.html" ]]; then
+    prepare_frontend
 fi
 backend_pid=''
 frontend_pid=''
@@ -40,8 +40,14 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "$VENV_PY" -m src.core.service --config "$CONFIG" --log-level "$LOG_LEVEL" &
 backend_pid=$!
-# Direct node launch gives the shell ownership of the actual process (npm start uses the same entry).
-node "$FRONTEND_DIR/server.mjs" &
+# Preview serves dist; the backend-owned CJS config needs no frontend writes.
+(
+    cd "$FRONTEND_DIR"
+    exec node node_modules/vite/bin/vite.js preview \
+        --config "$PROJECT_DIR/deploy/frontend-preview.cjs" \
+        --host "${CAR_HMI_FRONTEND_HOST:-0.0.0.0}" \
+        --port "${CAR_HMI_FRONTEND_PORT:-5173}" --strictPort
+) &
 frontend_pid=$!
 echo "[run] Backend: http://127.0.0.1:$PORT; frontend: http://localhost:${CAR_HMI_FRONTEND_PORT:-5173}"
 # If either service exits, clean up its sibling and preserve the failure status.

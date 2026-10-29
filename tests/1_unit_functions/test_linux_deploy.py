@@ -13,6 +13,78 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.parametrize("failure", ["install", "build", None])
+def test_frontend_prepare_rejects_failed_install_or_build_even_with_old_dist(tmp_path, failure):
+    frontend = tmp_path / "web ui with spaces"
+    (frontend / "dist").mkdir(parents=True)
+    index = frontend / "dist/index.html"
+    index.write_text("old build")
+    harness = r'''
+source "$1"
+FRONTEND_DIR="$2"
+npm() {
+    if [[ "$3" == ci ]]; then
+        [[ "$4" == --include=dev ]] || return 88
+        [[ "$TEST_FAILURE" != install ]] || return 7
+    else
+        [[ "$TEST_FAILURE" != build ]] || return 9
+        printf 'new build' > "$2/dist/index.html"
+    fi
+}
+if prepare_frontend; then exit 0; else exit $?; fi
+'''
+    result = subprocess.run(
+        ["bash", "-c", harness, "prepare", str(ROOT / "scripts/linux_common.sh"), str(frontend)],
+        env={**os.environ, "TEST_FAILURE": failure or ""},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == {"install": 7, "build": 9, None: 0}[failure], result.stderr
+    assert index.read_text() == ("old build" if failure else "new build")
+
+
+@pytest.mark.parametrize("absolute", [True, False])
+def test_frontend_path_from_env_follows_renamed_directory(tmp_path, absolute):
+    if not shutil.which("node") or not shutil.which("npm"):
+        pytest.skip("Node.js and npm are required")
+    project = tmp_path / "api service"
+    scripts = project / "scripts"
+    scripts.mkdir(parents=True)
+    for name in ("linux_common.sh", "linux_env.py"):
+        shutil.copy(ROOT / "scripts" / name, scripts)
+    frontend = tmp_path / "web ui"
+    frontend.mkdir()
+    for name in ("package.json", "package-lock.json"):
+        (frontend / name).write_text("{}")
+    for name in ("web ui", "renamed frontend with spaces"):
+        renamed = frontend.with_name(name)
+        if frontend != renamed:
+            frontend.rename(renamed)
+            frontend = renamed
+        value = str(frontend) if absolute else os.path.relpath(frontend, project)
+        (project / ".env").write_text(f'CAR_HMI_FRONTEND_PATH="{value}"\n')
+        result = subprocess.run(
+            ["bash", "-c", 'source "$1"; require_frontend_runtime || exit $?; printf "%s" "$FRONTEND_DIR"',
+             "path-test", str(scripts / "linux_common.sh")],
+            cwd=tmp_path, capture_output=True, text=True, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert Path(result.stdout).resolve() == frontend
+
+
+def test_missing_frontend_path_does_not_guess_a_directory(tmp_path):
+    env = {k: v for k, v in os.environ.items() if k != "CAR_HMI_FRONTEND_PATH"}
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(ROOT / "scripts/linux_common.sh", scripts)
+    result = subprocess.run(
+        ["bash", "-c", 'source "$1"; require_frontend_runtime', "path-test",
+         str(scripts / "linux_common.sh")],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 1
+    assert "Set CAR_HMI_FRONTEND_PATH" in result.stderr
+
+
 @pytest.mark.parametrize("folder", ["backend with spaces", 'backend "quoted" 100%'])
 def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
     if not shutil.which("systemd-analyze"):
@@ -33,6 +105,7 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
             sys.executable, "-", str(project), str(tmp_path), "can-hmi-frontend.service",
             "FRONTEND_DIR", str(project), "NODE_BIN", node,
             "ENV_FILE", str(env_file), "BACKEND_URL", "http://127.0.0.1:8000",
+            "FRONTEND_CONFIG_FILE", "/etc/systemd/system/can-hmi-frontend.cjs",
         ],
         input=renderer, text=True, check=True,
     )

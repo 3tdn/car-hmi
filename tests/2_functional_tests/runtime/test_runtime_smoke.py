@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -110,7 +111,9 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
     port = _free_port()
     runtime_cfg = _make_runtime_config(tmp_path, port)
     frontend_port = _free_port()
-    base_url = f"http://127.0.0.1:{frontend_port}"
+    # The frontend serves static dist; clients connect directly to the backend.
+    base_url = f"http://127.0.0.1:{port}"
+    frontend_url = f"http://127.0.0.1:{frontend_port}"
 
     out_log = (tmp_path / "runtime_stdout.log").open("w", encoding="utf-8")
     proc = subprocess.Popen(
@@ -124,6 +127,16 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
 
     try:
         _wait_http_ready(base_url)
+        _wait_http_ready(frontend_url)  # SPA fallback also confirms the static server is ready.
+        with httpx.Client(base_url=frontend_url, timeout=8.0) as ui:
+            index = ui.get("/")
+            assert index.status_code == 200
+            asset = re.search(r'<script[^>]+src="([^"]+)"', index.text)
+            assert asset is not None
+            assert ui.get(asset[1]).status_code == 200
+            assert ui.get("/settings").status_code == 200
+            private = ui.get("/.env")
+            assert private.status_code == 404 or private.content == index.content
 
         headers = {"X-API-Key": RUNTIME_API_KEY}
         owner_headers = {
@@ -138,9 +151,6 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
         }
 
         with httpx.Client(base_url=base_url, timeout=8.0) as client:
-            assert client.get("/").status_code == 200
-            assert client.get("/js/app.js").status_code == 200
-            assert client.get("/server.mjs").status_code == 404
             health = client.get("/system/health")
             assert health.status_code == 200
 
@@ -175,7 +185,7 @@ def test_runtime_smoke_api_ws_and_combo_flow(tmp_path: Path):
                 )
                 assert after_release.status_code != 423
 
-        asyncio.run(_ws_subscribe_ack(frontend_port))
+        asyncio.run(_ws_subscribe_ack(port))
     finally:
         with contextlib.suppress(Exception):
             os.killpg(proc.pid, signal.SIGTERM)

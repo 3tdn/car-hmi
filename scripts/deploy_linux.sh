@@ -7,6 +7,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYSTEMD_DIR=/etc/systemd/system
 BACKEND_SERVICE=can-hmi.service
 FRONTEND_SERVICE=can-hmi-frontend.service
+FRONTEND_CONFIG_NAME=can-hmi-frontend.cjs
 BACKEND_ENV_NAME=can-hmi.env
 SERVICE_USER="${SUDO_USER:-$(id -un)}"
 log() { echo "[deploy] $*"; }
@@ -33,7 +34,7 @@ case "${1:-}" in
     --uninstall)
         root systemctl disable --now "$BACKEND_SERVICE" "$FRONTEND_SERVICE" || true
         root rm -f "$SYSTEMD_DIR/$BACKEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" \
-            "$SYSTEMD_DIR/$BACKEND_ENV_NAME"
+            "$SYSTEMD_DIR/$BACKEND_ENV_NAME" "$SYSTEMD_DIR/$FRONTEND_CONFIG_NAME"
         root systemctl daemon-reload
         log 'Removed backend and frontend services.'
         exit 0 ;;
@@ -135,7 +136,7 @@ deploy_frontend() {
     if ! getent passwd "$frontend_user" >/dev/null; then
         root useradd --system --no-create-home --shell /usr/sbin/nologin "$frontend_user" || return $?
     fi
-    npm --prefix "$frontend_dir" ci --omit=dev || return $?
+    prepare_frontend || return $?
 
     if ! command -v setfacl >/dev/null; then
         if ! command -v apt-get >/dev/null; then
@@ -150,7 +151,8 @@ deploy_frontend() {
         return 1
     fi
     grant_frontend_access "$frontend_user" "$frontend_dir" "$node_bin" || return $?
-    root runuser -u "$frontend_user" -- "$node_bin" --check "$frontend_dir/server.mjs" || return $?
+    root runuser -u "$frontend_user" -- "$node_bin" --check \
+        "$frontend_dir/node_modules/vite/bin/vite.js" || return $?
 
     config_path="$PROJECT_DIR/config/system.json"
     [[ -f "$config_path" ]] || config_path="$PROJECT_DIR/config/system_bk.json"
@@ -174,9 +176,12 @@ PY
         SERVICE_USER "$frontend_user" \
         FRONTEND_DIR "$frontend_dir" \
         NODE_BIN "$node_bin" \
+        FRONTEND_CONFIG_FILE "$SYSTEMD_DIR/$FRONTEND_CONFIG_NAME" \
         ENV_FILE "$PROJECT_DIR/.env" \
         BACKEND_URL "$backend_url" || return $?
     systemd-analyze verify "$GENERATED_DIR/$FRONTEND_SERVICE" || return $?
+    root install -m 644 "$PROJECT_DIR/deploy/frontend-preview.cjs" \
+        "$SYSTEMD_DIR/$FRONTEND_CONFIG_NAME" || return $?
     root install -m 644 "$GENERATED_DIR/$FRONTEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" || return $?
     root systemctl daemon-reload || return $?
     root systemctl enable "$FRONTEND_SERVICE" || return $?
