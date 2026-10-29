@@ -349,6 +349,27 @@ Re-run deploy after moving the project, changing
 After renaming the frontend directory, update its path in `.env` and re-run
 deploy to regenerate the absolute paths recorded in the systemd unit.
 
+For small source edits after setup/full deploy, use the faster update script:
+
+```bash
+bash scripts/dev_deploy_linux.sh                  # Build frontend; restart both
+bash scripts/dev_deploy_linux.sh --backend-only   # Restart backend only
+bash scripts/dev_deploy_linux.sh --frontend-only  # Build/restart frontend only
+```
+
+This reuses installed dependencies: no npm/pip/apt install, unit regeneration, or
+recursive permission update of `node_modules`. Frontend builds use `npm run build`
+with a temporary output directory; a failed build leaves the served `dist` intact
+and restarts neither service. After a successful build, it grants read access to
+the new assets, publishes `dist`, and restarts the selected services. The previous
+`dist` is restored if publishing or restarting fails. Build and total times are
+printed. Systemd active status does not replace an application health check.
+Reload the browser to load the rebuilt frontend; this script does not enable HMR.
+Frontend `.env` edits need a frontend build; backend `.env`, dependencies, unit
+templates, Node path, or project paths require setup/full deploy as appropriate.
+Both paths still come from the script location and `CAR_HMI_FRONTEND_PATH`, so
+ARM64/x64 and arbitrary directory names use the same workflow.
+
 CAN hardware is owned by the backend and selected in `config/system.json`; the
 frontend connects directly to its configured HTTP/WebSocket URLs. Systemd starts the web
 services at boot; it does not open a desktop browser. Containers without systemd
