@@ -18,7 +18,7 @@ Real-time CAN bus signal reader, processor, and web dashboard for CarPC / automo
 ## Requirements
 
 - Python ≥ 3.11
-- Node.js ≥ 20 and npm for the sibling `../hmi/` frontend
+- Node.js ≥ 20 and npm for the frontend directory configured in `.env`
 - (Optional) SocketCAN interface or compatible CAN adapter for real hardware
 - Key dependencies: `python-can`, `cantools`, `fastapi`, `uvicorn[standard]`, `pydantic`, `numpy`, `psutil`, `pyyaml`
 
@@ -267,10 +267,10 @@ Usage: select mode from the header `Mode` dropdown. In `User` mode the signal ta
 
 ## Deployment (Linux)
 
-Clone the separate frontend next to the backend:
+Clone the separate frontend in a directory of your choice. This example uses `../hmife/`:
 
 ```bash
-git clone git@github.com:thithuongdk/car-hmi-fe.git ../hmi
+git clone git@github.com:doandung2701/hmi.git ../hmife
 ```
 
 Install Node.js >= 20 and npm on the Linux host. `setup_linux.sh` attempts to
@@ -285,26 +285,34 @@ bash scripts/run_linux.sh
 # Frontend: http://localhost:5173; backend API: http://localhost:8000/docs
 
 # Alternatively, run the npm frontend independently
-cd ../hmi
-npm run dev .
+cd ../hmife
+npm run dev
 ```
 
-The root `.env` and committed `.env_bk` contain:
+Set `CAR_HMI_FRONTEND_PATH` in the backend `.env`; `.env_bk` contains this example:
 
 ```ini
-CAR_HMI_FRONTEND_PATH=../hmi/
+CAR_HMI_FRONTEND_PATH=../hmife/
 ```
 
 Use `.env_bk` as a template when creating `.env`; `.env` remains ignored by Git.
+The backend directory is discovered from the script location. The frontend path
+may be absolute or relative to that directory; neither folder name is hardcoded.
 If `.env` is missing, unreadable, or malformed, the Linux scripts report an error
-and continue with defaults from system config and the default frontend path.
+and the backend can continue with system config defaults. The frontend requires
+`CAR_HMI_FRONTEND_PATH`; no directory is guessed when it is absent.
 The complete file is validated before any values are applied. Use `KEY=value`
 assignments, with quotes around values containing spaces. Shell commands and
 variable expansion are not supported. Deploy installs a root-readable normalized
 snapshot at `/etc/systemd/system/can-hmi.env`; an ignored `.env` produces an empty
 snapshot, so systemd also uses backend defaults. Re-run deploy after editing `.env`.
-The frontend proxy reads the backend host/port from system config, with
-optional overrides documented in [frontend README](https://github.com/thithuongdk/car-hmi-fe#readme).
+Set the frontend's `VITE_CAN_HMI_API_URL` and `VITE_CAN_HMI_WS_URL` in its `.env`.
+These URLs are embedded at build time; rebuild after changing them. For the
+local HTTP backend use `http://localhost:8000` and `ws://localhost:8000/ws/signals`.
+Setup/deploy run `npm ci --include=dev` and `npm run build`; run builds only when
+Vite or `dist/index.html` is missing. No frontend source, manifest, lockfile, or
+`.env` is edited by the scripts. npm selects native dependencies on ARM64/x64;
+the frontend manifest and lockfile must support the host architecture.
 
 On a Linux host running systemd, deploy once to enable both services at boot:
 
@@ -319,8 +327,12 @@ sudo systemctl stop can-hmi-frontend can-hmi
 bash scripts/deploy_linux.sh --uninstall
 ```
 
-`can-hmi.service` runs Python; `can-hmi-frontend.service` runs the npm project's
-production Node entry point. Both are enabled for `multi-user.target` and recover
+`can-hmi.service` runs Python; `can-hmi-frontend.service` serves prebuilt `dist`
+using Vite preview for this test deployment. Boot does not install or build.
+Runtime uses a backend-owned CJS config copied into `/etc/systemd/system/`,
+so it needs no write permission in the frontend. Remove any previous manual frontend
+systemd override once before deploying the new template.
+Both are enabled for `multi-user.target` and recover
 from process failures. A backend config restart (exit 75) restarts only the
 backend; the frontend remains available and reconnects. The deploy script records
 absolute project and Node paths, so boot does not require an interactive shell or
@@ -334,9 +346,11 @@ the npm dependencies, so their permissions are prepared again.
 
 Re-run deploy after moving the project, changing
 `CAR_HMI_FRONTEND_PATH`, or changing the installed Node path.
+After renaming the frontend directory, update its path in `.env` and re-run
+deploy to regenerate the absolute paths recorded in the systemd unit.
 
 CAN hardware is owned by the backend and selected in `config/system.json`; the
-frontend connects through its HTTP/WebSocket proxy. Systemd starts the web
+frontend connects directly to its configured HTTP/WebSocket URLs. Systemd starts the web
 services at boot; it does not open a desktop browser. Containers without systemd
 can use `run_linux.sh`; `--backend-only` starts only the supervised backend.
 

@@ -210,7 +210,7 @@ log "Installing project dependencies (editable + dev packages)..."
 log "This may take a minute or two depending on network and disk speed..."
 "$VENV_PY" -m pip install -e ".[dev]"
 
-# Install the frontend runtime and its locked production dependencies.
+# Install Vite/TypeScript build dependencies and prepare the frontend's dist.
 if ! command -v node >/dev/null || ! command -v npm >/dev/null; then
     if command -v apt-get >/dev/null; then
         if [[ "$EUID" -eq 0 ]]; then
@@ -223,7 +223,7 @@ if ! command -v node >/dev/null || ! command -v npm >/dev/null; then
     fi
 fi
 require_frontend_runtime
-npm --prefix "$FRONTEND_DIR" ci --omit=dev
+prepare_frontend
 
 # ── Step 8: Completion ───────────────────────────────────────────────────────
 log ""
