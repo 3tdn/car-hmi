@@ -105,6 +105,7 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
             sys.executable, "-", str(project), str(tmp_path), "can-hmi-frontend.service",
             "FRONTEND_DIR", str(project), "NODE_BIN", node,
             "ENV_FILE", str(env_file), "BACKEND_URL", "http://127.0.0.1:8000",
+            "FRONTEND_PORT", "5173",
             "FRONTEND_CONFIG_FILE", "/etc/systemd/system/can-hmi-frontend.cjs",
         ],
         input=renderer, text=True, check=True,
@@ -112,11 +113,73 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
     unit = tmp_path / "can-hmi-frontend.service"
     escaped = str(env_file).replace("%", "%%").replace('"', '\\"')
     assert f'InaccessiblePaths="{escaped}"' in unit.read_text()
+    assert 'Environment="CAR_HMI_FRONTEND_PORT=5173"' in unit.read_text()
     result = subprocess.run(
         ["systemd-analyze", "verify", str(unit)], text=True, capture_output=True, check=False,
     )
     assert result.returncode == 0, result.stderr
     assert not result.stderr, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_status", "expected_terminated"),
+    [
+        (
+            "/srv/hmi/node_modules/vite/bin/vite.js preview --config /etc/systemd/system/can-hmi-frontend.cjs",
+            0,
+            True,
+        ),
+        ("python -m http.server 5173", 1, False),
+    ],
+)
+def test_frontend_port_cleanup_only_terminates_its_own_vite_preview(
+    tmp_path, args, expected_status, expected_terminated
+):
+    helper = ROOT / "scripts/linux_frontend_port.sh"
+    marker = tmp_path / "listener"
+    marker.touch()
+    log = tmp_path / "terminated.log"
+    harness = r'''
+source "$1"
+fuser() { :; }
+warn() { printf '%s\n' "$*" >&2; }
+log() { :; }
+root() {
+    case "$1" in
+        fuser)
+            [[ ! -e "$TEST_LISTENER" ]] || printf '246\n'
+            ;;
+        ps) printf '%s\n' "$TEST_ARGS" ;;
+        readlink) printf '%s\n' /srv/hmi ;;
+        kill)
+            printf '%s %s\n' "$2" "$3" >> "$TEST_TERMINATED"
+            rm "$TEST_LISTENER"
+            ;;
+        *) return 1 ;;
+    esac
+}
+sleep() { :; }
+cleanup_frontend_port 5173 /srv/hmi
+'''
+    result = subprocess.run(
+        ["bash", "-c", harness, "port-test", str(helper)],
+        env={
+            **os.environ,
+            "TEST_LISTENER": str(marker),
+            "TEST_TERMINATED": str(log),
+            "TEST_ARGS": args,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == expected_status, result.stderr
+    assert marker.exists() is (not expected_terminated)
+    assert log.exists() is expected_terminated
+    if expected_terminated:
+        assert log.read_text().strip() == "-TERM 246"
+    else:
+        assert "refusing to terminate it" in result.stderr
 
 
 def test_frontend_acl_preserves_private_files_and_does_not_follow_symlinks(tmp_path):

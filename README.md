@@ -301,6 +301,9 @@ may be absolute or relative to that directory; neither folder name is hardcoded.
 If `.env` is missing, unreadable, or malformed, the Linux scripts report an error
 and the backend can continue with system config defaults. The frontend requires
 `CAR_HMI_FRONTEND_PATH`; no directory is guessed when it is absent.
+`CAR_HMI_FRONTEND_PORT` optionally selects the frontend port (default `5173`).
+Deploy stops the frontend service and clears a stale Vite preview listener on
+that port; it refuses to terminate a different process occupying the port.
 The complete file is validated before any values are applied. Use `KEY=value`
 assignments, with quotes around values containing spaces. Shell commands and
 variable expansion are not supported. Deploy installs a root-readable normalized

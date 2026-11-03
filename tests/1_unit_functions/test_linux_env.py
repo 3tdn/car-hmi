@@ -61,7 +61,10 @@ def run_deploy(tmp_path, content):
     project = tmp_path / "backend with spaces"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
-    for name in ("deploy_linux.sh", "linux_common.sh", "linux_frontend_access.sh", "linux_env.py"):
+    for name in (
+        "deploy_linux.sh", "linux_common.sh", "linux_frontend_access.sh",
+        "linux_frontend_port.sh", "linux_env.py",
+    ):
         shutil.copy(ROOT / "scripts" / name, scripts)
     shutil.copytree(ROOT / "deploy", project / "deploy")
     systemd = tmp_path / "systemd"
@@ -95,6 +98,7 @@ def run_deploy(tmp_path, content):
     stubs = {
         "sudo": '#!/bin/sh\nexec "$@"\n',
         "systemctl": '#!/bin/sh\necho "$*" >> "$TEST_SYSTEMCTL_LOG"\nexit 0\n',
+        "systemd-analyze": "#!/bin/sh\nexit 0\n",
         "ffplay": "#!/bin/sh\nexit 0\n",
         "ffprobe": "#!/bin/sh\nexit 0\n",
         "getent": "#!/bin/sh\nexit 1\n",
@@ -105,7 +109,7 @@ def run_deploy(tmp_path, content):
         command.write_text(body)
         command.chmod(0o755)
     env = dict(os.environ)
-    for key in ("PORT", "CAR_HMI_API_KEY", "CAR_HMI_FRONTEND_PATH"):
+    for key in ("PORT", "CAR_HMI_API_KEY", "CAR_HMI_FRONTEND_PATH", "CAR_HMI_FRONTEND_PORT"):
         env.pop(key, None)
     env.update(
         PATH=str(commands) + os.pathsep + env["PATH"],
