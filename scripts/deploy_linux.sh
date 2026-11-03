@@ -44,6 +44,13 @@ esac
 
 source "$PROJECT_DIR/scripts/linux_common.sh"
 source "$PROJECT_DIR/scripts/linux_frontend_access.sh"
+source "$PROJECT_DIR/scripts/linux_frontend_port.sh"
+FRONTEND_PORT="${CAR_HMI_FRONTEND_PORT:-5173}"
+if [[ ! "$FRONTEND_PORT" =~ ^[0-9]{1,5}$ ]] ||
+   (( 10#$FRONTEND_PORT < 1 || 10#$FRONTEND_PORT > 65535 )); then
+    echo 'CAR_HMI_FRONTEND_PORT must be an integer between 1 and 65535.' >&2
+    exit 1
+fi
 VENV_BIN="$PROJECT_DIR/.venv/bin/can-hmi"
 if [[ ! -x "$VENV_BIN" ]]; then
     echo 'Backend environment missing. Run scripts/setup_linux.sh first.' >&2
@@ -176,6 +183,7 @@ PY
         SERVICE_USER "$frontend_user" \
         FRONTEND_DIR "$frontend_dir" \
         NODE_BIN "$node_bin" \
+        FRONTEND_PORT "$FRONTEND_PORT" \
         FRONTEND_CONFIG_FILE "$SYSTEMD_DIR/$FRONTEND_CONFIG_NAME" \
         ENV_FILE "$PROJECT_DIR/.env" \
         BACKEND_URL "$backend_url" || return $?
@@ -185,7 +193,10 @@ PY
     root install -m 644 "$GENERATED_DIR/$FRONTEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" || return $?
     root systemctl daemon-reload || return $?
     root systemctl enable "$FRONTEND_SERVICE" || return $?
-    root systemctl restart "$FRONTEND_SERVICE" || return $?
+    # Also cancel pending auto-restarts before reclaiming the port.
+    root systemctl stop "$FRONTEND_SERVICE" || return $?
+    cleanup_frontend_port "$FRONTEND_PORT" "$frontend_dir" || return $?
+    root systemctl start "$FRONTEND_SERVICE" || return $?
     sleep 2
     if ! root systemctl is-active --quiet "$FRONTEND_SERVICE"; then
         root journalctl -u "$FRONTEND_SERVICE" -n 30 --no-pager
@@ -195,7 +206,7 @@ PY
 }
 
 if deploy_frontend; then
-    log "Frontend is installed, enabled, and running at http://localhost:${CAR_HMI_FRONTEND_PORT:-5173}"
+    log "Frontend is installed, enabled, and running at http://localhost:$FRONTEND_PORT"
 else
     frontend_status=$?
     warn "Frontend deployment failed (exit $frontend_status); keeping the backend running and continuing."

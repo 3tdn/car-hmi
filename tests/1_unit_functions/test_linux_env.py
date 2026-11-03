@@ -57,11 +57,29 @@ def test_deploy_preserves_valid_quoted_values_in_systemd_snapshot(tmp_path):
     assert 'PORT=9123 # trailing comment' in (project / '.env').read_text()
 
 
-def run_deploy(tmp_path, content):
+@pytest.mark.parametrize("state", ["active", "auto-restart", "inactive"])
+def test_deploy_stops_frontend_before_port_cleanup_in_all_states(tmp_path, state):
+    result, project, systemd = run_deploy(
+        tmp_path, "CAR_HMI_FRONTEND_PORT=5234\n", frontend_state=state,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert "Frontend is installed, enabled, and running" in result.stdout, result.stderr
+    calls = (project / "systemctl.log").read_text().splitlines()
+    assert calls.index("stop can-hmi-frontend.service") < calls.index("inspect-port 5234")
+    assert calls.index("inspect-port 5234") < calls.index("start can-hmi-frontend.service")
+    assert 'Environment="CAR_HMI_FRONTEND_PORT=5234"' in (
+        systemd / "can-hmi-frontend.service"
+    ).read_text()
+
+
+def run_deploy(tmp_path, content, frontend_state=None):
     project = tmp_path / "backend with spaces"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
-    for name in ("deploy_linux.sh", "linux_common.sh", "linux_frontend_access.sh", "linux_env.py"):
+    for name in (
+        "deploy_linux.sh", "linux_common.sh", "linux_frontend_access.sh",
+        "linux_frontend_port.sh", "linux_env.py",
+    ):
         shutil.copy(ROOT / "scripts" / name, scripts)
     shutil.copytree(ROOT / "deploy", project / "deploy")
     systemd = tmp_path / "systemd"
@@ -85,6 +103,15 @@ def run_deploy(tmp_path, content):
     config = project / "config"
     config.mkdir()
     (config / "system_bk.json").write_text(json.dumps({"api": {"port": 8000}}))
+    state_file = project / "frontend.state"
+    if frontend_state is not None:
+        frontend = tmp_path / "renamed frontend"
+        (frontend / "dist").mkdir(parents=True)
+        (frontend / "dist/index.html").write_text("frontend build")
+        for name in ("package.json", "package-lock.json"):
+            (frontend / name).write_text("{}")
+        content += f'CAR_HMI_FRONTEND_PATH="{frontend}"\n'
+        state_file.write_text(frontend_state)
     (project / ".env_bk").write_text("PORT=9999\n")
     if isinstance(content, bytes):
         (project / ".env").write_bytes(content)
@@ -95,22 +122,43 @@ def run_deploy(tmp_path, content):
     stubs = {
         "sudo": '#!/bin/sh\nexec "$@"\n',
         "systemctl": '#!/bin/sh\necho "$*" >> "$TEST_SYSTEMCTL_LOG"\nexit 0\n',
+        "systemd-analyze": "#!/bin/sh\nexit 0\n",
         "ffplay": "#!/bin/sh\nexit 0\n",
         "ffprobe": "#!/bin/sh\nexit 0\n",
         "getent": "#!/bin/sh\nexit 1\n",
         "sleep": "#!/bin/sh\nexit 0\n",
     }
+    if frontend_state is not None:
+        stubs.update({
+            "systemctl": '''#!/bin/sh
+echo "$*" >> "$TEST_SYSTEMCTL_LOG"
+case "$*" in
+    "is-active --quiet can-hmi-frontend.service")
+        test "$(cat "$TEST_FRONTEND_STATE")" = active ;;
+    "stop can-hmi-frontend.service") echo inactive > "$TEST_FRONTEND_STATE" ;;
+    "start can-hmi-frontend.service") echo active > "$TEST_FRONTEND_STATE" ;;
+    *) exit 0 ;;
+esac
+''',
+            "getent": '#!/bin/sh\ntest "$1" = passwd\n',
+            "node": "#!/bin/sh\nexit 0\n",
+            "npm": "#!/bin/sh\nexit 0\n",
+            "setfacl": "#!/bin/sh\nexit 0\n",
+            "runuser": "#!/bin/sh\nexit 0\n",
+            "fuser": '#!/bin/sh\necho "inspect-port $3" >> "$TEST_SYSTEMCTL_LOG"\n',
+        })
     for name, body in stubs.items():
         command = commands / name
         command.write_text(body)
         command.chmod(0o755)
     env = dict(os.environ)
-    for key in ("PORT", "CAR_HMI_API_KEY", "CAR_HMI_FRONTEND_PATH"):
+    for key in ("PORT", "CAR_HMI_API_KEY", "CAR_HMI_FRONTEND_PATH", "CAR_HMI_FRONTEND_PORT"):
         env.pop(key, None)
     env.update(
         PATH=str(commands) + os.pathsep + env["PATH"],
         TEST_SYSTEMD_DIR=str(systemd), TEST_SYSTEMD_RUNTIME=str(runtime),
         TEST_SYSTEMCTL_LOG=str(project / "systemctl.log"),
+        TEST_FRONTEND_STATE=str(state_file),
     )
     result = subprocess.run(
         ["bash", str(script)], cwd=tmp_path, env=env, text=True, capture_output=True,

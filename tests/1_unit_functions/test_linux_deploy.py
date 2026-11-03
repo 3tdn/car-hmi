@@ -105,6 +105,7 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
             sys.executable, "-", str(project), str(tmp_path), "can-hmi-frontend.service",
             "FRONTEND_DIR", str(project), "NODE_BIN", node,
             "ENV_FILE", str(env_file), "BACKEND_URL", "http://127.0.0.1:8000",
+            "FRONTEND_PORT", "5173",
             "FRONTEND_CONFIG_FILE", "/etc/systemd/system/can-hmi-frontend.cjs",
         ],
         input=renderer, text=True, check=True,
@@ -112,11 +113,106 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
     unit = tmp_path / "can-hmi-frontend.service"
     escaped = str(env_file).replace("%", "%%").replace('"', '\\"')
     assert f'InaccessiblePaths="{escaped}"' in unit.read_text()
+    assert 'Environment="CAR_HMI_FRONTEND_PORT=5173"' in unit.read_text()
     result = subprocess.run(
         ["systemd-analyze", "verify", str(unit)], text=True, capture_output=True, check=False,
     )
     assert result.returncode == 0, result.stderr
     assert not result.stderr, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("entrypoint", "command", "same_cwd", "expected_terminated"),
+    [
+        ("direct", "preview", True, True),
+        ("npm", "preview", True, True),
+        ("relative", "preview", True, True),
+        ("other-project", "preview", True, False),
+        ("direct", "preview", False, False),
+        ("direct", "dev", True, False),
+        ("http-server", "preview", True, False),
+        ("decoy", "preview", True, False),
+        ("empty", "preview", True, False),
+    ],
+)
+def test_frontend_port_cleanup_only_terminates_its_own_vite_preview(
+    tmp_path, entrypoint, command, same_cwd, expected_terminated
+):
+    helper = ROOT / "scripts/linux_frontend_port.sh"
+    frontend = tmp_path / 'renamed frontend "quoted"'
+    vite = frontend / "node_modules/vite/bin/vite.js"
+    vite.parent.mkdir(parents=True)
+    vite.touch()
+    npm_entrypoint = frontend / "node_modules/.bin/vite"
+    npm_entrypoint.parent.mkdir()
+    npm_entrypoint.symlink_to("../vite/bin/vite.js")
+    other = tmp_path / "other frontend/node_modules/vite/bin/vite.js"
+    other.parent.mkdir(parents=True)
+    other.touch()
+    paths = {"direct": str(vite), "npm": str(npm_entrypoint),
+             "relative": "node_modules/.bin/vite", "other-project": str(other)}
+    if entrypoint == "http-server":
+        args = ["python", "-m", "http.server", "5173"]
+    elif entrypoint == "decoy":
+        args = ["node", "unrelated.js", str(vite), "preview"]
+    elif entrypoint == "empty":
+        args = []
+    else:
+        args = ["node", paths[entrypoint], command, "--port", "5173"]
+    cmdline = tmp_path / "cmdline"
+    cmdline.write_bytes(b"".join(os.fsencode(arg) + b"\0" for arg in args))
+    marker = tmp_path / "listener"
+    marker.touch()
+    log = tmp_path / "terminated.log"
+    harness = r'''
+set -euo pipefail
+source "$1"
+fuser() { :; }
+warn() { printf '%s\n' "$*" >&2; }
+log() { :; }
+root() {
+    case "$1" in
+        fuser)
+            [[ ! -e "$TEST_LISTENER" ]] || printf '246\n'
+            ;;
+        cat) command cat "$TEST_CMDLINE" ;;
+        readlink)
+            if [[ "$3" == /proc/246/cwd ]]; then
+                printf '%s\n' "$TEST_CWD"
+            else
+                "$@"
+            fi
+            ;;
+        kill)
+            printf '%s %s\n' "$2" "$3" >> "$TEST_TERMINATED"
+            rm "$TEST_LISTENER"
+            ;;
+        *) return 1 ;;
+    esac
+}
+sleep() { :; }
+cleanup_frontend_port 5173 "$2"
+'''
+    result = subprocess.run(
+        ["bash", "-c", harness, "port-test", str(helper), str(frontend)],
+        env={
+            **os.environ,
+            "TEST_LISTENER": str(marker),
+            "TEST_TERMINATED": str(log),
+            "TEST_CMDLINE": str(cmdline),
+            "TEST_CWD": str(frontend if same_cwd else other.parents[3]),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == (0 if expected_terminated else 1), result.stderr
+    assert marker.exists() is (not expected_terminated)
+    assert log.exists() is expected_terminated
+    if expected_terminated:
+        assert log.read_text().strip() == "-TERM 246"
+    else:
+        assert "refusing to terminate it" in result.stderr
 
 
 def test_frontend_acl_preserves_private_files_and_does_not_follow_symlinks(tmp_path):
