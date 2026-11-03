@@ -122,24 +122,50 @@ def test_frontend_unit_quotes_private_environment_path(tmp_path, folder):
 
 
 @pytest.mark.parametrize(
-    ("args", "expected_status", "expected_terminated"),
+    ("entrypoint", "command", "same_cwd", "expected_terminated"),
     [
-        (
-            "/srv/hmi/node_modules/vite/bin/vite.js preview --config /etc/systemd/system/can-hmi-frontend.cjs",
-            0,
-            True,
-        ),
-        ("python -m http.server 5173", 1, False),
+        ("direct", "preview", True, True),
+        ("npm", "preview", True, True),
+        ("relative", "preview", True, True),
+        ("other-project", "preview", True, False),
+        ("direct", "preview", False, False),
+        ("direct", "dev", True, False),
+        ("http-server", "preview", True, False),
+        ("decoy", "preview", True, False),
+        ("empty", "preview", True, False),
     ],
 )
 def test_frontend_port_cleanup_only_terminates_its_own_vite_preview(
-    tmp_path, args, expected_status, expected_terminated
+    tmp_path, entrypoint, command, same_cwd, expected_terminated
 ):
     helper = ROOT / "scripts/linux_frontend_port.sh"
+    frontend = tmp_path / 'renamed frontend "quoted"'
+    vite = frontend / "node_modules/vite/bin/vite.js"
+    vite.parent.mkdir(parents=True)
+    vite.touch()
+    npm_entrypoint = frontend / "node_modules/.bin/vite"
+    npm_entrypoint.parent.mkdir()
+    npm_entrypoint.symlink_to("../vite/bin/vite.js")
+    other = tmp_path / "other frontend/node_modules/vite/bin/vite.js"
+    other.parent.mkdir(parents=True)
+    other.touch()
+    paths = {"direct": str(vite), "npm": str(npm_entrypoint),
+             "relative": "node_modules/.bin/vite", "other-project": str(other)}
+    if entrypoint == "http-server":
+        args = ["python", "-m", "http.server", "5173"]
+    elif entrypoint == "decoy":
+        args = ["node", "unrelated.js", str(vite), "preview"]
+    elif entrypoint == "empty":
+        args = []
+    else:
+        args = ["node", paths[entrypoint], command, "--port", "5173"]
+    cmdline = tmp_path / "cmdline"
+    cmdline.write_bytes(b"".join(os.fsencode(arg) + b"\0" for arg in args))
     marker = tmp_path / "listener"
     marker.touch()
     log = tmp_path / "terminated.log"
     harness = r'''
+set -euo pipefail
 source "$1"
 fuser() { :; }
 warn() { printf '%s\n' "$*" >&2; }
@@ -149,8 +175,14 @@ root() {
         fuser)
             [[ ! -e "$TEST_LISTENER" ]] || printf '246\n'
             ;;
-        ps) printf '%s\n' "$TEST_ARGS" ;;
-        readlink) printf '%s\n' /srv/hmi ;;
+        cat) command cat "$TEST_CMDLINE" ;;
+        readlink)
+            if [[ "$3" == /proc/246/cwd ]]; then
+                printf '%s\n' "$TEST_CWD"
+            else
+                "$@"
+            fi
+            ;;
         kill)
             printf '%s %s\n' "$2" "$3" >> "$TEST_TERMINATED"
             rm "$TEST_LISTENER"
@@ -159,21 +191,22 @@ root() {
     esac
 }
 sleep() { :; }
-cleanup_frontend_port 5173 /srv/hmi
+cleanup_frontend_port 5173 "$2"
 '''
     result = subprocess.run(
-        ["bash", "-c", harness, "port-test", str(helper)],
+        ["bash", "-c", harness, "port-test", str(helper), str(frontend)],
         env={
             **os.environ,
             "TEST_LISTENER": str(marker),
             "TEST_TERMINATED": str(log),
-            "TEST_ARGS": args,
+            "TEST_CMDLINE": str(cmdline),
+            "TEST_CWD": str(frontend if same_cwd else other.parents[3]),
         },
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == expected_status, result.stderr
+    assert result.returncode == (0 if expected_terminated else 1), result.stderr
     assert marker.exists() is (not expected_terminated)
     assert log.exists() is expected_terminated
     if expected_terminated:

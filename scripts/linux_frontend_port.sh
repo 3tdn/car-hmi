@@ -23,16 +23,27 @@ frontend_port_pids() {
         return 1
     fi
 
-    printf '%s\n' "${pids[@]}"
+    if ((${#pids[@]})); then
+        printf '%s\n' "${pids[@]}"
+    fi
 }
 
 frontend_process_matches() {
-    local pid="$1" frontend_dir="$2" args cwd
-    args="$(root ps -p "$pid" -o args=)" || return 1
+    local pid="$1" frontend_dir="$2" cwd arg entrypoint expected
+    local -a args=()
     cwd="$(root readlink -f "/proc/$pid/cwd")" || return 1
-    [[ "$cwd" == "$frontend_dir" &&
-       "$args" == *"/node_modules/vite/bin/vite.js"* &&
-       " $args " == *" preview "* ]]
+    [[ "$cwd" == "$frontend_dir" ]] || return 1
+    # Keep argv boundaries: frontend paths can contain spaces, and npm invokes
+    # Vite through node_modules/.bin/vite rather than its resolved script path.
+    while IFS= read -r -d '' arg; do
+        args+=("$arg")
+    done < <(root cat "/proc/$pid/cmdline")
+    ((${#args[@]} >= 3)) && [[ "${args[2]}" == preview ]] || return 1
+    entrypoint="${args[1]}"
+    [[ "$entrypoint" = /* ]] || entrypoint="$cwd/$entrypoint"
+    entrypoint="$(root readlink -f "$entrypoint")" || return 1
+    expected="$(root readlink -f "$frontend_dir/node_modules/vite/bin/vite.js")" || return 1
+    [[ "$entrypoint" == "$expected" ]]
 }
 
 cleanup_frontend_port() {

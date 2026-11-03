@@ -193,9 +193,8 @@ PY
     root install -m 644 "$GENERATED_DIR/$FRONTEND_SERVICE" "$SYSTEMD_DIR/$FRONTEND_SERVICE" || return $?
     root systemctl daemon-reload || return $?
     root systemctl enable "$FRONTEND_SERVICE" || return $?
-    if root systemctl is-active --quiet "$FRONTEND_SERVICE"; then
-        root systemctl stop "$FRONTEND_SERVICE" || return $?
-    fi
+    # Also cancel pending auto-restarts before reclaiming the port.
+    root systemctl stop "$FRONTEND_SERVICE" || return $?
     cleanup_frontend_port "$FRONTEND_PORT" "$frontend_dir" || return $?
     root systemctl start "$FRONTEND_SERVICE" || return $?
     sleep 2
