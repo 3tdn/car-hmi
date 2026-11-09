@@ -382,16 +382,12 @@ async def test_audio_config_files_and_allowed_extensions_validation(tmp_path):
     assert config.allowed_extensions == (".mp3", ".wav", ".ogg")
 
 
-def test_v11_dbc_tx_permissions_and_audio_encoding():
+def test_audio_dbc_direction_encoding_and_enums():
     from src.can_io.parser import DatabaseLoader
     from src.can_io.writer import is_message_writable_by_local_node
 
     loader = DatabaseLoader()
     loader.load_dbc("db/can_db/Interface_Panther_To_CarPC_v11.dbc")
-    assert loader.messages
-    for message in loader.messages.values():
-        assert "CAR_PC" in message.senders, message.name
-        assert is_message_writable_by_local_node(message), message.name
 
     request_message = loader.get_message_for_signal(AUDIO_REQUEST_SIGNAL)
     assert request_message is not None

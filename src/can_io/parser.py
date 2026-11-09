@@ -66,7 +66,7 @@ class ParsedMessage:
 def normalize_signal_name(name: str) -> str:
     """Canonical signal name: drop trailing lowercase suffixes (_bool, _status, _flag, _kmh, ...)."""
     name = (name or "").strip()
-    return re.sub(r"_[a-z]\w*$", "", name) if name else ""
+    return re.sub(r"_[a-z][a-z0-9]*$", "", name) if name else ""
 
 
 def split_comment_states(comment: str) -> tuple[str, list[dict]]:
