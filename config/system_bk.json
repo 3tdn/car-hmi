@@ -4,7 +4,7 @@
       "interface": "socketcan",
       "channel": "can0",
       "bitrate": 500000,
-      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc",
+      "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v12.dbc",
       "channel_tracking_signals": [
         "COM_Status_ElkCan"
       ]
@@ -14,7 +14,7 @@
     "enabled": false,
     "random_mode": true,
     "default_cycle_ms": 10,
-    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v11.dbc"
+    "can_db_file": "db/can_db/Interface_Panther_To_CarPC_v12.dbc"
   },
   "adaptive_restraint": {
     "db_path": "db/adaptive_restraint_db/synthetic_data_out_gui.db",
@@ -128,19 +128,5 @@
   },
   "config_management": {
     "backup_retention_count": 20
-  },
-  "oms_config": {
-    "bypass_simi_input": false,
-    "class_config": [
-      65,
-      90
-    ],
-    "target_signal": {
-      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
-      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
-      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
-      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
-      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
-    }
   }
 }

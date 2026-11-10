@@ -246,6 +246,9 @@ async def test_get_system_config_returns_policy_and_redacts_secret(config_client
     assert policies["can.*.interface"]["ui"]["control"] == "select"
     assert policies["api.api_key"]["editable"] is False
     assert policies["api.api_key"]["setting_mode"] == "expand"
+    assert policies["oms_config.bypass_simi_input"]["editable"] is False
+    assert policies["oms_config.class_config"]["editable"] is False
+    assert policies["oms_config.target_signal"]["editable"] is False
     assert policies["can.*.channel"]["setting_mode"] == "base"
     assert policies["can.*.channel"]["ui"] == {
         "control": "combobox",
@@ -691,12 +694,6 @@ async def test_patch_rejects_empty_default_profile_permissions(config_client):
     "update",
     [
         {
-            "oms_config": {
-                "bypass_simi_input": True,
-                "target_signal": {"DerivedOMS": "DOES_NOT_EXIST"},
-            }
-        },
-        {
             "status_monitor": {
                 "enabled": True,
                 "targets": {"COM_Status_CustomCan": "DOES_NOT_EXIST"}
@@ -722,6 +719,23 @@ async def test_patch_rejects_unknown_dbc_signal_references(config_client, update
 
 
 @pytest.mark.asyncio
+async def test_patch_rejects_legacy_oms_config_as_read_only(config_client):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"oms_config": {"bypass_simi_input": True}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_field_immutable"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+
+
+@pytest.mark.asyncio
 async def test_patch_rejects_coerced_scalar_type_from_field_validation(config_client):
     client, manager, _ = config_client
 
@@ -734,6 +748,22 @@ async def test_patch_rejects_coerced_scalar_type_from_field_validation(config_cl
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "system_config_field_validation_failed"
     assert manager.read()["reader"]["stale_threshold_sec"] != "7.5"
+
+
+@pytest.mark.asyncio
+async def test_patch_rejects_frequency_piority_below_minimum(config_client):
+    client, manager, _ = config_client
+    before = manager.config_path.read_bytes()
+
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"reader": {"frequency_piority": 0}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_validation_failed"
+    assert manager.config_path.read_bytes() == before
 
 
 @pytest.mark.asyncio

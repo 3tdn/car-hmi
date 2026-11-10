@@ -319,13 +319,10 @@ class StatusMonitorConfig(BaseModel):
 
 
 class OMSConfig(BaseModel):
-    """Configuration for optional weight-derived OMS occupant classification."""
+    """Legacy OMS settings accepted for compatibility; they have no runtime effect."""
 
     bypass_simi_input: bool = False
-    # False: keep the classification decoded from CAN/SIMI.
-    # True: replace it with a class derived from the mapped mean-weight signal.
     class_config: list[float] = Field(default_factory=lambda: [65.0, 90.0])
-    # Class boundaries: weight < low -> 0, low <= weight <= high -> 1, weight > high -> 2.
     target_signal: dict[str, str] = Field(
         default_factory=lambda: {
             "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
@@ -335,7 +332,6 @@ class OMSConfig(BaseModel):
             "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean",
         }
     )
-    # Map output OccupantClassification signal -> source OccupantWeightMean signal.
 
     @field_validator("class_config")
     @classmethod
@@ -412,13 +408,12 @@ class WriterConfig(BaseModel):
 class ReaderConfig(BaseModel):
     """Configuration for the CAN reader (CANReader)."""
 
-    frequency_piority: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    frequency_piority: float = Field(default=1.0, ge=1, allow_inf_nan=False)
     # Time threshold (seconds) for prioritizing low-frequency-changing signals.
-    # If > 0, signals that have not been enqueued within this interval will be
+    # Signals that have not been enqueued within this interval will be
     # forced into the queue even if their value is unchanged (heartbeat), bypassing the
     # message-level dedup check — ensuring "rarely changing" signals are not missed.
-    # Example: 1.0 = a stable signal is always refreshed into the queue after > 1 s.
-    # 0.0 = disable this feature (enqueue only when the value changes).
+    # The minimum is 1.0 second, ensuring stable signals are periodically refreshed.
     only_send_signal_update: bool = False
     # Controls the WS signal payload:
     #   False = send the full set of subscribed signals (latest snapshot)
@@ -505,7 +500,7 @@ class AppConfig(BaseModel):
     status_monitor: StatusMonitorConfig = Field(default_factory=StatusMonitorConfig)
     # COM status monitor configuration (Ethernet + CAN reference)
     oms_config: OMSConfig = Field(default_factory=OMSConfig)
-    # Optional frontend-facing OMS classification derived from CAN occupant weight
+    # Legacy settings retained for old config files; OMS classifications pass through unchanged.
     devmode: DevModeConfig = Field(default_factory=DevModeConfig)
     # Seat selection and signal writing configuration for Dev Mode
     processor: ProcessorConfig = Field(default_factory=ProcessorConfig)

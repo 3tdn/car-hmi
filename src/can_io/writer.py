@@ -29,7 +29,7 @@ _MESSAGE_UNWRITTEN_SIGNAL_SOURCES: dict[str, dict[str, str | float]] = {
         "ELK_ResetErrorFlags": 0.0,
     },
     "SBS_HB_Request": {
-        "HB_IncarTemp": 0.0,
+        "HB_IncarTemp_dgradC": 0.0,
         "HB_RR1_Request": "HB_RR1_State",
         "HB_RL2_Request": "HB_RL2_State",
         "HB_RL1_Request": "HB_RL1_State",
