@@ -32,7 +32,7 @@ Send `X-API-Key` on protected HTTP routes, `X-Profile-Name` for explicit profile
 System GET, adaptive restraint, camera, and restraints/video routes are public. Authentication on protected routers is disabled for an empty key or the placeholder values `change-me-in-production`, `changeme`, and `default`. System retry/reboot controls always require a real configured key and `X-Dev-Mode: true`.
 
 For the SEAL demo, the HMI writes `HMI_SEAL_ActivationRequest` (`1`: Blow in, `2`: Blow out)
-and `SEAL_WithSound` (`1`: with sound, `0`: without sound) together through
+and `HMI_SEAL_WithSound` (`1`: with sound, `0`: without sound) together through
 `POST /signals/batch_update`. Panther performs the action and, when sound is requested,
 sends `INC_HMI_Audio_Request.HMI_Soundfile` to select a configured audio number on CAR-PC.
 There is no dedicated audio REST endpoint or audio tab. `HMI_Soundfile` is RX-only and
@@ -227,18 +227,15 @@ const chart = await request(`/adaptive_restraint/chart_info?${filters}`);
 console.log(chart);
 ```
 
-For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides the latest stored seat-position value. The latest stored occupant classification takes priority over the percentile derived from `weight` when its class is `0`, `1`, or `2`; the route maps these to video buckets `5p`, `50p`, and `95p`.
+For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides the latest stored seat-position value. A fresh occupant classification (positive timestamp and no older than `reader.stale_threshold_sec`) takes priority over the percentile derived from `weight` when its class is `1`, `2`, `3`, or `4`; the route maps these to video buckets `5p`, `50p`, `95p`, and `50p`, respectively.
 
-`oms_config.bypass_simi_input` controls how the pipeline produces those same frontend-facing
-classification signals. `false` keeps decoded CAN/SIMI values. `true` derives them from the
-mapped `OMS_xx_OccupantWeightMean` signals using `oms_config.class_config`; values below the
-first threshold produce class `0`, values through the second produce class `1`, and higher
-values produce class `2`. These settings apply live. Use source names without the removed
-`_kg` suffix.
+The pipeline passes decoded CAN/SIMI classification values through unchanged. Legacy
+`oms_config` values are retained when reading older configuration files but are read-only and
+have no effect.
 
-The restraints route currently has no receive-freshness or provenance guard. Because the
-store is initialized from DBC defaults and can retain stale data, `can_percentile` means
-"derived from the stored classification" rather than "confirmed from a fresh CAN frame".
+DBC-seeded classifications and classifications older than the configured reader stale
+threshold are ignored in favor of the percentile derived from request `weight`. The response retains legacy OMS
+context fields for compatibility, but those settings do not affect matching.
 
 When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted frontend:
 

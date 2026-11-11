@@ -44,8 +44,6 @@ if prepare_frontend; then exit 0; else exit $?; fi
 
 @pytest.mark.parametrize("absolute", [True, False])
 def test_frontend_path_from_env_follows_renamed_directory(tmp_path, absolute):
-    if not shutil.which("node") or not shutil.which("npm"):
-        pytest.skip("Node.js and npm are required")
     project = tmp_path / "api service"
     scripts = project / "scripts"
     scripts.mkdir(parents=True)
@@ -62,8 +60,17 @@ def test_frontend_path_from_env_follows_renamed_directory(tmp_path, absolute):
             frontend = renamed
         value = str(frontend) if absolute else os.path.relpath(frontend, project)
         (project / ".env").write_text(f'CAR_HMI_FRONTEND_PATH="{value}"\n')
+        # Exercise env parsing and path resolution without a host Node install.
+        # Only the version check should invoke node; npm must not run here.
+        harness = r'''
+node() { [[ "$#" == 2 && "$1" == -e ]]; }
+npm() { return 99; }
+source "$1" || exit $?
+require_frontend_runtime || exit $?
+printf "%s" "$FRONTEND_DIR"
+'''
         result = subprocess.run(
-            ["bash", "-c", 'source "$1"; require_frontend_runtime || exit $?; printf "%s" "$FRONTEND_DIR"',
+            ["bash", "-c", harness,
              "path-test", str(scripts / "linux_common.sh")],
             cwd=tmp_path, capture_output=True, text=True, check=False,
         )

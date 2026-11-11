@@ -52,7 +52,6 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | Reader | `reader.frequency_piority`, `reader.only_send_signal_update`, `reader.stale_threshold_sec` |
 | Writer | `writer.periodic_mode`, `writer.periodic_time_step`, `writer.periodic_duration`, `writer.use_prevalue_for_unwritten_signal` |
 | Audio | `audio.files`, `audio.track_queue_enable`, `audio.position_update_interval_ms` (minimum 50 ms; interval changes apply to the next playback) |
-| OMS classification | `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, `oms_config.target_signal.*` |
 | Runtime | `shutdown.timeout_sec`, `logging.level` |
 | Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.bypass_check_CAN_status` |
 | Config manager | `config_management.backup_retention_count` |
@@ -96,40 +95,12 @@ Panther frames. See the [audio demo guide](audio_demo.md) for the complete confi
 and a sender that shares the virtual bus process. Changing the interface or simulator
 setting requires a service restart.
 
-## OMS occupant classification
+## OMS classification settings
 
-`oms_config` selects the source of the frontend-facing
-`OMS_xx_OccupantClassification` signals. The output signal names are unchanged, so REST,
-WebSocket, and `/api/restraints/match` consumers continue reading the same names.
-
-```json
-{
-  "oms_config": {
-    "bypass_simi_input": false,
-    "class_config": [65, 90],
-    "target_signal": {
-      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
-      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
-      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
-      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
-      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
-    }
-  }
-}
-```
-
-- `bypass_simi_input: false` preserves the classification decoded from CAN/SIMI.
-- `bypass_simi_input: true` replaces each configured output with a class derived from its
-  mapped mean-weight signal.
-- For `class_config: [low, high]`, weight `< low` produces class `0`, `low <= weight <= high`
-  produces class `1`, and weight `> high` produces class `2`.
-- `class_config` must contain exactly two finite, non-negative, strictly increasing values.
-  `target_signal` must contain at least one non-empty output/source mapping.
-- Runtime signal names use `OMS_xx_OccupantWeightMean`; do not add the removed `_kg` suffix.
-
-All three OMS settings apply live. Because arrays replace atomically in PATCH requests, send
-both `class_config` values whenever changing a threshold. If a mapped weight is absent from a
-processed batch, that batch does not synthesize the corresponding classification value.
+The `oms_config` object is retained when loading older `system.json` files, but its values are
+ignored. OMS classification values decoded from CAN/SIMI pass through unchanged. The settings
+are read-only in the Settings API and do not affect either the signal pipeline or restraint
+matching.
 
 `INC_HMI_SensorFusionRequest` now follows the normal unwritten-sibling policy. An omitted
 `HMI_SensorFusion_*` field reuses that field's current value when

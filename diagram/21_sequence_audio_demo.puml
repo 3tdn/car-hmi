@@ -12,15 +12,15 @@ participant "AudioManager" as audio
 participant "Local Audio Player\nffplay / afplay" as player
 participant "CAR-PC\nCAN Writer" as tx
 
-hmi -> api : Batch write HMI_SEAL_ActivationRequest\nand SEAL_WithSound
-api -> panther : INC_HMI_SEALRequest (0x081)\nactivation=1: Blow in / activation=2: Blow out\nSEAL_WithSound=0 or 1
+hmi -> api : Batch write HMI_SEAL_ActivationRequest\nand HMI_SEAL_WithSound
+api -> panther : INC_HMI_SEALRequest (0x081)\nactivation=1: Blow in / activation=2: Blow out\nHMI_SEAL_WithSound=0 or 1
 panther -> panther : Perform requested SEAL action
-alt SEAL_WithSound = 0
+alt HMI_SEAL_WithSound = 0
     note over panther, audio
       No new audio request.
       Existing CAR-PC playback is not cancelled by this flag.
     end note
-else SEAL_WithSound = 1
+else HMI_SEAL_WithSound = 1
     panther -> rx : INC_HMI_Audio_Request (0x220)\nHMI_Soundfile=n (example: 1)
     rx -> store : Update HMI_Soundfile=n immediately
     store -> audio : Observe changed request
