@@ -43,6 +43,46 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | `reboot` | Save; backend automatically restarts 30 seconds after the last successful reboot-level change. |
 | `immutable` | Reject changes through the API: secrets, open resource paths, or fields without a runtime implementation. |
 
+## User configuration for the frontend
+
+The top-level `user_config` object in `config/system.json` stores shared frontend preferences.
+It accepts nested JSON objects, arrays, strings, booleans, null, and finite numbers. The
+backend stores and returns this data but does not use it in `AppConfig`, CAN processing,
+or other runtime components. Each frontend decides which keys it understands and applies.
+These preferences are shared by every client connected to this backend.
+
+```json
+{
+  "user_config": {
+    "theme": "dark",
+    "language": "vi",
+    "layout": {"default_page": "dashboard"}
+  }
+}
+```
+
+Read it from `GET /config/system` at `config.user_config` (or directly from
+`GET /config/general` at `user_config`). Save it through the existing PATCH endpoints,
+with the same API-key and full-profile/Dev Mode permissions as backend configuration.
+The bundled Settings screen provides a JSON editor for the complete object.
+
+Unlike backend objects, **a supplied `user_config` replaces the entire previous object**.
+Send every FE key to retain; send `{"user_config": {}}` to clear it. Omitting `user_config`
+leaves it untouched. Defaults do not refill individual keys deleted from this object.
+All other objects retain their existing recursive-merge behavior, and arrays replace
+as a whole.
+
+`GET /config/system` advertises `storage_only_paths: ["user_config"]`. Mutation responses
+include FE changes in `changed_paths` and `stored_paths`; those paths are absent from
+`reload` and `runtime.applied`. Saving only FE data does not call the backend runtime,
+schedule a restart, or alter a restart countdown already pending for backend changes.
+For a mixed FE/BE update, only backend paths are applied to runtime; a failed runtime
+apply rolls back the complete file, including the FE object.
+
+Backups and restores include the FE object. Reset restores `user_config` from
+`config/system_bk.json` (an empty object by default). FE data has no individual entries
+in `system.fields.json`; arbitrary nested FE keys do not need backend policy definitions.
+
 ## Live fields
 
 | Group | Fields |

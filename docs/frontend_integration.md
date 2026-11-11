@@ -2,6 +2,24 @@
 
 Verified against the backend and bundled frontend on 2026-10-13. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
+## Shared user configuration
+
+Read shared FE preferences from `(await getSystemConfig()).config.user_config || {}`.
+Save through the existing helper, for example:
+
+```js
+await patchSystemConfig({
+  user_config: {theme: 'dark', language: 'vi', layout: {default_page: 'dashboard'}},
+});
+```
+
+The supplied object replaces the complete previous FE object; send all keys to retain.
+Use `{user_config: {}}` to clear it. Nested JSON and arrays are supported, and numbers must
+be finite. The backend stores this object for all connected clients but does not interpret
+its keys, change runtime, or request a restart. Each FE implements its own preference
+behavior. The bundled Settings screen includes a JSON editor. Backups, restore and reset
+include these values; see [the configuration contract](system_config_management.md#user-configuration-for-the-frontend).
+
 ## Backend URL and authentication
 
 For the bundled dashboard, set these globals **before loading `frontend/js/api.js`**:
@@ -61,7 +79,7 @@ The backend does not use one universal error envelope. Handle all of these:
 
 The bundled `_fetchJson()` exposes `status`, `payload`, `detail`, and `warnings` on its thrown error, but its `message` falls back to method/URL/status when `detail` is a string. Read `error.detail` to display the exact backend text. Render messages as text, for example with `textContent`.
 
-This standalone reference helper handles all three `detail` formats. It is an integration example, not a replacement already installed in the bundled frontend:
+This standalone reference helper handles all three `detail` formats. It is an integration example, not a replacement already installed in the bundled user_config:
 
 ```javascript
 const apiBase = "http://localhost:8000";
@@ -237,7 +255,7 @@ DBC-seeded classifications and classifications older than the configured reader 
 threshold are ignored in favor of the percentile derived from request `weight`. The response retains legacy OMS
 context fields for compatibility, but those settings do not affect matching.
 
-When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted frontend:
+When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted user_config:
 
 ```javascript
 const match = await request("/api/restraints/match?weight=75&height=175&crash_severity=40&seatbelt_system=SLL");

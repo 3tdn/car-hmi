@@ -191,7 +191,8 @@ async def restore_system_config_backup(backup_id: str, request: Request):
     description=(
         "Merges the request into the active configuration, validates the complete candidate "
         "configuration, and only then creates a backup and writes the file. Invalid requests "
-        "return HTTP 422 without changing disk or runtime state."
+        "return HTTP 422 without changing disk or runtime state. The user_config JSON object "
+        "is replaced as a whole and stored without applying backend runtime changes."
     ),
 )
 async def patch_system_config(body: dict, request: Request):
