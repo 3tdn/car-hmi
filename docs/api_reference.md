@@ -643,6 +643,15 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 
 Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. Legacy `oms_config` fields are read-only and ignored by the runtime. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
+The top-level `user_config` JSON object is stored for frontend clients without affecting backend
+runtime. `PATCH {"user_config": {...}}` replaces the complete object; `{"user_config": {}}` clears it.
+Nested JSON is allowed, with finite numbers and an object at the root. GET returns
+`config.user_config` and advertises `storage_only_paths: ["user_config"]`; mutation responses
+list FE changes under `stored_paths` as well as `changed_paths`, excluding them from
+`reload` and `runtime.applied`. FE-only changes do not schedule or postpone a backend
+restart. Backups include FE data; reset uses the reset template's FE object. The general
+config aliases support the same storage behavior and retain their existing response shapes.
+
 Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
 
 ### `GET /config/system/backups`

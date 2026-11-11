@@ -659,7 +659,12 @@ def load_json_with_defaults(
                 exc,
             )
 
-    return merge_json_defaults(defaults, overrides)
+    merged = merge_json_defaults(defaults, overrides)
+    # FE owns this object as a whole. Do not resurrect keys deliberately removed
+    # by a frontend save when filling backend fields from the reset template.
+    if "user_config" in overrides:
+        merged["user_config"] = deepcopy(overrides["user_config"])
+    return merged
 
 
 def load_config(path: str | Path) -> AppConfig:
