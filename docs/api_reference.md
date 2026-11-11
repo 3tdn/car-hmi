@@ -563,7 +563,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, and its mapped entries are live fields. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. Legacy `oms_config` fields are read-only and have no runtime effect. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `PATCH /config/system`
 
@@ -641,9 +641,9 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. When changing `oms_config.class_config`, send both ordered thresholds because arrays are replaced as a whole; OMS config fields apply live. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. Legacy `oms_config` fields are read-only and ignored by the runtime. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
-Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active OMS/status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
+Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
 
 ### `GET /config/system/backups`
 
@@ -1448,6 +1448,10 @@ Response format taken from the implementation (OpenAPI does not declare a detail
     "derived_percentile": 50,
     "effective_percentile": 50,
     "can_percentile": null,
+    "oms_bypass_simi_input": false,
+    "oms_class_config": [65.0, 90.0],
+    "oms_weight_signal": null,
+    "can_weight_kg": null,
     "target_velocity_kmh": 40,
     "seatbelt_system": "SLL",
     "seat": "fl",
@@ -1460,7 +1464,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > latest SignalStore value > fallback. A stored OMS class 0/1/2 has priority over the weight-derived percentile and maps to the 5p/50p/95p video bucket. `oms_config.bypass_simi_input=false` keeps the CAN/SIMI class; `true` derives the same frontend-facing class from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. The route does not validate receive freshness or provenance, so a DBC-seeded or stale stored class can override `weight`. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
+Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > latest SignalStore value > fallback. A fresh stored OMS class 1/2/3/4 has priority over the weight-derived percentile and maps to the 5p/50p/95p/50p video bucket, respectively. DBC-seeded or stale classifications fall back to `weight`. Legacy OMS context fields remain for compatibility, but legacy `oms_config` values do not affect matching. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
 
 ### `GET /api/restraints/video/{filename}`
 
@@ -1546,7 +1550,7 @@ Response schema: `CameraStatusResponse`.
 ### Audio playback (CAN-only, no REST endpoints)
 
 The HMI starts a SEAL demo by batch-writing `HMI_SEAL_ActivationRequest` (`1`: Blow in,
-`2`: Blow out) and `SEAL_WithSound` (`1`: with sound, `0`: without sound). Panther performs
+`2`: Blow out) and `HMI_SEAL_WithSound` (`1`: with sound, `0`: without sound). Panther performs
 the action and selects an audio number by sending `HMI_Soundfile` when sound is requested.
 See the [audio demo guide](audio_demo.md) for the complete HMI → Panther → CAR-PC flow,
 diagrams, configuration examples, and virtual-CAN test procedure.

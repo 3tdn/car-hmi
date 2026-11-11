@@ -186,9 +186,12 @@ def _create_auto_socketcan_bus(
         active = list(opened)
         while active and time.monotonic() < deadline:
             next_active: list[tuple[str, can.BusABC]] = []
-            for channel, bus in active:
+            for index, (channel, bus) in enumerate(active):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    # Deadline expiry is not a socket failure. Keep candidates
+                    # not polled this round so their saved fallback frames survive.
+                    next_active.extend(active[index:])
                     break
                 try:
                     msg = bus.recv(timeout=min(_AUTO_PROBE_SLICE_SEC, remaining))

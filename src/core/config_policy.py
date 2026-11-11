@@ -448,19 +448,13 @@ def validate_policy_values(raw: dict[str, Any], paths: list[str]) -> list[str]:
 
 def _validate_dbc_signal_references(raw: dict[str, Any], paths: list[str]) -> list[str]:
     """Validate Settings values that refer to signals in any configured CAN DBC."""
-    oms_config = raw.get("oms_config")
     status_monitor = raw.get("status_monitor")
-    validate_oms = (
-        isinstance(oms_config, dict)
-        and oms_config.get("bypass_simi_input") is True
-        and any(path.startswith("oms_config") for path in paths)
-    )
     validate_status = (
         isinstance(status_monitor, dict)
         and status_monitor.get("enabled") is True
         and any(path.startswith("status_monitor") for path in paths)
     )
-    if not validate_oms and not validate_status:
+    if not validate_status:
         return []
 
     channels = raw.get("can")
@@ -494,18 +488,6 @@ def _validate_dbc_signal_references(raw: dict[str, Any], paths: list[str]) -> li
         return []
 
     errors: list[str] = []
-    if validate_oms:
-        targets = oms_config.get("target_signal")
-        if isinstance(targets, dict):
-            unknown_sources = sorted(
-                str(source) for source in targets.values() if source not in signal_names
-            )
-            if unknown_sources:
-                errors.append(
-                    "oms_config.target_signal contains source signal(s) not found in any "
-                    f"configured CAN DBC: {', '.join(unknown_sources)}"
-                )
-
     if validate_status:
         targets = status_monitor.get("targets")
         if isinstance(targets, dict):
