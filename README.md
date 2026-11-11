@@ -117,6 +117,7 @@ the same policy from the backend and supports multiple CAN channel cards.
 | `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
 | `audio` | `files` (array A of file/audio-number mappings), `position_update_interval_ms` (T, minimum 50 ms), and `track_queue_enable` (`false`: interrupt, `true`: queue); `enabled` and `media_dir` require restart. |
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
+| `user_config` | Shared FE-owned JSON preferences. GET returns them and PATCH replaces the complete object; the backend only stores them, without runtime apply or restart. |
 | `oms_config`  | Legacy configuration retained for compatibility. It has no runtime effect; decoded CAN/SIMI `OMS_xx_OccupantClassification` values pass through unchanged, and the fields are read-only. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
 | `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`). `INC_HMI_SensorFusionRequest` follows this standard sibling policy; it no longer sources unwritten fields from `OMS_State_*`. |

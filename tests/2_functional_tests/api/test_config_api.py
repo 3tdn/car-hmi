@@ -271,7 +271,11 @@ def test_system_field_policy_file_is_valid_and_has_unique_paths():
     assert "can.*.can_db_file" in paths
 
     raw = read_config()
-    leaf_paths = diff_paths({}, raw)
+    # The user_config subtree is an opaque storage object, outside BE field policy.
+    leaf_paths = [
+        path for path in diff_paths({}, raw)
+        if path != "user_config" and not path.startswith("user_config.")
+    ]
     assert [path for path in leaf_paths if match_policy(path) is None] == []
     assert validate_policy_values(raw, leaf_paths) == []
     assert raw["profiles"]["session_cleanup_interval_sec"] == pytest.approx(5.0)
@@ -441,6 +445,220 @@ async def test_patch_is_partial_preserves_unknown_fields_and_live_reloads(config
     assert saved["future_extension"] == {"must_survive": 42}
     assert saved["camera"]["stream_url"]
     assert len(manager.list_backups()) == 1
+
+
+@pytest.mark.asyncio
+async def test_user_config_round_trips_nested_json_without_runtime_changes(config_client):
+    client, manager, runner = config_client
+    user_config = {
+        "theme": "dark",
+        "layout": {"panels": [{"name": "can", "visible": True}], "zoom": 1.25},
+        "empty": {},
+        "optional": None,
+        "api": {"port": 9000},
+    }
+    before = manager.read()
+    runtime_before = runner.config.model_dump()
+    response = await client.patch(
+        "/config/system", headers=_headers(), json={"user_config": user_config}
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["config"]["user_config"] == user_config
+    assert payload["stored_paths"]
+    assert all(path.startswith("user_config.") for path in payload["stored_paths"])
+    assert payload["reload"] == {"live": [], "reboot": [], "immutable": []}
+    assert payload["runtime"] == {"applied": [], "unavailable": []}
+    assert payload["reboot_required"] is False
+    assert payload["reboot_scheduled"] is False
+    assert runner.applied == []
+    assert runner.config.model_dump() == runtime_before
+    assert "user_config" not in AppConfig.model_validate(manager.read()).model_dump()
+    saved = manager.read()
+    assert {key: value for key, value in saved.items() if key != "user_config"} == {
+        key: value for key, value in before.items() if key != "user_config"
+    }
+    assert len(manager.list_backups()) == 1
+    snapshot = (await client.get("/config/system", headers=_headers())).json()
+    assert snapshot["config"]["user_config"] == user_config
+    assert snapshot["storage_only_paths"] == ["user_config"]
+
+
+@pytest.mark.asyncio
+async def test_user_config_patch_replaces_object_and_does_not_refill_template_keys(config_client):
+    client, manager, runner = config_client
+    template = read_config(manager.template_path)
+    template["user_config"] = {"theme": "light", "layout": {"old": True}}
+    write_config(template, manager.template_path)
+
+    for user_config in ({"language": "vi"}, {}):
+        response = await client.patch(
+            "/config/system", headers=_headers(), json={"user_config": user_config}
+        )
+        assert response.status_code == 200
+        assert manager.read()["user_config"] == user_config
+        assert json.loads(manager.config_path.read_text())["user_config"] == user_config
+    assert runner.applied == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw", ["null", "[]", '"dark"', "true", '{"zoom":1e999}'])
+async def test_user_config_rejects_non_object_or_nonfinite_json_before_writing(config_client, raw):
+    client, manager, runner = config_client
+    before = manager.config_path.read_bytes()
+    response = await client.patch(
+        "/config/system",
+        headers={**_headers(), "Content-Type": "application/json"},
+        content='{"user_config":' + raw + '}',
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "system_config_validation_failed"
+    assert manager.config_path.read_bytes() == before
+    assert manager.list_backups() == []
+    assert runner.applied == []
+
+
+@pytest.mark.asyncio
+async def test_user_config_mixed_patch_only_applies_backend_paths(config_client):
+    client, manager, runner = config_client
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"user_config": {"theme": "dark"}, "reader": {"stale_threshold_sec": 7.5}},
+    )
+    assert response.status_code == 200
+    assert runner.applied == [["reader.stale_threshold_sec"]]
+    assert response.json()["stored_paths"] == ["user_config.theme"]
+    assert response.json()["reload"]["live"] == ["reader.stale_threshold_sec"]
+    assert manager.read()["user_config"] == {"theme": "dark"}
+
+
+@pytest.mark.asyncio
+async def test_user_config_failed_mixed_patch_rolls_back_without_passing_fe_to_runtime(config_client):
+    client, manager, _ = config_client
+    before = manager.read()
+    runner = _FailOnceRunner(before)
+    client._transport.app.state.runner = runner
+    response = await client.patch(
+        "/config/system",
+        headers=_headers(),
+        json={"user_config": {"theme": "dark"}, "reader": {"stale_threshold_sec": 7.5}},
+    )
+    assert response.status_code == 500
+    assert manager.read() == before
+    assert runner.applied == [["reader.stale_threshold_sec"], ["reader.stale_threshold_sec"]]
+
+
+@pytest.mark.asyncio
+async def test_user_config_backup_restore_reset_and_reload_do_not_apply_fe_paths(config_client):
+    client, manager, runner = config_client
+    # Keep backend values identical so these operations only change FE data.
+    template = manager.read()
+    template["user_config"] = {"theme": "light"}
+    write_config(template, manager.template_path)
+    for theme in ("dark", "blue"):
+        await client.patch(
+            "/config/system", headers=_headers(), json={"user_config": {"theme": theme}}
+        )
+        if theme == "dark":
+            backup = await client.post("/config/system/backups", headers=_headers())
+            backup_id = backup.json()["backup"]["id"]
+    restored = await client.post(
+        f"/config/system/backups/{backup_id}/restore", headers=_headers()
+    )
+    assert restored.status_code == 200
+    assert manager.read()["user_config"] == {"theme": "dark"}
+    reset = await client.post("/config/system/reset", headers=_headers())
+    assert reset.status_code == 200
+    assert manager.read()["user_config"] == {"theme": "light"}
+    assert runner.applied == []
+    # The runtime model expands omitted backend defaults; use it as the current
+    # file to ensure an explicit reload has no unrelated BE changes to apply.
+    external = runner.config.model_dump(mode="json")
+    external["user_config"] = {"theme": "external"}
+    write_config(external, manager.config_path)
+    reload_response = await client.post("/config/system/reload", headers=_headers())
+    assert reload_response.status_code == 200
+    assert runner.applied == []
+    assert reload_response.json()["config"]["user_config"] == {"theme": "external"}
+
+
+@pytest.mark.asyncio
+async def test_user_config_save_preserves_existing_backend_restart_schedule(config_client):
+    client, manager, runner = config_client
+    runner.pending_reboot_paths = {"api.port"}
+
+    async def reboot():
+        raise AssertionError("Restart must not execute during the test")
+
+    runner.request_reboot = reboot
+    manager._schedule_restart(runner, ["api.port"], ["api.port"])
+    task = manager._restart_task
+    deadline = manager._restart_deadline
+    try:
+        response = await client.patch(
+            "/config/system", headers=_headers(), json={"user_config": {"theme": "dark"}}
+        )
+        assert response.status_code == 200
+        assert response.json()["reboot_scheduled"] is True
+        assert manager._restart_task is task
+        assert manager._restart_deadline == deadline
+        assert runner.applied == []
+    finally:
+        manager.cancel_scheduled_restart()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_user_config_save_without_runner_and_general_alias(config_client):
+    client, manager, runner = config_client
+    client._transport.app.state.runner = None
+    response = await client.patch(
+        "/config/general", headers=_headers(), json={"user_config": {"theme": "dark"}}
+    )
+    assert response.status_code == 200
+    assert response.json()["user_config"] == {"theme": "dark"}
+    assert runner.applied == []
+    assert manager.restart_status()["reboot_scheduled"] is False
+
+
+@pytest.mark.asyncio
+async def test_user_config_restore_legacy_backup_without_user_config_does_not_apply_runtime(config_client):
+    client, manager, runner = config_client
+    legacy = manager.read()
+    legacy.pop("user_config", None)
+    backup = manager.create_backup("legacy", legacy)
+    await client.patch(
+        "/config/system", headers=_headers(), json={"user_config": {"theme": "dark"}}
+    )
+    response = await client.post(
+        f"/config/system/backups/{backup['id']}/restore", headers=_headers()
+    )
+    assert response.status_code == 200
+    assert manager.read().get("user_config", {}) == {}
+    assert runner.applied == []
+    assert response.json()["reboot_required"] is False
+
+
+@pytest.mark.asyncio
+async def test_user_config_payload_does_not_bypass_backend_validation_or_permissions(config_client):
+    client, manager, runner = config_client
+    before = manager.config_path.read_bytes()
+    for headers, extra, status in (
+        (_headers("viewer"), {}, 403),
+        (_headers(), {"unsupported_be_field": True}, 422),
+        (_headers(), {"user_config.api.port": 9000}, 422),
+        (_headers(), {"reader": {"stale_threshold_sec": -1}}, 422),
+        (_headers(), {"api": {"api_key": "blocked-change"}}, 422),
+    ):
+        response = await client.patch(
+            "/config/system", headers=headers, json={"user_config": {"theme": "dark"}, **extra}
+        )
+        assert response.status_code == status
+        assert manager.config_path.read_bytes() == before
+        assert manager.list_backups() == []
+        assert runner.applied == []
 
 
 @pytest.mark.asyncio
