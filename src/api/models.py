@@ -493,7 +493,8 @@ class DevModeSignalRequest(BaseModel):
         ...,
         allow_inf_nan=False,
         description=(
-            "Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB"
+            "Value applied to every selected seat; ISB_Color uses packed 0xRRGGBB "
+            "(0x000000..0xFFFFFF); intensity is round(max(R,G,B) * 100 / 255) percent"
         ),
     )
     seats: dict[str, bool] = Field(..., description="Map seat_id → whether the value is applied")
