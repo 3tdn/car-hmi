@@ -8,7 +8,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import create_app
-from src.core.devmode_locks import reset_seat_lock_registry
+from src.can_io.parser import DatabaseLoader
+from src.core.devmode_locks import get_seat_lock_registry, reset_seat_lock_registry
 from src.core.signal_store import SignalStore
 
 
@@ -63,6 +64,23 @@ async def test_catalog_lists_five_signal_families():
         "ISB_Color",
         "HB_Request",
     }
+
+
+@pytest.mark.asyncio
+async def test_isb_catalog_has_no_presets_or_intensity_dbc_states(monkeypatch):
+    app = await _build_app()
+    monkeypatch.setattr(
+        app.state.signal_metadata,
+        "get",
+        lambda name: {"states": [{"value": 100, "description": "Full intensity"}]}
+        if name == "ISB_FL_Intensity" else None,
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.get("/api/devmode/catalog", headers=_headers("c1"))
+
+    assert resp.status_code == 200
+    family = next(f for f in resp.json()["families"] if f["signal_name"] == "ISB_Color")
+    assert family["states"] == []
 
 
 @pytest.mark.asyncio
@@ -177,30 +195,106 @@ async def test_apply_signal_fans_out_to_selected_seats():
 
 
 @pytest.mark.asyncio
-async def test_isb_color_is_split_into_rgb_signals():
+@pytest.mark.parametrize(
+    ("value", "intensity", "rgb"),
+    [
+        (0x000000, 0, (0, 0, 0)),
+        (0xFFFFFF, 100, (255, 255, 255)),
+        (0xFF0000, 100, (255, 0, 0)),
+        (0x00FF00, 100, (0, 255, 0)),
+        (0x0000FF, 100, (0, 0, 255)),
+        (0x808080, 50, (128, 128, 128)),
+        (0x804020, 50, (128, 64, 32)),
+        (0x0A141E, 12, (10, 20, 30)),
+        (0x007F00, 50, (0, 127, 0)),
+        (0x000001, 0, (0, 0, 1)),
+        (0x070000, 3, (7, 0, 0)),
+        (0x9333EA, 92, (147, 51, 234)),
+    ],
+)
+async def test_isb_color_derives_intensity_and_splits_rgb_for_all_selected_seats(value, intensity, rgb):
     app = await _build_app()
+    seats = dict.fromkeys(("fl", "fr", "rl1", "rl2", "rr1"), True)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
             "/api/devmode/signals",
             headers=_headers("owner"),
             json={
                 "signal_name": "ISB_Color",
-                "value": 0x64FF0000,
-                "seats": {"fl": True},
+                "value": value,
+                "seats": seats,
             },
         )
 
     assert resp.status_code == 200
-    assert app.state.writer.writes == [
-        ("ISB_FL_Intensity", 100.0),
-        ("ISB_FL_ColorRed", 255.0),
-        ("ISB_FL_ColorGreen", 0.0),
-        ("ISB_FL_ColorBlue", 0.0),
-    ]
+    expected_writes = {}
+    for seat in seats:
+        expected = {
+            f"ISB_{seat.upper()}_Intensity": float(intensity),
+            f"ISB_{seat.upper()}_ColorRed": float(rgb[0]),
+            f"ISB_{seat.upper()}_ColorGreen": float(rgb[1]),
+            f"ISB_{seat.upper()}_ColorBlue": float(rgb[2]),
+        }
+        assert resp.json()["applied"][seat]["signals"] == expected
+        assert resp.json()["applied"][seat]["value"] == value
+        expected_writes.update(expected)
+    assert app.state.writer.writes == list(expected_writes.items())
 
 
 @pytest.mark.asyncio
-async def test_isb_color_rejects_intensity_above_100():
+@pytest.mark.parametrize("include_fl", [True, False])
+@pytest.mark.parametrize(
+    ("minimum", "maximum"),
+    [(0, 127), (0, 200), (10, 210), (None, None), (0, 0)],
+)
+async def test_isb_color_intensity_is_independent_of_metadata(minimum, maximum, include_fl):
+    app = await _build_app()
+    loader = DatabaseLoader()
+    loader.load_dbc("db/can_db/Interface_Panther_To_CarPC_v12.dbc")
+    # RGB (7,0,0) always gives round(7 * 100 / 255) = 3, regardless of DBC bounds.
+    bounds = {
+        "fl": (minimum, maximum),
+        "fr": (0, 100),
+        "rl1": (10, 210),
+        "rl2": (None, None),
+        "rr1": (0, 0),
+    }
+    for seat, (seat_minimum, seat_maximum) in bounds.items():
+        name = f"ISB_{seat.upper()}_Intensity"
+        signal = loader.get_message_for_signal(name).signals[name]
+        signal.minimum = seat_minimum
+        signal.maximum = seat_maximum
+    app.state.signal_metadata.replace_from_loaders([loader])
+    selected = {seat: True for seat in bounds if include_fl or seat != "fl"}
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        resp = await c.post(
+            "/api/devmode/signals",
+            headers=_headers("owner"),
+            json={
+                "signal_name": "ISB_Color",
+                "value": 0x070000,
+                "seats": selected,
+            },
+        )
+
+    assert resp.status_code == 200
+    assert set(resp.json()["applied"]) == set(selected)
+    for seat in selected:
+        expected = {
+            f"ISB_{seat.upper()}_Intensity": 3,
+            f"ISB_{seat.upper()}_ColorRed": 7,
+            f"ISB_{seat.upper()}_ColorGreen": 0,
+            f"ISB_{seat.upper()}_ColorBlue": 0,
+        }
+        assert resp.json()["applied"][seat]["signals"] == expected
+        for item in expected.items():
+            assert item in app.state.writer.writes
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [-1, 0x1000000, 0x64FF0000, 0x65FF0000, 1.5])
+async def test_isb_color_rejects_invalid_rgb_without_writing_or_locking(value):
     app = await _build_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.post(
@@ -208,13 +302,17 @@ async def test_isb_color_rejects_intensity_above_100():
             headers=_headers("owner"),
             json={
                 "signal_name": "ISB_Color",
-                "value": 0x65FF0000,
+                "value": value,
                 "seats": {"fl": True},
             },
         )
 
     assert resp.status_code == 422
+    assert resp.json()["detail"] == (
+        "ISB_Color must be an integer 0xRRGGBB value between 0x000000 and 0xFFFFFF"
+    )
     assert app.state.writer.writes == []
+    assert get_seat_lock_registry().active_locks() == {}
 
 
 @pytest.mark.asyncio
