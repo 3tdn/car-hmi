@@ -233,8 +233,29 @@ Only seats that were actually updated are returned. The signal name is the share
 - `ACR_RetractRequest`: refer to the corresponding signal `ACR_FL_RetractRequest`, (`5` or `10->25`)
 - `ABL_RetractRequest`: refer to the corresponding signal `ABL_FL_RetractRequest`, (`0->5`, `11`, `12`)
 - `ELK_LockingRequest`: `0` (no lock) or `1` (request for lock)
-- `ISB_Color`: packed `0xIIRRGGBB` integer; for example, 100% intensity and red is `0x64FF0000` (send its decimal value in JSON)
+- `ISB_Color`: packed 24-bit `0xRRGGBB` integer from `0x000000` to `0xFFFFFF` (send its decimal value in JSON). The backend derives intensity directly from the brightest RGB channel using the formula below. `0%` means off and `100%` means full brightness; RGB bytes are forwarded unchanged. There is no input intensity byte.
 - `HB_Request`: `0`, `1`, `2`
+
+The frontend sends RGB and the selected-seat map. The backend extracts the RGB
+bytes, derives intensity as a whole percentage, and writes the same `I,R,G,B`
+values to every selected seat that passes connectivity and lock checks:
+
+```text
+I = round(max(R,G,B) * 100 / 255)
+```
+
+The implementation uses `floor(0.5 + max(R,G,B) * 100 / 255)` for nearest-integer
+rounding of these nonnegative values. Intensity depends only on RGB and stays
+within `0–100`.
+
+| RGB | Intensity sent to CAN |
+| --- | --- |
+| `(0,0,0)` | `0` |
+| `(7,0,0)` | `3` |
+| `(50,50,50)` | `20` |
+| `(147,51,234)` | `92` |
+| `(255,0,0)` | `100` |
+| `(255,255,255)` | `100` |
 
 ### Mapping to actual CAN signals
 
@@ -244,7 +265,21 @@ Only seats that were actually updated are returned. The signal name is the share
 | `ABL_RetractRequest` | `ABL_{SEAT}_RetractRequest` |
 | `ELK_LockingRequest` | `ELK_{SEAT}_LockingRequest` |
 | `HB_Request` | `HB_Request_{SEAT}` |
-| `ISB_Color` | Split `0xIIRRGGBB` into `ISB_{SEAT}_Intensity`, `ISB_{SEAT}_ColorRed`, `ISB_{SEAT}_ColorGreen`, and `ISB_{SEAT}_ColorBlue` |
+| `ISB_Color` | Derive `ISB_{SEAT}_Intensity` (0–100%) from `0xRRGGBB` and write its RGB bytes unchanged to `ISB_{SEAT}_ColorRed`, `ISB_{SEAT}_ColorGreen`, and `ISB_{SEAT}_ColorBlue` |
+
+For example, apply dim blue (`0x0A141E`, decimal `660510`) to two seats:
+
+```json
+{
+  "signal_name": "ISB_Color",
+  "value": 660510,
+  "seats": {"fl": true, "fr": true}
+}
+```
+
+The backend writes intensity `12`, red `10`, green `20`, and blue `30` for each selected seat. Black (`0x000000`) produces intensity `0`; red (`0xFF0000`) and white (`0xFFFFFF`) produce intensity `100`. The response's per-seat `signals` object includes all four derived values. The catalog returns `states: []` for `ISB_Color`; the frontend supplies the RGB color selected by the user.
+
+Clients using the previous `0xIIRRGGBB` format must remove the intensity byte. Values above `0xFFFFFF`, negative values, and fractional values return HTTP 422.
 
 If a seat does not have a corresponding signal in the DBC (for example `HB_Request_FL`), that seat returns
 `error = signal_not_available`, while the remaining seats are still applied.
@@ -419,7 +454,7 @@ Dev-mode view: (distinguished from the user view)
 Devmode has 2 views.
 view a:
 The view has 5 switches representing the 5 seats, each of which can be selected or not.
-There are 5 tabs (ACR, ABL, ELK, ISB, HB corresponding to the signals `ACR_RetractRequest`, `ABL_RetractRequest`, `ELK_LockingRequest`, `ISB_Color`, `HB_Request`); each tab has n buttons corresponding to the n states of each signal.
+There are 5 tabs (ACR, ABL, ELK, ISB, HB corresponding to the signals `ACR_RetractRequest`, `ABL_RetractRequest`, `ELK_LockingRequest`, `ISB_Color`, `HB_Request`); state-family tabs use buttons corresponding to the states returned by the catalog. `ISB_Color` has no predefined catalog states; the HMI frontend supplies the RGB color.
 The function of this view is to change the signal state for multiple seats at once.
 note: when turning on a seat switch, remember to notify the backend so it can create a 1-minute timeout to block other modes from operating on that seat
 View b:

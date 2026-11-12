@@ -2100,7 +2100,7 @@
           "value": {
             "type": "number",
             "title": "Value",
-            "description": "Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB"
+            "description": "Value applied to every selected seat; ISB_Color uses packed 0xRRGGBB (0x000000..0xFFFFFF); intensity is round(max(R,G,B) * 100 / 255) percent"
           },
           "seats": {
             "additionalProperties": {

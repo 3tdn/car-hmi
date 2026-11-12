@@ -1838,7 +1838,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses a packed `0xIIRRGGBB` number from `0x00000000` to `0x64FFFFFF`; `II` is intensity from 0 to 100 (send the value as a decimal number in JSON). The route explicitly validates this range; the catalog's state lists are not all enforced as value ranges by the route.
+Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses a packed 24-bit `0xRRGGBB` integer from `0x000000` to `0xFFFFFF` (send its decimal value in JSON). The backend derives intensity directly as `I = round(max(R,G,B) * 100 / 255)` percent (implemented as `floor(0.5 + max(R,G,B) * 100 / 255)` for these nonnegative values). Intensity depends only on RGB and stays within 0–100. Every selected seat that passes connectivity and lock checks receives the same I,R,G,B values. Black is 0%, and full red or white is 100%; `0x9333EA` (RGB 147,51,234) yields 92%, `0x070000` (RGB 7,0,0) yields 3%, and `0x323232` (RGB 50,50,50) yields 20%. RGB bytes are forwarded unchanged to the corresponding `ISB_{SEAT}_ColorRed`, `ColorGreen`, and `ColorBlue` signals, alongside `ISB_{SEAT}_Intensity`. For example, `{"signal_name":"ISB_Color","value":660510,"seats":{"fl":true,"fr":true}}` sends `0x0A141E` to both seats with intensity 12, red 10, green 20, and blue 30; the response includes these four values per seat. The catalog returns `states: []` for ISB_Color; the frontend supplies the RGB color. Clients using the previous `0xIIRRGGBB` format must remove the intensity byte; values above `0xFFFFFF`, negative values, and fractional values return HTTP 422. The catalog's state lists are not all enforced as value ranges by the route.
 
 ### `GET /api/info`
 
@@ -2657,7 +2657,7 @@ Apply one signal family to several seats at once — POST /api/devmode/signals.
 | Field | Type | Required | Default/Constraints | Description |
 |---|---|---|---|---|
 | `signal_name` | string | Yes |  | Signal family: ACR_RetractRequest \| ABL_RetractRequest \| ELK_LockingRequest \| ISB_Color \| HB_Request |
-| `value` | number | Yes |  | Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB |
+| `value` | number | Yes |  | Value applied to every selected seat; ISB_Color uses packed 0xRRGGBB (0x000000..0xFFFFFF); intensity is round(max(R,G,B) * 100 / 255) percent |
 | `seats` | map<string, boolean> | Yes |  | Map seat_id → whether the value is applied |
 | `block_timeout_sec` | number / null | No | minimum=1.0; maximum=3600.0 | Seat lock renewal duration (seconds); defaults to 60 |
 
