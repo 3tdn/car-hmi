@@ -32,7 +32,7 @@ Format: **PlantUML** (`.puml`).
 ## SEAL audio demo
 
 The [audio demo guide](../docs/audio_demo.md) defines `HMI_SEAL_ActivationRequest`,
-`SEAL_WithSound`, `HMI_Soundfile`, and CAR-PC feedback. In diagrams 21 and 22, **A** is
+`HMI_SEAL_WithSound`, `HMI_Soundfile`, and CAR-PC feedback. In diagrams 21 and 22, **A** is
 `audio.files`, **T** is `audio.position_update_interval_ms`, and playback type is selected
 by `audio.track_queue_enable` (`false`: interrupt, `true`: queue). The component and data
 flow diagrams also show the local player and the audio feedback path.

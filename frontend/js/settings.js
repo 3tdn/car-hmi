@@ -113,6 +113,18 @@ const metadataBadges = (policy) => {
     <span class="settings-meta settings-meta--${mode}">MODE: ${mode.toUpperCase()}</span>`;
 };
 const parseInput = (input, original, path) => {
+  if (path === 'user_config') {
+    const value = JSON.parse(input.value, (key, item) => {
+      if (typeof item === 'number' && !Number.isFinite(item)) {
+        throw new Error('Numbers must be finite');
+      }
+      return item;
+    });
+    if (value === null || Array.isArray(value) || typeof value !== 'object') {
+      throw new Error('User configuration must be a JSON object');
+    }
+    return value;
+  }
   const enumValues = enumValuesFor(path, original);
   if (enumValues) {
     if (Array.isArray(original)) {
@@ -225,14 +237,21 @@ const renderSettingsForm = () => {
   const form = document.getElementById('settings-form');
   if (!settingsWorking) return;
   form.innerHTML = renderCan(settingsWorking.can) + Object.entries(settingsWorking)
-    .filter(([key]) => key !== 'can')
+    .filter(([key]) => key !== 'can' && key !== 'user_config')
     .map(([key, value]) => {
       const content = value && typeof value === 'object' && !Array.isArray(value)
         ? renderObject(value, key)
         : renderScalar(key, value, key);
       return content ? `<section class="settings-section"><h4>${escapeHtml(key)}</h4>${content}</section>` : '';
     })
-    .join('');
+    .join('') + `<section class="settings-section">
+      <h4>User configuration</h4>
+      <label class="settings-field">
+        <span>Shared user configuration (JSON)</span>
+        <textarea data-config-path="user_config" rows="10">${escapeHtml(JSON.stringify(settingsWorking.user_config || {}, null, 2))}</textarea>
+        <small>Saved for all clients. The frontend decides how to use these values. Saving replaces this entire object.</small>
+      </label>
+    </section>`;
   wireSettingsInputs();
 };
 const renderBackups = async () => {
@@ -270,12 +289,13 @@ const loadSettings = async () => {
     document.getElementById('settings-status').textContent = `Failed to load: ${error.message || error}`;
   }
 };
-const diffPatch = (oldValue, newValue) => {
+const diffPatch = (oldValue, newValue, path = '') => {
   if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return undefined;
+  if (path === 'user_config') return newValue;
   if (Array.isArray(oldValue) || Array.isArray(newValue) || typeof oldValue !== 'object' || typeof newValue !== 'object' || oldValue === null || newValue === null) return newValue;
   const result = {};
   Object.keys(newValue).forEach((key) => {
-    const child = diffPatch(oldValue[key], newValue[key]);
+    const child = diffPatch(oldValue[key], newValue[key], path ? `${path}.${key}` : key);
     if (child !== undefined) result[key] = child;
   });
   return Object.keys(result).length ? result : undefined;

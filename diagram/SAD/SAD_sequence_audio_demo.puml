@@ -7,17 +7,17 @@ actor "Web HMI" as hmi
 participant "CAR-PC" as carpc
 participant "PANTHER" as panther
 
-hmi -> carpc : HTTP batch: HMI_SEAL_ActivationRequest\nand SEAL_WithSound
+hmi -> carpc : HTTP batch: HMI_SEAL_ActivationRequest\nand HMI_SEAL_WithSound
 carpc -> panther : CAN: INC_HMI_SEALRequest (0x081)\nforward both values in one frame
 panther -> panther : Perform Blow in / Blow out
 note over hmi, panther
   Activation: 1 = Blow in, 2 = Blow out.
-  SEAL_WithSound: 1 = with sound, 0 = without sound.
+  HMI_SEAL_WithSound: 1 = with sound, 0 = without sound.
 end note
 
-alt SEAL_WithSound = 0
+alt HMI_SEAL_WithSound = 0
     note over carpc, panther : No new sound request; existing playback continues.
-else SEAL_WithSound = 1
+else HMI_SEAL_WithSound = 1
     panther -> carpc : CAN: INC_HMI_Audio_Request (0x220)\nHMI_Soundfile = n
     carpc -> carpc : Play the file mapped to audio_number n in A
     note right of carpc

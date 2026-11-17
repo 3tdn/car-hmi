@@ -14,7 +14,7 @@ All parameters are **query string** parameters (no body).
 
 | Parameter | Required | Type | Example | Description |
 |---|---|---|---|---|
-| `weight` | ✅ | `float` | `75.0` | Occupant weight (kg) → BE derives the percentile automatically |
+| `weight` | ✅ | `float` | `75.0` | Occupant weight (kg) → fallback percentile; fresh OMS class overrides it |
 | `height` | ✅ | `float` | `175.0` | Occupant height (cm) → stored in context, not used for scoring |
 | `crash_severity` | ✅ | `int` | `40` | Velocity in km/h: 35, 40, 50, or 56. OLC codes are not accepted by the HTTP route. |
 | `seatbelt_system` | ✅ | `string` | `"SLL"` | Seatbelt type: `SLL` / `CLL` / `MSLL` |
@@ -55,8 +55,8 @@ HMI Request
     │       ≥ 170.25 mm    → "rear"
     │
     ├─ 6. Resolve the effective percentile
-    │       SignalStore OMS_OccupantClassification (if mappable) overrides weight-derived
-    │       class 0 → 5th %, class 1 → 50th %, class 2 → 95th %
+    │       Fresh SignalStore OMS_OccupantClassification (if mappable) overrides weight-derived
+    │       class 1 → 5th %, class 2 → 50th %, class 3 → 95th %, class 4 → 50th %
     │
     ├─ 7. Scan the restraint video directory (adaptive_restraint.media_dir in system.json, default media/video/)
     │       Parse filenames using the schema: {percentile}p_{seat_position}_{velocity}_{seatbelt}.ext
@@ -79,24 +79,21 @@ it must convert them to an accepted velocity before requesting this endpoint; se
 
 ### OMS classification source
 
-The processing pipeline publishes the frontend-facing
-`OMS_xx_OccupantClassification` values according to `oms_config`:
+The processing pipeline passes decoded `OMS_xx_OccupantClassification` values through
+unchanged. Legacy `oms_config` values are ignored. The match endpoint uses the latest stored
+OMS classification only when it has a positive receive timestamp and is no older than the
+configured `reader.stale_threshold_sec`; otherwise the endpoint uses the percentile derived
+from request `weight`. DBC-seeded signal values have a zero timestamp and do not override
+the request.
 
-- `bypass_simi_input: false`: keep the class decoded from CAN/SIMI.
-- `bypass_simi_input: true`: derive class `0`/`1`/`2` from the mapped
-  `OMS_xx_OccupantWeightMean` value using `class_config: [low, high]`.
-- The boundaries are `< low` → `0`, `low <= weight <= high` → `1`, and `> high` → `2`.
+The match endpoint translates classes `1`/`2`/`3`/`4` into video buckets
+`5p`/`50p`/`95p`/`50p` respectively.
 
-The runtime source names intentionally omit the old `_kg` suffix. The match endpoint then
-translates classes `0`/`1`/`2` into the available video buckets `5p`/`50p`/`95p`. The active
-DBC describes those three classes as 25%/50%/95% occupants, while this route currently maps
-class `0` to the media catalog's `5p` bucket; that application-level translation is separate
-from the DBC label.
-
-> Current limitation: this endpoint reads the latest value stored under the signal name but
-> does not check its receive timestamp or provenance. A DBC-seeded initial value or a stale
-> value can therefore override the percentile derived from the request's `weight`. Treat
-> `can_percentile` as a SignalStore-derived value, not proof of fresh CAN traffic.
+The response retains legacy OMS context fields for client compatibility. They are fixed
+placeholders: `oms_bypass_simi_input` is always `false`, `oms_class_config` is always
+`[65.0, 90.0]`, and `oms_weight_signal` and `can_weight_kg` are always `null`. They do not
+reflect loaded legacy settings or affect matching. `can_percentile` is populated only from a
+fresh stored classification.
 
 ### Response — BE returns to FE
 
@@ -119,6 +116,10 @@ from the DBC label.
     "derived_percentile": 50,
     "effective_percentile": 50,
     "can_percentile": null,
+    "oms_bypass_simi_input": false,
+    "oms_class_config": [65.0, 90.0],
+    "oms_weight_signal": null,
+    "can_weight_kg": null,
     "target_velocity_kmh": 40,
     "seatbelt_system": "SLL",
     "seat": "fl",
@@ -196,8 +197,8 @@ Example: `50p_mid_40_SLL.mp4`, `5p_front_35_CLL.webm`
 
 | Signal | Message ID | Transmitter | Description |
 |---|---|---|---|
-| `OMS_FL_OccupantClassification` | 179 | SIMI | FL seat occupant classification (0=5%, 1=50%, 2=95%) |
-| `OMS_FR_OccupantClassification` | 180 | SIMI | FR seat occupant classification (0=5%, 1=50%, 2=95% in this route) |
+| `OMS_FL_OccupantClassification` | 179 | SIMI | FL seat occupant classification (1=5%, 2=50%, 3=95%, 4=50% in this route) |
+| `OMS_FR_OccupantClassification` | 180 | SIMI | FR seat occupant classification (1=5%, 2=50%, 3=95%, 4=50% in this route) |
 | `OMS_FL_OutOfPosition` | 179 | SIMI | FL seat out-of-position flag (nonzero = OOP) |
 | `OMS_FR_OutOfPosition` | 180 | SIMI | FR seat out-of-position flag |
 | `SPS_FL_SeatDirectionX` | 181 | PANTHER | FL seat X-axis position (mm, 0–227) |

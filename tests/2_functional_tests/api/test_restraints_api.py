@@ -8,6 +8,7 @@ files in `media/video/` or a real CAN bus.
 
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -22,12 +23,14 @@ async def _build_client(
     tmp_path,
     *,
     initial_signals=None,
+    initial_signal_timestamps=None,
     video_names=(),
     oms_config=None,
 ):
     store = SignalStore()
     for name, value in (initial_signals or {}).items():
-        await store.update(name, value)
+        timestamp = (initial_signal_timestamps or {}).get(name, time.time())
+        await store.update(name, value, timestamp=timestamp)
 
     # api_key="" — the route has no auth dependency (see app.py), so leave it empty for brevity.
     app = create_app(store, api_key="")
@@ -38,6 +41,16 @@ async def _build_client(
     for name in video_names:
         (tmp_path / name).write_bytes(b"fake-video-bytes")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
+@pytest.mark.parametrize(
+    ("weight", "expected_percentile"),
+    [(64.9, 5), (65.0, 50), (90.0, 50), (90.1, 95)],
+)
+def test_weight_to_percentile_uses_default_thresholds(weight, expected_percentile):
+    from src.api.routes.restraints import _weight_to_percentile
+
+    assert _weight_to_percentile(weight) == expected_percentile
 
 
 @pytest.mark.asyncio
@@ -162,43 +175,59 @@ async def test_match_falls_back_to_live_can_signal_when_seat_x_param_omitted(mon
 
 
 @pytest.mark.asyncio
-async def test_match_can_occupant_classification_overrides_weight_derived_percentile(monkeypatch, tmp_path):
-    """OMS_FL_OccupantClassification (if present) overrides the percentile derived from weight."""
+@pytest.mark.parametrize(
+    ("class_value", "weight", "derived_percentile", "expected_percentile"),
+    [(1.0, 100, 95, 5), (2.0, 50, 5, 50), (3.0, 75, 50, 95), (4.0, 100, 95, 50)],
+)
+async def test_match_can_occupant_classification_overrides_weight_derived_percentile(
+    monkeypatch,
+    tmp_path,
+    class_value,
+    weight,
+    derived_percentile,
+    expected_percentile,
+):
+    """Fresh OMS classes 1/2/3/4 override the percentile derived from weight."""
     async with await _build_client(
         monkeypatch,
         tmp_path,
-        initial_signals={"OMS_FL_OccupantClassification": 2.0},  # 2 → 95th percentile
-        video_names=["95p_mid_40_SLL.mp4", "50p_mid_40_SLL.mp4"],
+        initial_signals={"OMS_FL_OccupantClassification": class_value},
+        video_names=["5p_mid_40_SLL.mp4", "50p_mid_40_SLL.mp4", "95p_mid_40_SLL.mp4"],
     ) as c:
         resp = await c.get(
             "/api/restraints/match",
-            params={"weight": 75, "height": 175, "crash_severity": 40, "seatbelt_system": "SLL", "seat": "fl"},
+            params={
+                "weight": weight,
+                "height": 175,
+                "crash_severity": 40,
+                "seatbelt_system": "SLL",
+                "seat": "fl",
+            },
         )
 
     body = resp.json()
-    assert body["context"]["derived_percentile"] == 50  # derived from weight=75kg
-    assert body["context"]["can_percentile"] == 95
-    assert body["context"]["effective_percentile"] == 95
-    assert body["video"]["filename"] == "95p_mid_40_SLL.mp4"
+    assert body["context"]["derived_percentile"] == derived_percentile
+    assert body["context"]["can_percentile"] == expected_percentile
+    assert body["context"]["effective_percentile"] == expected_percentile
+    assert body["video"]["filename"] == f"{expected_percentile}p_mid_40_SLL.mp4"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("weight", "expected_percentile"),
-    [(53.9, 5), (54.0, 50), (90.0, 50), (90.1, 95)],
+    "weight",
+    [53.9, 54.0, 90.0, 90.1],
 )
-async def test_match_uses_configured_weight_percentile_when_simi_is_bypassed(
+async def test_match_ignores_legacy_oms_config(
     monkeypatch,
     tmp_path,
     weight,
-    expected_percentile,
 ):
-    """When bypass is enabled, configured weight thresholds override SIMI classification."""
+    """Legacy OMS settings cannot override the decoded CAN/SIMI classification."""
     async with await _build_client(
         monkeypatch,
         tmp_path,
         initial_signals={
-            "OMS_FL_OccupantClassification": 2.0,
+            "OMS_FL_OccupantClassification": 3.0,
             "OMS_FL_OccupantWeightMean": weight,
         },
         oms_config={
@@ -227,11 +256,50 @@ async def test_match_uses_configured_weight_percentile_when_simi_is_bypassed(
 
     body = resp.json()
     assert resp.status_code == 200
-    assert body["context"]["oms_bypass_simi_input"] is True
-    assert body["context"]["oms_class_config"] == [54.0, 90.0]
-    assert body["context"]["can_percentile"] == expected_percentile
-    assert body["context"]["effective_percentile"] == expected_percentile
-    assert body["video"]["filename"] == f"{expected_percentile}p_mid_40_SLL.mp4"
+    assert body["context"]["oms_bypass_simi_input"] is False
+    assert body["context"]["can_percentile"] == 95
+    assert body["context"]["effective_percentile"] == 95
+    assert body["video"]["filename"] == "95p_mid_40_SLL.mp4"
+    assert body["context"]["oms_class_config"] == [65.0, 90.0]
+    assert body["context"]["oms_weight_signal"] is None
+    assert body["context"]["can_weight_kg"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timestamp_age_sec", [None, 60.0])
+async def test_match_ignores_unreceived_or_stale_oms_classification(
+    monkeypatch,
+    tmp_path,
+    timestamp_age_sec,
+):
+    timestamp = (
+        0.0 if timestamp_age_sec is None else time.time() - timestamp_age_sec
+    )
+    async with await _build_client(
+        monkeypatch,
+        tmp_path,
+        initial_signals={"OMS_FL_OccupantClassification": 3.0},
+        initial_signal_timestamps={
+            "OMS_FL_OccupantClassification": timestamp,
+        },
+        video_names=["5p_mid_40_SLL.mp4", "50p_mid_40_SLL.mp4"],
+    ) as c:
+        resp = await c.get(
+            "/api/restraints/match",
+            params={
+                "weight": 75,
+                "height": 175,
+                "crash_severity": 40,
+                "seatbelt_system": "SLL",
+                "seat": "fl",
+            },
+        )
+
+    body = resp.json()
+    assert resp.status_code == 200
+    assert body["context"]["can_percentile"] is None
+    assert body["context"]["effective_percentile"] == 50
+    assert body["video"]["filename"] == "50p_mid_40_SLL.mp4"
 
 
 @pytest.mark.asyncio

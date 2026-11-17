@@ -563,7 +563,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, and its mapped entries are live fields. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. `can_channels.detected` lists UP SocketCAN interfaces. `devices` lists both UP and DOWN SocketCAN interfaces with their administrative `state` and kernel `operstate`; the always-available python-can test channel `virtual/vcan0` is reported as UP. `options` also contains `auto`, DOWN devices, and currently configured values. `allow_custom` indicates that clients may accept a manually entered driver-specific channel. The CAN interface enum is restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`; unsupported values are rejected before the configuration or a backup is written. `editable` is enforced by PATCH and `setting_mode` drives Base/Expanded visibility. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. Legacy `oms_config` fields are read-only and have no runtime effect. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
 ### `PATCH /config/system`
 
@@ -641,9 +641,18 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. When changing `oms_config.class_config`, send both ordered thresholds because arrays are replaced as a whole; OMS config fields apply live. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
+Note: The response contains the full configuration and policy; the example abbreviates config/fields. PATCH recursively merges objects and replaces arrays as a whole. To change can[0], send the complete can list to retain. Legacy `oms_config` fields are read-only and ignored by the runtime. `can_db_file`, `channel_tracking_signals`, camera, and supervisor changes require reboot; use the fields returned by GET to determine policy.
 
-Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active OMS/status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
+The top-level `user_config` JSON object is stored for frontend clients without affecting backend
+runtime. `PATCH {"user_config": {...}}` replaces the complete object; `{"user_config": {}}` clears it.
+Nested JSON is allowed, with finite numbers and an object at the root. GET returns
+`config.user_config` and advertises `storage_only_paths: ["user_config"]`; mutation responses
+list FE changes under `stored_paths` as well as `changed_paths`, excluding them from
+`reload` and `runtime.applied`. FE-only changes do not schedule or postpone a backend
+restart. Backups include FE data; reset uses the reset template's FE object. The general
+config aliases support the same storage behavior and retain their existing response shapes.
+
+Before creating a backup or writing `system.json`, the API validates the complete merged candidate, including fields not changed by this request. Validation covers schema types and ranges, finite numeric values, field policy, files and DBC parsing, network settings, tracking signals, and active status-monitor references. An invalid candidate returns HTTP 422 with `detail.code` set to `system_config_validation_failed` or `system_config_field_validation_failed`; the config file and runtime state remain unchanged.
 
 ### `GET /config/system/backups`
 
@@ -1448,6 +1457,10 @@ Response format taken from the implementation (OpenAPI does not declare a detail
     "derived_percentile": 50,
     "effective_percentile": 50,
     "can_percentile": null,
+    "oms_bypass_simi_input": false,
+    "oms_class_config": [65.0, 90.0],
+    "oms_weight_signal": null,
+    "can_weight_kg": null,
     "target_velocity_kmh": 40,
     "seatbelt_system": "SLL",
     "seat": "fl",
@@ -1460,7 +1473,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > latest SignalStore value > fallback. A stored OMS class 0/1/2 has priority over the weight-derived percentile and maps to the 5p/50p/95p video bucket. `oms_config.bypass_simi_input=false` keeps the CAN/SIMI class; `true` derives the same frontend-facing class from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. The route does not validate receive freshness or provenance, so a DBC-seeded or stale stored class can override `weight`. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
+Note: crash_severity must be 35/40/50/56; seatbelt_system is SLL/CLL/MSLL; seat is fl/fr. Optional seat_x_mm has priority query > latest SignalStore value > fallback. A fresh stored OMS class 1/2/3/4 has priority over the weight-derived percentile and maps to the 5p/50p/95p/50p video bucket, respectively. DBC-seeded or stale classifications fall back to `weight`. Legacy OMS context fields remain for compatibility, but legacy `oms_config` values do not affect matching. When matched=true, video contains filename, percentile, seat_position, velocity_kmh, seatbelt, and url.
 
 ### `GET /api/restraints/video/{filename}`
 
@@ -1546,7 +1559,7 @@ Response schema: `CameraStatusResponse`.
 ### Audio playback (CAN-only, no REST endpoints)
 
 The HMI starts a SEAL demo by batch-writing `HMI_SEAL_ActivationRequest` (`1`: Blow in,
-`2`: Blow out) and `SEAL_WithSound` (`1`: with sound, `0`: without sound). Panther performs
+`2`: Blow out) and `HMI_SEAL_WithSound` (`1`: with sound, `0`: without sound). Panther performs
 the action and selects an audio number by sending `HMI_Soundfile` when sound is requested.
 See the [audio demo guide](audio_demo.md) for the complete HMI → Panther → CAR-PC flow,
 diagrams, configuration examples, and virtual-CAN test procedure.
@@ -1825,7 +1838,7 @@ Response format taken from the implementation (OpenAPI does not declare a detail
 }
 ```
 
-Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses a packed `0xIIRRGGBB` number from `0x00000000` to `0x64FFFFFF`; `II` is intensity from 0 to 100 (send the value as a decimal number in JSON). The route explicitly validates this range; the catalog's state lists are not all enforced as value ranges by the route.
+Note: Seats: fl/fr/rl1/rl2/rr1. Optional block_timeout_sec is 1–3600 seconds. ISB_Color uses a packed 24-bit `0xRRGGBB` integer from `0x000000` to `0xFFFFFF` (send its decimal value in JSON). The backend derives intensity directly as `I = round(max(R,G,B) * 100 / 255)` percent (implemented as `floor(0.5 + max(R,G,B) * 100 / 255)` for these nonnegative values). Intensity depends only on RGB and stays within 0–100. Every selected seat that passes connectivity and lock checks receives the same I,R,G,B values. Black is 0%, and full red or white is 100%; `0x9333EA` (RGB 147,51,234) yields 92%, `0x070000` (RGB 7,0,0) yields 3%, and `0x323232` (RGB 50,50,50) yields 20%. RGB bytes are forwarded unchanged to the corresponding `ISB_{SEAT}_ColorRed`, `ColorGreen`, and `ColorBlue` signals, alongside `ISB_{SEAT}_Intensity`. For example, `{"signal_name":"ISB_Color","value":660510,"seats":{"fl":true,"fr":true}}` sends `0x0A141E` to both seats with intensity 12, red 10, green 20, and blue 30; the response includes these four values per seat. The catalog returns `states: []` for ISB_Color; the frontend supplies the RGB color. Clients using the previous `0xIIRRGGBB` format must remove the intensity byte; values above `0xFFFFFF`, negative values, and fractional values return HTTP 422. The catalog's state lists are not all enforced as value ranges by the route.
 
 ### `GET /api/info`
 
@@ -2644,7 +2657,7 @@ Apply one signal family to several seats at once — POST /api/devmode/signals.
 | Field | Type | Required | Default/Constraints | Description |
 |---|---|---|---|---|
 | `signal_name` | string | Yes |  | Signal family: ACR_RetractRequest \| ABL_RetractRequest \| ELK_LockingRequest \| ISB_Color \| HB_Request |
-| `value` | number | Yes |  | Value applied to every selected seat; ISB_Color uses packed 0xIIRRGGBB |
+| `value` | number | Yes |  | Value applied to every selected seat; ISB_Color uses packed 0xRRGGBB (0x000000..0xFFFFFF); intensity is round(max(R,G,B) * 100 / 255) percent |
 | `seats` | map<string, boolean> | Yes |  | Map seat_id → whether the value is applied |
 | `block_timeout_sec` | number / null | No | minimum=1.0; maximum=3600.0 | Seat lock renewal duration (seconds); defaults to 60 |
 

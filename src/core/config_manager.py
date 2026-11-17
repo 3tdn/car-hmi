@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import time
@@ -85,14 +86,36 @@ def merge_dict(destination: dict[str, Any], update: dict[str, Any]) -> dict[str,
 
 
 def _validate(raw: dict[str, Any]) -> AppConfig:
+    if "user_config" in raw:
+        if not isinstance(raw["user_config"], dict):
+            raise ConfigUpdateError(
+                "system_config_validation_failed", "user_config must be a JSON object"
+            )
+        try:
+            json.dumps(raw["user_config"], allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ConfigUpdateError(
+                "system_config_validation_failed",
+                "user_config must contain valid, finite JSON values",
+            ) from exc
     try:
-        return AppConfig.model_validate(raw)
+        # Frontend data is persisted with the document, never passed to runtime.
+        backend = {key: value for key, value in raw.items() if key != "user_config"}
+        return AppConfig.model_validate(backend)
     except ValidationError as exc:
         raise ConfigUpdateError("system_config_validation_failed", str(exc)) from exc
 
 
+def _is_user_config_path(path: str) -> bool:
+    return path == "user_config" or path.startswith("user_config.")
+
+
+def _backend_paths(paths: list[str]) -> list[str]:
+    return [path for path in paths if not _is_user_config_path(path)]
+
+
 def _validate_field_values(raw: dict[str, Any]) -> None:
-    errors = validate_policy_values(raw, all_leaf_paths(raw))
+    errors = validate_policy_values(raw, _backend_paths(all_leaf_paths(raw)))
     if errors:
         raise ConfigUpdateError("system_config_field_validation_failed", "; ".join(errors))
 
@@ -197,6 +220,7 @@ class SystemConfigManager:
         raw = self._redact(self.read())
         return {
             "config": raw,
+            "storage_only_paths": ["user_config"],
             **self.restart_status(),
             **policy_payload(),
             "paths": {
@@ -288,16 +312,28 @@ class SystemConfigManager:
             raise ConfigUpdateError(
                 "system_config_patch_empty", "Patch body must be a non-empty object"
             )
+        if any(key.startswith("user_config.") for key in update):
+            raise ConfigUpdateError(
+                "system_config_field_unsupported",
+                "Use a nested user_config object, not dotted root keys",
+            )
         async with self._lock:
             self._ensure_not_restarting(runner)
             current = self.read()
-            merged = merge_dict(deepcopy(current), update)
+            merged = merge_dict(
+                deepcopy(current),
+                {key: value for key, value in update.items() if key != "user_config"},
+            )
+            if "user_config" in update:
+                # The FE owns the complete object, including key removal.
+                merged["user_config"] = deepcopy(update["user_config"])
             validated = _validate(merged)
             changed = diff_paths(current, merged)
-            unsupported = [path for path in changed if match_policy(path) is None]
+            backend_changed = _backend_paths(changed)
+            unsupported = [path for path in backend_changed if match_policy(path) is None]
             immutable = [
                 path
-                for path in changed
+                for path in backend_changed
                 if (policy := match_policy(path)) is not None and not policy.editable
             ]
             if unsupported:
@@ -381,11 +417,12 @@ class SystemConfigManager:
             except Exception as exc:
                 rollback_errors.append(f"disk rollback failed: {exc}")
 
-            if runner is not None and changed:
+            backend_changed = _backend_paths(changed)
+            if runner is not None and backend_changed:
                 try:
                     previous_config = _validate(current)
                     rollback = asyncio.create_task(
-                        runner.apply_system_config(previous_config, changed)
+                        runner.apply_system_config(previous_config, backend_changed)
                     )
                     # Keep the manager lock until rollback finishes, even if
                     # the request is cancelled again during cleanup.
@@ -435,13 +472,15 @@ class SystemConfigManager:
         backup: dict[str, Any] | None = None,
         apply: bool = True,
     ) -> dict[str, Any]:
-        levels = classify_paths(changed)
+        backend_changed = _backend_paths(changed)
+        stored_paths = [path for path in changed if _is_user_config_path(path)]
+        levels = classify_paths(backend_changed)
         runtime: dict[str, list[str]] = {"applied": [], "unavailable": []}
-        if apply and changed:
+        if apply and backend_changed:
             if runner is None and levels[ReloadLevel.LIVE.value]:
                 runtime["unavailable"] = list(levels[ReloadLevel.LIVE.value])
             elif runner is not None:
-                runtime.update(await runner.apply_system_config(validated, changed) or {})
+                runtime.update(await runner.apply_system_config(validated, backend_changed) or {})
         runner_pending = getattr(runner, "pending_reboot_paths", None)
         if runner_pending is None:
             pending_reboot = sorted(
@@ -453,6 +492,7 @@ class SystemConfigManager:
             "ok": True,
             "config": self._redact(raw),
             "changed_paths": changed,
+            "stored_paths": stored_paths,
             "reload": levels,
             "runtime": runtime,
             "pending_reboot_paths": pending_reboot,
@@ -460,6 +500,7 @@ class SystemConfigManager:
         }
         if backup is not None:
             response["backup"] = backup
-        self._schedule_restart(runner, changed, pending_reboot)
+        if backend_changed or not stored_paths:
+            self._schedule_restart(runner, backend_changed, pending_reboot)
         response.update(self.restart_status())
         return response

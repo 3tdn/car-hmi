@@ -15,10 +15,10 @@ queueing, feedback publishing, live configuration, and audio startup/shutdown.
 
 ## HMI and Panther flow
 
-The HMI writes `HMI_SEAL_ActivationRequest` and `SEAL_WithSound` together in
+The HMI writes `HMI_SEAL_ActivationRequest` and `HMI_SEAL_WithSound` together in
 `INC_HMI_SEALRequest` (CAN ID `0x081`, CAR-PC → Panther):
 
-| HMI_SEAL_ActivationRequest | SEAL_WithSound | Requested demo |
+| HMI_SEAL_ActivationRequest | HMI_SEAL_WithSound | Requested demo |
 |---|---|---|
 | `1` | `1` | Blow in with sound |
 | `2` | `1` | Blow out with sound |
@@ -38,7 +38,7 @@ X-Client-Id: seal-demo-01
 {
   "signals": [
     {"signal_name": "HMI_SEAL_ActivationRequest", "value": 1},
-    {"signal_name": "SEAL_WithSound", "value": 1}
+    {"signal_name": "HMI_SEAL_WithSound", "value": 1}
   ]
 }
 ```
@@ -48,11 +48,11 @@ Both signals must have write permission in the selected profile. Inspect the res
 Sending the pair in one batch keeps both values in the same CAN frame and avoids the
 unwritten-sibling policy resetting one of them during separate writes.
 
-When `SEAL_WithSound=1`, Panther selects an audio number and sends it as `HMI_Soundfile`
+When `HMI_SEAL_WithSound=1`, Panther selects an audio number and sends it as `HMI_Soundfile`
 in `INC_HMI_Audio_Request` (CAN ID `0x220`, Panther → CAR-PC). For example,
 `HMI_Soundfile=1` requests audio number 1. Blow in and Blow out do not implicitly select
 audio numbers 1 and 2: Panther chooses the sound independently of the activation value.
-With `SEAL_WithSound=0`, Panther performs the action without requesting a new sound.
+With `HMI_SEAL_WithSound=0`, Panther performs the action without requesting a new sound.
 This flag does not cancel audio already playing on CAR-PC.
 
 CAR-PC starts audio in response to `HMI_Soundfile`; writing the SEAL request alone does

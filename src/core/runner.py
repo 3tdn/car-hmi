@@ -154,7 +154,6 @@ class AppRunner:
         # Component references (created in start())
         self._pipeline = None
         self._rate_limiter = None
-        self._oms_classifier = None
         self._readers: list = []
         self._writers: list = []
         self._writer_router = None
@@ -288,7 +287,6 @@ class AppRunner:
         from src.processor.computed import (
             ComputedSignals,
             HBStateNormalizer,
-            OMSClassificationProcessor,
         )
         from src.processor.filters import RateLimiter
         from src.processor.pipeline import SignalPipeline
@@ -319,8 +317,6 @@ class AppRunner:
 
         # Initialize SignalStore with all known signals (initial values + units)
         try:
-            import time
-
             initial_values: dict[str, float] = {}
             units: dict[str, str] = {}
             for name, sig in all_signals.items():
@@ -331,7 +327,7 @@ class AppRunner:
                     initial_values[name] = float(sig.maximum)
                 else:
                     initial_values[name] = 0.0
-            await self.store.bulk_update(initial_values, timestamp=time.time(), units=units)
+            await self.store.bulk_update(initial_values, timestamp=0.0, units=units)
             logger.info(
                 "Seeded SignalStore with %d signals from %d channels",
                 len(initial_values), len(can_channels),
@@ -357,13 +353,6 @@ class AppRunner:
         self._rate_limiter = RateLimiter(max_hz=proc_cfg.max_update_rate_hz)
         self._pipeline.add_stage(self._rate_limiter)
         self._pipeline.add_stage(HBStateNormalizer())
-        oms_cfg = self.config.oms_config
-        self._oms_classifier = OMSClassificationProcessor(
-            bypass_simi_input=oms_cfg.bypass_simi_input,
-            class_config=oms_cfg.class_config,
-            target_signals=oms_cfg.target_signal,
-        )
-        self._pipeline.add_stage(self._oms_classifier)
         self._pipeline.add_stage(ComputedSignals())
 
         # 4. Check the simulator early — before opening the bus ──────────────────
@@ -445,7 +434,7 @@ class AppRunner:
                 bus_factory=bus_factory,
                 queue_policy=proc_cfg.queue_policy,
                 max_rate_hz=proc_cfg.max_update_rate_hz,
-                priority_sec=self.config.reader.frequency_piority,
+                priority_sec=max(1.0, float(self.config.reader.frequency_piority)),
                 stale_threshold_sec=self.config.reader.stale_threshold_sec,
                 frontend_retry_enabled=ch_cfg.channel == "auto",
                 initial_error=startup_error,
@@ -1018,14 +1007,6 @@ class AppRunner:
             )
         if self._rate_limiter is not None:
             self._rate_limiter.set_max_hz(new_config.processor.max_update_rate_hz)
-        if self._oms_classifier is not None:
-            oms_cfg = new_config.oms_config
-            self._oms_classifier.apply_runtime_config(
-                bypass_simi_input=oms_cfg.bypass_simi_input,
-                class_config=oms_cfg.class_config,
-                target_signals=oms_cfg.target_signal,
-            )
-
         for reader in self._readers:
             reader.apply_runtime_config(
                 queue_policy=new_config.processor.queue_policy,

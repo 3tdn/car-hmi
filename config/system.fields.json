@@ -792,10 +792,10 @@
       "path": "oms_config.bypass_simi_input",
       "title": "Bypass SIMI Classification Input",
       "type": "boolean",
-      "editable": true,
+      "editable": false,
       "setting_mode": "base",
       "reload_level": "live",
-      "description": "When enabled, derive OMS occupant classification from the mapped mean-weight CAN signal instead of using the SIMI classification value.",
+      "description": "Legacy OMS option. OMS classification values now pass through unchanged; this setting is retained for compatibility and cannot be changed.",
       "ui": {
         "control": "checkbox"
       }
@@ -804,10 +804,10 @@
       "path": "oms_config.class_config",
       "title": "Classification Thresholds",
       "type": "array",
-      "editable": true,
+      "editable": false,
       "setting_mode": "base",
       "reload_level": "live",
-      "description": "Exactly two increasing weight thresholds: below the first produces class 0, through the second produces class 1, and above the second produces class 2.",
+      "description": "Legacy OMS option retained for compatibility; it has no runtime effect and cannot be changed.",
       "validation": {
         "minItems": 2,
         "maxItems": 2,
@@ -823,10 +823,10 @@
       "path": "oms_config.class_config.*",
       "title": "Classification Threshold",
       "type": "number",
-      "editable": true,
+      "editable": false,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "A non-negative occupant-weight threshold.",
+      "description": "Legacy OMS option retained for compatibility; it has no runtime effect and cannot be changed.",
       "validation": {
         "minimum": 0
       },
@@ -838,10 +838,10 @@
       "path": "oms_config.target_signal",
       "title": "Classification Signal Mapping",
       "type": "object",
-      "editable": true,
+      "editable": false,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Map each frontend-facing OMS OccupantClassification signal to its source OccupantWeightMean CAN signal.",
+      "description": "Legacy OMS option retained for compatibility; it has no runtime effect and cannot be changed.",
       "ui": {
         "control": "key-value"
       }
@@ -850,10 +850,10 @@
       "path": "oms_config.target_signal.*",
       "title": "Weight Source Signal",
       "type": "string",
-      "editable": true,
+      "editable": false,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "CAN signal containing the occupant mean weight used to derive this classification.",
+      "description": "Legacy OMS option retained for compatibility; it has no runtime effect and cannot be changed.",
       "validation": {
         "minLength": 1
       },
@@ -931,9 +931,9 @@
       "editable": true,
       "setting_mode": "expand",
       "reload_level": "live",
-      "description": "Heartbeat for infrequently changing signals.",
+      "description": "Heartbeat interval in seconds for infrequently changing signals (minimum 1).",
       "validation": {
-        "minimum": 0
+        "minimum": 1
       },
       "ui": {
         "control": "number"

@@ -66,8 +66,11 @@ def test_reader_config_defaults():
     from src.core.config import ReaderConfig
 
     cfg = ReaderConfig()
-    assert cfg.frequency_piority == pytest.approx(0.0)
+    assert cfg.frequency_piority == pytest.approx(1.0)
     assert cfg.only_send_signal_update is False
+
+    with pytest.raises(ValueError):
+        ReaderConfig(frequency_piority=0.0)
 
 
 def test_writer_config_use_prevalue_for_unwritten_signal():
@@ -420,7 +423,7 @@ def test_load_config_custom(tmp_path):
     cfg = load_config(str(cfg_file))
     assert cfg.can[0].bitrate == 250000
     assert cfg.api.port == 9000
-    assert cfg.reader.frequency_piority == pytest.approx(0.0)
+    assert cfg.reader.frequency_piority == pytest.approx(1.0)
     assert cfg.reader.only_send_signal_update is True
 
 
@@ -758,10 +761,15 @@ async def test_disconnected_reader_only_marks_its_channel_status_offline():
 
 
 @pytest.mark.asyncio
-async def test_system_config_live_reload_synchronizes_runtime_references():
+async def test_system_config_live_reload_synchronizes_runtime_references(monkeypatch):
     from types import SimpleNamespace
 
     from src.core.runner import AppRunner
+
+    # This test compares file-config changes against the boot configuration.
+    # Deployment overrides are covered separately and must not leak from the host.
+    for name in ("PORT", "CAR_HMI_API_KEY", "CAR_HMI_REQUIRE_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
 
     class ConfigSink:
         def __init__(self):
@@ -784,13 +792,6 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
         def set_only_send_signal_update(self, value):
             self.only_updates = value
 
-    class OmsSink:
-        def __init__(self):
-            self.config = None
-
-        def apply_runtime_config(self, **kwargs):
-            self.config = kwargs
-
     class AudioSink:
         def __init__(self):
             self.config = None
@@ -804,14 +805,12 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     writer = ConfigSink()
     rate = RateSink()
     websocket = WsSink()
-    oms_classifier = OmsSink()
     audio_manager = AudioSink()
     runner._pipeline = pipeline
     runner._readers = [reader]
     runner._writers = [writer]
     runner._rate_limiter = rate
     runner._ws_manager = websocket
-    runner._oms_classifier = oms_classifier
     runner._audio_manager = audio_manager
     runner._api_app = SimpleNamespace(state=SimpleNamespace())
 
@@ -874,13 +873,7 @@ async def test_system_config_live_reload_synchronizes_runtime_references():
     assert writer.calls[-1][0] == (updated.writer,)
     assert rate.max_hz == 25.0
     assert websocket.only_updates is True
-    assert oms_classifier.config == {
-        "bypass_simi_input": True,
-        "class_config": [60.0, 85.0],
-        "target_signals": {
-            "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
-        },
-    }
+    assert not hasattr(runner, "_oms_classifier")
     assert audio_manager.config == {
         "position_update_interval_ms": 50,
         "track_queue_enable": True,

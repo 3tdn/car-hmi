@@ -2,6 +2,24 @@
 
 Verified against the backend and bundled frontend on 2026-10-13. See the [complete API reference](api_reference.md) for all 52 HTTP operations, 3 WebSocket endpoints, exact error messages, formats, and examples. The [OpenAPI snapshot](api.openapi.json) describes HTTP schemas; the reference also explains runtime behavior that OpenAPI does not capture.
 
+## Shared user configuration
+
+Read shared FE preferences from `(await getSystemConfig()).config.user_config || {}`.
+Save through the existing helper, for example:
+
+```js
+await patchSystemConfig({
+  user_config: {theme: 'dark', language: 'vi', layout: {default_page: 'dashboard'}},
+});
+```
+
+The supplied object replaces the complete previous FE object; send all keys to retain.
+Use `{user_config: {}}` to clear it. Nested JSON and arrays are supported, and numbers must
+be finite. The backend stores this object for all connected clients but does not interpret
+its keys, change runtime, or request a restart. Each FE implements its own preference
+behavior. The bundled Settings screen includes a JSON editor. Backups, restore and reset
+include these values; see [the configuration contract](system_config_management.md#user-configuration-for-the-frontend).
+
 ## Backend URL and authentication
 
 For the bundled dashboard, set these globals **before loading `frontend/js/api.js`**:
@@ -32,7 +50,7 @@ Send `X-API-Key` on protected HTTP routes, `X-Profile-Name` for explicit profile
 System GET, adaptive restraint, camera, and restraints/video routes are public. Authentication on protected routers is disabled for an empty key or the placeholder values `change-me-in-production`, `changeme`, and `default`. System retry/reboot controls always require a real configured key and `X-Dev-Mode: true`.
 
 For the SEAL demo, the HMI writes `HMI_SEAL_ActivationRequest` (`1`: Blow in, `2`: Blow out)
-and `SEAL_WithSound` (`1`: with sound, `0`: without sound) together through
+and `HMI_SEAL_WithSound` (`1`: with sound, `0`: without sound) together through
 `POST /signals/batch_update`. Panther performs the action and, when sound is requested,
 sends `INC_HMI_Audio_Request.HMI_Soundfile` to select a configured audio number on CAR-PC.
 There is no dedicated audio REST endpoint or audio tab. `HMI_Soundfile` is RX-only and
@@ -61,7 +79,7 @@ The backend does not use one universal error envelope. Handle all of these:
 
 The bundled `_fetchJson()` exposes `status`, `payload`, `detail`, and `warnings` on its thrown error, but its `message` falls back to method/URL/status when `detail` is a string. Read `error.detail` to display the exact backend text. Render messages as text, for example with `textContent`.
 
-This standalone reference helper handles all three `detail` formats. It is an integration example, not a replacement already installed in the bundled frontend:
+This standalone reference helper handles all three `detail` formats. It is an integration example, not a replacement already installed in the bundled user_config:
 
 ```javascript
 const apiBase = "http://localhost:8000";
@@ -227,20 +245,17 @@ const chart = await request(`/adaptive_restraint/chart_info?${filters}`);
 console.log(chart);
 ```
 
-For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides the latest stored seat-position value. The latest stored occupant classification takes priority over the percentile derived from `weight` when its class is `0`, `1`, or `2`; the route maps these to video buckets `5p`, `50p`, and `95p`.
+For `/api/restraints/match`, send required `weight`, `height`, integer `crash_severity` (35/40/50/56), and `seatbelt_system` (`SLL`, `CLL`, or `MSLL`). The HTTP route does not accept OLC codes. Optional `seat` is `fl`/`fr`, and `seat_x_mm` overrides the latest stored seat-position value. A fresh occupant classification (positive timestamp and no older than `reader.stale_threshold_sec`) takes priority over the percentile derived from `weight` when its class is `1`, `2`, `3`, or `4`; the route maps these to video buckets `5p`, `50p`, `95p`, and `50p`, respectively.
 
-`oms_config.bypass_simi_input` controls how the pipeline produces those same frontend-facing
-classification signals. `false` keeps decoded CAN/SIMI values. `true` derives them from the
-mapped `OMS_xx_OccupantWeightMean` signals using `oms_config.class_config`; values below the
-first threshold produce class `0`, values through the second produce class `1`, and higher
-values produce class `2`. These settings apply live. Use source names without the removed
-`_kg` suffix.
+The pipeline passes decoded CAN/SIMI classification values through unchanged. Legacy
+`oms_config` values are retained when reading older configuration files but are read-only and
+have no effect.
 
-The restraints route currently has no receive-freshness or provenance guard. Because the
-store is initialized from DBC defaults and can retain stale data, `can_percentile` means
-"derived from the stored classification" rather than "confirmed from a fresh CAN frame".
+DBC-seeded classifications and classifications older than the configured reader stale
+threshold are ignored in favor of the percentile derived from request `weight`. The response retains legacy OMS
+context fields for compatibility, but those settings do not affect matching.
 
-When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted frontend:
+When `matched` is true, resolve the relative video URL against the **backend origin**, especially with a separately hosted user_config:
 
 ```javascript
 const match = await request("/api/restraints/match?weight=75&height=175&crash_severity=40&seatbelt_system=SLL");

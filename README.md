@@ -117,7 +117,8 @@ the same policy from the backend and supports multiple CAN channel cards.
 | `simulator`   | Enable/disable, `default_cycle_ms`, `can_db_file` (DBC path) for the built-in simulator   |
 | `audio` | `files` (array A of file/audio-number mappings), `position_update_interval_ms` (T, minimum 50 ms), and `track_queue_enable` (`false`: interrupt, `true`: queue); `enabled` and `media_dir` require restart. |
 | `processor`   | `max_update_rate_hz`, `max_queue_size`, `queue_policy` (`drop_oldest` / `reject`), `batch_drain_size` |
-| `oms_config`  | Controls frontend-facing `OMS_xx_OccupantClassification` values. With `bypass_simi_input: false`, keep the decoded CAN/SIMI class; with `true`, derive class `0`/`1`/`2` from mapped `OMS_xx_OccupantWeightMean` signals and `class_config`. Applies live. |
+| `user_config` | Shared FE-owned JSON preferences. GET returns them and PATCH replaces the complete object; the backend only stores them, without runtime apply or restart. |
+| `oms_config`  | Legacy configuration retained for compatibility. It has no runtime effect; decoded CAN/SIMI `OMS_xx_OccupantClassification` values pass through unchanged, and the fields are read-only. |
 | `api`         | `host`, `port`, `api_key`, `cors_origins`, `ws_metrics_interval_sec` |
 | `writer`      | CAN write settings. `use_prevalue_for_unwritten_signal`: `true` (default, reuse the latest value for other signals in the same message) or `false` (encode those signals as physical value `0`). `INC_HMI_SensorFusionRequest` follows this standard sibling policy; it no longer sources unwritten fields from `OMS_State_*`. |
 | `shutdown`    | `timeout_sec` for graceful shutdown                                              |
@@ -301,6 +302,9 @@ may be absolute or relative to that directory; neither folder name is hardcoded.
 If `.env` is missing, unreadable, or malformed, the Linux scripts report an error
 and the backend can continue with system config defaults. The frontend requires
 `CAR_HMI_FRONTEND_PATH`; no directory is guessed when it is absent.
+`CAR_HMI_FRONTEND_PORT` optionally selects the frontend port (default `5173`).
+Deploy stops the frontend service and clears a stale Vite preview listener on
+that port; it refuses to terminate a different process occupying the port.
 The complete file is validated before any values are applied. Use `KEY=value`
 assignments, with quotes around values containing spaces. Shell commands and
 variable expansion are not supported. Deploy installs a root-readable normalized
@@ -348,27 +352,6 @@ Re-run deploy after moving the project, changing
 `CAR_HMI_FRONTEND_PATH`, or changing the installed Node path.
 After renaming the frontend directory, update its path in `.env` and re-run
 deploy to regenerate the absolute paths recorded in the systemd unit.
-
-For small source edits after setup/full deploy, use the faster update script:
-
-```bash
-bash scripts/dev_deploy_linux.sh                  # Build frontend; restart both
-bash scripts/dev_deploy_linux.sh --backend-only   # Restart backend only
-bash scripts/dev_deploy_linux.sh --frontend-only  # Build/restart frontend only
-```
-
-This reuses installed dependencies: no npm/pip/apt install, unit regeneration, or
-recursive permission update of `node_modules`. Frontend builds use `npm run build`
-with a temporary output directory; a failed build leaves the served `dist` intact
-and restarts neither service. After a successful build, it grants read access to
-the new assets, publishes `dist`, and restarts the selected services. The previous
-`dist` is restored if publishing or restarting fails. Build and total times are
-printed. Systemd active status does not replace an application health check.
-Reload the browser to load the rebuilt frontend; this script does not enable HMR.
-Frontend `.env` edits need a frontend build; backend `.env`, dependencies, unit
-templates, Node path, or project paths require setup/full deploy as appropriate.
-Both paths still come from the script location and `CAR_HMI_FRONTEND_PATH`, so
-ARM64/x64 and arbitrary directory names use the same workflow.
 
 CAN hardware is owned by the backend and selected in `config/system.json`; the
 frontend connects directly to its configured HTTP/WebSocket URLs. Systemd starts the web

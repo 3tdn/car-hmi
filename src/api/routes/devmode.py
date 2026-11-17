@@ -12,6 +12,7 @@ import logging
 import time
 from contextlib import suppress
 from datetime import datetime, timezone
+from math import floor
 
 import can
 from fastapi import APIRouter, HTTPException, Request, status
@@ -28,13 +29,13 @@ SIGNAL_FAMILIES: dict[str, dict] = {
     "ACR_RetractRequest": {
         "kind": "state",
         "templates": ["ACR_{seat}_RetractRequest"],
-        "allowed_values": [5, *range(10, 26)],
+        "allowed_values": None,
         "fallback_states": [],
     },
     "ABL_RetractRequest": {
         "kind": "state",
         "templates": ["ABL_{seat}_RetractRequest"],
-        "allowed_values": [0, 1, 2, 3, 4, 5, 11, 12],
+        "allowed_values": None,
         "fallback_states": [],
     },
     "ELK_LockingRequest": {
@@ -54,17 +55,7 @@ SIGNAL_FAMILIES: dict[str, dict] = {
             "ISB_{seat}_ColorGreen",
             "ISB_{seat}_ColorBlue",
         ],
-        "allowed_values": None,  # 0x00000000..0x64FFFFFF
-        "fallback_states": [
-            {"value": 0, "description": "Off"},
-            {"value": 0x64FF0000, "description": "Red"},
-            {"value": 0x6400FF00, "description": "Green"},
-            {"value": 0x640000FF, "description": "Blue"},
-            {"value": 0x64FFFF00, "description": "Yellow"},
-            {"value": 0x6400FFFF, "description": "Cyan"},
-            {"value": 0x64FF00FF, "description": "Magenta"},
-            {"value": 0x64FFFFFF, "description": "White"},
-        ],
+        "allowed_values": None,  # 0x000000..0xFFFFFF
     },
     "HB_Request": {
         "kind": "state",
@@ -217,27 +208,24 @@ def _expand_signals(family: str, seat: str, value: float) -> dict[str, float]:
     seat_token = seat.upper()
     if spec["kind"] == "color":
         packed_color = int(value)
-        components = (
-            (packed_color >> 24) & 0xFF,
-            (packed_color >> 16) & 0xFF,
-            (packed_color >> 8) & 0xFF,
-            packed_color & 0xFF,
-        )
+        rColor = (packed_color >> 16) & 0xFF
+        gColor = (packed_color >> 8) & 0xFF
+        bColor = packed_color & 0xFF
+        iColor = floor (0.5 + max(rColor, gColor, bColor) * 100 / 255)
+        components = (iColor, rColor, gColor, bColor)
         return dict(zip(_family_signal_names(spec, seat_token), map(float, components), strict=True))
     return dict.fromkeys(_family_signal_names(spec, seat_token), float(value))
 
-
 def _validate_value(family: str, value: float) -> None:
     spec = SIGNAL_FAMILIES[family]
-    if spec["kind"] == "color":
-        if not value.is_integer() or not 0 <= int(value) <= 0x64FFFFFF:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    "ISB_Color must be an integer 0xIIRRGGBB value between "
-                    "0x00000000 and 0x64FFFFFF"
-                ),
-            )
+    if spec["kind"] == "color" and (not value.is_integer() or not 0 <= int(value) <= 0xFFFFFF):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "ISB_Color must be an integer 0xRRGGBB value between "
+                "0x000000 and 0xFFFFFF"
+            ),
+        )
     return
 
 
@@ -297,7 +285,7 @@ async def devmode_catalog(request: Request):
             {
                 "signal_name": family,
                 "kind": spec["kind"],
-                "states": _family_states(request, family, spec),
+                "states": _family_states(request, family, spec) if spec["kind"] == "state" else [],
                 "signals": [
                     signal_name
                     for seat in SEAT_IDS

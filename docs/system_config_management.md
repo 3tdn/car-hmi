@@ -43,6 +43,46 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | `reboot` | Save; backend automatically restarts 30 seconds after the last successful reboot-level change. |
 | `immutable` | Reject changes through the API: secrets, open resource paths, or fields without a runtime implementation. |
 
+## User configuration for the frontend
+
+The top-level `user_config` object in `config/system.json` stores shared frontend preferences.
+It accepts nested JSON objects, arrays, strings, booleans, null, and finite numbers. The
+backend stores and returns this data but does not use it in `AppConfig`, CAN processing,
+or other runtime components. Each frontend decides which keys it understands and applies.
+These preferences are shared by every client connected to this backend.
+
+```json
+{
+  "user_config": {
+    "theme": "dark",
+    "language": "vi",
+    "layout": {"default_page": "dashboard"}
+  }
+}
+```
+
+Read it from `GET /config/system` at `config.user_config` (or directly from
+`GET /config/general` at `user_config`). Save it through the existing PATCH endpoints,
+with the same API-key and full-profile/Dev Mode permissions as backend configuration.
+The bundled Settings screen provides a JSON editor for the complete object.
+
+Unlike backend objects, **a supplied `user_config` replaces the entire previous object**.
+Send every FE key to retain; send `{"user_config": {}}` to clear it. Omitting `user_config`
+leaves it untouched. Defaults do not refill individual keys deleted from this object.
+All other objects retain their existing recursive-merge behavior, and arrays replace
+as a whole.
+
+`GET /config/system` advertises `storage_only_paths: ["user_config"]`. Mutation responses
+include FE changes in `changed_paths` and `stored_paths`; those paths are absent from
+`reload` and `runtime.applied`. Saving only FE data does not call the backend runtime,
+schedule a restart, or alter a restart countdown already pending for backend changes.
+For a mixed FE/BE update, only backend paths are applied to runtime; a failed runtime
+apply rolls back the complete file, including the FE object.
+
+Backups and restores include the FE object. Reset restores `user_config` from
+`config/system_bk.json` (an empty object by default). FE data has no individual entries
+in `system.fields.json`; arbitrary nested FE keys do not need backend policy definitions.
+
 ## Live fields
 
 | Group | Fields |
@@ -52,7 +92,6 @@ values are restricted to `socketcan`, `virtual`, `pcan`, `vector`, and `kvaser`.
 | Reader | `reader.frequency_piority`, `reader.only_send_signal_update`, `reader.stale_threshold_sec` |
 | Writer | `writer.periodic_mode`, `writer.periodic_time_step`, `writer.periodic_duration`, `writer.use_prevalue_for_unwritten_signal` |
 | Audio | `audio.files`, `audio.track_queue_enable`, `audio.position_update_interval_ms` (minimum 50 ms; interval changes apply to the next playback) |
-| OMS classification | `oms_config.bypass_simi_input`, `oms_config.class_config`, `oms_config.target_signal`, `oms_config.target_signal.*` |
 | Runtime | `shutdown.timeout_sec`, `logging.level` |
 | Dev Mode | `devmode.block_timeout_sec`, `devmode.require_seat_connected`, `devmode.bypass_check_CAN_status` |
 | Config manager | `config_management.backup_retention_count` |
@@ -96,40 +135,12 @@ Panther frames. See the [audio demo guide](audio_demo.md) for the complete confi
 and a sender that shares the virtual bus process. Changing the interface or simulator
 setting requires a service restart.
 
-## OMS occupant classification
+## OMS classification settings
 
-`oms_config` selects the source of the frontend-facing
-`OMS_xx_OccupantClassification` signals. The output signal names are unchanged, so REST,
-WebSocket, and `/api/restraints/match` consumers continue reading the same names.
-
-```json
-{
-  "oms_config": {
-    "bypass_simi_input": false,
-    "class_config": [65, 90],
-    "target_signal": {
-      "OMS_FR_OccupantClassification": "OMS_FR_OccupantWeightMean",
-      "OMS_FL_OccupantClassification": "OMS_FL_OccupantWeightMean",
-      "OMS_RL1_OccupantClassification": "OMS_RL1_OccupantWeightMean",
-      "OMS_RL2_OccupantClassification": "OMS_RL2_OccupantWeightMean",
-      "OMS_RR1_OccupantClassification": "OMS_RR1_OccupantWeightMean"
-    }
-  }
-}
-```
-
-- `bypass_simi_input: false` preserves the classification decoded from CAN/SIMI.
-- `bypass_simi_input: true` replaces each configured output with a class derived from its
-  mapped mean-weight signal.
-- For `class_config: [low, high]`, weight `< low` produces class `0`, `low <= weight <= high`
-  produces class `1`, and weight `> high` produces class `2`.
-- `class_config` must contain exactly two finite, non-negative, strictly increasing values.
-  `target_signal` must contain at least one non-empty output/source mapping.
-- Runtime signal names use `OMS_xx_OccupantWeightMean`; do not add the removed `_kg` suffix.
-
-All three OMS settings apply live. Because arrays replace atomically in PATCH requests, send
-both `class_config` values whenever changing a threshold. If a mapped weight is absent from a
-processed batch, that batch does not synthesize the corresponding classification value.
+The `oms_config` object is retained when loading older `system.json` files, but its values are
+ignored. OMS classification values decoded from CAN/SIMI pass through unchanged. The settings
+are read-only in the Settings API and do not affect either the signal pipeline or restraint
+matching.
 
 `INC_HMI_SensorFusionRequest` now follows the normal unwritten-sibling policy. An omitted
 `HMI_SensorFusion_*` field reuses that field's current value when

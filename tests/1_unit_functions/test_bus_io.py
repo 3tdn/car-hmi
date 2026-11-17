@@ -384,7 +384,7 @@ async def test_hb_frame_uses_states_for_unwritten_requests(
     assert msg.arbitration_id == 0x83
     decoded = v11_db.decode_frame(msg.arbitration_id, bytes(msg.data))
     assert decoded == {
-        "HB_IncarTemp": 0.0,
+        "HB_IncarTemp_dgradC": 0.0,
         "HB_RR1_Request": 3.0,
         "HB_RL2_Request": 2.0,
         "HB_RL1_Request": 1.0,
@@ -699,7 +699,12 @@ def test_create_bus_auto_selects_up_channel_with_dbc_traffic(mock_bus, _mock_cha
 
 @patch("src.can_io.bus_factory.list_up_socketcan_channels", return_value=["can0"])
 @patch("src.can_io.bus_factory.can.Bus")
-def test_create_bus_auto_falls_back_to_any_dbc_traffic(mock_bus, _mock_channels):
+def test_create_bus_auto_falls_back_to_any_dbc_traffic(mock_bus, _mock_channels, monkeypatch):
+    # Expire between the loop condition and the per-bus check, after a fallback
+    # frame was received. Real-time 10 ms probes made this boundary intermittent.
+    ticks = iter([0.0, 0.0, 0.0, 0.009, 0.011])
+    monkeypatch.setattr("src.can_io.bus_factory.time.monotonic", lambda: next(ticks, 0.011))
+
     class ProbeBus:
         def __init__(self):
             self.messages = iter([can.Message(arbitration_id=0x456, data=[0])])
